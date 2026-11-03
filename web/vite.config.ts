@@ -26,5 +26,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: false,
     restoreMocks: true,
+    // Run every test in UTC, like CI, so code that relies on the machine's time zone fails here too
+    // (Saldo shows times in Europe/Brussels, analysis 5.1).
+    env: { TZ: 'UTC' },
   },
 });

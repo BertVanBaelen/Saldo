@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cap, dateFull, dateLong, dateRelative, dateShort, dayHeading, eur, eur0, MINUS, momentLabel, names, parseMoney } from './format';
+import { cap, dateFull, dateLong, dateRelative, dateShort, dayHeading, eur, eur0, MINUS, momentLabel, names, parseMoney, timeOf } from './format';
 
 describe('eur', () => {
   it('formats cents the Belgian way with € and a space', () => {
@@ -56,12 +56,16 @@ describe('dates', () => {
     expect(dayHeading('2025-12-31', '2026-11-18')).toEqual({ main: 'Woensdag', sub: '31 december 2025' });
   });
 
-  it('names a moment for sync lines', () => {
-    const at = (d: string) => new Date(d + 'T04:02:00').toISOString();
+  it('names a moment for sync lines, in Brussels time', () => {
+    const at = (d: string) => d + 'T04:02:00+01:00';
     expect(momentLabel(at('2026-11-18'), '2026-11-18')).toBe('vandaag 04:02');
     expect(momentLabel(at('2026-11-17'), '2026-11-18')).toBe('gisteren 04:02');
     expect(momentLabel(at('2026-11-15'), '2026-11-18')).toBe('zondag 04:02');
     expect(momentLabel(at('2026-11-02'), '2026-11-18')).toBe('2 nov 04:02');
+    // The same moment written in UTC, and a time just after midnight in Brussels (still the previous day in UTC).
+    expect(momentLabel('2026-11-18T03:02:00Z', '2026-11-18')).toBe('vandaag 04:02');
+    expect(momentLabel('2026-11-17T23:30:00Z', '2026-11-18')).toBe('vandaag 00:30');
+    expect(timeOf('2026-07-01T02:15:00Z')).toBe('04:15');
   });
 });
 

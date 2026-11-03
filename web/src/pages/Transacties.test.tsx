@@ -77,9 +77,10 @@ describe('Transacties · grouping by day', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Oudere transacties laden' }));
     await screen.findByText('CM Ziekenfonds', { selector: '.tx-name' });
     fireEvent.click(screen.getByRole('button', { name: /^Niet gecategoriseerd/ }));
-    await waitFor(() => expect(screen.queryByText('CM Ziekenfonds', { selector: '.tx-name' })).toBeNull());
-    const names = Array.from(document.querySelectorAll('.tx-name')).map((n) => n.textContent);
-    expect(names).toEqual(['Bol.com', 'Bakkerij De Graankorrel']);
+    // Wait for the end state: only the filtered rows, never a mix of the old pages and the new list.
+    const names = () => Array.from(document.querySelectorAll('.tx-name')).map((n) => n.textContent);
+    await waitFor(() => expect(names()).toEqual(['Bol.com', 'Bakkerij De Graankorrel']));
+    expect(screen.queryByText('CM Ziekenfonds', { selector: '.tx-name' })).toBeNull();
   });
 
   it('opens a read-only detail sheet on the phone', async () => {

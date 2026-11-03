@@ -76,16 +76,35 @@ export function dayHeading(d: string, today: string): { main: string; sub: strin
   return { main: cap(DAYS[x.getDay()]), sub: dm };
 }
 
-/** "04:02" from an RFC 3339 timestamp, in the local time of the device. */
-export function timeOf(ts: string | Date): string {
+// Times and calendar dates of timestamps are always shown in Europe/Brussels (analysis 5.1), whatever the
+// time zone of the device or the test machine.
+const brussels = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Brussels',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function brusselsParts(ts: string | Date): Record<string, string> {
   const x = ts instanceof Date ? ts : new Date(ts);
-  return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0');
+  const parts: Record<string, string> = {};
+  for (const p of brussels.formatToParts(x)) parts[p.type] = p.value;
+  return parts;
 }
 
-/** The local calendar date of a timestamp as `YYYY-MM-DD`. */
+/** "04:02" from an RFC 3339 timestamp, in Brussels time. */
+export function timeOf(ts: string | Date): string {
+  const p = brusselsParts(ts);
+  return p.hour + ':' + p.minute;
+}
+
+/** The Brussels calendar date of a timestamp as `YYYY-MM-DD`. */
 export function isoDate(ts: string | Date): string {
-  const x = ts instanceof Date ? ts : new Date(ts);
-  return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  const p = brusselsParts(ts);
+  return p.year + '-' + p.month + '-' + p.day;
 }
 
 /**

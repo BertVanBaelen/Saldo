@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.2 Foundation and first bank link](README.md) |
-| Status | planned |
+| Status | in progress (3 Nov 2026): shell, PWA and first screens on real data; to check: install on both phones once Saldo runs on HTTPS |
 | Size | M |
 | Features | PLAT-3 |
 | Concepts | [design-system](../../analysis/concepts/design-system.md), [app-shell](../../analysis/concepts/app-shell.md), [money-and-format](../../analysis/concepts/money-and-format.md), [demo-data](../../analysis/concepts/demo-data.md) |

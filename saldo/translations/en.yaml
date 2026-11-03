@@ -1,0 +1,7 @@
+configuration:
+  public_url:
+    name: Public address
+    description: The address you open Saldo on, for example https://saldo.example.com. Used in e-mails and for the bank redirect.
+  log_level:
+    name: Log level
+    description: How much Saldo writes to the log.

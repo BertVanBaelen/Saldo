@@ -1,0 +1,186 @@
+/* Saldo design tokens, ported from finance-mockup/css/tokens.css (the frozen design reference).
+   See analysis/concepts/design-system.md. Fonts are self-hosted (@fontsource-variable, imported in main.tsx). */
+
+:root {
+  color-scheme: light;
+  --bg: #F4F7F5;
+  --surface: #FFFFFF;
+  --line: #E2E8E4;
+  --lineStrong: #D5DDD8;
+  --text: #121A16;
+  --muted: #56615B;
+  --green: #15803D;
+  --onGreen: #FFFFFF;
+  --greenText: #166534;
+  --soft: #DCFCE7;
+  --softChip: #BBF7D0;
+  --hero: #15803D;
+  --heroSub: #DCFCE7;
+  --heroAccent: #FFD59E;
+  --onHeroAccent: #121A16;
+  --shared: #5B3FD9;
+  --onShared: #FFFFFF;
+  --sharedText: #4A31C2;
+  --sharedSoft: #ECE8FF;
+  --sharedChip: #DAD2FF;
+  --sharedHero: #5B3FD9;
+  --sharedSub: #E9E3FF;
+  --neg: #C62828;
+  --negText: #B42323;
+  --negSoft: #FBE9E9;
+  --onNeg: #FFFFFF;
+  --warn: #8A5A00;
+  --warnSoft: #FFF4DB;
+  --warnChip: #FFE2A3;
+  --onPastel: #121A16;
+  --c1: #BFE0FF;
+  --c2: #FFD59E;
+  --c3: #FFC6DC;
+  --c4: #D8CCFF;
+  --c5: #FFE58A;
+  --c6: #E2E8E4;
+  --onC6: #121A16;
+  --track: #EAEFEC;
+  --dashed: #8A958F;
+  /* Skeleton shimmer and account colours (8 choices, analysis/concepts/account.md) */
+  --skel: #E7EDE9;
+  --skel2: #F3F7F4;
+  --a-green: #15803D; --a-violet: #5B3FD9; --a-blue: #1D6FD1; --a-teal: #0F7A7A;
+  --a-orange: #C2570C; --a-pink: #C0267A; --a-yellow: #A16207; --a-gray: #4B5563;
+  --onAcc: #FFFFFF;
+  --shadow: 0 24px 60px rgba(18, 26, 22, 0.16);
+  --pop: 0 12px 32px rgba(18, 26, 22, 0.18);
+
+  --font: "Geist Variable", Geist, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  --r-card: 20px;
+  --r-hero: 24px;
+  --r-control: 12px;
+  --r-pill: 999px;
+
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --tabbar-h: 84px;
+  --sidebar-w: 232px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0E1311;
+    --surface: #161D1A;
+    --line: #24302A;
+    --lineStrong: #2E3B34;
+    --text: #E7EEEA;
+    --muted: #98A59E;
+    --green: #4ADE80;
+    --onGreen: #0E1311;
+    --greenText: #86EFAC;
+    --soft: #13321F;
+    --softChip: #1C4A2C;
+    --hero: #166534;
+    --heroSub: #DCFCE7;
+    --shared: #9C86FF;
+    --onShared: #15111F;
+    --sharedText: #B7A6FF;
+    --sharedSoft: #231D3D;
+    --sharedChip: #342B5C;
+    --sharedHero: #4A33B8;
+    --sharedSub: #E9E3FF;
+    --neg: #FF6B6B;
+    --negText: #FF7B7B;
+    --negSoft: #3A1A1C;
+    --onNeg: #0E1311;
+    --warn: #F5B94A;
+    --warnSoft: #2E2414;
+    --warnChip: #4A3816;
+    --onPastel: #0E1311;
+    --c1: #7DBDF0;
+    --c2: #F2B35E;
+    --c3: #F08FB7;
+    --c4: #AE9BF7;
+    --c5: #E8CB55;
+    --c6: #3A4741;
+    --onC6: #E7EEEA;
+    --track: #222B27;
+    --dashed: #5F6B65;
+  --skel: #1F2824;
+  --skel2: #2A3530;
+  --a-green: #4ADE80; --a-violet: #9C86FF; --a-blue: #6FB1FF; --a-teal: #4FD1C5;
+  --a-orange: #FB923C; --a-pink: #F472B6; --a-yellow: #FACC15; --a-gray: #9CA3AF;
+  --onAcc: #0E1311;
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+    --pop: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0E1311;
+  --surface: #161D1A;
+  --line: #24302A;
+  --lineStrong: #2E3B34;
+  --text: #E7EEEA;
+  --muted: #98A59E;
+  --green: #4ADE80;
+  --onGreen: #0E1311;
+  --greenText: #86EFAC;
+  --soft: #13321F;
+  --softChip: #1C4A2C;
+  --hero: #166534;
+  --heroSub: #DCFCE7;
+  --shared: #9C86FF;
+  --onShared: #15111F;
+  --sharedText: #B7A6FF;
+  --sharedSoft: #231D3D;
+  --sharedChip: #342B5C;
+  --sharedHero: #4A33B8;
+  --sharedSub: #E9E3FF;
+  --neg: #FF6B6B;
+  --negText: #FF7B7B;
+  --negSoft: #3A1A1C;
+  --onNeg: #0E1311;
+  --warn: #F5B94A;
+  --warnSoft: #2E2414;
+  --warnChip: #4A3816;
+  --onPastel: #0E1311;
+  --c1: #7DBDF0;
+  --c2: #F2B35E;
+  --c3: #F08FB7;
+  --c4: #AE9BF7;
+  --c5: #E8CB55;
+  --c6: #3A4741;
+  --onC6: #E7EEEA;
+  --track: #222B27;
+  --dashed: #5F6B65;
+  --skel: #1F2824;
+  --skel2: #2A3530;
+  --a-green: #4ADE80; --a-violet: #9C86FF; --a-blue: #6FB1FF; --a-teal: #4FD1C5;
+  --a-orange: #FB923C; --a-pink: #F472B6; --a-yellow: #FACC15; --a-gray: #9CA3AF;
+  --onAcc: #0E1311;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  --pop: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes sIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes sFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sGrowX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes sGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes sSpin { to { transform: rotate(360deg); } }
+@keyframes sProgress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes sToast {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  12%, 82% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@keyframes sShimmer { from { background-position: -320px 0; } to { background-position: 320px 0; } }
+@keyframes sSheet { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition: none !important;
+  }
+}

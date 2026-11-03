@@ -1,0 +1,94 @@
+/* Meer screen, ported from finance-mockup/css/screens/meer.css.
+   Design board: Telefoon-Meer. Spec: analysis/screens/meer.md. Desktop (not designed): the same menu in a centred column. */
+
+.page.mr-page { gap: 16px; }
+@media (min-width: 1024px) {
+  .page.mr-page { max-width: 640px; gap: 18px; }
+}
+
+.mr-head { display: flex; align-items: center; min-height: 44px; }
+.mr-head h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+@media (min-width: 1024px) { .mr-head h1 { font-size: 28px; } }
+
+/* Profile card */
+.mr-profile {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+}
+.mr-profile-avatar { width: 48px; height: 48px; font-size: 18px; }
+.mr-profile-main { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.mr-profile-name { font-size: 17px; font-weight: 600; }
+.mr-role {
+  font-size: 12px; font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--soft); color: var(--greenText);
+}
+
+/* Menu sections. Candidate to promote: settings list with icon tiles (.mr-list/.mr-row/.mr-tile). */
+.mr-section { display: flex; flex-direction: column; gap: 8px; }
+.mr-section-title { margin: 0 4px; }
+.mr-list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0 16px;
+  display: flex; flex-direction: column;
+}
+.mr-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 56px; padding: 8px 0;
+  border: none; background: transparent;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+}
+.mr-list > * + * { border-top: 1px solid var(--line); }
+.mr-tile {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.mr-row-main { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.mr-row-name { font-size: 15px; font-weight: 500; }
+.mr-row-sub { font-size: 13px; color: var(--muted); }
+.mr-row-sub--warn { color: var(--warn); font-weight: 500; }
+.mr-row-sub--neg { color: var(--negText); font-weight: 500; }
+.mr-chev { display: flex; color: var(--muted); transition: transform 200ms ease; }
+.mr-row[aria-expanded="true"] .mr-chev { transform: rotate(90deg); }
+
+/* Weergave: Systeem · Licht · Donker (segmented, like Meldingen's look-ahead) */
+.mr-theme-pick {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
+  margin: 0 0 14px 46px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  animation: sFade 160ms ease-out both;
+}
+.mr-theme-pick[hidden] { display: none; }
+.mr-theme-pick button {
+  height: 36px;
+  border-radius: 9px;
+  border: none;
+  background: transparent; color: var(--text);
+  font-size: 13px; font-weight: 600;
+  transition: background 160ms ease, color 160ms ease;
+}
+.mr-theme-pick button[aria-pressed="true"] { background: var(--green); color: var(--onGreen); }
+
+@media (min-width: 1024px) {
+  .mr-row:hover .mr-row-name { color: var(--greenText); }
+}
+
+/* ---------- Web app additions ---------- */
+
+/* Afmelden waits for sign-in (later in version 0.2): disabled, with a note */
+.mr-logout { display: flex; flex-direction: column; gap: 8px; }
+.mr-logout .btn:disabled { opacity: 0.5; }
+.mr-logout-note { margin: 0 4px; font-size: 12px; color: var(--muted); text-align: center; }

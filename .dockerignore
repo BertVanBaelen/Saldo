@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+**/node_modules
+web/dist
+server/data
+analysis
+analysis.md
+plan
+design
+docs
+finance-mockup
+*.md
+.env
+.env.*

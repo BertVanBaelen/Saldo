@@ -1,0 +1,3 @@
+# Local state of `go run` (database, WAL files, migration backups) and build output.
+/data/
+/bin/

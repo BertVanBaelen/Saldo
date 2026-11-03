@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.2 Foundation and first bank link](README.md) |
-| Status | planned |
+| Status | in progress (3 Nov 2026): server, add-on folder, Dockerfile and workflows written; to check: CI on GitHub, install on Home Assistant |
 | Size | M |
 | Features | PLAT-2 |
 | Concepts | [money-and-format](../../analysis/concepts/money-and-format.md) |

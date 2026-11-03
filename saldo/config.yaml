@@ -1,0 +1,38 @@
+# Home Assistant add-on definition. The version here is what Home Assistant
+# installs: the release workflow publishes ghcr.io/<owner>/saldo:<version>
+# for it once CI passes on main (see .github/workflows/release.yml).
+name: Saldo
+version: "0.2.0-dev"
+slug: saldo
+description: Weet vandaag hoe je maand eindigt. Je eigen budget- en planningsapp, op je eigen Home Assistant.
+url: https://github.com/BertVanBaelen/Saldo
+arch:
+  - amd64
+  - aarch64
+image: ghcr.io/bertvanbaelen/saldo
+init: false
+startup: application
+boot: auto
+watchdog: http://[HOST]:[PORT:8080]/healthz
+
+# Not published on the host: the Cloudflared add-on reaches Saldo over
+# Home Assistant's internal network (analysis 7).
+ports:
+  8080/tcp: null
+
+environment:
+  SALDO_STATE_DIR: /data
+  SALDO_OPTIONS_FILE: /data/options.json
+  SALDO_WEB_DIR: /app/web
+
+# Stop the add-on while Home Assistant backs up /data, so the database is
+# never copied mid-write. The encryption key lives in /data too: backups must
+# be encrypted (analysis 7).
+backup: cold
+
+options:
+  log_level: info
+
+schema:
+  public_url: url?
+  log_level: list(debug|info|warn|error)

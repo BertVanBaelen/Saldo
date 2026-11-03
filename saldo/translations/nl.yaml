@@ -1,0 +1,7 @@
+configuration:
+  public_url:
+    name: Publiek adres
+    description: Het adres waarop je Saldo opent, bijvoorbeeld https://saldo.example.com. Gebruikt in e-mails en voor de terugkeer van de bank.
+  log_level:
+    name: Logniveau
+    description: Hoeveel Saldo in het logboek schrijft.

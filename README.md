@@ -2,7 +2,7 @@
 
 Saldo is a self-hosted replacement for Bilance that runs as a Home Assistant add-on. It answers one question: *will I have enough money at the end of each coming month, and how much is left or short?* Two users (Bert and Partner), each seeing only their own accounts, with a shared account they both hold. Every account stands on its own: its own buffer, forecast and warnings; "Alles" shows them side by side, with sums as information only.
 
-Status on 3 Nov 2026: **version 0.1 (mockup) almost done.** Every screen and state is designed (phases 0.1-1 … 0.1-7); the review with Partner (0.1-8) is next. Spike S1 (Enable Banking) can start now. No server code yet. Repository: [github.com/BertVanBaelen/Saldo](https://github.com/BertVanBaelen/Saldo) (public).
+Status on 3 Nov 2026: **version 0.2 in progress.** The mockup is frozen as the design reference. The real app exists: a **Go server** (SQLite, migrations, the demo story, privacy tests) and a **React web app** (Vite, TypeScript, PWA) with a first Start, Transacties, Rekeningen and Meer on real data, packaged as a Home Assistant add-on with CI. Next: sign-in with trusted devices (0.2-4), the security baseline (0.2-5) and the first real bank link (0.2-6); spike S1 can start now. Repository: [github.com/BertVanBaelen/Saldo](https://github.com/BertVanBaelen/Saldo) (public).
 
 ## Where everything is
 
@@ -13,6 +13,11 @@ Status on 3 Nov 2026: **version 0.1 (mockup) almost done.** Every screen and sta
 | [`plan/`](plan/README.md) | Roadmap: 11 versions, 60 features, one file per phase (56), each with a size S, M or L | [plan/README.md](plan/README.md) |
 | [`finance-mockup/`](finance-mockup/README.md) | Clickable mockup of every screen and state, plain HTML/CSS/JS, demo data | [finance-mockup/README.md](finance-mockup/README.md) |
 | [`design/`](design/README.md) | Read-only copy of the design canvas *Saldo – ontwerp* | [design/README.md](design/README.md) |
+| [`server/`](server/README.md) | The Go server: API, SQLite, bank providers, demo data, tests | [docs/architecture.md](docs/architecture.md) |
+| [`web/`](web/README.md) | The React web app (PWA) | [docs/api.md](docs/api.md) |
+| [`saldo/`](saldo/DOCS.md), `Dockerfile`, `repository.yaml` | The Home Assistant add-on and its image | [saldo/DOCS.md](saldo/DOCS.md) |
+| `.github/workflows/` | CI (Go, web, secret scan, image) and release to `ghcr.io` | – |
+| `scripts/dev.ps1` | Runs the server (demo mode) and the web app together | – |
 | `.claude/launch.json` | Starts the mockup server for a preview pane | – |
 
 How they connect:
@@ -45,6 +50,13 @@ Every concept and screen file starts with a header line: analysis sections, data
 
 S = a few days of focused work, M = about a week, L = two weeks or more. The order, the release policy and every feature are in [plan/README.md](plan/README.md).
 
+## The app
+
+```powershell
+pwsh -File scripts/dev.ps1
+```
+Starts the Go server in demo mode on http://localhost:8080 and the web app with hot reload on http://localhost:5180. Demo mode seeds the demo story and acts as Bert until sign-in exists (0.2-4); without it the API answers 401. Go and Node are in `D:\Data\BV10538\tools` on this machine (on the user PATH). Tests: `cd server; go test ./...` and `cd web; npm test`. See [docs/architecture.md](docs/architecture.md).
+
 ## The mockup
 
 ```bash
@@ -52,7 +64,22 @@ pwsh -NoProfile -File finance-mockup/serve.ps1
 ```
 Open http://localhost:5173/. Phone layout below 1024 px, desktop from 1024 px; light and dark (Meer → Weergave). Demo states (no accounts yet, stale sync, failed sync, read-only member, offline) under Meer → Mockup · toestand, or with `?demo=<state>`; `?scope=alles|persoonlijk|gedeeld` sets the scope.
 
-<!-- mockup-pages -->
+The mockup is **frozen** (3 Nov 2026): it is the design reference, no longer extended. New screens are built in the React app.
+
+| Page | Screen |
+|---|---|
+| `index.html` | Start: scope switch, alerts, Saldo nu, Komende maanden, spending, accounts, sync simulation, states |
+| `transacties.html` | Transacties: search, filters, category sheet / side panel, split, transfers, rule links |
+| `overzicht.html` | Overzicht: Maand · Kwartaal · Jaar · Eigen, bars, per-account breakdown, categories |
+| `planning.html` | Planning: Kalender, Maanden, Terugkerend, Eenmalig, Budget (as on the canvas) |
+| `rekeningen.html`, `rekening.html` | Rekeningen and account detail: colours, buffers, Synchronisatie, Leden, manual balances |
+| `bankkoppelingen.html` | Bankkoppelingen and the linking wizard |
+| `categorieen.html` | Categorieën en regels |
+| `importeren.html` | Import wizard and history |
+| `instellingen.html` | Profiel, Toestellen, Enable Banking, Gebruikers, Gegevens |
+| `inloggen.html` | Sign-in, code, setup, invitation, new password |
+| `meer.html`, `meldingen.html` | Meer (with the demo-state picker) and Meldingen |
+| `berichten.html` | The ten e-mails (`emails/`), push on Android and iPhone, icons |
 
 ## Review of 3 Nov 2026
 

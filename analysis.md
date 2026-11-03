@@ -275,7 +275,7 @@ Money is stored in cents. Every table that holds financial data is reached only 
 | `user_token` *(v1.2)* | kind (setup, invitation, password reset, email change), token hash, user or invited email, role, created by, expires at, used at |
 | `login_code`, `audit_log` | login code: user, code hash, attempts, expiry, requesting device. Audit log: event, user, IP, device, time |
 | `provider_connection` | owner user, provider, application id, encrypted private key, session id, consent valid until, status, last sync |
-| `account` | type (current, savings, investment), source (api or manual), IBAN (unique among api accounts), name, **colour**, **minimum buffer** (cents, current accounts only), currency, created by. Personal or shared follows from the number of members |
+| `account` | type (current, savings, investment), source (bank or manual), bank name, IBAN (unique among bank accounts), name, **colour**, **minimum buffer** (cents, current accounts only), currency, created by. Personal or shared follows from the number of members |
 | `account_access` | account, user, role (manager or member), permission (read or edit), joined at *(v1.2, decides the manager hand-over)*, contribution share in % *(v1.2, 5.3)* |
 | `account_source` | account, provider connection, priority (primary or fallback), last sync, status and last error *(v1.2, status per account)* |
 | `transaction` | account, amount (cents), booking date, value date, counterparty name and IBAN, communication, status (pending or booked), external id (`entry_reference`), dedupe key, occurrence *(v1.2, two identical coffees)*, source (connection or import batch), **raw payload** (original JSON/CSV row), category, category origin (manual, rule, suggestion, import) and rule *(v1.2, so a manual choice is never overwritten)*, note *(v1.2)* |
@@ -293,6 +293,9 @@ Money is stored in cents. Every table that holds financial data is reached only 
 | `notification_pref` | user, type, push (on or off), email (on or off) |
 | `push_subscription` | user, device *(v1.2)*, endpoint, keys, platform (Android or iOS) *(v1.2)*, created at, last used |
 | `notification_log` | user, type, account *(v1.2, was account group)*, month, state, channel, sent at (prevents repeats) |
+| `app_settings` *(0.2)* | key, value: installation-wide settings, for example the marker that a database holds only demo data (the server refuses demo mode on a real database) |
+
+Table names in the code are plural snake_case (`users`, `accounts`, `transactions`, …), because `transaction` is an SQL keyword. Before a migration runs on a database with data, the server keeps a copy in `/data/backups` (the last five).
 
 Not stored: transfer pairing and forecasts. They are computed per viewer (5.2, 5.3).
 

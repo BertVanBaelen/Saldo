@@ -16,6 +16,9 @@ coverage/
 # Local data, secrets and real bank or Bilance files: never commit these (public repository)
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+/server/data/
 *.sqlite
 *.pem
 *.key

@@ -1,0 +1,218 @@
+/* Start screen, ported from finance-mockup/css/screens/start.css.
+   Design boards: Telefoon-Start, Desktop-Start. Spec: analysis/screens/start.md. */
+
+.start-top, .start-bottom { display: flex; flex-direction: column; gap: 14px; }
+
+@media (min-width: 1024px) {
+  .start-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: stretch; }
+  .start-bottom { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; align-items: start; }
+  .start-col-head { min-height: 32px; }
+}
+
+/* Header without scope switch and sync button (no accounts yet) */
+.start-head--bare { grid-template-areas: "title actions"; }
+/* Offline: the sync button stays focusable and explains itself with a toast */
+.start-sync[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+
+/* Hero "Saldo nu" */
+.hero {
+  background: var(--hero);
+  color: #FFFFFF;
+  border-radius: var(--r-hero);
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 14px;
+  text-decoration: none;
+  --heroText: var(--heroSub);
+}
+.hero--shared { background: var(--sharedHero); --heroText: var(--sharedSub); }
+.hero-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hero-label, .hero-sub { font-size: 15px; font-weight: 500; color: var(--heroText); }
+.hero-label { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hero-amount { font-size: 46px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; }
+.hero-info { margin-top: -6px; font-size: 13px; color: var(--heroText); }
+.hero-stale { margin-top: -6px; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--heroText); }
+.hero-meter { display: flex; flex-direction: column; gap: 8px; }
+.hero-track { position: relative; display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.22); }
+.hero-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  border-radius: 4px;
+  background: var(--heroAccent);
+  transform-origin: left;
+  animation: sGrowX 700ms var(--ease-out) both;
+  animation-delay: 160ms;
+}
+.hero-marker { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 1px; background: #FFFFFF; }
+.hero-meter-text { display: flex; justify-content: space-between; font-size: 13px; color: var(--heroText); }
+
+/* Several accounts: "Per rekening" with a chip about the accounts (never about the sum) and one tile each */
+.hero-accounts { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.22); }
+.hero-accounts-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hero-accounts-head .hero-sub { font-size: 13px; }
+.hero-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.hero-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.14); }
+.hero-tile-label { display: flex; align-items: center; gap: 7px; max-width: 100%; font-size: 12px; color: var(--heroText); }
+.hero-tile-label > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Account badge: the account's own colour and icon, ringed so it stays visible on the green or violet hero */
+.hero-acc {
+  width: 18px; height: 18px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--onAcc);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85);
+}
+.hero-tile-amount { font-size: 15px; font-weight: 500; }
+.hero-tile-note { font-size: 12px; color: var(--heroText); }
+.hero-pill { margin-top: 2px; padding: 1px 8px; border-radius: var(--r-pill); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.hero-pill--under { background: var(--warnChip); color: var(--warn); }
+.hero-pill--neg { background: var(--negSoft); color: var(--negText); }
+
+.hero-contrib {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 13px;
+}
+.hero-contrib .hero-sub { font-size: 13px; font-weight: 400; white-space: nowrap; }
+.hero-contrib .contrib-chips { display: flex; gap: 10px; font-weight: 600; white-space: nowrap; }
+
+@media (min-width: 1024px) {
+  .hero { padding: 22px 24px; }
+  .hero-amount { font-size: 50px; }
+  .hero-accounts, .hero-contrib { margin-top: auto; }
+  .hero-tile { padding: 8px 12px; }
+  .hero-contrib .contrib-chips { gap: 12px; }
+}
+
+/* Komende maanden */
+.start-forecast-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
+.start-forecast-head .section-title { flex: 1; }
+.start-forecast-sub { font-size: 12px; color: var(--muted); }
+@media (min-width: 1024px) {
+  .start-forecast { display: flex; }
+  .start-forecast-card { flex: 1; border-radius: var(--r-hero); padding: 18px 20px; }
+}
+
+/* Uitgaven: one block per account when the scope has several */
+.start-spend-group { display: flex; flex-direction: column; gap: 10px; }
+.start-spend-group + .start-spend-group { padding-top: 14px; border-top: 1px solid var(--line); }
+.start-spend-head { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.start-spend-head i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.start-spend-name { flex: 1; min-width: 0; }
+.start-spend-head .mono { font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+
+/* Sync status in account sublines */
+.start-sub--warn { color: var(--warn); }
+.start-sub--neg { color: var(--negText); }
+
+/* Gedeelde rekeningen */
+.start-shared-list { display: flex; flex-direction: column; gap: 10px; }
+.shared-card {
+  background: var(--sharedSoft);
+  border: 1px solid var(--sharedChip);
+  border-radius: var(--r-card);
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.shared-card-row { padding: 10px 12px; border-radius: 14px; background: var(--surface); }
+.shared-ro { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 4px 12px 0; font-size: 13px; color: var(--muted); }
+.shared-ro .chip--readonly { background: var(--surface); }
+.shared-contrib {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px;
+  padding: 8px 12px 10px;
+  font-size: 13px;
+}
+.shared-contrib .hero-sub { color: var(--sharedText); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.shared-contrib .contrib-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.shared-contrib .contrib-chips > span { padding: 3px 9px; border-radius: var(--r-pill); background: var(--surface); font-weight: 600; white-space: nowrap; }
+@media (min-width: 1024px) {
+  .shared-contrib { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .row-icon { width: 34px; height: 34px; }
+  .row { padding: 10px 0; }
+  .row-sub { font-size: 12px; }
+  .group-head-icon { width: 30px; height: 30px; }
+}
+
+/* A scope without accounts of its kind */
+.start-none { flex-direction: row; align-items: center; gap: 12px; }
+.start-none-text { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--muted); }
+.start-none-text strong { font-size: 15px; font-weight: 600; color: var(--text); }
+
+/* ---------- Empty state: welcome and first steps (demo state "leeg") ---------- */
+
+.start-welcome, .start-welcome-side { display: flex; flex-direction: column; gap: 14px; }
+.start-hello { gap: 12px; }
+.start-hello-logo { display: flex; width: 48px; height: 48px; border-radius: 13px; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.start-hello-title { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.start-hello-text { font-size: 15px; line-height: 1.5; color: var(--heroText); }
+.start-hello-list { list-style: none; margin: 4px 0 0; padding: 12px 0 0; border-top: 1px solid rgba(255, 255, 255, 0.22); display: flex; flex-direction: column; gap: 10px; }
+.start-hello-list li { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; }
+.start-hello-list svg { flex: none; box-sizing: content-box; padding: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.14); }
+
+.start-steps-count { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.start-steps { list-style: none; margin: 0; }
+.start-steps li + li { border-top: 1px solid var(--line); }
+.start-step { padding: 13px 0; }
+.start-step-num {
+  width: 32px; height: 32px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--soft); color: var(--greenText);
+  font-size: 14px; font-weight: 600;
+}
+.start-step-num--next { background: var(--green); color: var(--onGreen); }
+.start-step-chev { display: flex; color: var(--muted); }
+
+.start-note {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--sharedSoft);
+  border: 1px solid var(--sharedChip);
+}
+.start-note-text { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.start-note-text strong { font-size: 14px; font-weight: 600; color: var(--text); }
+
+@media (min-width: 1024px) {
+  .start-welcome { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .start-welcome-side { gap: 18px; }
+  .start-hello { padding: 28px; gap: 14px; }
+  .start-hello-title { font-size: 30px; }
+  .start-step { padding: 14px 0; }
+}
+
+/* ---------- Web app additions ---------- */
+
+/* "Komende maanden" until the forecast arrives (version 0.8): a calm note, no figures */
+.start-soon { gap: 14px; }
+.start-soon-body { display: flex; align-items: flex-start; gap: 12px; }
+.start-soon-icon {
+  width: 36px; height: 36px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--soft); color: var(--greenText);
+}
+.start-soon-text { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.start-soon-tag {
+  font-size: 12px; font-weight: 600;
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  border: 1px dashed var(--dashed);
+  color: var(--muted);
+}
+@media (min-width: 1024px) {
+  .start-soon-body { flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8px 24px 16px; }
+  .start-soon-icon { width: 44px; height: 44px; }
+  .start-soon-text { align-items: center; max-width: 340px; }
+}
+
+/* Until the spending card arrives (0.7) a single account section keeps the hero's column width */
+@media (min-width: 1024px) {
+  .start-bottom--one { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Loading */
+.start-skel { display: flex; flex-direction: column; gap: 14px; }
+.skel-hero { min-height: 196px; border-radius: var(--r-hero); }
+.start-skel-card { justify-content: flex-start; }
+@media (min-width: 1024px) {
+  .start-skel { gap: 18px; }
+  .skel-hero { min-height: 240px; }
+}

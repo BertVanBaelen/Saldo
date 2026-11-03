@@ -1,0 +1,343 @@
+/* Rekeningen screen, ported from finance-mockup/css/screens/rekeningen.css.
+   Design boards: Telefoon-Rekeningen, Desktop-Rekeningen. Spec: analysis/screens/rekeningen.md. */
+
+/* ---------- Header (sub page with back chevron on the phone) ---------- */
+
+.rk-head { display: flex; align-items: center; gap: 4px; min-height: 44px; }
+.rk-head-title { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.rk-head-title h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.rk-head-sub { font-size: 14px; color: var(--muted); }
+.rk-add { height: 44px; padding: 0 16px; font-size: 14px; }
+@media (min-width: 1024px) {
+  .rk-head { gap: 16px; }
+  .rk-head-title h1 { font-size: 28px; line-height: 1.2; }
+}
+
+.rk-layout, .rk-col { display: flex; flex-direction: column; gap: 14px; }
+@media (min-width: 1024px) {
+  .rk-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+  .rk-col { gap: 16px; }
+}
+@media (min-width: 1280px) {
+  .rk-layout { grid-template-columns: minmax(0, 1fr) 400px; }
+}
+
+/* ---------- Buffer per rekening ---------- */
+
+.rk-buf { padding: 14px 16px; gap: 10px; }
+.rk-buf-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.rk-buf-title { display: flex; flex-direction: column; gap: 2px; font-size: 15px; font-weight: 600; }
+.rk-buf-title small { font-size: 12px; font-weight: 400; color: var(--muted); }
+.rk-buf-total { display: flex; align-items: baseline; gap: 6px; font-size: 18px; font-weight: 600; white-space: nowrap; }
+.rk-buf-total small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.rk-buf-bar { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; }
+.rk-buf-bar span { transition: width 300ms ease, background 300ms ease; }
+.rk-buf-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.rk-buf-legend > span { display: flex; align-items: center; gap: 6px; }
+.rk-buf-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+@media (min-width: 1024px) {
+  .rk-buf { padding: 16px 18px; }
+  .rk-buf-title { font-size: 16px; }
+  .rk-buf-title small { font-size: 13px; }
+  .rk-buf-total { font-size: 20px; }
+  .rk-buf-total small { font-size: 13px; }
+  .rk-buf-legend { gap: 6px 16px; }
+}
+
+/* ---------- Groups and rows ---------- */
+
+.rk-group { display: flex; flex-direction: column; gap: 8px; }
+.rk-group-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+.rk-group-note { font-size: 12px; color: var(--muted); }
+@media (min-width: 1024px) { .rk-group-note { font-size: 13px; } }
+
+.rk-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex: none;
+  color: var(--onAcc);
+  transition: background 300ms ease;
+}
+.rk-avatar--lg { width: 48px; height: 48px; }
+.rk-chev { display: flex; color: var(--muted); }
+
+.rk-list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0 14px;
+  display: flex; flex-direction: column;
+}
+.rk-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 66px; padding: 10px 0;
+  border: none; background: transparent; color: var(--text);
+  text-align: left;
+}
+.rk-row + .rk-row { border-top: 1px solid var(--line); }
+.rk-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rk-row-name { font-size: 15px; font-weight: 500; }
+.rk-row-sub { font-size: 12px; color: var(--muted); }
+.rk-row-buf { font-size: 12px; font-weight: 600; }
+.rk-row-end { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.rk-row-amount { font-size: 15px; font-weight: 500; white-space: nowrap; }
+
+.rk-dlist {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.rk-drow {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto 16px;
+  grid-template-areas: "icon main amount chev" "icon buf amount chev";
+  align-items: center;
+  gap: 2px 14px;
+  width: 100%; min-height: 64px; padding: 8px 12px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  background: transparent; color: var(--text);
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.rk-drow:hover { background: var(--bg); }
+.rk-drow[aria-pressed="true"] { border-color: var(--text); background: var(--bg); }
+.rk-drow > .rk-avatar { grid-area: icon; }
+.rk-drow-main { grid-area: main; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rk-drow-name { font-size: 15px; font-weight: 600; }
+.rk-drow-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk-drow-buf { grid-area: buf; font-size: 13px; font-weight: 600; }
+.rk-drow-amount { grid-area: amount; font-size: 15px; font-weight: 500; text-align: right; white-space: nowrap; }
+.rk-drow > .rk-chev { grid-area: chev; }
+/* Full width as on the board: buffer in its own 150 px column */
+@media (min-width: 1280px) {
+  .rk-drow {
+    grid-template-columns: 40px minmax(0, 1fr) 150px 120px 16px;
+    grid-template-areas: "icon main buf amount chev";
+  }
+}
+
+.rk-add-phone { gap: 8px; font-size: 15px; font-weight: 600; text-decoration: none; }
+
+/* Sync status in a subline (demo states "verouderd" and "fout") and the read-only lock */
+.rk-sub--warn { color: var(--warn); font-weight: 500; }
+.rk-sub--neg { color: var(--negText); font-weight: 500; }
+.rk-row-name, .rk-drow-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.rk-lock {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--lineStrong);
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---------- Empty state (demo state "leeg") ---------- */
+
+.rk-layout--empty { display: flex; flex-direction: column; }
+.rk-empty { align-items: center; text-align: center; padding: 28px 20px 22px; gap: 12px; }
+.rk-empty-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--soft); color: var(--greenText);
+}
+.rk-empty-title { font-size: 19px; font-weight: 600; }
+.rk-empty-text { max-width: 420px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.rk-empty-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 360px; margin-top: 4px; }
+.rk-empty-actions .btn { height: 48px; border-radius: 14px; }
+.rk-empty-note { max-width: 420px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.45; color: var(--muted); }
+@media (min-width: 1024px) {
+  .rk-layout--empty { align-items: center; padding-top: 24px; }
+  .rk-layout--empty .rk-col { width: 100%; max-width: 560px; }
+  .rk-empty { padding: 40px 32px 28px; }
+  .rk-empty-actions { flex-direction: row; max-width: none; justify-content: center; }
+  .rk-empty-actions .btn { padding: 0 20px; }
+}
+
+/* ---------- Editor: phone sheet and desktop panel ---------- */
+
+.rk-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 18px;
+}
+.rk-editor { display: flex; flex-direction: column; gap: 18px; }
+.rk-ed-head { display: flex; align-items: center; gap: 12px; }
+.rk-ed-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rk-ed-name { font-size: 17px; font-weight: 600; min-height: 1.4em; }
+.rk-ed-sub { font-size: 13px; color: var(--muted); }
+.rk-close {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: none; background: var(--bg); color: var(--text);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+
+.rk-field { display: flex; flex-direction: column; gap: 8px; }
+.rk-field--tight { gap: 6px; }
+.rk-label { font-size: 14px; font-weight: 600; }
+.rk-editor .input { border-color: var(--line); }
+.rk-help { font-size: 12px; line-height: 1.45; color: var(--muted); }
+
+/* Colour swatches: radiogroup of 8 */
+.rk-swatches { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+.rk-swatch {
+  width: 40px; height: 40px; max-width: 100%; aspect-ratio: 1; justify-self: center;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  padding: 0;
+  color: var(--onAcc);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px var(--surface) inset;
+  transition: border-color 160ms ease;
+}
+.rk-swatch[aria-checked="true"] { border-color: var(--text); }
+.rk-swatch:disabled { opacity: 0.45; }
+.rk-swatch:disabled[aria-checked="true"] { opacity: 1; }
+.rk-editor .input:disabled, .rk-step:disabled { opacity: 0.6; background: var(--bg); }
+
+/* Link to the account detail page */
+.rk-detail {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 48px; padding: 0 14px 0 16px;
+  border-radius: 14px;
+  background: var(--soft); color: var(--greenText);
+  font-size: 15px; font-weight: 600;
+  text-decoration: none;
+  transition: background 160ms ease;
+}
+.rk-detail:hover { background: var(--softChip); }
+
+/* Read-only member: lock chip and who set it */
+.rk-ro {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--lineStrong);
+  font-size: 13px; line-height: 1.45; color: var(--muted);
+}
+.rk-ro .chip { color: var(--text); }
+
+.rk-opt { font-weight: 400; color: var(--muted); }
+.rk-iban-input { font-family: var(--mono); font-size: 15px; letter-spacing: 0.02em; }
+.rk-input--err { border-color: var(--neg) !important; }
+.rk-err { font-size: 12px; font-weight: 600; color: var(--negText); }
+.rk-offline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.rk-offline svg { flex: none; color: var(--warn); }
+
+/* Minimum buffer stepper */
+.rk-stepper { display: flex; align-items: center; gap: 8px; }
+.rk-step {
+  width: 44px; height: 44px; flex: none;
+  border-radius: var(--r-control);
+  border: 1px solid var(--line);
+  background: var(--surface); color: var(--text);
+  font-size: 20px; font-weight: 600;
+}
+.rk-money { position: relative; flex: 1; }
+.rk-money > span {
+  position: absolute; left: 14px; top: 12px;
+  font-family: var(--mono); font-size: 15px; color: var(--muted);
+  pointer-events: none;
+}
+.rk-money-input { padding: 0 14px 0 32px; font-family: var(--mono); font-size: 16px; font-weight: 500; text-align: center; }
+
+.rk-note {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg);
+  font-size: 13px; line-height: 1.45; color: var(--muted);
+}
+
+.rk-preview {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg);
+}
+.rk-preview-label { font-size: 12px; color: var(--muted); }
+.rk-pill {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  padding: 3px 10px 3px 4px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13px; font-weight: 600;
+}
+.rk-pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk-pill i { width: 16px; height: 16px; border-radius: 50%; flex: none; transition: background 300ms ease; }
+.rk-preview-amount { margin-left: auto; font-size: 13px; color: var(--neg); white-space: nowrap; }
+
+.rk-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rk-actions--one { grid-template-columns: minmax(0, 1fr); }
+.rk-money-input--left { text-align: left; }
+.rk-btn { height: 48px; border-radius: 14px; font-size: 15px; font-weight: 600; transition: opacity 160ms ease; }
+.rk-btn--ghost { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.rk-btn--ghost:disabled { opacity: 0.5; }
+.rk-btn--primary { border: none; background: var(--green); color: var(--onGreen); }
+.rk-btn--primary:disabled { opacity: 0.45; }
+
+.rk-note svg { vertical-align: -2px; }
+
+/* ---------- Add an account: chooser and manual form (sheet on phone, centred dialog on desktop) ---------- */
+
+.rk-add-sheet { gap: 16px; }
+.rk-add-head { display: flex; align-items: center; gap: 10px; }
+.rk-add-title { flex: 1; font-size: 19px; font-weight: 600; }
+.rk-close--back { background: transparent; margin-left: -10px; }
+.rk-choices { display: flex; flex-direction: column; gap: 10px; }
+.rk-choice {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; min-height: 84px; padding: 14px 14px 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface); color: var(--text);
+  text-align: left; text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.rk-choice:hover { border-color: var(--green); background: var(--bg); }
+.rk-choice-icon {
+  width: 44px; height: 44px; border-radius: 12px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--soft); color: var(--greenText);
+}
+.rk-choice + .rk-choice .rk-choice-icon { background: var(--c2); color: var(--onPastel); }
+.rk-choice-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rk-choice-title { font-size: 16px; font-weight: 600; }
+.rk-choice-sub { font-size: 13px; line-height: 1.4; color: var(--muted); }
+
+/* Soort: radio cards */
+.rk-kinds { display: flex; flex-direction: column; gap: 8px; }
+.rk-kind {
+  display: flex; align-items: flex-start; gap: 12px;
+  width: 100%; padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: var(--surface); color: var(--text);
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.rk-kind[aria-checked="true"] { border-color: var(--green); background: var(--soft); }
+.rk-kind-dot {
+  width: 20px; height: 20px; margin-top: 1px; flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--lineStrong);
+  background: var(--surface);
+}
+.rk-kind[aria-checked="true"] .rk-kind-dot { border: 6px solid var(--green); }
+.rk-kind-main { display: flex; flex-direction: column; gap: 2px; }
+.rk-kind-title { font-size: 15px; font-weight: 600; }
+.rk-kind-sub { font-size: 12px; line-height: 1.4; color: var(--muted); }
+
+/* Phone sheet: as the board, a little rounder and roomier than the shared sheet */
+.rk-sheet { max-height: 94vh; border-radius: 28px 28px 0 0; padding: 10px 20px calc(30px + env(safe-area-inset-bottom, 0px)); gap: 0; }
+.rk-sheet .sheet-grip { margin-bottom: 18px; }
+@media (min-width: 1024px) {
+  .rk-sheet { border-radius: 24px; padding: 20px 24px 24px; }
+}
+
+/* ---------- Web app additions ---------- */
+
+.rk-save-err { padding: 10px 12px; border-radius: 12px; background: var(--negSoft); }
+.rk-skel-panel { display: flex; flex-direction: column; gap: 18px; }

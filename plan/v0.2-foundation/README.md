@@ -2,7 +2,7 @@
 
 **After this version you can** install Saldo from its public repository as a Home Assistant add-on, reach it on your own domain through Cloudflared, sign in with e-mail, password and an e-mail code on devices that stay trusted, and link your real Argenta accounts to see their balances and transactions.
 
-Status: planned. Analysis milestones: spike S1, M0 and the first bank link (section 10). Roadmap: [../README.md](../README.md).
+Status: in progress (3 Nov 2026): the Go server, the React web app with a first Start, Transacties, Rekeningen and Meer on real data, the add-on and CI exist; sign-in, the security baseline and the bank link are next. Analysis milestones: spike S1, M0 and the first bank link (section 10). Roadmap: [../README.md](../README.md).
 
 Order of 3 Nov 2026: the real bank connection is the base of the app and comes first. Because Saldo runs on the public domain from day one, sign-in, hardening and a written security baseline come before the first real link, in this version.
 
@@ -25,8 +25,8 @@ Order of 3 Nov 2026: the real bank connection is the base of the app and comes f
 | Phase | Title | Size | Features | Status |
 |---|---|---|---|---|
 | [0.2-1](01-spike-enable-banking.md) | Spike S1 · Enable Banking | S | PLAT-1 | planned (can start now) |
-| [0.2-2](02-repository-addon-ci.md) | Repository, add-on and CI | M | PLAT-2 | planned |
-| [0.2-3](03-web-app-shell.md) | Web app shell | M | PLAT-3 | planned |
+| [0.2-2](02-repository-addon-ci.md) | Repository, add-on and CI | M | PLAT-2 | in progress |
+| [0.2-3](03-web-app-shell.md) | Web app shell | M | PLAT-3 | in progress |
 | [0.2-4](04-sign-in-users-mail.md) | Sign-in, users, trusted devices and mail | L | ACC-1, ACC-2, ACC-3, ACC-4 | planned |
 | [0.2-5](05-security-baseline.md) | Security baseline and public access | M | SEC-0 | planned |
 | [0.2-6](06-first-bank-link.md) | First bank link and first sync | L | BANK-1, BANK-2, PLAT-4 | planned |

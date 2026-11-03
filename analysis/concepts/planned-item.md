@@ -1,11 +1,11 @@
 # Planned one-off item
 
-Analysis: 4.5 (3), 5.3 · Data: `planned_item` · Screens: [planning](../screens/planning.md) (Kalender, Eenmalig, Budget) · Phases: [0.1-3](../../plan/v0.1-mockup/03-planning.md), [0.7-3](../../plan/v0.7-planning/03-planned-items.md)
+Analysis: 4.5 (3), 5.3 · Data: `planned_item` · Screens: [planning](../screens/planning.md) (Kalender, Eenmalig, Budget) · Phases: [0.1-3](../../plan/v0.1-mockup/03-planning.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.8-3](../../plan/v0.8-planning/03-planned-items.md)
 
 ## Rules
 - An expected **expense or income** on a chosen day, with description, signed amount and the account it lands on. In Alles you choose the account; in Persoonlijk or Gedeeld it is fixed.
 - Planned from the calendar. The form previews that account's **end-of-day balance** before saving.
-- Shows in the calendar, the "Eenmalig" list, the month budget and the forecast. Can be removed.
+- Shows in the calendar, the "Eenmalig" list, the month budget and the forecast. Can be edited and removed.
 
 ## Data
 `planned_item`: account, created by, date, amount (signed cents), description.

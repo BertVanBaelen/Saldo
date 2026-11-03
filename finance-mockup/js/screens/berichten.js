@@ -1,5 +1,6 @@
-// Berichten: gallery of the e-mails and Android push notifications. No app shell.
-// Design boards: E-mail-Berichten, Meldingen-Android, Meldingen-Icoon, Saldo-Icoon.
+// Berichten: gallery of the e-mails and push notifications (Android, iPhone). No app shell.
+// Design boards: E-mail-Berichten, Meldingen-Android, Meldingen-Icoon, Saldo-Icoon; the iPhone frames and
+// the "Nieuw toestel" e-mail and push are derived in the same style.
 // Spec: analysis/screens/emails.md, analysis/screens/pushmeldingen.md.
 (function (S) {
   'use strict';
@@ -7,6 +8,10 @@
   const { esc, eur0 } = S.fmt;
   const { icon, logo } = S.icons;
   const D = S.data;
+
+  // Screen-only icons for the iPhone lock screen (24 grid, stroke)
+  S.icons.paths.flashlight = '<path d="M8 3h8v4l-2 3v11h-4V10L8 7V3Z"></path><path d="M8 7h8"></path><path d="M12 13v2"></path>';
+  S.icons.paths.camera = '<path d="M4 8h3l2-3h6l2 3h3v11H4V8Z"></path><circle cx="12" cy="13" r="3.5"></circle>';
 
   // ---------- Data (copy and values from the boards) ----------
 
@@ -20,21 +25,26 @@
     { file: 'sync-gestopt', label: '6 · Synchronisatie gestopt', time: '04:05', subject: 'Zichtrekening en Gedeelde rekening worden niet meer bijgewerkt', pre: 'De toestemming is verlopen. Laatste synchronisatie 30 nov om 04:02.' },
     { file: 'uitnodiging', label: '7 · Uitnodiging', time: '20:14', subject: 'Bert nodigt je uit voor Saldo', pre: 'Maak je account aan. De link is 7 dagen geldig.' },
     { file: 'lid-aangesloten', label: '8 · Lid gedeelde rekening', time: '20:31', subject: 'Partner is erbij op de Gedeelde rekening', pre: 'Partner heeft de rekening gekoppeld en ziet nu dezelfde transacties.' },
-    { file: 'nieuw-wachtwoord', label: '9 · Nieuw wachtwoord', time: '10:02', subject: 'Stel een nieuw wachtwoord in', pre: 'Bert heeft een nieuwe link voor je aangemaakt. Geldig tot 11:02.' }
+    { file: 'nieuw-wachtwoord', label: '9 · Nieuw wachtwoord', time: '10:02', subject: 'Stel een nieuw wachtwoord in', pre: 'Bert heeft een nieuwe link voor je aangemaakt. Geldig tot 11:02.' },
+    { file: 'nieuw-toestel', label: '10 · Nieuw toestel', time: '21:14', subject: 'Nieuw toestel aangemeld: Chrome op Android', pre: 'Wo 18 nov, 21:14. Was jij dit niet? Meld het toestel af en kies een nieuw wachtwoord.' }
   ];
 
   // Notification circle colours (same hex in light and dark, as on the board).
   const TONE = { neg: '#C62828', warn: '#A15C07', info: '#15803D' };
 
+  // Titles name the account ("Zichtrekening …"), never the scope (decision 3 Nov 2026).
+  // `amt` is the pill on Android; types without a key figure have none.
   const PUSH = [
-    { id: 'rood', kind: 'neg', time: '07:30', title: 'Persoonlijk staat rood in februari', text: 'Verwacht −€ 1.033 op 28 februari. De autoherstelling van 10 februari duwt je onder nul.', amt: '−€ 1.033', chart: true },
+    { id: 'toestel', kind: 'info', time: 'nu', title: 'Nieuw toestel aangemeld', text: 'Chrome op Android is nu aangemeld bij je account. Was jij dit niet? Meld het af in Instellingen → Toestellen.' },
+    { id: 'rood', kind: 'neg', time: '07:30', title: 'Zichtrekening staat rood in februari', text: 'Verwacht −€ 1.033 op 28 februari. De autoherstelling van 10 februari duwt de rekening onder nul.', amt: '−€ 1.033', chart: true },
     { id: 'buffer', kind: 'warn', time: '07:30', title: 'Zichtrekening zakt in januari in de buffer', text: 'Verwacht € 722. Dat is € 179 onder je buffer van € 900.', amt: '€ 722' },
-    { id: 'consent', kind: 'warn', time: 'gisteren', title: 'Argenta verloopt over 14 dagen', text: 'Koppel opnieuw om je zichtrekening en de gedeelde rekening te blijven synchroniseren.', amt: '14 dagen' },
+    { id: 'consent', kind: 'warn', time: 'gisteren', title: 'Argenta verloopt over 14 dagen', text: 'Koppel opnieuw om Zichtrekening en Gedeelde rekening te blijven synchroniseren.', amt: '14 dagen' },
     { id: 'cat', kind: 'info', time: 'gisteren', title: '8 transacties te categoriseren', text: 'Colruyt, Delhaize, NMBS en 5 andere.', amt: '8' }
   ];
 
-  // Lock screen: no amounts and no account names.
+  // Lock screen: no amounts, no account names and no device names.
   const LOCK = [
+    { kind: 'info', time: 'nu', title: 'Nieuw toestel aangemeld', text: 'Ontgrendel om de details te zien' },
     { kind: 'neg', time: '07:30', title: 'Planning: actie nodig', text: 'Ontgrendel om de details te zien' },
     { kind: 'warn', time: 'gisteren', title: 'Bankkoppeling verloopt binnenkort', text: 'Ontgrendel om de details te zien' }
   ];
@@ -89,7 +99,7 @@
       themeChoice() +
     '</header>' +
     '<nav class="bx-toc" aria-label="Op deze pagina">' +
-      '<a href="#emails">E-mails (9)</a><a href="#push">Pushmeldingen</a><a href="#icoon">Meldingsicoon</a><a href="#app-icoon">App-icoon</a>' +
+      '<a href="#emails">E-mails (10)</a><a href="#push">Pushmeldingen</a><a href="#iphone">iPhone</a><a href="#icoon">Meldingsicoon</a><a href="#app-icoon">App-icoon</a>' +
     '</nav>';
   }
 
@@ -119,7 +129,7 @@
   function emailsSection() {
     return '<section class="bx-section" id="emails" aria-labelledby="emails-h">' +
       '<div class="bx-section-head"><h2 id="emails-h">Alle e-mails</h2>' +
-        '<p class="muted">9 berichten in de gekozen stijl: een witte kaart, kleur alleen in het label en het bedrag. Elke e-mail heeft ook een platte-tekstversie.</p></div>' +
+        '<p class="muted">10 berichten in de gekozen stijl: een witte kaart, kleur alleen in het label en het bedrag. Elke e-mail heeft ook een platte-tekstversie.</p></div>' +
       '<div class="bx-mails">' + MAILS.map(mailCard).join('') + '</div>' +
     '</section>';
   }
@@ -139,7 +149,7 @@
       const y = v >= 0 ? zeroY - Math.round(v * sc) : zeroY;
       return '<rect class="' + (v < 0 ? 'bx-bar bx-bar--neg' : 'bx-bar') + '" x="' + (13 + i * 60) + '" y="' + y + '" width="34" height="' + h + '" rx="5"></rect>';
     }).join('');
-    const label = 'Verwacht eindsaldo persoonlijk: ' +
+    const label = 'Verwacht eindsaldo ' + g.title + ': ' +
       vals.map((v, i) => D.forecastMonths[i].name + ' ' + eur0(v)).join(', ') + '. Buffer ' + eur0(g.buffer) + '.';
     const months = ['nov', 'dec', 'jan', 'feb'];
     return '<div class="bx-chart">' +
@@ -184,7 +194,7 @@
         '<span class="bx-lock-btn" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">' +
           '<rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></span>' +
       '</div>' +
-      '<figcaption><strong>Vergrendelscherm</strong><span>Geen bedragen en geen rekeningnamen zolang het toestel vergrendeld is. Je ziet alleen dat er iets is.</span></figcaption>' +
+      '<figcaption><strong>Vergrendelscherm</strong><span>Geen bedragen, rekeningnamen of toestelnamen zolang het toestel vergrendeld is. Je ziet alleen dat er iets is.</span></figcaption>' +
     '</figure>';
   }
 
@@ -195,7 +205,7 @@
       circle(n.kind, 36, 20) +
       '<div class="bx-n-main">' +
         '<div class="bx-n-head"><span>Saldo</span><span aria-hidden="true">·</span><span>' + esc(n.time) + '</span><span class="bx-flex"></span>' +
-          '<span class="bx-amt bx-amt--' + n.kind + '">' + esc(n.amt) + '</span>' +
+          (n.amt ? '<span class="bx-amt bx-amt--' + n.kind + '">' + esc(n.amt) + '</span>' : '') +
           '<button type="button" class="bx-n-toggle" data-toggle="' + key + '" aria-expanded="' + o + '" aria-label="' + (o ? 'Melding inklappen' : 'Melding openklappen') + '">' +
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>' +
           '</button>' +
@@ -234,6 +244,89 @@
         '<button type="button" class="btn btn--ghost" data-action="reset">Opnieuw tonen</button>' +
       '</div>' +
       '<div class="bx-phones" id="push-frames">' + pushFrames() + '</div>' +
+    '</section>';
+  }
+
+  // ---------- Push: iPhone ----------
+
+  // iOS shows a web app's push with the app icon, title, time and body only: no amount pill, no chart,
+  // no buttons. Lock-screen previews follow the iPhone setting "Toon voorvertoning" (default "Indien ontgrendeld").
+  const IOS_BANNER = Object.assign({}, PUSH[1], { time: 'nu' });
+  const IOS_LOCK = [PUSH[0], PUSH[1]];
+
+  function iosStatus() {
+    return '<div class="bx-ios-status" aria-hidden="true">' +
+      '<span class="bx-ios-time">9:41</span><span class="bx-ios-island"></span>' +
+      '<span class="bx-ios-sys">' +
+        '<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"></rect><rect x="4.5" y="5" width="3" height="6" rx="1"></rect><rect x="9" y="2.5" width="3" height="8.5" rx="1"></rect><rect x="13.5" y="0" width="3" height="11" rx="1"></rect></svg>' +
+        glyph('wifi', 15) +
+        '<svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".45"></rect><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"></rect><rect x="23" y="4" width="1.6" height="4" rx=".8" fill="currentColor" opacity=".45"></rect></svg>' +
+      '</span>' +
+    '</div>';
+  }
+
+  // One iOS notification: app icon, then title + time and the body (or "Saldo" + "Melding" without preview)
+  function iosCard(n, preview, i) {
+    return '<div class="bx-ios-n bx-drop" style="--d:' + (80 + i * 60) + 'ms">' +
+      '<span class="bx-ios-icon">' + logo(38, 22) + '</span>' +
+      '<span class="bx-ios-t">' +
+        '<span class="bx-ios-head"><strong>' + esc(preview ? n.title : 'Saldo') + '</strong><span>' + esc(n.time) + '</span></span>' +
+        '<span class="bx-ios-body">' + esc(preview ? n.text : 'Melding') + '</span>' +
+      '</span>' +
+    '</div>';
+  }
+
+  function iosHome() {
+    const apps = [];
+    for (let i = 0; i < 16; i++) {
+      apps.push(i === 5
+        ? '<span class="bx-ios-app">' + logo(56, 22) + '<small>Saldo</small></span>'
+        : '<span class="bx-ios-app"><i></i><small></small></span>');
+    }
+    return '<div class="bx-ios-apps" aria-hidden="true">' + apps.join('') + '</div>' +
+      '<div class="bx-ios-dock" aria-hidden="true"><i></i><i></i><i></i><i></i></div>';
+  }
+
+  function iosLockTop(unlocked) {
+    return '<div class="bx-ios-clock" aria-hidden="true">' +
+      '<svg width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">' +
+        '<rect x="2" y="9" width="12" height="10" rx="2.5" fill="currentColor" stroke="none"></rect>' +
+        '<path d="' + (unlocked ? 'M5 9V5.5a3.5 3.5 0 0 1 6.6-1.6' : 'M5 9V5.5a3 3 0 0 1 6 0V9') + '"></path></svg>' +
+      '<span class="bx-ios-date">' + DATE + '</span><span class="bx-ios-big">9:41</span>' +
+    '</div>' +
+    '<span class="bx-ios-btn bx-ios-btn--l" aria-hidden="true">' + icon('flashlight', 18, 2) + '</span>' +
+    '<span class="bx-ios-btn bx-ios-btn--r" aria-hidden="true">' + icon('camera', 18, 2) + '</span>' +
+    '<span class="bx-ios-bar" aria-hidden="true"></span>';
+  }
+
+  function iphoneSection() {
+    const frames = [
+      { cls: 'bx-iphone--home', inner: iosStatus() + '<div class="bx-ios-banner">' + iosCard(IOS_BANNER, true, 0) + '</div>' + iosHome() + '<span class="bx-ios-bar" aria-hidden="true"></span>',
+        name: 'Banner · ontgrendeld, licht', desc: 'Bovenaan het beginscherm: het app-icoon in plaats van een silhouet, dan titel, tijd en tekst. Geen bedragpil, dus het bedrag staat in de tekst.' },
+      { cls: 'bx-iphone--lock', inner: iosStatus() + iosLockTop(false) + '<div class="bx-ios-list">' + IOS_LOCK.map((n, i) => iosCard(n, false, i)).join('') + '</div>',
+        name: 'Vergrendeld · donker', desc: 'Met Toon voorvertoning: Indien ontgrendeld (de standaard op iPhone) zie je alleen "Saldo" en "Melding". Geen titel, geen bedrag, geen rekening.' },
+      { cls: 'bx-iphone--lock', inner: iosStatus() + iosLockTop(true) + '<div class="bx-ios-list">' + IOS_LOCK.map((n, i) => iosCard(n, true, i)).join('') + '</div>',
+        name: 'Na Face ID · donker', desc: 'Zodra Face ID je herkent, toont iOS titel en tekst. Geen grafiek om open te klappen en geen knoppen: tikken opent Saldo op de juiste plek.' }
+    ];
+    return '<section class="bx-section" id="iphone" aria-labelledby="iphone-h">' +
+      '<div class="bx-section-head"><h2 id="iphone-h">Pushmeldingen op iPhone</h2>' +
+        '<p class="muted">Dezelfde meldingen als op Android, maar iOS toont alleen de titel en de tekst. De teksten moeten dus ook zonder bedragpil en grafiek kloppen.</p></div>' +
+      '<div class="bx-phones">' + frames.map((f) =>
+        '<figure class="bx-phone-col">' +
+          '<div class="bx-phone bx-iphone ' + f.cls + '">' + f.inner + '</div>' +
+          '<figcaption><strong>' + esc(f.name) + '</strong><span>' + esc(f.desc) + '</span></figcaption>' +
+        '</figure>').join('') +
+      '</div>' +
+      '<div class="card bx-icon-card bx-ios-rules">' +
+        '<span class="bx-icon-card-title">Zo werkt het op iOS</span>' +
+        '<ul class="bx-rules">' +
+          '<li>Pushmeldingen werken pas als Saldo op het beginscherm staat (Deel → Zet op beginscherm, iOS 16.4 of nieuwer).</li>' +
+          '<li>Saldo vraagt toestemming pas na een tik op Pushmeldingen in Meldingen, nooit bij het openen.</li>' +
+          '<li>Alleen titel en tekst: geen bedragpil, geen grafiek, geen knoppen. Het bedrag staat daarom altijd in de tekst.</li>' +
+          '<li>Geen icoon in de statusbalk. Het app-icoon (Beurs) staat in de melding zelf.</li>' +
+          '<li>Het vergrendelscherm volgt Toon voorvertoning. Kiest iemand Altijd, dan toont iOS titel en tekst ook vergrendeld: Saldo kan op iOS geen aparte vergrendeltekst sturen.</li>' +
+        '</ul>' +
+      '</div>' +
     '</section>';
   }
 
@@ -286,7 +379,7 @@
             '<span class="bx-icon-card-title">In de melding zelf</span>' +
             sample('info', 'nu', '8 transacties te categoriseren') +
             sample('warn', '07:30', 'Zichtrekening zakt in januari in de buffer') +
-            sample('neg', '07:30', 'Persoonlijk staat rood in februari', true) +
+            sample('neg', '07:30', 'Zichtrekening staat rood in februari', true) +
             '<span class="bx-note">Android kleurt de cirkel met de kleur die Saldo meegeeft: groen voor info, oker voor een waarschuwing, rood voor een fout.</span>' +
           '</div>' +
         '</div>' +
@@ -382,7 +475,7 @@
   }
 
   function render(root) {
-    root.innerHTML = header() + emailsSection() + pushSection() + iconSection() + appIconSection();
+    root.innerHTML = header() + emailsSection() + pushSection() + iphoneSection() + iconSection() + appIconSection();
 
     root.querySelectorAll('.bx-frame').forEach((fr) => {
       fr.addEventListener('load', () => { applyMailScheme(fr); fitFrame(fr); });

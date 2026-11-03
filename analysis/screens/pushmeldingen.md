@@ -1,6 +1,6 @@
 # Pushmeldingen
 
-Analysis: 4.9, 12 (screen 14), risk 14 · Design: Meldingen-Android, Meldingen-Icoon · Mockup: `finance-mockup/berichten.html` · Concepts: [notification](../concepts/notification.md), [buffer-and-states](../concepts/buffer-and-states.md), [design-system](../concepts/design-system.md#app-icon-beurs) · Phases: [0.1-5](../../plan/v0.1-mockup/05-emails-and-push.md), [0.8-2](../../plan/v0.8-notifications/02-web-push.md), [0.8-5](../../plan/v0.8-notifications/05-lock-screen-check.md)
+Analysis: 4.9, 12 (screen 14), risk 14 · Design: Meldingen-Android, Meldingen-Icoon · Mockup: `finance-mockup/berichten.html` · Concepts: [notification](../concepts/notification.md), [buffer-and-states](../concepts/buffer-and-states.md), [design-system](../concepts/design-system.md#app-icon-beurs) · Phases: [0.1-5](../../plan/v0.1-mockup/05-emails-and-push.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.9-2](../../plan/v0.9-notifications/02-web-push.md), [0.9-5](../../plan/v0.9-notifications/05-lock-screen-check.md)
 
 ## Content
 Lock screen without amounts, notification shade in light and dark, the expanded red planning notification with a small chart, and the status-bar icon (24×24 dp silhouette, 2 dp margin, circle colour per type).

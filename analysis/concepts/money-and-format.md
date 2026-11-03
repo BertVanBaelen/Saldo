@@ -1,6 +1,6 @@
 # Money, dates and formatting
 
-Analysis: 4.7, 5.1, 14 · Phases: [0.1-1](../../plan/v0.1-mockup/01-foundation-and-start.md), [0.2-3](../../plan/v0.2-foundation/03-repository-and-addon.md), [0.2-5](../../plan/v0.2-foundation/05-web-app-and-fake-bank.md)
+Analysis: 4.7, 5.1, 14 · Phases: [0.1-1](../../plan/v0.1-mockup/01-foundation-and-start.md), [0.2-2](../../plan/v0.2-foundation/02-repository-addon-ci.md), [0.2-3](../../plan/v0.2-foundation/03-web-app-shell.md)
 
 ## Rules
 - Amounts are **integer cents** (`int64`) with currency EUR, everywhere, also in JSON. Never floats.
@@ -34,3 +34,5 @@ Mockup: `finance-mockup/js/format.js`.
 | Planned, expected income, one-off expense | Gepland, verwachte inkomst, eenmalige uitgave |
 | Notifications, push notification, quiet hours, test notification | Meldingen, pushmelding, stille uren, testmelding |
 | Warning, error | Waarschuwing, fout |
+| Trusted device, sign out, new device signed in | Toestel, afmelden, nieuw toestel aangemeld |
+| Sum (information only) | Samen, ter info |

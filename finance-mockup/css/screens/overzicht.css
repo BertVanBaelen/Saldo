@@ -18,7 +18,8 @@
 
 /* ---------- Header: title, scope switch, period picker ---------- */
 
-.ov-head { grid-template-areas: "title actions" "scope scope" "period period"; }
+.ov-head { grid-template-areas: "title actions" "scope scope" "period period"; position: relative; z-index: 5; }
+.ov-head--bare { grid-template-areas: "title actions"; }
 .ov-period {
   grid-area: period;
   display: grid;
@@ -41,10 +42,21 @@
 
 @media (min-width: 1024px) {
   .ov-head { grid-template-areas: "title scope period"; gap: 16px 10px; }
+  .ov-head.ov-head--bare { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title actions"; }
   .ov-head .scope-btn svg { display: none; } /* desktop board: text-only scope buttons here */
   .ov-period { display: flex; }
   .ov-period-btn { min-width: 92px; height: 36px; }
 }
+
+/* ---------- Filter row: account filter and the custom range ---------- */
+
+/* Stacked above the grid so the popovers (desktop) overlay the cards */
+.ov-tools { position: relative; z-index: 4; display: flex; flex-wrap: wrap; gap: 8px; }
+.ov-chip { padding: 0 12px; gap: 6px; border-color: var(--line); }
+.ov-chip > svg:last-child { color: var(--muted); }
+.ov-chip--on { background: var(--soft); border-color: var(--softChip); color: var(--greenText); font-weight: 600; }
+.ov-chip--on > svg:last-child { color: var(--greenText); }
+.ov-acc-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
 
 /* ---------- Layout ---------- */
 
@@ -66,6 +78,11 @@
 .ov-chart { display: flex; gap: 4px; height: 172px; align-items: stretch; --bar-max: 130px; --bar-w: 10px; }
 .ov-chart--m { --bar-w: 18px; }
 .ov-chart--l { --bar-w: 24px; }
+/* More than 8 columns (custom range up to 13 months) */
+.ov-chart--xs { gap: 2px; --bar-w: 5px; }
+.ov-chart--xs .ov-bars { gap: 2px; }
+/* The running month is lighter: it is not complete yet */
+.ov-col--running .ov-bar { opacity: 0.5; }
 .ov-col {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px;
@@ -108,17 +125,24 @@
   .ov-chart { gap: 8px; height: 300px; --bar-max: 240px; --bar-w: 18px; }
   .ov-chart--m { --bar-w: 30px; }
   .ov-chart--l { --bar-w: 40px; }
+  .ov-chart--xs { gap: 3px; --bar-w: 8px; }
   .ov-col { gap: 10px; padding: 10px 0 8px; border-radius: 14px; }
   .ov-col:not([aria-pressed="true"]):hover { background: var(--bg); }
   .ov-bars { gap: 4px; height: 250px; }
+  .ov-chart--xs .ov-bars { gap: 3px; }
   .ov-bar { border-radius: 5px 5px 1px 1px; animation-duration: 560ms; }
   .ov-col-label { font-size: 13px; }
   .ov-skel { height: 300px; gap: 18px; padding: 0 12px; }
   .ov-skel span { height: var(--hd); border-radius: 10px 10px 0 0; }
 }
 
-/* ---------- Summary tiles (candidate shared "stat tile") ---------- */
+/* ---------- Totals of the selected period (candidate shared "stat tile") ---------- */
 
+.ov-totals { display: flex; flex-direction: column; gap: 8px; }
+.ov-totals-head { display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 13px; }
+.ov-totals-head .ov-acc-dot { margin-right: 2px; }
+.ov-totals-title { font-weight: 600; }
+.ov-totals-note { color: var(--muted); }
 .ov-sums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ov-sum {
   min-width: 0;
@@ -140,7 +164,7 @@
 /* ---------- Per categorie ---------- */
 
 .ov-cats { display: flex; flex-direction: column; gap: 10px; }
-.ov-cats-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ov-cats-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 8px; }
 .ov-compare { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .ov-cat-list {
   background: var(--surface);
@@ -183,4 +207,158 @@
   .ov-cat-trend { font-size: 13px; }
   .ov-cat-amount { min-width: 110px; }
   .ov-cat-track { height: 8px; border-radius: 4px; }
+}
+
+/* ---------- Chart notes: running month, short history ---------- */
+
+.ov-notes { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.ov-note, .ov-pick-note { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.ov-note svg, .ov-pick-note svg { flex: none; margin-top: 1px; }
+.ov-note a, .ov-pick-note a { color: var(--greenText); font-weight: 600; }
+@media (min-width: 1024px) { .ov-note { font-size: 13px; } }
+
+/* ---------- Per rekening (several accounts: the sum above is information only) ---------- */
+
+.ov-per-wrap:empty { display: none; }
+.ov-per { display: flex; flex-direction: column; gap: 10px; }
+.ov-per-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ov-per-list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 2px 16px;
+  display: flex; flex-direction: column;
+}
+.ov-per-row {
+  display: flex; flex-direction: column; gap: 10px;
+  width: 100%; padding: 12px 0;
+  border: none; background: transparent; color: var(--text);
+  text-align: left;
+}
+.ov-per-row + .ov-per-row { border-top: 1px solid var(--line); }
+.ov-per-name { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; }
+.ov-per-name > span:nth-child(2) { flex: 1; min-width: 0; }
+.ov-per-icon { width: 28px; height: 28px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; }
+.ov-per-chev { display: flex; color: var(--muted); }
+.ov-per-vals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ov-per-val { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ov-per-label { font-size: 12px; color: var(--muted); }
+.ov-per-val .mono { font-size: 14px; font-weight: 500; white-space: nowrap; }
+.ov-per-foot { padding: 0 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+
+@media (min-width: 1024px) {
+  .ov-per {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    padding: 20px;
+    gap: 6px;
+  }
+  .ov-per-head { padding-bottom: 6px; }
+  .ov-per-list { background: none; border: none; border-radius: 0; padding: 0; }
+  .ov-per-row { padding: 12px 10px; margin: 0 -10px; width: calc(100% + 20px); border-radius: 12px; transition: background 160ms ease; }
+  .ov-per-row:hover { background: var(--bg); }
+  .ov-per-row + .ov-per-row { border-top: none; box-shadow: 0 -1px 0 var(--line); }
+  .ov-per-vals { padding-left: 38px; }
+  .ov-per-val .mono { font-size: 15px; }
+  .ov-per-foot { padding: 6px 0 0; font-size: 13px; }
+}
+
+/* ---------- Pickers: bottom sheet (phone) or popover (desktop) ---------- */
+
+.ov-panel-body, .ov-pop { display: flex; flex-direction: column; gap: 14px; }
+.ov-sheet { gap: 0; padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px)); }
+.ov-sheet .sheet-grip { margin-bottom: 14px; }
+.ov-pop {
+  position: absolute; z-index: 25;
+  top: calc(100% + 8px); right: 0;
+  width: 400px; max-width: calc(100vw - var(--sidebar-w) - 64px);
+  padding: 18px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--pop);
+  animation: sFade 160ms ease-out both;
+}
+.ov-pop--accounts { width: 360px; }
+.ov-tools .ov-pop { left: 0; right: auto; }
+
+.ov-panel-head { display: flex; align-items: flex-start; gap: 12px; }
+.ov-panel-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ov-panel-title h2 { font-size: 17px; font-weight: 600; }
+.ov-panel-title span { font-size: 13px; color: var(--muted); }
+.ov-close {
+  width: 44px; height: 44px; margin: -4px -4px 0 0; border-radius: 50%;
+  border: none; background: var(--bg); color: var(--text);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+
+/* Custom range: from / to, quick choices, a month grid per year */
+.ov-ends { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ov-end {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-height: 60px; padding: 9px 12px;
+  border: 2px solid var(--line); border-radius: 14px;
+  background: var(--surface); color: var(--text);
+  text-align: left;
+  transition: border-color 160ms ease;
+}
+.ov-end[aria-pressed="true"] { border-color: var(--green); }
+.ov-end-label { font-size: 12px; color: var(--muted); }
+.ov-end-value { font-size: 15px; font-weight: 600; }
+.ov-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.ov-preset { height: 34px; padding: 0 12px; font-size: 13px; border-color: var(--line); }
+.ov-year { display: flex; flex-direction: column; gap: 6px; }
+.ov-year-label { padding-left: 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.ov-months { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.ov-month {
+  height: 40px; border: none; border-radius: 10px;
+  background: transparent; color: var(--text);
+  font-size: 14px; font-weight: 500;
+  transition: background 160ms ease, color 160ms ease;
+}
+.ov-month:not(:disabled):not(.is-in):not(.is-end):hover { background: var(--bg); }
+.ov-month.is-in { background: var(--soft); color: var(--greenText); }
+.ov-month.is-end { background: var(--green); color: var(--onGreen); font-weight: 600; }
+.ov-month:disabled { color: var(--muted); opacity: 0.45; }
+.ov-pick-status { padding: 10px 12px; border-radius: 12px; background: var(--bg); font-size: 14px; font-weight: 600; text-align: center; }
+.ov-panel-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ov-panel-actions .btn { height: 48px; border-radius: 14px; }
+
+/* Account filter options */
+.ov-opts { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px; }
+.ov-opt {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 56px; padding: 8px;
+  border: none; border-radius: 14px;
+  background: transparent; color: var(--text);
+  text-align: left;
+  transition: background 160ms ease;
+}
+.ov-opt:hover { background: var(--bg); }
+.ov-opt[aria-pressed="true"] { background: var(--soft); }
+.ov-opt-icon { width: 36px; height: 36px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; }
+.ov-opt-icon--all { background: var(--text); color: var(--bg); }
+.ov-opt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ov-opt-name { font-size: 15px; font-weight: 500; }
+.ov-opt-sub { font-size: 12px; color: var(--muted); }
+.ov-opt-check { width: 20px; flex: none; display: flex; color: var(--greenText); }
+
+/* ---------- Empty state: no history yet (demo state "leeg") ---------- */
+
+.ov-empty { align-items: center; gap: 12px; padding: 28px 20px 24px; text-align: center; }
+.ov-empty-art { display: flex; align-items: flex-end; gap: 12px; height: 48px; margin-bottom: 6px; }
+.ov-empty-art span { display: flex; align-items: flex-end; gap: 3px; }
+.ov-empty-art i { display: block; width: 8px; border-radius: 3px 3px 1px 1px; background: var(--track); }
+.ov-empty-art i:nth-child(1) { background: var(--softChip); }
+.ov-empty-art i:nth-child(2) { background: var(--lineStrong); }
+.ov-empty-title { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.ov-empty-text { max-width: 440px; font-size: 15px; line-height: 1.5; color: var(--muted); }
+.ov-empty-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 6px; }
+.ov-empty-actions .btn { height: 48px; border-radius: 14px; }
+.ov-empty-note { font-size: 13px; color: var(--muted); }
+@media (min-width: 1024px) {
+  .ov-empty { width: 100%; max-width: 640px; margin: 24px auto 0; padding: 40px 32px 32px; }
+  .ov-empty-actions { flex-direction: row; justify-content: center; width: auto; }
+  .ov-empty-actions .btn { padding: 0 22px; }
 }

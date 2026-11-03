@@ -1,6 +1,6 @@
 # Design system
 
-Analysis: 11 ("Look", "Brand", "Accounts in the UI", "States"), 12 · Design boards: Main (Saldo · stijl), Saldo-Icoon, Saldo-Start · Code: `finance-mockup/css/tokens.css`, `finance-mockup/css/components.css` · Phases: [0.1-1](../../plan/v0.1-mockup/01-foundation-and-start.md), [0.1-5](../../plan/v0.1-mockup/05-emails-and-push.md), [0.1-7](../../plan/v0.1-mockup/07-review-and-freeze.md), [0.2-5](../../plan/v0.2-foundation/05-web-app-and-fake-bank.md), [0.8-2](../../plan/v0.8-notifications/02-web-push.md)
+Analysis: 11 ("Look", "Brand", "Accounts in the UI", "States"), 12 · Design boards: Main (Saldo · stijl), Saldo-Icoon, Saldo-Start · Code: `finance-mockup/css/tokens.css`, `finance-mockup/css/components.css` · Phases: [0.1-1](../../plan/v0.1-mockup/01-foundation-and-start.md), [0.1-5](../../plan/v0.1-mockup/05-emails-and-push.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.2-3](../../plan/v0.2-foundation/03-web-app-shell.md), [0.9-2](../../plan/v0.9-notifications/02-web-push.md)
 
 Tagline: **"Weet vandaag hoe je maand eindigt."** Mood: Rustig · Helder · Met kleur.
 
@@ -53,7 +53,7 @@ Chart colours (Overzicht, currently screen-local in `overzicht.css`, to promote)
 - **Alert row**: see [buffer-and-states](buffer-and-states.md).
 - **Card**: `--surface`, 1 px `--line`, radius 20, padding 16 (phone) / 18–20 (desktop). Hero radius 24.
 - **List row**: 40 px avatar, name 15/500, subline 13 muted, amount Mono right.
-- **Segmented control**: see [account-group](account-group.md).
+- **Segmented control**: see [scope](scope.md).
 - **Toggle switch**: 52×32 track, 24 px knob, on = `--green`.
 - **Toast**: pill, `--text` background with `--bg` text, 14/600, above the tab bar, 2.6 s.
 - Icons: inline 24-grid stroke SVG, stroke-width 2–2.2, round caps. No emoji.

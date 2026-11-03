@@ -4,10 +4,11 @@
 |---|---|
 | Version | [2.0 Investments](README.md) |
 | Status | later |
+| Size | M |
 | Features | INV-3 |
 | Concepts | [account](../../analysis/concepts/account.md) |
 | Analysis | 3, 7 (outbound traffic) |
-| Depends on | 2.0-1 |
+| Depends on | [2.0-1](01-investment-accounts.md) |
 
 ## Goal
 Values that update themselves where possible.

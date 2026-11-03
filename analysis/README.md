@@ -4,8 +4,8 @@ This folder is the shared memory between three sources:
 
 | Source | Where | What it holds |
 |---|---|---|
-| Analysis document | [`../analysis.md`](../analysis.md) | Requirements, calculation rules, decisions (v1.1) |
-| Design canvas | `design/project/*.dc.html` (copy of the *Saldo – ontwerp* canvas) and the mockup in [`../finance-mockup/`](../finance-mockup/) | How every screen, email and notification looks |
+| Analysis document | [`../analysis.md`](../analysis.md) | Requirements, calculation rules, decisions (v1.2) |
+| Design canvas and mockup | `design/project/*.dc.html` (copy of the *Saldo – ontwerp* canvas) and the mockup in [`../finance-mockup/`](../finance-mockup/), which also holds the screens the canvas does not have | How every screen, state, email and notification looks |
 | Plan | [`../plan/`](../plan/README.md) | Versions, phases and the work per phase |
 
 Every **concept** file describes one domain object or idea once, and links to the analysis sections, design boards, screens and phases that touch it. Every **screen** file describes one screen and links to the concepts it shows. When something changes, update the concept file first, then the places that link to it.
@@ -15,9 +15,9 @@ Every **concept** file describes one domain object or idea once, and links to th
 | Concept | File | Analysis |
 |---|---|---|
 | User, roles and visibility | [concepts/user-and-visibility.md](concepts/user-and-visibility.md) | 2, 4.8 |
-| Sign-in and security | [concepts/authentication.md](concepts/authentication.md) | 7 |
+| Sign-in, trusted devices and security | [concepts/authentication.md](concepts/authentication.md) | 7 |
 | Account (current, savings, manual) | [concepts/account.md](concepts/account.md) | 3, 6.3 |
-| Account group and scope switch | [concepts/account-group.md](concepts/account-group.md) | 4.5, 5.3 |
+| Scope switch, independent accounts and sums | [concepts/scope.md](concepts/scope.md) | 4.4, 4.5, 5.3 |
 | Shared account membership | [concepts/shared-account.md](concepts/shared-account.md) | 4.3, 4.8, 6.3 |
 | Bank connection, consent and sync | [concepts/bank-connection.md](concepts/bank-connection.md) | 4.1, 6 |
 | Transaction | [concepts/transaction.md](concepts/transaction.md) | 4.1, 5.1, 6.3 |
@@ -39,22 +39,24 @@ Every **concept** file describes one domain object or idea once, and links to th
 
 ## Screens
 
-| Screen | File | Design boards | Status in design | Mockup |
+| Screen | File | Design boards | Designed in | Mockup |
 |---|---|---|---|---|
-| Inloggen and Code | [screens/inloggen.md](screens/inloggen.md) | – | To design | – |
-| Start | [screens/start.md](screens/start.md) | Telefoon-Start, Desktop-Start, Saldo-Start | Done | `index.html` |
-| Transacties | [screens/transacties.md](screens/transacties.md) | Telefoon-Transacties, Desktop-Transacties | Partly (split, transfer, dropdowns to design) | `transacties.html` |
-| Overzicht | [screens/overzicht.md](screens/overzicht.md) | Telefoon-Overzicht, Desktop-Overzicht | Done | `overzicht.html` |
-| Planning | [screens/planning.md](screens/planning.md) | Telefoon-Planning, Desktop-Planning | Done | `planning.html` |
-| Rekeningen | [screens/rekeningen.md](screens/rekeningen.md) | Telefoon-Rekeningen, Desktop-Rekeningen | List done, detail to design | `rekeningen.html` |
-| Bank koppelen | [screens/bank-koppelen.md](screens/bank-koppelen.md) | – | To design | – |
-| Categorieën en regels | [screens/categorieen.md](screens/categorieen.md) | – | To design | – |
-| Importeren | [screens/importeren.md](screens/importeren.md) | – | To design | – |
-| Instellingen | [screens/instellingen.md](screens/instellingen.md) | – | To design | – |
-| Meldingen | [screens/meldingen.md](screens/meldingen.md) | Telefoon-Meldingen | Phone done, desktop derived | `meldingen.html` |
-| Meer | [screens/meer.md](screens/meer.md) | Telefoon-Meer | Done, desktop derived | `meer.html` |
-| E-mails | [screens/emails.md](screens/emails.md) | E-mail-Berichten | Done | `emails/`, `berichten.html` |
-| Pushmeldingen | [screens/pushmeldingen.md](screens/pushmeldingen.md) | Meldingen-Android, Meldingen-Icoon | Done | `berichten.html` |
+| Inloggen and Code | [screens/inloggen.md](screens/inloggen.md) | – | Mockup | `inloggen.html` |
+| Start | [screens/start.md](screens/start.md) | Telefoon-Start, Desktop-Start, Saldo-Start | Canvas, states in the mockup | `index.html` |
+| Transacties | [screens/transacties.md](screens/transacties.md) | Telefoon-Transacties, Desktop-Transacties | Canvas (list, category sheet), mockup (filters, split, transfer, rules, states) | `transacties.html` |
+| Overzicht | [screens/overzicht.md](screens/overzicht.md) | Telefoon-Overzicht, Desktop-Overzicht | Canvas, mockup (custom range, account filter, empty) | `overzicht.html` |
+| Planning | [screens/planning.md](screens/planning.md) | Telefoon-Planning, Desktop-Planning | Canvas, mockup (per account, edit forms, states) | `planning.html` |
+| Rekeningen and detail | [screens/rekeningen.md](screens/rekeningen.md) | Telefoon-Rekeningen, Desktop-Rekeningen | Canvas (list, settings), mockup (detail, add account, states) | `rekeningen.html`, `rekening.html` |
+| Bankkoppelingen and Bank koppelen | [screens/bank-koppelen.md](screens/bank-koppelen.md) | – | Mockup | `bankkoppelingen.html` |
+| Categorieën en regels | [screens/categorieen.md](screens/categorieen.md) | – | Mockup | `categorieen.html` |
+| Importeren | [screens/importeren.md](screens/importeren.md) | – | Mockup | `importeren.html` |
+| Instellingen | [screens/instellingen.md](screens/instellingen.md) | – | Mockup | `instellingen.html` |
+| Meldingen | [screens/meldingen.md](screens/meldingen.md) | Telefoon-Meldingen | Canvas (phone), mockup (desktop, new-device type) | `meldingen.html` |
+| Meer | [screens/meer.md](screens/meer.md) | Telefoon-Meer | Canvas (phone), mockup (desktop, demo states) | `meer.html` |
+| E-mails | [screens/emails.md](screens/emails.md) | E-mail-Berichten | Canvas (nine), mockup (new device) | `emails/`, `berichten.html` |
+| Pushmeldingen | [screens/pushmeldingen.md](screens/pushmeldingen.md) | Meldingen-Android, Meldingen-Icoon | Canvas, mockup (new device, iPhone) | `berichten.html` |
+
+Every screen can be opened in the demo states of the mockup (Meer → Mockup · toestand, or `?demo=`): see [concepts/demo-data.md](concepts/demo-data.md#demo-states).
 
 ## Conventions
 

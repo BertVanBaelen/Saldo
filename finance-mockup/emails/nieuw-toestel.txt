@@ -1,0 +1,18 @@
+Saldo · Beveiliging
+
+Nieuw toestel aangemeld
+
+Chrome op Android is nu een vertrouwd toestel voor je Saldo-account. Het blijft aangemeld tot je het afmeldt of het 90 dagen niet gebruikt.
+
+Toestel: Chrome op Android
+Aangemeld: Wo 18 nov, 21:14
+Ingelogd met: Wachtwoord en e-mailcode
+
+Toestellen bekijken:
+https://saldo.jouw-domein.be/instellingen/toestellen
+
+Was jij dit niet? Meld het toestel af in Instellingen → Toestellen en kies een nieuw wachtwoord.
+
+-- 
+Je krijgt deze e-mail altijd als er een nieuw toestel bij je account aanmeldt.
+Saldo draait op je eigen Home Assistant.

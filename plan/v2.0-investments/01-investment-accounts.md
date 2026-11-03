@@ -4,10 +4,11 @@
 |---|---|
 | Version | [2.0 Investments](README.md) |
 | Status | later |
+| Size | M |
 | Features | INV-1 |
 | Concepts | [account](../../analysis/concepts/account.md) |
 | Analysis | 3 |
-| Depends on | 1.0 |
+| Depends on | [1.0-4](../v1.0-release/04-release.md) |
 
 ## Goal
 Record what each investment platform is worth.

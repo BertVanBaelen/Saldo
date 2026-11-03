@@ -14,12 +14,12 @@ Status: planned. Analysis milestone: M2. Roadmap: [../README.md](../README.md).
 | CAT-5 | Categorieën en regels screen with suggestions to confirm |
 
 ## Phases
-| Phase | Title | Features | Status |
-|---|---|---|---|
-| [0.4-1](01-category-tree.md) | Category tree | CAT-1 | planned |
-| [0.4-2](02-rules-engine.md) | Rules engine | CAT-2 | planned |
-| [0.4-3](03-categorise-in-transacties.md) | Categorise in Transacties | CAT-3, CAT-4 | planned |
-| [0.4-4](04-categories-and-rules-screen.md) | Categorieën en regels screen | CAT-5 | planned |
+| Phase | Title | Size | Features | Status |
+|---|---|---|---|---|
+| [0.4-1](01-category-tree.md) | Category tree | S | CAT-1 | planned |
+| [0.4-2](02-rules-engine.md) | Rules engine | M | CAT-2 | planned |
+| [0.4-3](03-categorise-in-transacties.md) | Categorise in Transacties | M | CAT-3, CAT-4 | planned |
+| [0.4-4](04-categories-and-rules-screen.md) | Categorieën en regels screen | M | CAT-5 | planned |
 
 ## Concepts
 category, categorisation-rule, transaction.

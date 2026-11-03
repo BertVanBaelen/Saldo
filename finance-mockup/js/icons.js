@@ -32,7 +32,26 @@
     search: '<circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>',
     close: '<path d="M6 6l12 12M18 6 6 18"></path>',
     check: '<path d="m5 12 5 5 9-10"></path>',
-    logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"></path><path d="M10 17l-5-5 5-5"></path><path d="M5 12h11"></path>'
+    logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"></path><path d="M10 17l-5-5 5-5"></path><path d="M5 12h11"></path>',
+    // Added for the screens designed in 0.1-7 (sign-in, bank linking, account detail, categories, import, settings)
+    edit: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z"></path><path d="m13.5 6.5 4 4"></path>',
+    trash: '<path d="M4 7h16"></path><path d="M10 11v6M14 11v6"></path><path d="M6 7l1 13h10l1-13"></path><path d="M9 7V4h6v3"></path>',
+    arrowUp: '<path d="M12 19V5"></path><path d="m6 11 6-6 6 6"></path>',
+    arrowDown: '<path d="M12 5v14"></path><path d="m6 13 6 6 6-6"></path>',
+    split: '<path d="M12 21v-7"></path><path d="M12 14 6 8V4"></path><path d="m12 14 6-6V4"></path><path d="M3 7l3-3 3 3"></path><path d="m15 7 3-3 3 3"></path>',
+    transfer: '<path d="M4 8h14"></path><path d="m14 4 4 4-4 4"></path><path d="M20 16H6"></path><path d="m10 12-4 4 4 4"></path>',
+    shield: '<path d="M12 3 4 6v6c0 5 3.4 8.3 8 9 4.6-.7 8-4 8-9V6l-8-3Z"></path><path d="m9 12 2 2 4-4"></path>',
+    laptop: '<rect x="4" y="5" width="16" height="11" rx="2"></rect><path d="M2 19h20"></path>',
+    download: '<path d="M12 4v11"></path><path d="m7 10 5 5 5-5"></path><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"></path>',
+    file: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z"></path><path d="M14 3v5h5"></path>',
+    key: '<circle cx="8" cy="15" r="4"></circle><path d="m11 12 9-9"></path><path d="m16 7 3 3"></path>',
+    userPlus: '<circle cx="9" cy="8" r="4"></circle><path d="M2 21a7 7 0 0 1 14 0"></path><path d="M19 8v6M16 11h6"></path>',
+    external: '<path d="M14 4h6v6"></path><path d="M20 4 11 13"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>',
+    bank: '<path d="M3 10 12 4l9 6"></path><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"></path><path d="M3 21h18"></path>',
+    cloudOff: '<path d="M3 3l18 18"></path><path d="M8.5 6.2A6 6 0 0 1 17.7 10H18a4 4 0 0 1 2.6 7"></path><path d="M17 19H7a5 5 0 0 1-1.6-9.7"></path>',
+    info: '<circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path>',
+    eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle>',
+    filter: '<path d="M4 5h16l-6 8v5l-4 2v-7L4 5Z"></path>'
   };
 
   // icon('home', 22) or icon('more', 22, 3)

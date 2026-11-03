@@ -4,16 +4,17 @@
 |---|---|
 | Version | [2.0 Investments](README.md) |
 | Status | later |
+| Size | S |
 | Features | INV-2 |
-| Concepts | [account](../../analysis/concepts/account.md), [account-group](../../analysis/concepts/account-group.md) |
-| Depends on | 2.0-1 |
+| Concepts | [account](../../analysis/concepts/account.md), [scope](../../analysis/concepts/scope.md) |
+| Depends on | [2.0-1](01-investment-accounts.md) |
 
 ## Goal
 One view of what you own.
 
 ## Steps
-1. Net worth per platform and in total over time (information only).
-2. Investments never enter the forecast groups or their buffers.
+1. Net worth per platform and in total over time, as information (a sum, never a verdict).
+2. Investments never enter the forecast or any buffer.
 
 ## Done when
 Net worth per platform is visible with its history.

@@ -69,6 +69,8 @@
 }
 .ml-chip[aria-pressed="true"] { background: var(--soft); color: var(--greenText); border-color: var(--green); }
 .ml-chip:disabled { opacity: 0.4; }
+/* Always-on e-mail: on, but fixed. A dashed border and a lock instead of the mail icon. */
+.ml-chip--locked { background: var(--soft); color: var(--greenText); border-style: dashed; border-color: var(--green); cursor: default; }
 
 /* Look-ahead: segmented 1 · 3 · 6 maanden. Candidate to promote: small segmented control. */
 .ml-look { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 14px; border-top: 1px solid var(--line); }
@@ -97,8 +99,10 @@
   border-radius: 14px;
   background: var(--surface);
   border: 1px solid var(--line);
+  display: flex; align-items: flex-start; gap: 8px;
   font-size: 13px; line-height: 1.45; color: var(--muted);
 }
+.ml-always svg { flex: none; margin-top: 2px; color: var(--greenText); }
 @media (min-width: 1024px) { .ml-always { margin: 0; } }
 
 .ml-test { font-size: 15px; font-weight: 600; }

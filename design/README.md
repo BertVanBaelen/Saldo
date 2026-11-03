@@ -4,6 +4,8 @@ A read-only copy of the design canvas **Saldo – ontwerp** (claude.ai artifact 
 
 These files are the reference for the mockup in [`../finance-mockup/`](../finance-mockup/README.md); what they define is written down per screen in [`../analysis/screens/`](../analysis/README.md#screens). Do not edit them here: change the canvas, download it again, and update the screen files.
 
+An export of the canvas page "Overzicht" (*Saldo – ontwerp.html*, 3 Nov 2026) was checked against this copy: its three boards (Saldo · stijl, Start licht en donker, app-icoon) are identical to `Main`, `Saldo-Start` and `Saldo-Icoon` here. Screens that the canvas does not have (sign-in, bank linking, account detail, categories, import, settings and the states) were designed directly in the mockup, in the canvas style; the mockup is their reference.
+
 | Board | Screen file |
 |---|---|
 | Main, Saldo-Icoon, Saldo-Start | [design-system](../analysis/concepts/design-system.md), [start](../analysis/screens/start.md) |

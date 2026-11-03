@@ -1,0 +1,225 @@
+/* Inloggen: sign-in, code, first-admin setup, invitation, new password, expired link, pause.
+   No design board: derived from Rekeningen (fields, 48 px actions) and the e-mails (calm white card).
+   Spec: analysis/screens/inloggen.md. Bare page: no sidebar, no tab bar (shell data-shell="none"). */
+
+.main--bare .page { gap: 18px; }
+@media (min-width: 1024px) {
+  .main--bare .page { max-width: 464px; padding-top: 64px; gap: 20px; }
+}
+
+/* Toasts sit at the bottom: there is no tab bar or sidebar to clear */
+body[data-shell="none"] .toast { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 1024px) { body[data-shell="none"] .toast { left: 50%; bottom: 32px; } }
+
+/* ---------- Brand ---------- */
+
+.il-brand { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.il-brand svg { display: block; }
+.il-brand-name { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: var(--greenText); }
+.il-brand-host { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* ---------- Card ---------- */
+
+.il-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 22px 20px 24px;
+  display: flex; flex-direction: column; gap: 18px;
+  color: var(--text);
+}
+@media (min-width: 1024px) { .il-card { padding: 30px 32px 32px; gap: 20px; } }
+
+.il-progress { display: flex; align-items: center; gap: 10px; margin-bottom: -4px; }
+.il-progress-bar { display: grid; grid-template-columns: repeat(2, 24px); gap: 4px; }
+.il-progress-bar i { height: 4px; border-radius: 2px; background: var(--track); }
+.il-progress-bar i.is-on { background: var(--green); }
+.il-progress-text { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+.il-head { display: flex; flex-direction: column; gap: 6px; }
+.il-head h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.il-head h1:focus { outline: none; }
+.il-lead { font-size: 15px; line-height: 1.5; color: var(--muted); }
+.il-lead strong { font-weight: 600; color: var(--text); white-space: nowrap; }
+
+.il-badge {
+  width: 48px; height: 48px; margin-bottom: 8px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.il-badge--ok { background: var(--soft); color: var(--greenText); }
+.il-badge--warn { background: var(--warnSoft); color: var(--warn); }
+.il-badge--neg { background: var(--negSoft); color: var(--negText); }
+
+.il-meta { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.il-meta svg { flex: none; margin-top: 1px; }
+
+/* Messages inside the card */
+.il-alert {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 14px; line-height: 1.45;
+  color: var(--text);
+}
+.il-alert svg { flex: none; margin-top: 1px; }
+.il-alert--neg { background: var(--negSoft); }
+.il-alert--neg svg { color: var(--negText); }
+.il-alert--warn { background: var(--warnSoft); }
+.il-alert--warn svg { color: var(--warn); }
+.il-alert--ok { background: var(--soft); }
+.il-alert--ok svg { color: var(--greenText); }
+
+/* ---------- Fields ---------- */
+
+.il-form { display: flex; flex-direction: column; gap: 16px; }
+.il-field { display: flex; flex-direction: column; gap: 6px; }
+.il-label { margin: 0; font-size: 14px; font-weight: 600; }
+.il-input[aria-invalid="true"] { border-color: var(--neg); }
+.il-help { font-size: 12px; line-height: 1.45; color: var(--muted); }
+.il-field-error, .il-match-bad, .il-match-ok { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; line-height: 1.4; }
+.il-field-error, .il-match-bad { color: var(--negText); }
+.il-match-ok { color: var(--greenText); }
+.il-field-error svg, .il-match-bad svg, .il-match-ok svg { flex: none; margin-top: 2px; }
+.il-match:empty { display: none; }
+
+.il-pw, .il-fixed { position: relative; }
+.il-pw .input { padding-right: 52px; }
+.il-eye {
+  position: absolute; top: 0; right: 0;
+  width: 44px; height: 44px;
+  border: none; border-radius: var(--r-control);
+  background: transparent; color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+}
+.il-eye[aria-pressed="true"] { color: var(--greenText); }
+.il-fixed .input { padding-right: 44px; background: var(--bg); border-color: var(--line); }
+.il-fixed-icon { position: absolute; top: 14px; right: 14px; display: flex; color: var(--muted); pointer-events: none; }
+
+/* Password rules */
+.il-rules { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.il-rules li { display: flex; align-items: flex-start; gap: 8px; }
+.il-rule-dot {
+  width: 16px; height: 16px; margin-top: 1px; flex: none;
+  border-radius: 50%;
+  border: 1.5px solid var(--lineStrong);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.il-rules li.is-ok { color: var(--text); }
+.il-rules .is-ok .il-rule-dot { background: var(--green); border-color: var(--green); color: var(--onGreen); }
+.il-rules li.is-bad { color: var(--negText); }
+.il-rules .is-bad .il-rule-dot { background: var(--neg); border-color: var(--neg); color: var(--onNeg); }
+
+/* ---------- Buttons ---------- */
+
+.il-submit, .il-btn { height: 48px; border-radius: 14px; text-decoration: none; }
+.il-submit:disabled, .il-btn:disabled { opacity: 0.5; }
+.il-btn { gap: 10px; }
+.il-spin { display: flex; animation: sSpin 0.9s linear infinite; }
+
+.il-or { display: flex; align-items: center; gap: 12px; margin: -2px 0; font-size: 13px; color: var(--muted); }
+.il-or::before, .il-or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+
+.il-hint { font-size: 13px; line-height: 1.5; color: var(--muted); text-align: center; text-wrap: balance; }
+
+.il-link {
+  min-height: 44px; padding: 0 4px;
+  border: none; background: none;
+  font-size: 14px; font-weight: 600; color: var(--greenText);
+}
+.il-link:disabled { color: var(--muted); }
+
+.il-back {
+  align-self: center;
+  min-height: 44px; padding: 0 12px; margin: -8px 0 -10px;
+  border: none; border-radius: var(--r-control); background: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 600; color: var(--greenText);
+}
+
+/* ---------- Code: 8 boxes in two groups of 4 ---------- */
+
+.il-code { display: flex; align-items: center; gap: 6px; }
+.il-digit {
+  flex: 1 1 0; min-width: 0; max-width: 48px;
+  height: 56px; padding: 0;
+  border-radius: var(--r-control);
+  border: 1px solid var(--lineStrong);
+  background: var(--surface); color: var(--text);
+  font-family: var(--mono); font-size: 24px; font-weight: 600; text-align: center;
+  caret-color: var(--green);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.il-digit:focus { outline: 2px solid var(--green); outline-offset: 0; border-color: var(--green); }
+.il-digit:disabled { background: var(--bg); color: var(--muted); border-color: var(--line); }
+.il-code.is-error .il-digit { border-color: var(--neg); }
+.il-code-gap { flex: 0 0 12px; display: flex; justify-content: center; }
+.il-code-gap::before { content: ""; width: 8px; border-top: 2px solid var(--lineStrong); }
+@media (min-width: 1024px) {
+  .il-code { justify-content: center; gap: 8px; }
+  .il-digit { height: 60px; font-size: 26px; }
+  .il-code-gap { flex-basis: 16px; }
+}
+
+.il-resend {
+  display: flex; flex-direction: column; align-items: center;
+  margin: -6px 0 -8px;
+  font-size: 13px; line-height: 1.45; color: var(--muted); text-align: center;
+}
+.il-resend > span:last-child:not(:first-child) { min-height: 44px; display: flex; align-items: center; gap: 4px; }
+
+.il-trust { display: flex; gap: 12px; padding: 14px; border-radius: 14px; background: var(--bg); }
+.il-trust-icon {
+  width: 36px; height: 36px; flex: none;
+  border-radius: 50%;
+  background: var(--soft); color: var(--greenText);
+  display: flex; align-items: center; justify-content: center;
+}
+.il-trust-text { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.il-trust-text strong { font-size: 14px; font-weight: 600; color: var(--text); }
+
+/* ---------- Invitation, expired link, pause ---------- */
+
+.il-from { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--bg); }
+.il-from-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; color: var(--muted); }
+.il-from-text strong { font-size: 15px; font-weight: 600; color: var(--text); }
+
+.il-todo { list-style: none; margin: 0; padding: 0 14px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; }
+.il-todo li { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; font-size: 14px; line-height: 1.45; }
+.il-todo li + li { border-top: 1px solid var(--line); }
+.il-todo-n {
+  width: 24px; height: 24px; flex: none;
+  border-radius: 50%;
+  background: var(--soft); color: var(--greenText);
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.il-wait {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 16px; border-radius: 14px;
+  background: var(--bg);
+  font-size: 13px; color: var(--muted);
+}
+.il-wait-time { font-size: 30px; font-weight: 600; color: var(--text); }
+
+.il-done { display: flex; flex-direction: column; gap: 20px; }
+
+/* ---------- Footer and mockup links ---------- */
+
+.il-foot { font-size: 12px; color: var(--muted); text-align: center; }
+
+.il-mock { border: 1px dashed var(--dashed); border-radius: 14px; padding: 0 14px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.il-mock summary { min-height: 44px; display: flex; align-items: center; font-weight: 600; cursor: pointer; }
+.il-mock p { padding-bottom: 10px; }
+.il-mock-links { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 14px; }
+.il-mock-links a {
+  height: 30px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface); color: var(--text);
+  display: inline-flex; align-items: center;
+  font-size: 12px; text-decoration: none;
+}
+.il-mock-links a[aria-current="page"] { background: var(--soft); border-color: var(--green); color: var(--greenText); font-weight: 600; }

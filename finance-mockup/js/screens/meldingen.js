@@ -1,6 +1,6 @@
 // Meldingen: channels, per-type push/e-mail, look-ahead, quiet hours, test notification.
-// Design board: Telefoon-Meldingen. Spec: analysis/screens/meldingen.md, concepts/notification.md.
-// Desktop is not designed: channels and general settings left, the types right.
+// Design board: Telefoon-Meldingen; the Beveiliging group is derived. Spec: analysis/screens/meldingen.md,
+// concepts/notification.md. Desktop is not designed: channels and general settings left, the types right.
 (function (S) {
   'use strict';
 
@@ -21,7 +21,10 @@
       ['joined', 'Iemand sluit aan', 'Bij een gedeelde rekening waar jij beheerder bent', 'var(--shared)'],
       ['contrib', 'Bijdrage ontbreekt', 'Als een bijdrage op de 3e nog niet binnen is', 'var(--shared)']] },
     { id: 'transacties', title: 'Transacties', rows: [
-      ['cat', 'Te categoriseren', 'Eén keer per dag om 19:00, als er iets is', 'var(--green)']] }
+      ['cat', 'Te categoriseren', 'Eén keer per dag om 19:00, als er iets is', 'var(--green)']] },
+    // The e-mail about a new device is always sent (decision 3 Nov 2026): its e-mail chip is locked.
+    { id: 'beveiliging', title: 'Beveiliging', rows: [
+      ['toestel', 'Nieuw toestel aangemeld', 'Als iemand inlogt op een nieuw toestel', 'var(--green)', { mailLocked: true }]] }
   ];
   const LOOK = [1, 3, 6];
 
@@ -29,7 +32,7 @@
   const DEFAULTS = {
     ch: { push: true, mail: true },
     pref: { rood: { p: true, m: true }, buffer: { p: true, m: false }, consent: { p: true, m: true }, stop: { p: true, m: true },
-      joined: { p: true, m: true }, contrib: { p: false, m: false }, cat: { p: true, m: false } },
+      joined: { p: true, m: true }, contrib: { p: false, m: false }, cat: { p: true, m: false }, toestel: { p: true, m: true } },
     look: 3,
     quiet: true
   };
@@ -86,6 +89,13 @@
       icon(k === 'p' ? 'phone' : 'mail', 18, 2.2) + '</button>';
   }
 
+  // E-mail that cannot be turned off: always on, also when the e-mail channel is off. Focusable, so the
+  // reason can be read and a tap explains it.
+  function lockedChip(id, name) {
+    return '<button type="button" class="ml-chip ml-chip--locked" aria-disabled="true" aria-label="' + esc(name + ' per e-mail: altijd aan, kan je niet uitzetten') + '"' +
+      ' data-action="locked" data-key="pref-' + id + '-m">' + icon('lock', 16, 2.2) + '</button>';
+  }
+
   function lookAhead() {
     return '<div class="ml-look">' +
       '<span class="ml-look-title">Hoe ver vooruit kijken</span>' +
@@ -105,7 +115,7 @@
           g.rows.map((r) => '<div class="ml-type">' +
             '<span class="ml-dot" style="background:' + r[3] + '"></span>' +
             '<span class="ml-type-text"><span class="ml-type-name">' + esc(r[1]) + '</span><span class="ml-type-sub">' + esc(r[2]) + '</span></span>' +
-            chip(r[0], r[1], 'p') + chip(r[0], r[1], 'm') +
+            chip(r[0], r[1], 'p') + (r[4] && r[4].mailLocked ? lockedChip(r[0], r[1]) : chip(r[0], r[1], 'm')) +
           '</div>').join('') +
           (g.look ? lookAhead() : '') +
         '</div>' +
@@ -128,7 +138,7 @@
         channels() +
         groups() +
         quiet() +
-        '<p class="ml-always' + anim('anim-in', 200) + '">Inlogcodes, uitnodigingen en wachtwoordlinks komen altijd per e-mail. Die kan je niet uitzetten.</p>' +
+        '<p class="ml-always' + anim('anim-in', 200) + '">' + icon('lock', 14, 2.2) + '<span>Inlogcodes, uitnodigingen, wachtwoordlinks en meldingen over nieuwe toestellen komen altijd per e-mail. Die kan je niet uitzetten.</span></p>' +
         '<button type="button" class="btn btn--dashed btn--block ml-test' + anim('anim-in', 220) + '" data-action="test" data-key="test">Stuur een testmelding</button>' +
       '</div>';
     painted = true;
@@ -153,6 +163,7 @@
     else if (act === 'ch-mail') st.ch.mail = !st.ch.mail;
     else if (act === 'quiet') st.quiet = !st.quiet;
     else if (act === 'pref') st.pref[el.dataset.id][el.dataset.k] = !st.pref[el.dataset.id][el.dataset.k];
+    else if (act === 'locked') { S.shell.toast('Deze e-mail kan je niet uitzetten'); return; }
     else if (act === 'look') st.look = Number(el.dataset.n);
     else if (act === 'test') {
       S.shell.toast(st.ch.push ? 'Testmelding verstuurd naar dit toestel' : 'Pushmeldingen staan uit');

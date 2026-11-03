@@ -50,20 +50,25 @@
 
   function paint() {
     const u = D.user;
+    const st = D.connectionState();
+    const empty = D.demo() === 'leeg';
+    const bankSub = empty ? 'Nog geen bank gekoppeld'
+      : (st === 'neg' ? 'Argenta · synchronisatie mislukt' : D.consent.bank + ' · toestemming nog ' + D.consent.daysLeft + ' dagen');
     const geld = [
-      { href: 'rekeningen.html', icon: 'card', tile: 'var(--soft)', ink: 'var(--greenText)', name: 'Rekeningen', sub: D.accounts.length + ' rekeningen · buffer en kleur' },
-      { href: '#', icon: 'link', tile: 'var(--c1)', name: 'Bankkoppelingen', sub: D.consent.bank + ' · toestemming nog ' + D.consent.daysLeft + ' dagen', tone: 'mr-row-sub--warn' },
-      { href: '#', icon: 'tag', tile: 'var(--c3)', name: 'Categorieën en regels', sub: D.suggestions + ' suggesties om te bevestigen' },
-      { href: '#', icon: 'upload', tile: 'var(--c4)', name: 'Importeren', sub: 'CSV-bestand, bv. de export uit Bilance' }
+      { href: 'rekeningen.html', icon: 'card', tile: 'var(--soft)', ink: 'var(--greenText)', name: 'Rekeningen', sub: empty ? 'Nog geen rekeningen' : D.accounts.length + ' rekeningen · buffer en kleur' },
+      { href: 'bankkoppelingen.html', icon: 'link', tile: 'var(--c1)', name: 'Bankkoppelingen', sub: bankSub, tone: st === 'neg' ? 'mr-row-sub--neg' : (st === 'warn' ? 'mr-row-sub--warn' : '') },
+      { href: 'categorieen.html', icon: 'tag', tile: 'var(--c3)', name: 'Categorieën en regels', sub: D.suggestions + ' suggesties om te bevestigen' },
+      { href: 'importeren.html', icon: 'upload', tile: 'var(--c4)', name: 'Importeren', sub: 'CSV-bestand, bv. de export uit Bilance' }
     ];
     const app = [
-      { href: '#', icon: 'sliders', tile: 'var(--c6)', ink: 'var(--text)', name: 'Instellingen', sub: 'Enable Banking, gebruikers, taal' },
+      { href: 'instellingen.html', icon: 'sliders', tile: 'var(--c6)', ink: 'var(--text)', name: 'Instellingen', sub: 'Profiel, toestellen, Enable Banking, gebruikers' },
       { href: 'meldingen.html', icon: 'bell', tile: 'var(--c5)', name: 'Meldingen', sub: 'Push en e-mail, per soort' }
     ];
+    const demos = S.shell.DEMOS;
 
     page.innerHTML =
       '<div class="mr-head' + anim('anim-fade', 0) + '"><h1>Meer</h1></div>' +
-      '<a class="mr-profile' + anim('anim-in', 30) + '" href="#">' +
+      '<a class="mr-profile' + anim('anim-in', 30) + '" href="instellingen.html#profiel">' +
         '<span class="avatar mr-profile-avatar" style="background:' + u.tint + '">' + esc(u.initial) + '</span>' +
         '<span class="mr-profile-main"><span class="mr-profile-name">' + esc(u.name) + '</span><span class="mr-row-sub">Profiel, wachtwoord, taal</span></span>' +
         '<span class="mr-role">' + esc(u.role) + '</span>' +
@@ -72,7 +77,14 @@
         '<div class="mr-list">' + geld.map(row).join('') + '</div></section>' +
       '<section class="mr-section' + anim('anim-in', 90) + '" aria-labelledby="mr-app"><h2 class="label mr-section-title" id="mr-app">App</h2>' +
         '<div class="mr-list">' + app.map(row).join('') + themeRow() + '</div></section>' +
-      '<button type="button" class="btn btn--danger btn--block' + anim('anim-in', 120) + '" data-action="logout">Afmelden</button>';
+      '<a class="btn btn--danger btn--block' + anim('anim-in', 120) + '" href="inloggen.html" data-action="logout">Afmelden</a>' +
+      // Mockup only: pick a demo state to see the empty, stale, error, read-only and offline designs.
+      '<section class="mr-section mr-demo' + anim('anim-in', 150) + '" aria-labelledby="mr-demo"><h2 class="label mr-section-title" id="mr-demo">Mockup · toestand</h2>' +
+        '<div class="mr-demo-pick" role="group" aria-labelledby="mr-demo">' +
+          demos.map((d) => '<button type="button" aria-pressed="' + (d.id === D.demo()) + '" data-action="demo" data-demo="' + d.id + '">' + esc(d.label) + '</button>').join('') +
+        '</div>' +
+        '<p class="mr-demo-note">Alleen in de mockup. Kies een toestand en open daarna een scherm.</p>' +
+      '</section>';
     painted = true;
   }
 
@@ -89,9 +101,10 @@
       S.shell.setTheme(t.id);
       page.querySelectorAll('[data-action="theme"]').forEach((b) => b.setAttribute('aria-pressed', b === el));
       page.querySelector('[data-theme-sub]').textContent = t.sub;
-    } else if (act === 'logout') {
-      // Sign-in is designed in 0.1-6 (analysis/screens/inloggen.md)
-      S.shell.toast('Afmelden werkt nog niet in de mockup');
+    } else if (act === 'demo') {
+      S.shell.setDemo(el.dataset.demo);
+      // Reload so the shell (sidebar dot, badge, offline banner) follows the new state.
+      location.reload();
     }
   }
 

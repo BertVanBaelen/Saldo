@@ -1,6 +1,6 @@
 # Overzicht
 
-Analysis: 12 (screen 4), 4.4 · Design: Telefoon-Overzicht, Desktop-Overzicht · Mockup: `finance-mockup/overzicht.html` · Concepts: [period-overview](../concepts/period-overview.md), [category](../concepts/category.md), [internal-transfer](../concepts/internal-transfer.md), [account-group](../concepts/account-group.md) · Phases: [0.1-2](../../plan/v0.1-mockup/02-transacties-and-overzicht.md), [0.6-2](../../plan/v0.6-overview/02-overzicht-screen.md)
+Analysis: 12 (screen 4), 4.4 · Design: Telefoon-Overzicht, Desktop-Overzicht · Mockup: `finance-mockup/overzicht.html` · Concepts: [period-overview](../concepts/period-overview.md), [category](../concepts/category.md), [internal-transfer](../concepts/internal-transfer.md), [scope](../concepts/scope.md) · Phases: [0.1-2](../../plan/v0.1-mockup/02-transacties-and-overzicht.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.7-2](../../plan/v0.7-overview/02-overzicht-screen.md)
 
 ## Content
 - Period picker (month, quarter, year, custom).

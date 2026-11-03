@@ -1,6 +1,6 @@
 # Instellingen
 
-Analysis: 6.2 (setup), 7, 12 (screen 10) · Design: to design · Concepts: [user-and-visibility](../concepts/user-and-visibility.md), [authentication](../concepts/authentication.md), [bank-connection](../concepts/bank-connection.md) · Phases: [0.1-6](../../plan/v0.1-mockup/06-missing-designs.md), [0.2-4](../../plan/v0.2-foundation/04-sign-in-users-mail.md), [0.3-1](../../plan/v0.3-bank-sync/01-provider-adapter.md), [1.0-1](../../plan/v1.0-release/01-export.md)
+Analysis: 6.2 (setup), 7, 12 (screen 10) · Design: to design · Concepts: [user-and-visibility](../concepts/user-and-visibility.md), [authentication](../concepts/authentication.md), [bank-connection](../concepts/bank-connection.md) · Phases: [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.2-4](../../plan/v0.2-foundation/04-sign-in-users-mail.md), [0.2-6](../../plan/v0.2-foundation/06-first-bank-link.md), [1.0-1](../../plan/v1.0-release/01-export.md)
 
 ## Content to design
 - Profile, password, language. Weergave (light, dark, follow system).

@@ -1,25 +1,39 @@
-// App shell: sidebar (desktop), tab bar (phone), scope switch, theme, toast and sync progress.
-// A page sets <body data-screen="start"> and registers Saldo.screens.start = { render(main) }.
-// See analysis/concepts/app-shell.md.
+// App shell: sidebar (desktop), tab bar (phone), scope switch, theme, toast, sync progress and the
+// mockup-only demo state. A page sets <body data-screen="start"> and registers
+// Saldo.screens.start = { render(page, state) }. A page with <body data-shell="none"> (sign-in) gets no
+// sidebar or tab bar. See analysis/concepts/app-shell.md.
 (function (S) {
   'use strict';
 
   const { icon, logo } = S.icons;
   const esc = S.fmt.esc;
 
-  // Main destinations. `tab` = shown in the phone tab bar, `side` = sidebar group.
+  // Main destinations. `tab` = shown in the phone tab bar, `side` = sidebar group,
+  // `tabParent` / `sideParent` = the item marked current for a sub page.
+  // Meldingen sits in the Beheer group on desktop (decision 3 Nov 2026).
   const NAV = [
     { id: 'start', label: 'Start', href: 'index.html', icon: 'home', tab: true, side: 'main' },
-    { id: 'transacties', label: 'Transacties', href: 'transacties.html', icon: 'list', tab: true, side: 'main', badge: () => S.data.toCategorise },
+    { id: 'transacties', label: 'Transacties', href: 'transacties.html', icon: 'list', tab: true, side: 'main', badge: () => (S.shell.state.demo === 'leeg' ? 0 : S.data.toCategorise) },
     { id: 'overzicht', label: 'Overzicht', href: 'overzicht.html', icon: 'chart', tab: true, side: 'main' },
     { id: 'planning', label: 'Planning', href: 'planning.html', icon: 'calendar', tab: true, side: 'main' },
     { id: 'meer', label: 'Meer', href: 'meer.html', icon: 'more', tab: true, stroke: 3 },
     { id: 'rekeningen', label: 'Rekeningen', href: 'rekeningen.html', icon: 'card', side: 'beheer', tabParent: 'meer' },
-    { id: 'bankkoppelingen', label: 'Bankkoppelingen', href: '#', icon: 'link', side: 'beheer', dot: true },
-    { id: 'categorieen', label: 'Categorieën', href: '#', icon: 'tag', side: 'beheer' },
-    { id: 'importeren', label: 'Importeren', href: '#', icon: 'upload', side: 'beheer' },
-    { id: 'instellingen', label: 'Instellingen', href: '#', icon: 'sliders', side: 'beheer' },
-    { id: 'meldingen', label: 'Meldingen', href: 'meldingen.html', icon: 'bell', tabParent: 'meer', sideParent: 'meer' }
+    { id: 'rekening', label: 'Rekening', href: 'rekening.html', icon: 'card', tabParent: 'meer', sideParent: 'rekeningen' },
+    { id: 'bankkoppelingen', label: 'Bankkoppelingen', href: 'bankkoppelingen.html', icon: 'link', side: 'beheer', tabParent: 'meer', dot: () => S.data.connectionState() },
+    { id: 'categorieen', label: 'Categorieën', href: 'categorieen.html', icon: 'tag', side: 'beheer', tabParent: 'meer' },
+    { id: 'importeren', label: 'Importeren', href: 'importeren.html', icon: 'upload', side: 'beheer', tabParent: 'meer' },
+    { id: 'meldingen', label: 'Meldingen', href: 'meldingen.html', icon: 'bell', side: 'beheer', tabParent: 'meer' },
+    { id: 'instellingen', label: 'Instellingen', href: 'instellingen.html', icon: 'sliders', side: 'beheer', tabParent: 'meer' }
+  ];
+
+  // Mockup-only demo states, picked under Meer → Mockup (analysis/concepts/demo-data.md#demo-states).
+  const DEMOS = [
+    { id: 'normaal', label: 'Normaal' },
+    { id: 'leeg', label: 'Nog geen rekeningen' },
+    { id: 'verouderd', label: 'Sync verouderd' },
+    { id: 'fout', label: 'Sync mislukt' },
+    { id: 'lezen', label: 'Alleen lezen (gedeeld)' },
+    { id: 'offline', label: 'Offline' }
   ];
 
   const store = {
@@ -34,7 +48,8 @@
   const state = {
     screen: null,
     scope: store.get('scope', 'alles'),
-    theme: store.get('theme', 'system')
+    theme: store.get('theme', 'system'),
+    demo: store.get('demo', 'normaal')
   };
 
   function navItem(id) { return NAV.find((n) => n.id === id); }
@@ -43,11 +58,14 @@
     const active = state.screen;
     const link = (n) => {
       const cur = n.id === active || (navItem(active) || {}).sideParent === n.id;
-      const extra = n.badge ? '<span class="side-badge">' + esc(n.badge()) + '</span>' : (n.dot ? '<span class="side-dot" aria-label="Let op"></span>' : '');
+      const badge = n.badge ? n.badge() : 0;
+      const dot = n.dot ? n.dot() : '';
+      const extra = badge ? '<span class="side-badge">' + esc(badge) + '</span>'
+        : (dot ? '<span class="side-dot' + (dot === 'neg' ? ' side-dot--neg' : '') + '" aria-label="' + (dot === 'neg' ? 'Probleem' : 'Let op') + '"></span>' : '');
       return '<a class="side-link" href="' + n.href + '"' + (cur ? ' aria-current="page"' : '') + '>' + icon(n.icon, 20) + esc(n.label) + extra + '</a>';
     };
     const u = S.data.user;
-    const userCur = active === 'meer' || active === 'meldingen';
+    const userCur = active === 'meer';
     return '<a class="side-logo" href="index.html">' + logo(32) + 'Saldo</a>' +
       '<nav class="side-nav" aria-label="Hoofdmenu">' + NAV.filter((n) => n.side === 'main').map(link).join('') + '</nav>' +
       '<div class="side-group"><span class="side-group-label">Beheer</span>' + NAV.filter((n) => n.side === 'beheer').map(link).join('') + '</div>' +
@@ -66,7 +84,7 @@
     ).join('');
   }
 
-  // ---------- Scope switch (analysis/concepts/account-group.md) ----------
+  // ---------- Scope switch (analysis/concepts/scope.md) ----------
 
   const SCOPES = [
     { id: 'alles', label: 'Alles', icon: 'grid' },
@@ -95,6 +113,20 @@
     store.set('theme', theme);
     if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
+  }
+
+  // ---------- Demo state (mockup only) ----------
+
+  function setDemo(demo) {
+    state.demo = demo;
+    store.set('demo', demo);
+  }
+
+  // Banner shown on every shell page while the demo state is "offline".
+  function offlineBanner() {
+    return state.demo === 'offline'
+      ? '<div class="offline-banner" role="status">' + icon('cloudOff', 16, 2.2) + '<span><strong>Je bent offline.</strong> Je ziet de gegevens van vandaag 08:12. Wijzigen kan weer zodra je verbinding hebt.</span></div>'
+      : '';
   }
 
   // ---------- Feedback ----------
@@ -129,12 +161,21 @@
 
   function init() {
     state.screen = document.body.dataset.screen;
+    // Mockup only: ?demo=<state> and ?scope=<scope> in the URL set the demo state and scope (deep links, screenshots).
+    const q = new URLSearchParams(location.search);
+    if (DEMOS.some((d) => d.id === q.get('demo'))) setDemo(q.get('demo'));
+    if (SCOPES.some((s) => s.id === q.get('scope'))) { state.scope = q.get('scope'); store.set('scope', state.scope); }
     setTheme(state.theme);
     const app = document.getElementById('app');
-    app.innerHTML =
-      '<aside class="sidebar">' + renderSidebar() + '</aside>' +
-      '<main class="main" id="main"><div class="page" id="page"></div></main>' +
-      '<nav class="tabbar" aria-label="Hoofdmenu">' + renderTabbar() + '</nav>';
+    if (document.body.dataset.shell === 'none') {
+      app.classList.add('app--bare');
+      app.innerHTML = '<main class="main main--bare" id="main"><div class="page" id="page"></div></main>';
+    } else {
+      app.innerHTML =
+        '<aside class="sidebar">' + renderSidebar() + '</aside>' +
+        '<main class="main" id="main">' + offlineBanner() + '<div class="page" id="page"></div></main>' +
+        '<nav class="tabbar" aria-label="Hoofdmenu">' + renderTabbar() + '</nav>';
+    }
 
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('.scope-btn');
@@ -147,7 +188,7 @@
   }
 
   S.screens = S.screens || {};
-  S.shell = { state, store, scopeSwitch, setScope, setTheme, toast, progress, rerender, NAV };
+  S.shell = { state, store, scopeSwitch, setScope, setTheme, setDemo, toast, progress, rerender, NAV, DEMOS };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

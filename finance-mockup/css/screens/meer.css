@@ -57,6 +57,7 @@
 .mr-row-name { font-size: 15px; font-weight: 500; }
 .mr-row-sub { font-size: 13px; color: var(--muted); }
 .mr-row-sub--warn { color: var(--warn); font-weight: 500; }
+.mr-row-sub--neg { color: var(--negText); font-weight: 500; }
 .mr-chev { display: flex; color: var(--muted); transition: transform 200ms ease; }
 .mr-row[aria-expanded="true"] .mr-chev { transform: rotate(90deg); }
 
@@ -84,3 +85,16 @@
 @media (min-width: 1024px) {
   .mr-row:hover .mr-row-name { color: var(--greenText); }
 }
+
+/* Mockup only: demo state picker */
+.mr-demo { padding-top: 8px; border-top: 1px dashed var(--lineStrong); }
+.mr-demo-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.mr-demo-pick button {
+  height: 34px; padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px dashed var(--dashed);
+  background: transparent; color: var(--text);
+  font-size: 13px; font-weight: 500;
+}
+.mr-demo-pick button[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600; }
+.mr-demo-note { margin: 0 4px; font-size: 12px; color: var(--muted); }

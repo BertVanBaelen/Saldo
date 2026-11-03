@@ -1,6 +1,6 @@
 # E-mails
 
-Analysis: 4.9 ("Email style"), 12 (screen 13) · Design: E-mail-Berichten · Mockup: `finance-mockup/berichten.html` · Concepts: [notification](../concepts/notification.md), [buffer-and-states](../concepts/buffer-and-states.md), [authentication](../concepts/authentication.md), [account](../concepts/account.md) · Phases: [0.1-5](../../plan/v0.1-mockup/05-emails-and-push.md), [0.2-4](../../plan/v0.2-foundation/04-sign-in-users-mail.md), [0.3-4](../../plan/v0.3-bank-sync/04-consent-reminders.md), [0.8-1](../../plan/v0.8-notifications/01-email-templates.md)
+Analysis: 4.9 ("Email style"), 12 (screen 13) · Design: E-mail-Berichten · Mockup: `finance-mockup/berichten.html` · Concepts: [notification](../concepts/notification.md), [buffer-and-states](../concepts/buffer-and-states.md), [authentication](../concepts/authentication.md), [account](../concepts/account.md) · Phases: [0.1-5](../../plan/v0.1-mockup/05-emails-and-push.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.2-4](../../plan/v0.2-foundation/04-sign-in-users-mail.md), [0.3-2](../../plan/v0.3-bank-sync/02-consent-reminders.md), [0.9-1](../../plan/v0.9-notifications/01-email-templates.md)
 
 ## Templates (9)
 Login code · Planning red · Planning in the buffer · Link expires in 14 days · Link expires in 3 days · Sync stopped · Invitation · Member joined · New password.

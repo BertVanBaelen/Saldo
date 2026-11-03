@@ -152,6 +152,23 @@ h1, h2, h3, p { margin: 0; }
   display: flex; align-items: center; justify-content: center;
 }
 .side-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+.side-dot--neg { background: var(--neg); }
+
+/* Offline banner (demo state "offline", analysis/concepts/app-shell.md) */
+.offline-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 20px;
+  background: var(--warnSoft); color: var(--text);
+  border-bottom: 1px solid var(--warnChip);
+  font-size: 13px; line-height: 1.4;
+}
+.offline-banner svg { flex: none; margin-top: 1px; color: var(--warn); }
+@media (min-width: 1024px) { .offline-banner { padding: 10px 32px; } }
+
+/* Bare pages without sidebar or tab bar (sign-in) */
+.app--bare { display: block; }
+.main--bare .page { max-width: 440px; padding: 40px 20px 32px; }
+@media (min-width: 1024px) { .main--bare .page { padding: 72px 20px 40px; } }
 .side-user {
   margin-top: auto;
   display: flex; align-items: center; gap: 10px;
@@ -274,7 +291,7 @@ h1, h2, h3, p { margin: 0; }
 .switch[aria-checked="true"] { background: var(--green); }
 .switch[aria-checked="true"]::after { left: 24px; background: var(--onGreen); }
 
-/* Segmented scope switch: Alles · Persoonlijk · Gedeeld (analysis/concepts/account-group.md) */
+/* Segmented scope switch: Alles · Persoonlijk · Gedeeld (analysis/concepts/scope.md) */
 .scope {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

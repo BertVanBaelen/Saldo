@@ -1,6 +1,6 @@
 # Import batch (CSV, Bilance)
 
-Analysis: 4.1 (CSV fallback), 4.6, risks 1, 10, 11 · Data: `import_batch`, `category_mapping` · Screens: [importeren](../screens/importeren.md) · Phases: [0.1-6](../../plan/v0.1-mockup/06-missing-designs.md), [0.2-2](../../plan/v0.2-foundation/02-spike-bilance-csv.md), [0.3-5](../../plan/v0.3-bank-sync/05-csv-import.md), [0.9-1](../../plan/v0.9-bilance-import/01-import-wizard.md), [0.9-2](../../plan/v0.9-bilance-import/02-category-mapping.md), [0.9-3](../../plan/v0.9-bilance-import/03-overlap-and-duplicates.md), [0.9-4](../../plan/v0.9-bilance-import/04-batches-and-undo.md), [0.9-5](../../plan/v0.9-bilance-import/05-learning-and-backfill.md)
+Analysis: 4.1 (CSV fallback), 4.6, risks 1, 10, 11 · Data: `import_batch`, `category_mapping` · Screens: [importeren](../screens/importeren.md) · Phases: [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.3-6](../../plan/v0.3-bank-sync/06-csv-import.md), [0.5-1](../../plan/v0.5-bilance-import/01-spike-bilance-csv.md), [0.5-2](../../plan/v0.5-bilance-import/02-import-wizard.md), [0.5-3](../../plan/v0.5-bilance-import/03-category-mapping.md), [0.5-4](../../plan/v0.5-bilance-import/04-overlap-and-duplicates.md), [0.5-5](../../plan/v0.5-bilance-import/05-batches-and-undo.md), [0.5-6](../../plan/v0.5-bilance-import/06-learning-and-backfill.md)
 
 ## Wizard steps
 1. Pick the file (CSV; Bilance export uses a saved "Bilance" preset).
@@ -13,7 +13,8 @@ Analysis: 4.1 (CSV fallback), 4.6, risks 1, 10, 11 · Data: `import_batch`, `cat
 - Every import is a **batch** that can be undone as a whole. Re-importing the same file creates no duplicates (dedupe key, file hash).
 - Mappings are saved per source and reused; changing a mapping can be re-applied to that import.
 - Mapped imported categories feed the learning ([categorisation-rule](categorisation-rule.md)).
-- Bilance CSV layout is unverified **[verify]** (spike S2, phase 0.2-2).
+- Bilance CSV layout is unverified **[verify]** (spike S2, the first phase of the Bilance import version).
+- The full Bilance import comes **before planning** (decision 3 Nov 2026), so the forecast can find quarterly and yearly items in 12+ months of history.
 
 ## In the design
-Not designed yet. Meer row: "Importeren · CSV-bestand, bv. de export uit Bilance" with an upload icon on `--c4`.
+Designed in the mockup (`importeren.html`, see [importeren](../screens/importeren.md)): wizard with five steps and the import history with undo. Meer row: "Importeren · CSV-bestand, bv. de export uit Bilance" with an upload icon on `--c4`.

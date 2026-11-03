@@ -12,14 +12,14 @@ Status: later. Analysis: 1 (scope v2), 3. Roadmap: [../README.md](../README.md).
 | INV-3 | Price lookups by ISIN [C] |
 
 ## Phases
-| Phase | Title | Features | Status |
-|---|---|---|---|
-| [2.0-1](01-investment-accounts.md) | Investment accounts | INV-1 | later |
-| [2.0-2](02-net-worth.md) | Net worth | INV-2 | later |
-| [2.0-3](03-price-lookups.md) | Price lookups | INV-3 | later |
+| Phase | Title | Size | Features | Status |
+|---|---|---|---|---|
+| [2.0-1](01-investment-accounts.md) | Investment accounts | M | INV-1 | later |
+| [2.0-2](02-net-worth.md) | Net worth | S | INV-2 | later |
+| [2.0-3](03-price-lookups.md) | Price lookups | M | INV-3 | later |
 
 ## Concepts
-account (type investment). A new concept file `investment.md` is written when this version starts.
+account (type investment), scope (sums as information). A new concept file `investment.md` is written when this version starts.
 
 ## Exit criteria
 Net worth per platform is visible.

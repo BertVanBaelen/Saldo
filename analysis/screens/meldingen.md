@@ -1,6 +1,6 @@
 # Meldingen (notification settings)
 
-Analysis: 12 (screen 11), 4.9 · Design: Telefoon-Meldingen (desktop derived) · Mockup: `finance-mockup/meldingen.html` · Concepts: [notification](../concepts/notification.md) · Phases: [0.1-4](../../plan/v0.1-mockup/04-rekeningen-meer-meldingen.md), [0.8-4](../../plan/v0.8-notifications/04-meldingen-screen.md)
+Analysis: 12 (screen 11), 4.9 · Design: Telefoon-Meldingen (desktop derived) · Mockup: `finance-mockup/meldingen.html` · Concepts: [notification](../concepts/notification.md) · Phases: [0.1-4](../../plan/v0.1-mockup/04-rekeningen-meer-meldingen.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.9-4](../../plan/v0.9-notifications/04-meldingen-screen.md)
 
 ## Layout (phone, < 1024 px)
 - Back chevron (22, stroke 2.4) to Meer, title "Meldingen" 26/600. Page gap 14.

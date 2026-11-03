@@ -1,9 +1,9 @@
 # Category
 
-Analysis: 4.2, 4.4, 4.6 · Data: `category`, `category_mapping` · Screens: [transacties](../screens/transacties.md), [overzicht](../screens/overzicht.md), [categorieen](../screens/categorieen.md), [importeren](../screens/importeren.md) · Phases: [0.1-1](../../plan/v0.1-mockup/01-foundation-and-start.md), [0.1-2](../../plan/v0.1-mockup/02-transacties-and-overzicht.md), [0.1-6](../../plan/v0.1-mockup/06-missing-designs.md), [0.2-2](../../plan/v0.2-foundation/02-spike-bilance-csv.md), [0.4-1](../../plan/v0.4-categorisation/01-category-tree.md), [0.4-3](../../plan/v0.4-categorisation/03-categorise-in-transacties.md), [0.4-4](../../plan/v0.4-categorisation/04-categories-and-rules-screen.md), [0.6-1](../../plan/v0.6-overview/01-reports-api.md), [0.6-2](../../plan/v0.6-overview/02-overzicht-screen.md), [0.6-3](../../plan/v0.6-overview/03-start-live.md), [0.9-2](../../plan/v0.9-bilance-import/02-category-mapping.md), [0.9-5](../../plan/v0.9-bilance-import/05-learning-and-backfill.md)
+Analysis: 4.2, 4.4, 4.6 · Data: `category`, `category_mapping` · Screens: [transacties](../screens/transacties.md), [overzicht](../screens/overzicht.md), [categorieen](../screens/categorieen.md), [importeren](../screens/importeren.md) · Phases: [0.1-1](../../plan/v0.1-mockup/01-foundation-and-start.md), [0.1-2](../../plan/v0.1-mockup/02-transacties-and-overzicht.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.4-1](../../plan/v0.4-categorisation/01-category-tree.md), [0.4-3](../../plan/v0.4-categorisation/03-categorise-in-transacties.md), [0.4-4](../../plan/v0.4-categorisation/04-categories-and-rules-screen.md), [0.5-1](../../plan/v0.5-bilance-import/01-spike-bilance-csv.md), [0.5-3](../../plan/v0.5-bilance-import/03-category-mapping.md), [0.5-6](../../plan/v0.5-bilance-import/06-learning-and-backfill.md), [0.7-1](../../plan/v0.7-overview/01-reports-api.md), [0.7-2](../../plan/v0.7-overview/02-overzicht-screen.md), [0.7-3](../../plan/v0.7-overview/03-start-spending.md)
 
 ## Rules
-- One **category tree shared by all users** (names and types only, no amounts). Starts from a Dutch default set, editable.
+- One **category tree shared by all users** (names, types and colours only, no amounts). Starts from a Dutch default set, editable in Categorieën en regels: add, rename, move, recolour, remove (its transactions go to another category or back to uncategorised).
 - Types: income, expense. Internal transfers are not categorised but recognised ([internal-transfer](internal-transfer.md)).
 - Imported (Bilance) categories are mapped onto app categories, saved per source ([import](import.md)).
 
@@ -19,7 +19,7 @@ Each top category has a pastel. Text on a pastel is always `--onPastel`.
 | Abonnementen | `--c5` | #FFE58A | #E8CB55 |
 | Overig | `--c6` | #E2E8E4 | #3A4741 (text `--text`) |
 
-Income (Salaris, Terugbetaling) and "Gespaard" (transfer to savings) use the green soft tint (`--soft` / `--greenText`). The category picker in Transacties offers only the six expense categories above.
+Income (Salaris, Terugbetaling, Bijdrage) and "Gespaard" (transfer to savings) use the green soft tint (`--soft` / `--greenText`). The quick picker in Transacties offers the six expense categories above; the full tree is in the category filter and in Categorieën en regels.
 
 ## In the design
 - Chip: 14/600, padding 7×12, radius 999.

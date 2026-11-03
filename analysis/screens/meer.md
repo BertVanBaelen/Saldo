@@ -1,6 +1,6 @@
 # Meer
 
-Analysis: 12 (screen 12) · Design: Telefoon-Meer (desktop derived) · Mockup: `finance-mockup/meer.html` · Concepts: [app-shell](../concepts/app-shell.md), [user-and-visibility](../concepts/user-and-visibility.md), [bank-connection](../concepts/bank-connection.md) · Phases: [0.1-4](../../plan/v0.1-mockup/04-rekeningen-meer-meldingen.md), [0.1-6](../../plan/v0.1-mockup/06-missing-designs.md), [0.4-4](../../plan/v0.4-categorisation/04-categories-and-rules-screen.md)
+Analysis: 12 (screen 12) · Design: Telefoon-Meer (desktop derived) · Mockup: `finance-mockup/meer.html` · Concepts: [app-shell](../concepts/app-shell.md), [user-and-visibility](../concepts/user-and-visibility.md), [bank-connection](../concepts/bank-connection.md) · Phases: [0.1-4](../../plan/v0.1-mockup/04-rekeningen-meer-meldingen.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.4-4](../../plan/v0.4-categorisation/04-categories-and-rules-screen.md)
 
 ## Layout (phone, < 1024 px)
 - Title "Meer" 26/600 (no back chevron), page gap 16.

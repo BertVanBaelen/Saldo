@@ -1,0 +1,21 @@
+Saldo · Laatste herinnering
+
+Nog 3 dagen, daarna stopt de synchronisatie
+
+Zichtrekening (Persoonlijk · BE68 •••• •••• 4821)
+Gedeelde rekening (Gedeeld met Partner · BE12 •••• •••• 7730)
+
+3 dagen
+Verloopt op 30 november
+
+Daarna ziet Saldo geen nieuwe transacties meer op je zichtrekening en de gedeelde rekening. Partner ziet dan ook geen nieuwe gegevens op de gedeelde rekening.
+
+Nu opnieuw koppelen:
+https://saldo.jouw-domein.be/bankkoppelingen/argenta
+
+Heeft Partner de gedeelde rekening ook gekoppeld? Dan neemt die koppeling het over voor de gedeelde rekening.
+
+-- 
+Je krijgt dit omdat jij deze koppeling hebt gemaakt.
+Meldingen aanpassen: https://saldo.jouw-domein.be/meldingen
+Saldo draait op je eigen Home Assistant.

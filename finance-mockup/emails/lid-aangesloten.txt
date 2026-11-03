@@ -1,0 +1,20 @@
+Saldo · Gedeelde rekening
+
+Partner is erbij
+
+Gedeelde rekening (Gedeeld met Partner · BE12 •••• •••• 7730)
+
+Partner heeft de Gedeelde rekening ook bij Argenta gekoppeld. Jullie zien nu dezelfde transacties en dezelfde planning voor deze rekening.
+
+Rol: Lid · mag bewerken
+Sinds: Di 3 nov, 20:31
+
+Bekijk leden:
+https://saldo.jouw-domein.be/rekeningen/gedeelde-rekening/leden
+
+Partner ziet de geschiedenis van deze rekening, maar niet je persoonlijke rekeningen.
+
+-- 
+Je krijgt dit omdat je beheerder bent van deze rekening.
+Meldingen aanpassen: https://saldo.jouw-domein.be/meldingen
+Saldo draait op je eigen Home Assistant.

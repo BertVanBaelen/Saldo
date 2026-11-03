@@ -1,0 +1,24 @@
+Saldo · Planning · rood
+
+Je zichtrekening staat rood in februari
+
+Zichtrekening (Persoonlijk · BE68 •••• •••• 4821)
+
+−€ 1.033,47
+Verwacht saldo op 28 februari
+
+Volgens je planning zakt je zichtrekening vanaf 10 februari onder nul. De grootste oorzaak is een geplande uitgave.
+
+Grootste uitgave: Autoherstelling −€ 2.000,00
+Rood vanaf: 10 februari
+Buffer: € 900,00
+
+Bekijk de planning:
+https://saldo.jouw-domein.be/planning?groep=persoonlijk&maand=2027-02
+
+Je kan de uitgave verschuiven, een budget verlagen of geld overzetten van je spaarrekening.
+
+-- 
+Je krijgt dit omdat "Rekening staat rood" aanstaat.
+Meldingen aanpassen: https://saldo.jouw-domein.be/meldingen
+Saldo draait op je eigen Home Assistant.

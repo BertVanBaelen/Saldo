@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Telefoon · Meldingen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15803D}a:hover{color:#166534}
+.licht{--bg:#F4F7F5;--surface:#FFFFFF;--line:#E2E8E4;--text:#121A16;--muted:#56615B;--green:#15803D;--onGreen:#FFFFFF;--greenText:#166534;--soft:#DCFCE7;--softChip:#BBF7D0;--hero:#15803D;--heroSub:#DCFCE7;--shared:#5B3FD9;--onShared:#FFFFFF;--sharedText:#4A31C2;--sharedSoft:#ECE8FF;--sharedChip:#DAD2FF;--sharedHero:#5B3FD9;--sharedSub:#E9E3FF;--neg:#C62828;--negText:#B42323;--negSoft:#FBE9E9;--onNeg:#FFFFFF;--warn:#8A5A00;--warnSoft:#FFF4DB;--warnChip:#FFE2A3;--onPastel:#121A16;--c1:#BFE0FF;--c2:#FFD59E;--c3:#FFC6DC;--c4:#D8CCFF;--c5:#FFE58A;--c6:#E2E8E4;--track:#EAEFEC;--shadow:0 24px 60px rgba(18,26,22,0.16);--pop:0 12px 32px rgba(18,26,22,0.18)}
+.donker{--bg:#0E1311;--surface:#161D1A;--line:#24302A;--text:#E7EEEA;--muted:#98A59E;--green:#4ADE80;--onGreen:#0E1311;--greenText:#86EFAC;--soft:#13321F;--softChip:#1C4A2C;--hero:#166534;--heroSub:#DCFCE7;--shared:#9C86FF;--onShared:#15111F;--sharedText:#B7A6FF;--sharedSoft:#231D3D;--sharedChip:#342B5C;--sharedHero:#4A33B8;--sharedSub:#E9E3FF;--neg:#FF6B6B;--negText:#FF7B7B;--negSoft:#3A1A1C;--onNeg:#0E1311;--warn:#F5B94A;--warnSoft:#2E2414;--warnChip:#4A3816;--onPastel:#0E1311;--c1:#7DBDF0;--c2:#F2B35E;--c3:#F08FB7;--c4:#AE9BF7;--c5:#E8CB55;--c6:#3A4741;--track:#222B27;--shadow:0 24px 60px rgba(0,0,0,0.4);--pop:0 12px 32px rgba(0,0,0,0.5)}
+@keyframes sIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes sFade{from{opacity:0}to{opacity:1}}
+@keyframes sToast{0%{opacity:0;transform:translate(-50%,8px)}12%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms!important;animation-delay:0ms!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 920px; height: 1540px; box-sizing: border-box; padding: 36px 40px; background: #DFE6E1; display: flex; gap: 60px; font-family: Geist, system-ui, sans-serif">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 14px">
+  <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #36423B">{{t.label}}</div>
+  <div class="{{t.cls}}" style="position: relative; width: 390px; height: 1430px; border-radius: 44px; overflow: hidden; background: var(--bg); color: var(--text); box-shadow: var(--shadow)">
+
+    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 84px; overflow-y: auto; scrollbar-width: none">
+    <div style="padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px">
+
+      <div style="display: flex; align-items: center; gap: 4px; height: 44px; animation: sFade 200ms ease-out both">
+        <a href="Telefoon-Meer.dc.html" aria-label="Terug naar Meer" style="width: 44px; height: 44px; margin-left: -12px; display: flex; align-items: center; justify-content: center; color: var(--text); text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+        <h1 style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Meldingen</h1>
+      </div>
+
+      <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 4px 16px; display: flex; flex-direction: column; animation: sIn 240ms ease-out both; animation-delay: 30ms">
+        <sc-for list="{{channels}}" as="c" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 64px; border-top: {{c.divider}}">
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">{{c.name}}</span><span style="font-size: 13px; color: var(--muted)">{{c.sub}}</span></span>
+            <button type="button" role="switch" aria-checked="{{c.on}}" aria-label="{{c.name}}" onClick="{{c.toggle}}" style="position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; padding: 0; background: {{c.track}}; flex: none; transition: background 200ms ease"><span style="position: absolute; top: 4px; left: {{c.knobX}}px; width: 24px; height: 24px; border-radius: 50%; background: {{c.knob}}; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: left 200ms cubic-bezier(.2,.8,.2,1)"></span></button>
+          </div>
+        </sc-for>
+      </section>
+
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+        <section style="display: flex; flex-direction: column; gap: 8px; animation: sIn 260ms ease-out both; animation-delay: {{g.delay}}ms">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 4px">
+            <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)">{{g.title}}</h2>
+            <span style="font-size: 12px; color: var(--muted)">Push · E-mail</span>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 0 16px; display: flex; flex-direction: column">
+            <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 8px 0; border-top: {{r.divider}}">
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: {{r.dot}}; flex: none"></span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">{{r.name}}</span><span style="font-size: 12px; line-height: 1.35; color: var(--muted)">{{r.sub}}</span></span>
+                <sc-for list="{{r.chips}}" as="ch" hint-placeholder-count="2">
+                  <button type="button" aria-pressed="{{ch.on}}" aria-label="{{ch.aria}}" onClick="{{ch.toggle}}" disabled="{{ch.locked}}" style="width: 44px; height: 36px; border-radius: 10px; border: 1.5px solid {{ch.line}}; background: {{ch.bg}}; color: {{ch.fg}}; display: flex; align-items: center; justify-content: center; padding: 0; flex: none; opacity: {{ch.op}}; transition: background 160ms ease, border-color 160ms ease">
+                    <sc-if value="{{ch.isPush}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"></rect><path d="M11 18.5h2"></path></svg></sc-if>
+                    <sc-if value="{{ch.isMail}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="m4 7 8 6 8-6"></path></svg></sc-if>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-for>
+            <sc-if value="{{g.hasLook}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0 14px; border-top: 1px solid var(--line)">
+                <span style="font-size: 14px; font-weight: 500">Hoe ver vooruit kijken</span>
+                <div role="group" aria-label="Hoe ver vooruit kijken" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line)">
+                  <sc-for list="{{look}}" as="lk" hint-placeholder-count="3"><button type="button" aria-pressed="{{lk.on}}" onClick="{{lk.pick}}" style="height: 36px; border-radius: 9px; border: none; background: {{lk.bg}}; color: {{lk.fg}}; font: inherit; font-size: 13px; font-weight: 600; transition: background 160ms ease">{{lk.name}}</button></sc-for>
+                </div>
+                <span style="font-size: 12px; line-height: 1.4; color: var(--muted)">Je krijgt één melding per maand en per rekening, op de ochtend nadat de planning verandert.</span>
+              </div>
+            </sc-if>
+          </div>
+        </section>
+      </sc-for>
+
+      <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 4px 16px; animation: sIn 260ms ease-out both; animation-delay: 180ms">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 64px">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Stille uren</span><span style="font-size: 13px; color: var(--muted)">Geen pushmeldingen van 22:00 tot 07:00</span></span>
+          <button type="button" role="switch" aria-checked="{{quiet.on}}" aria-label="Stille uren" onClick="{{quiet.toggle}}" style="position: relative; width: 52px; height: 32px; border-radius: 16px; border: none; padding: 0; background: {{quiet.track}}; flex: none; transition: background 200ms ease"><span style="position: absolute; top: 4px; left: {{quiet.knobX}}px; width: 24px; height: 24px; border-radius: 50%; background: {{quiet.knob}}; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: left 200ms cubic-bezier(.2,.8,.2,1)"></span></button>
+        </div>
+      </section>
+
+      <p style="margin: 0 4px; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; line-height: 1.45; color: var(--muted)">Inlogcodes, uitnodigingen en wachtwoordlinks komen altijd per e-mail. Die kan je niet uitzetten.</p>
+
+      <button type="button" onClick="{{test}}" style="height: 48px; border-radius: 14px; border: 2px dashed var(--line); background: transparent; color: var(--greenText); font: inherit; font-size: 15px; font-weight: 600">Stuur een testmelding</button>
+    </div>
+    </div>
+
+    <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); white-space: nowrap; padding: 10px 16px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 14px; font-weight: 600; box-shadow: var(--pop); animation: sToast 2.6s ease-out both; z-index: 8">{{toastText}}</div>
+    </sc-if>
+
+    <nav aria-label="Hoofdmenu" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 8px 8px 22px; background: var(--surface); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); z-index: 5">
+      <a href="Telefoon-Start.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 500"><span style="width: 56px; height: 30px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20h14V9.5"></path></svg></span>Start</a>
+      <a href="Telefoon-Transacties.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 500"><span style="width: 56px; height: 30px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></svg></span>Transacties</a>
+      <a href="Telefoon-Overzicht.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 500"><span style="width: 56px; height: 30px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M6 17v-6"></path><path d="M11 17V6"></path><path d="M16 17v-9"></path></svg></span>Overzicht</a>
+      <a href="Telefoon-Planning.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 500"><span style="width: 56px; height: 30px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span>Planning</a>
+      <a href="Telefoon-Meer.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--greenText); font-size: 12px; font-weight: 600"><span style="width: 56px; height: 30px; border-radius: 15px; background: var(--soft); display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></span>Meer</a>
+    </nav>
+  </div>
+</div>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":920,"height":1540}}'>
+class Component extends DCLogic {
+  later(fn, ms) { (this._t = this._t || []).push(setTimeout(fn, ms)); }
+  componentWillUnmount() { (this._t || []).forEach(clearTimeout); }
+  renderVals() {
+    const st = this.state || {};
+    const ch = Object.assign({ push: true, mail: true }, st.ch || {});
+    const pref = Object.assign({
+      rood: { p: true, m: true }, buffer: { p: true, m: false },
+      consent: { p: true, m: true }, stop: { p: true, m: true },
+      joined: { p: true, m: true }, contrib: { p: false, m: false },
+      cat: { p: true, m: false }
+    }, st.pref || {});
+    const look = st.look || 3;
+    const quiet = st.quiet !== undefined ? st.quiet : true;
+    const sw = (on, toggle) => ({ on: on, toggle: toggle, track: on ? 'var(--green)' : 'var(--line)', knob: on ? 'var(--onGreen)' : 'var(--surface)', knobX: on ? 24 : 4 });
+    const G = [
+      { title: 'Planning', look: true, rows: [
+        ['rood', 'Rekening staat rood', 'Als een rekening in de planning onder € 0 zakt', 'var(--neg)'],
+        ['buffer', 'Rekening komt in de buffer', 'Als een rekening onder haar eigen buffer zakt', 'var(--warn)']] },
+      { title: 'Bank', rows: [
+        ['consent', 'Koppeling verloopt', '14 en 3 dagen vooraf', 'var(--warn)'],
+        ['stop', 'Synchronisatie gestopt', 'Als Saldo een rekening niet meer kan lezen', 'var(--neg)']] },
+      { title: 'Gedeeld', rows: [
+        ['joined', 'Iemand sluit aan', 'Bij een gedeelde rekening waar jij beheerder bent', 'var(--shared)'],
+        ['contrib', 'Bijdrage ontbreekt', 'Als een bijdrage op de 3e nog niet binnen is', 'var(--shared)']] },
+      { title: 'Transacties', rows: [
+        ['cat', 'Te categoriseren', 'Eén keer per dag om 19:00, als er iets is', 'var(--green)']] }
+    ];
+    const setPref = (id, k) => () => this.setState({ pref: Object.assign({}, pref, { [id]: Object.assign({}, pref[id], { [k]: !pref[id][k] }) }) });
+    const chip = (id, name, k) => {
+      const enabled = k === 'p' ? ch.push : ch.mail;
+      const on = pref[id][k] && enabled;
+      return { isPush: k === 'p', isMail: k === 'm', on: on, locked: !enabled, op: enabled ? '1' : '0.4',
+        aria: name + (k === 'p' ? ' als pushmelding' : ' per e-mail'),
+        bg: on ? 'var(--soft)' : 'transparent', fg: on ? 'var(--greenText)' : 'var(--muted)', line: on ? 'var(--green)' : 'var(--line)',
+        toggle: setPref(id, k) };
+    };
+    return {
+      themes: [{ cls: 'licht', label: 'Licht' }, { cls: 'donker', label: 'Donker' }],
+      channels: [
+        Object.assign({ name: 'Pushmeldingen', sub: 'Op dit toestel · Saldo op je startscherm', divider: 'none' }, sw(ch.push, () => this.setState({ ch: Object.assign({}, ch, { push: !ch.push }) }))),
+        Object.assign({ name: 'E-mail', sub: 'bert@jouw-domein.be', divider: '1px solid var(--line)' }, sw(ch.mail, () => this.setState({ ch: Object.assign({}, ch, { mail: !ch.mail }) })))
+      ],
+      groups: G.map((g, gi) => ({ title: g.title, hasLook: !!g.look, delay: 60 + gi * 30,
+        rows: g.rows.map((r, i) => ({ name: r[1], sub: r[2], dot: r[3], divider: i === 0 ? 'none' : '1px solid var(--line)', chips: [chip(r[0], r[1], 'p'), chip(r[0], r[1], 'm')] })) })),
+      look: [1, 3, 6].map((n) => ({ name: n + (n === 1 ? ' maand' : ' maanden'), on: n === look, bg: n === look ? 'var(--green)' : 'transparent', fg: n === look ? 'var(--onGreen)' : 'var(--text)', pick: () => this.setState({ look: n }) })),
+      quiet: sw(quiet, () => this.setState({ quiet: !quiet })),
+      test: () => { this.setState({ toast: ch.push ? 'Testmelding verstuurd naar dit toestel' : 'Pushmeldingen staan uit' }); this.later(() => this.setState({ toast: null }), 2700); },
+      hasToast: !!st.toast, toastText: st.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

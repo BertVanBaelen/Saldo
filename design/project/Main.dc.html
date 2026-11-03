@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Saldo · stijl</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15803D}a:hover{color:#166534}
+</style>
+</helmet>
+<div style="width: 1200px; height: 1480px; box-sizing: border-box; padding: 64px; background: #F4F7F5; color: #121A16; font-family: Geist, system-ui, sans-serif; display: flex; flex-direction: column; gap: 44px">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 32px">
+    <div style="display: flex; align-items: center; gap: 28px">
+      <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
+        <rect width="96" height="96" rx="30" fill="#15803D"></rect>
+        <circle cx="44" cy="31" r="12" fill="#FFD59E"></circle>
+        <rect x="18" y="36" width="60" height="40" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="6"></rect>
+        <rect x="58" y="48" width="23" height="16" rx="8" fill="#FFFFFF"></rect>
+        <circle cx="66" cy="56" r="3.5" fill="#15803D"></circle>
+      </svg>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 80px; font-weight: 600; letter-spacing: -0.045em; line-height: 0.95; color: #15803D">Saldo</div>
+        <div style="font-size: 20px; color: #56615B">Weet vandaag hoe je maand eindigt.</div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <span style="font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 999px; background: #DCFCE7; color: #166534">Rustig</span>
+      <span style="font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 999px; background: #BFE0FF; color: #121A16">Helder</span>
+      <span style="font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 999px; background: #FFD59E; color: #121A16">Met kleur</span>
+    </div>
+  </header>
+
+  <section style="display: flex; flex-direction: column; gap: 16px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #56615B">Kleuren</h2>
+    <div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px 20px; align-items: start">
+      <div style="font-size: 14px; font-weight: 600; padding-top: 16px">Licht</div>
+      <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #F4F7F5; border: 1px solid #D5DDD8"></div><div style="font-size: 13px; font-weight: 500">Achtergrond</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#F4F7F5</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #FFFFFF; border: 1px solid #D5DDD8"></div><div style="font-size: 13px; font-weight: 500">Vlak</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#FFFFFF</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #E2E8E4"></div><div style="font-size: 13px; font-weight: 500">Lijn</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#E2E8E4</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #121A16"></div><div style="font-size: 13px; font-weight: 500">Tekst</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#121A16</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #15803D"></div><div style="font-size: 13px; font-weight: 500">Groen · over</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#15803D</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #DCFCE7"></div><div style="font-size: 13px; font-weight: 500">Groen zacht</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#DCFCE7</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #C62828"></div><div style="font-size: 13px; font-weight: 500">Rood · onder nul</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#C62828</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #8A5A00"></div><div style="font-size: 13px; font-weight: 500">Geel · onder buffer</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#8A5A00</div></div>
+      </div>
+      <div style="font-size: 14px; font-weight: 600; padding-top: 16px">Donker</div>
+      <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #0E1311"></div><div style="font-size: 13px; font-weight: 500">Achtergrond</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#0E1311</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #161D1A"></div><div style="font-size: 13px; font-weight: 500">Vlak</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#161D1A</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #24302A"></div><div style="font-size: 13px; font-weight: 500">Lijn</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#24302A</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #E7EEEA; border: 1px solid #D5DDD8"></div><div style="font-size: 13px; font-weight: 500">Tekst</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#E7EEEA</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #4ADE80"></div><div style="font-size: 13px; font-weight: 500">Groen · over</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#4ADE80</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #13321F"></div><div style="font-size: 13px; font-weight: 500">Groen zacht</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#13321F</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #FF6B6B"></div><div style="font-size: 13px; font-weight: 500">Rood · onder nul</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#FF6B6B</div></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 52px; border-radius: 12px; background: #F5B94A"></div><div style="font-size: 13px; font-weight: 500">Geel · onder buffer</div><div style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #56615B">#F5B94A</div></div>
+      </div>
+      <div style="font-size: 14px; font-weight: 600; padding-top: 10px">Categorie</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E2E8E4">
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #BFE0FF; color: #121A16">Wonen</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #FFD59E; color: #121A16">Boodschappen</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #FFC6DC; color: #121A16">Vrije tijd</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #D8CCFF; color: #121A16">Vervoer</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #FFE58A; color: #121A16">Abonnementen</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #E2E8E4; color: #121A16">Overig</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-radius: 16px; background: #161D1A">
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #7DBDF0; color: #0E1311">Wonen</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #F2B35E; color: #0E1311">Boodschappen</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #F08FB7; color: #0E1311">Vrije tijd</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #AE9BF7; color: #0E1311">Vervoer</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #E8CB55; color: #0E1311">Abonnementen</span>
+          <span style="font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; background: #3A4741; color: #E7EEEA">Overig</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 16px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #56615B">Typografie · Geist en Geist Mono</h2>
+    <div style="background: #FFFFFF; border: 1px solid #E2E8E4; border-radius: 20px; display: flex; flex-direction: column">
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: center; padding: 16px 24px; border-bottom: 1px solid #E2E8E4">
+        <div style="font-size: 13px; color: #56615B">Bedrag groot<br>Mono 500 · 48</div>
+        <div style="font-family: 'Geist Mono', monospace; font-size: 48px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums">€ 1.912,30</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: center; padding: 14px 24px; border-bottom: 1px solid #E2E8E4">
+        <div style="font-size: 13px; color: #56615B">Titel<br>Geist 600 · 22</div>
+        <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em">Komende maanden</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: center; padding: 14px 24px; border-bottom: 1px solid #E2E8E4">
+        <div style="font-size: 13px; color: #56615B">Tekst<br>Geist 400 · 16</div>
+        <div style="font-size: 16px; line-height: 1.5">Januari eindigt met een tekort door de jaarlijkse verzekering.</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: center; padding: 14px 24px; border-bottom: 1px solid #E2E8E4">
+        <div style="font-size: 13px; color: #56615B">Bedrag in lijst<br>Mono 500 · 15</div>
+        <div style="display: flex; gap: 32px; font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums"><span style="color: #C62828">−€ 86,42</span><span>+€ 2.850,00</span></div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: center; padding: 14px 24px">
+        <div style="font-size: 13px; color: #56615B">Label<br>Geist 600 · 12</div>
+        <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #56615B">Laatst gesynchroniseerd vandaag 04:02</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 16px">
+    <h2 style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #56615B">Componenten</h2>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E8E4; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px">
+          <button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: none; background: #15803D; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600">Opnieuw autoriseren</button>
+          <button type="button" style="height: 44px; padding: 0 18px; border-radius: 12px; border: none; background: #DCFCE7; color: #166534; font: inherit; font-size: 15px; font-weight: 600">Later</button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button type="button" aria-pressed="true" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #15803D; background: #15803D; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600">Alle rekeningen</button>
+          <button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #D5DDD8; background: #FFFFFF; color: #121A16; font: inherit; font-size: 14px">Niet gecategoriseerd</button>
+          <button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #D5DDD8; background: #FFFFFF; color: #121A16; font: inherit; font-size: 14px">November</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="s-buffer" style="font-size: 13px; font-weight: 500; color: #56615B">Minimumbuffer</label>
+          <input id="s-buffer" value="€ 1.500,00" style="height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DDD8; background: #FFFFFF; color: #121A16; font-family: 'Geist Mono', monospace; font-size: 15px">
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E8E4; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <span style="font-size: 13px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: #DCFCE7; color: #166534">Over € 412,30</span>
+          <span style="font-size: 13px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: #FBE9E9; color: #B42323">Tekort € 131,64</span>
+          <span style="font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: 999px; border: 1px dashed #8A958F; color: #56615B">In behandeling</span>
+          <span style="font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: 999px; border: 1px solid #D5DDD8; color: #56615B; display: flex; align-items: center; gap: 6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Alleen lezen</span>
+        </div>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: #FFF4DB; color: #121A16; text-decoration: none">
+          <span style="width: 36px; height: 36px; border-radius: 50%; background: #FFE2A3; display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A5A00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+          <span style="flex: 1; font-size: 14px; line-height: 1.35"><strong style="font-weight: 600">Toestemming verloopt over 12 dagen</strong><br><span style="color: #56615B">Argenta · opnieuw autoriseren</span></span>
+        </a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: #DCFCE7; color: #121A16; text-decoration: none">
+          <span style="width: 36px; height: 36px; border-radius: 50%; background: #BBF7D0; display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12Z"></path><path d="M7.5 7.5h.01"></path></svg></span>
+          <span style="flex: 1; font-size: 14px; font-weight: 600">8 transacties te categoriseren</span>
+        </a>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E8E4; border-radius: 20px; padding: 6px 22px; display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #E2E8E4">
+          <span style="width: 40px; height: 40px; border-radius: 50%; background: #FFD59E; display: flex; align-items: center; justify-content: center; flex: none; font-size: 15px; font-weight: 600; color: #121A16">C</span>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Colruyt</span><span style="font-size: 13px; color: #56615B">Boodschappen · vandaag</span></div>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500; color: #C62828">−€ 86,42</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #E2E8E4">
+          <span style="width: 40px; height: 40px; border-radius: 50%; border: 2px dashed #C2CCC6; box-sizing: border-box; display: flex; align-items: center; justify-content: center; flex: none; font-size: 15px; font-weight: 600; color: #56615B">?</span>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Bol.com</span><span style="font-size: 13px; color: #56615B">In behandeling</span></div>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500; color: #56615B">−€ 24,99</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0">
+          <span style="width: 40px; height: 40px; border-radius: 50%; background: #DCFCE7; display: flex; align-items: center; justify-content: center; flex: none; font-size: 15px; font-weight: 600; color: #166534">W</span>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Werkgever nv</span><span style="font-size: 13px; color: #56615B">Salaris · 2 nov</span></div>
+          <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">+€ 2.850,00</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":1480}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

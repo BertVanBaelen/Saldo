@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Meldingen · icoon</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes sIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes sFade{from{opacity:0}to{opacity:1}}
+@keyframes sDrop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@keyframes sToast{0%{opacity:0;transform:translate(-50%,8px)}12%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms!important;animation-delay:0ms!important;transition:none!important}}
+
+</style>
+</helmet>
+<div style="width: 1240px; height: 860px; box-sizing: border-box; padding: 40px; background: #DFE6E1; font-family: Geist, system-ui, sans-serif; color: #121A16; display: flex; flex-direction: column; gap: 26px">
+  <div style="display: flex; flex-direction: column; gap: 6px; max-width: 900px">
+    <span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Meldingsicoon · Beurs met munt</span>
+    <span style="font-size: 15px; line-height: 1.5; color: #36423B">Het kleine icoon dat Android in de statusbalk en in elke melding toont. Hetzelfde beeld als het app-icoon, maar als silhouet: één kleur, alleen de vorm telt.</span>
+  </div>
+  <div style="display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 20px; align-items: start">
+    <div style="display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 22px; background: #FFFFFF">
+      <span style="position: relative; align-self: center; width: 288px; height: 288px; border-radius: 12px; background-color: #FFFFFF; background-image: linear-gradient(#E2E8E4 1px, transparent 1px), linear-gradient(90deg, #E2E8E4 1px, transparent 1px); background-size: 12px 12px; background-position: -1px -1px; display: flex; align-items: center; justify-content: center">
+        <span style="position: absolute; inset: 24px; border: 1.5px dashed #F2B35E; border-radius: 4px" aria-hidden="true"></span>
+        <svg width="288" height="288" viewBox="0 0 24 24" fill="#121A16" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg>
+      </span>
+      <span style="display: flex; align-items: flex-end; gap: 18px; justify-content: center; padding: 14px; border-radius: 14px; background: #121A16; color: #FFFFFF"><span style="display: flex; flex-direction: column; align-items: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg><span style="font-size: 11px; opacity: 0.7">16</span></span><span style="display: flex; flex-direction: column; align-items: center; gap: 6px"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg><span style="font-size: 11px; opacity: 0.7">24</span></span><span style="display: flex; flex-direction: column; align-items: center; gap: 6px"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg><span style="font-size: 11px; opacity: 0.7">32</span></span><span style="display: flex; flex-direction: column; align-items: center; gap: 6px"><svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg><span style="font-size: 11px; opacity: 0.7">48</span></span></span>
+      <span style="display: flex; align-items: flex-end; gap: 18px; justify-content: center; padding: 14px; border-radius: 14px; background: #F4F7F5; color: #121A16"><span style="display: flex; flex-direction: column; align-items: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg><span style="font-size: 11px; opacity: 0.7">16</span></span><span style="display: flex; flex-direction: column; align-items: center; gap: 6px"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg><span style="font-size: 11px; opacity: 0.7">24</span></span><span style="display: flex; flex-direction: column; align-items: center; gap: 6px"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg><span style="font-size: 11px; opacity: 0.7">32</span></span><span style="display: flex; flex-direction: column; align-items: center; gap: 6px"><svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg><span style="font-size: 11px; opacity: 0.7">48</span></span></span>
+      <ul style="margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; color: #36423B">
+        <li>Raster 24 × 24 dp, 2 dp marge (oranje lijn)</li>
+        <li>Eén kleur met transparantie, geen verloop of details</li>
+        <li>1,5 dp ruimte tussen munt en beurs, zodat ze op 16 px los blijven</li>
+        <li>Lever als vector (XML) aan, Android kleurt hem zelf in</li>
+      </ul>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 22px; background: #FFFFFF">
+        <span style="font-size: 15px; font-weight: 600">In de statusbalk <span style="font-weight: 400; color: #56615B">· 2× vergroot, naast andere meldingen</span></span>
+        <div style="display: flex; align-items: center; height: 56px; padding: 0 24px; border-radius: 16px; background: #0E1311; color: #FFFFFF; gap: 14px">
+          <span style="font-size: 26px; font-weight: 600; font-family: system-ui, sans-serif; width: 72px">9:41</span>
+          <span style="display: flex; align-items: center; gap: 10px">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="opacity: 0.9"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 3V6a1 1 0 0 1 1-1Z"></path></svg>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="opacity: 0.9"><path d="M12 3a6 6 0 0 1 6 6v4l2 3H4l2-3V9a6 6 0 0 1 6-6Zm-2 15h4a2 2 0 0 1-4 0Z"></path></svg>
+          </span>
+          <span style="flex: 1"></span>
+          <span style="display: flex; align-items: center; gap: 5px; color: #FFFFFF"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.5 1.5 9a15 15 0 0 1 21 0L12 20.5Z"></path></svg><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21 21 2v19H2Z"></path></svg><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 2h6v2h2a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h2V2Z"></path></svg></span>
+        </div>
+        <div style="display: flex; align-items: center; height: 56px; padding: 0 24px; border-radius: 16px; background: #F4F7F5; color: #121A16; gap: 14px">
+          <span style="font-size: 26px; font-weight: 600; font-family: system-ui, sans-serif; width: 72px">9:41</span>
+          <span style="display: flex; align-items: center; gap: 10px">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="opacity: 0.9"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 3V6a1 1 0 0 1 1-1Z"></path></svg>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="opacity: 0.9"><path d="M12 3a6 6 0 0 1 6 6v4l2 3H4l2-3V9a6 6 0 0 1 6-6Zm-2 15h4a2 2 0 0 1-4 0Z"></path></svg>
+          </span>
+          <span style="flex: 1"></span>
+          <span style="display: flex; align-items: center; gap: 5px; color: #121A16"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.5 1.5 9a15 15 0 0 1 21 0L12 20.5Z"></path></svg><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21 21 2v19H2Z"></path></svg><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 2h6v2h2a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h2V2Z"></path></svg></span>
+        </div>
+        <span style="font-size: 13px; color: #56615B">Links van de klok staan de meldingen: eerst Saldo, daarna een chat-app en een herinnering.</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 22px; background: #FFFFFF">
+        <span style="font-size: 15px; font-weight: 600">In de melding zelf</span>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 20px; background: #F1F4F2; color: #121A16">
+        <span style="width: 40px; height: 40px; border-radius: 50%; background: #15803D; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg></span>
+        <span style="display: flex; flex-direction: column; gap: 2px; font-family: system-ui, sans-serif"><span style="font-size: 12px; color: #56615B">Saldo · nu</span><span style="font-size: 15px; font-weight: 600">8 transacties te categoriseren</span></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 20px; background: #F1F4F2; color: #121A16">
+        <span style="width: 40px; height: 40px; border-radius: 50%; background: #A15C07; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg></span>
+        <span style="display: flex; flex-direction: column; gap: 2px; font-family: system-ui, sans-serif"><span style="font-size: 12px; color: #56615B">Saldo · 07:30</span><span style="font-size: 15px; font-weight: 600">Zichtrekening zakt in januari in de buffer</span></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 20px; background: #1E2420; color: #E7EEEA">
+        <span style="width: 40px; height: 40px; border-radius: 50%; background: #C62828; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg></span>
+        <span style="display: flex; flex-direction: column; gap: 2px; font-family: system-ui, sans-serif"><span style="font-size: 12px; color: #98A59E">Saldo · 07:30</span><span style="font-size: 15px; font-weight: 600">Persoonlijk staat rood in februari</span></span>
+      </div>
+        <span style="font-size: 13px; line-height: 1.45; color: #56615B">Android kleurt de cirkel met de kleur die Saldo meegeeft: groen voor info, oker voor een waarschuwing, rood voor een fout.</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1240,"height":860}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

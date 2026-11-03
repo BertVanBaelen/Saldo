@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>E-mail · alle berichten</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15803D}
+@keyframes sIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms!important;animation-delay:0ms!important}}
+.tone-info{--t:#15803D;--tSoft:#DCFCE7;--tText:#166534;--tPastel:#BBF7D0}
+.tone-warn{--t:#A15C07;--tSoft:#FFF4DB;--tText:#8A5A00;--tPastel:#FFE2A3}
+.tone-error{--t:#C62828;--tSoft:#FBE9E9;--tText:#B42323;--tPastel:#F8C9C9}
+.tone-shared{--t:#5B3FD9;--tSoft:#ECE8FF;--tText:#4A31C2;--tPastel:#DAD2FF}
+.meta{padding:12px 16px;border-radius:14px 14px 0 0;background:#FFFFFF;border:1px solid #E2E8E4;border-bottom:none;display:flex;flex-direction:column;gap:3px;font-family:Geist,system-ui,sans-serif}
+.meta-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#56615B}
+.meta-av{width:26px;height:26px;border-radius:50%;background:#15803D;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none}
+.meta-from{flex:1;font-weight:600;color:#121A16}
+.meta-subj{font-size:15px;font-weight:600;color:#121A16;padding-top:4px}
+.meta-pre{font-size:13px;color:#56615B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.canvas{padding:24px 18px;background:#EEF2EF;border:1px solid #E2E8E4;border-radius:0 0 14px 14px}
+.mail{max-width:520px;margin:0 auto;background:#FFFFFF;color:#121A16;font-family:Geist,Arial,sans-serif;overflow:hidden}
+.m-top{display:flex;align-items:center;gap:8px}
+.m-brand{font-size:17px;font-weight:600;letter-spacing:-0.02em;color:#166534}
+.m-tag{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--tSoft);color:var(--tText)}
+.m-kicker{display:block;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--tText)}
+.m-title{margin:6px 0 0;font-size:24px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.m-big{font-family:'Geist Mono',ui-monospace,monospace;font-weight:600;letter-spacing:-0.01em}
+.m-bigsub{font-size:13px}
+.m-accts{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.m-acct{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;border:1px solid #E2E8E4;background:#FFFFFF;color:#121A16}
+.m-acct-ic{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;color:#FFFFFF}
+.m-acct-p .m-acct-ic{background:#15803D}
+.m-acct-g .m-acct-ic{background:#5B3FD9}
+.m-acct-t{display:flex;flex-direction:column;gap:1px;min-width:0}
+.m-acct-n{font-size:15px;font-weight:600}
+.m-acct-s{font-size:12px;color:#56615B}
+.m-text{margin:0;font-size:15px;line-height:1.55;color:#2B3530}
+.m-rows{display:flex;flex-direction:column}
+.m-row{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-top:1px solid #E2E8E4;font-size:14px;color:#56615B}
+.m-row:first-child{border-top:none}
+.m-v{color:#121A16;font-weight:500;text-align:right}
+.m-btn{display:inline-block;align-self:flex-start;text-decoration:none;font-weight:600;font-size:15px}
+.m-link{display:block;font-size:12px;color:#56615B;word-break:break-all}
+.m-note{margin:0;font-size:13px;line-height:1.5;color:#56615B}
+.m-foot{font-size:12px;line-height:1.55;color:#6B766F}
+.m-foot u{color:#166534}
+/* Optie A: rustig */
+.optA{border-radius:16px;border:1px solid #E2E8E4}
+.optA .m-top{padding:22px 30px 0}
+.optA .m-tag{display:none}
+.optA .m-hero{padding:22px 30px 0}
+.optA .m-bigbox{margin-top:16px;padding:16px 18px;border-radius:14px;background:var(--tSoft)}
+.optA .m-big{font-size:34px;color:var(--tText)}
+.optA .m-bigsub{color:#56615B;padding-top:2px}
+.optA .m-content{padding:18px 30px 26px;display:flex;flex-direction:column;gap:16px}
+.optA .m-rows{padding:2px 16px;border-radius:12px;border:1px solid #E2E8E4}
+.optA .m-btn{padding:12px 20px;border-radius:12px;background:#15803D;color:#FFFFFF}
+.optA .m-foot{padding:16px 30px 22px;border-top:1px solid #E2E8E4;background:#FAFBFA}
+</style>
+</helmet>
+<div style="width: 1880px; min-height: 2780px; box-sizing: border-box; padding: 40px; background: #DFE6E1; font-family: Geist, system-ui, sans-serif; color: #121A16; display: flex; flex-direction: column; gap: 24px">
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Alle e-mails</span>
+      <span style="font-size: 14px; color: #36423B">9 berichten in de gekozen stijl: een witte kaart, kleur alleen in het label en het bedrag.</span>
+    </div>
+  </div>
+  <sc-if value="{{show}}" hint-placeholder-val="{{ true }}">
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start; animation: sIn 260ms ease-out both">
+    <sc-for list="{{mails}}" as="m" hint-placeholder-count="9">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #36423B">{{m.label}}</span>
+        <div style="display: flex; flex-direction: column">
+          <div class="meta">
+            <div class="meta-row"><span class="meta-av">S</span><span class="meta-from">Saldo <span style="font-weight: 400; color: #56615B">&lt;saldo@jouw-domein.be&gt;</span></span><span>{{m.time}}</span></div>
+            <div class="meta-subj">{{m.subject}}</div>
+            <div class="meta-pre">{{m.pre}}</div>
+          </div>
+          <div class="canvas">
+            <div class="mail {{cls}} tone-{{m.tone}}">
+              <div class="m-top"><svg width="28" height="28" viewBox="0 0 96 96" aria-hidden="true"><rect width="96" height="96" rx="26" fill="#15803D"></rect><circle cx="44" cy="31" r="12" fill="#FFD59E"></circle><rect x="18" y="36" width="60" height="40" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="7"></rect><rect x="58" y="48" width="23" height="16" rx="8" fill="#FFFFFF"></rect></svg><span class="m-brand">Saldo</span><span class="m-tag">{{m.tag}}</span></div>
+              <div class="m-hero">
+                <span class="m-kicker">{{m.kicker}}</span>
+                <h2 class="m-title">{{m.title}}</h2>
+                <sc-if value="{{m.hasAccts}}" hint-placeholder-val="{{ true }}"><div class="m-accts"><sc-for list="{{m.accts}}" as="a" hint-placeholder-count="1"><div class="m-acct m-acct-{{a.kind}}"><span class="m-acct-ic"><sc-if value="{{a.isP}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></sc-if><sc-if value="{{a.isG}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14.2a5 5 0 0 1 5 4.8"></path></svg></sc-if></span><span class="m-acct-t"><span class="m-acct-n">{{a.name}}</span><span class="m-acct-s">{{a.sub}}</span></span></div></sc-for></div></sc-if>
+                <sc-if value="{{m.hasBig}}" hint-placeholder-val="{{ true }}"><div class="m-bigbox"><div class="m-big">{{m.big}}</div><div class="m-bigsub">{{m.bigSub}}</div></div></sc-if>
+              </div>
+              <div class="m-content">
+                <p class="m-text">{{m.text}}</p>
+                <sc-if value="{{m.hasRows}}" hint-placeholder-val="{{ true }}"><div class="m-rows"><sc-for list="{{m.rows}}" as="r" hint-placeholder-count="3"><div class="m-row"><span>{{r.k}}</span><span class="m-v">{{r.v}}</span></div></sc-for></div></sc-if>
+                <sc-if value="{{m.hasCta}}" hint-placeholder-val="{{ true }}"><a class="m-btn" href="#">{{m.cta}}</a></sc-if>
+                <p class="m-note">{{m.note}}</p>
+              </div>
+              <div class="m-foot">{{m.why}}<sc-if value="{{m.canMute}}" hint-placeholder-val="{{ true }}"> <u>Meldingen aanpassen</u></sc-if><br>Saldo draait op je eigen Home Assistant.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1880,"height":2780}}'>
+class Component extends DCLogic {
+  later(fn, ms) { (this._t = this._t || []).push(setTimeout(fn, ms)); }
+  componentWillUnmount() { (this._t || []).forEach(clearTimeout); }
+  renderVals() {
+    const st = this.state || {};
+
+const MAILS = [
+  { id: 'code', tone: 'info', tag: 'Inloggen', time: '14:12', subject: 'Je inlogcode: 4829 1736', pre: 'Geldig tot 14:22. Deel deze code met niemand.',
+    kicker: 'Inloggen', title: 'Je inlogcode', big: '4829 1736', bigSub: 'Geldig tot 14:22 · werkt één keer',
+    text: 'Vul deze code in op het inlogscherm van Saldo om verder te gaan.',
+    rows: [['Aangevraagd', 'Di 3 nov, 14:12'], ['Toestel', 'Chrome op Windows']], cta: '',
+    note: 'Heb jij dit niet aangevraagd? Dan kent iemand je wachtwoord. Wijzig het meteen en laat de beheerder het weten.',
+    why: 'Je krijgt deze e-mail omdat iemand met jouw wachtwoord wil inloggen.' },
+  { id: 'rood', tone: 'error', tag: 'Planning', time: '07:30', subject: 'Zichtrekening staat rood in februari', accts: [['p', 'Zichtrekening', 'Persoonlijk · BE68 •••• •••• 4821']], pre: 'Verwacht eindsaldo −€ 1.033,47. Bekijk wat je kan schuiven.',
+    kicker: 'Planning · rood', title: 'Je zichtrekening staat rood in februari', big: '−€ 1.033,47', bigSub: 'Verwacht saldo op 28 februari',
+    text: 'Volgens je planning zakt je zichtrekening vanaf 10 februari onder nul. De grootste oorzaak is een geplande uitgave.',
+    rows: [['Grootste uitgave', 'Autoherstelling −€ 2.000,00'], ['Rood vanaf', '10 februari'], ['Buffer', '€ 900,00']], cta: 'Bekijk de planning',
+    note: 'Je kan de uitgave verschuiven, een budget verlagen of geld overzetten van je spaarrekening.',
+    why: 'Je krijgt dit omdat "Rekening staat rood" aanstaat.' },
+  { id: 'buffer', tone: 'warn', tag: 'Planning', time: '07:30', subject: 'Zichtrekening zakt in januari in de buffer', accts: [['p', 'Zichtrekening', 'Persoonlijk · BE68 •••• •••• 4821']], pre: 'Verwacht € 721,50, dat is € 178,50 onder je buffer.',
+    kicker: 'Planning · buffer', title: 'Je zichtrekening komt in januari in de buffer', big: '€ 721,50', bigSub: '€ 178,50 onder je buffer van € 900,00',
+    text: 'Je komt niet in het rood, maar je houdt minder over dan je buffer. Dat komt vooral door de familiale verzekering in januari.',
+    rows: [['Jaarlijkse kost', 'Familiale verzekering −€ 684,00'], ['Laagste punt', '1 januari, voor het salaris']], cta: 'Bekijk januari',
+    note: 'Je krijgt één e-mail per maand die in de buffer komt, niet elke dag opnieuw.',
+    why: 'Je krijgt dit omdat "Rekening komt in de buffer" aanstaat voor e-mail.' },
+  { id: 'consent14', tone: 'warn', tag: 'Bank', time: '09:00', subject: 'Je Argenta-koppeling verloopt over 14 dagen (2 rekeningen)', accts: [['p', 'Zichtrekening', 'Persoonlijk · BE68 •••• •••• 4821'], ['g', 'Gedeelde rekening', 'Gedeeld met Partner · BE12 •••• •••• 7730']], pre: 'Koppel opnieuw om te blijven synchroniseren. Het duurt een minuut.',
+    kicker: 'Bankkoppeling', title: 'Je Argenta-koppeling verloopt over 14 dagen', big: '30 november', bigSub: 'Laatste dag dat Saldo je rekeningen kan lezen',
+    text: 'Banken vragen elke 180 dagen opnieuw toestemming. Bevestig in de Argenta-app, dan loopt alles gewoon door.',
+    rows: [['Gekoppeld door', 'Jij'], ['Sinds', '3 juni 2026']], cta: 'Opnieuw koppelen',
+    note: 'Je krijgt nog een herinnering 3 dagen voor het verloopt.',
+    why: 'Je krijgt dit omdat jij deze koppeling hebt gemaakt.' },
+  { id: 'consent3', tone: 'error', tag: 'Bank', time: '09:00', subject: 'Laatste herinnering: Argenta verloopt over 3 dagen (2 rekeningen)', accts: [['p', 'Zichtrekening', 'Persoonlijk · BE68 •••• •••• 4821'], ['g', 'Gedeelde rekening', 'Gedeeld met Partner · BE12 •••• •••• 7730']], pre: 'Na 30 november stopt de synchronisatie van 2 rekeningen.',
+    kicker: 'Laatste herinnering', title: 'Nog 3 dagen, daarna stopt de synchronisatie', big: '3 dagen', bigSub: 'Verloopt op 30 november',
+    text: 'Daarna ziet Saldo geen nieuwe transacties meer op je zichtrekening en de gedeelde rekening. Partner ziet dan ook geen nieuwe gegevens op de gedeelde rekening.',
+    rows: [], cta: 'Nu opnieuw koppelen',
+    note: 'Heeft Partner de gedeelde rekening ook gekoppeld? Dan neemt die koppeling het over voor de gedeelde rekening.',
+    why: 'Je krijgt dit omdat jij deze koppeling hebt gemaakt.' },
+  { id: 'stop', tone: 'error', tag: 'Bank', time: '04:05', subject: 'Zichtrekening en Gedeelde rekening worden niet meer bijgewerkt', accts: [['p', 'Zichtrekening', 'Persoonlijk · BE68 •••• •••• 4821'], ['g', 'Gedeelde rekening', 'Gedeeld met Partner · BE12 •••• •••• 7730']], pre: 'De toestemming is verlopen. Laatste synchronisatie 30 nov om 04:02.',
+    kicker: 'Synchronisatie gestopt', title: 'Je rekeningen worden niet meer bijgewerkt', big: '30 nov · 04:02', bigSub: 'Laatste geslaagde synchronisatie',
+    text: 'De toestemming bij Argenta is verlopen. Je planning rekent nu met oude saldi, dus de cijfers kloppen niet meer.',
+    rows: [['Bank', 'Argenta'], ['Status', 'Niet bijgewerkt sinds 30 nov']], cta: 'Opnieuw koppelen',
+    note: 'Na het koppelen haalt Saldo de gemiste transacties vanzelf op.',
+    why: 'Je krijgt dit omdat jij deze koppeling hebt gemaakt.' },
+  { id: 'invite', tone: 'info', tag: 'Uitnodiging', time: '20:14', subject: 'Bert nodigt je uit voor Saldo', pre: 'Maak je account aan. De link is 7 dagen geldig.',
+    kicker: 'Uitnodiging', title: 'Bert nodigt je uit voor Saldo', big: '', bigSub: '',
+    text: 'Saldo is jullie eigen huishoudboekje op de Home Assistant van Bert. Jij ziet alleen je eigen rekeningen en de rekeningen die je deelt.',
+    rows: [['Uitgenodigd als', 'Gebruiker'], ['E-mail', 'partner@jouw-domein.be']], cta: 'Account aanmaken',
+    note: 'De link is 7 dagen geldig en werkt één keer. Verwachtte je dit niet? Dan kan je deze e-mail negeren.',
+    why: 'Je krijgt deze e-mail omdat Bert je heeft uitgenodigd.' },
+  { id: 'joined', tone: 'shared', tag: 'Gedeeld', time: '20:31', subject: 'Partner is erbij op de Gedeelde rekening', accts: [['g', 'Gedeelde rekening', 'Gedeeld met Partner · BE12 •••• •••• 7730']], pre: 'Partner heeft de rekening gekoppeld en ziet nu dezelfde transacties.',
+    kicker: 'Gedeelde rekening', title: 'Partner is erbij', big: '', bigSub: '',
+    text: 'Partner heeft de Gedeelde rekening ook bij Argenta gekoppeld. Jullie zien nu dezelfde transacties en dezelfde planning voor deze rekening.',
+    rows: [['Rol', 'Lid · mag bewerken'], ['Sinds', 'Di 3 nov, 20:31']], cta: 'Bekijk leden',
+    note: 'Partner ziet de geschiedenis van deze rekening, maar niet je persoonlijke rekeningen.',
+    why: 'Je krijgt dit omdat je beheerder bent van deze rekening.' },
+  { id: 'reset', tone: 'info', tag: 'Account', time: '10:02', subject: 'Stel een nieuw wachtwoord in', pre: 'Bert heeft een nieuwe link voor je aangemaakt. Geldig tot 11:02.',
+    kicker: 'Wachtwoord', title: 'Stel een nieuw wachtwoord in', big: '', bigSub: '',
+    text: 'Bert heeft een link aangemaakt om je wachtwoord opnieuw in te stellen. Daarna log je in zoals altijd, met een code per e-mail.',
+    rows: [['Aangemaakt door', 'Bert (beheerder)'], ['Geldig tot', 'Di 3 nov, 11:02']], cta: 'Nieuw wachtwoord kiezen',
+    note: 'Heb je hier niet om gevraagd? Neem dan contact op met Bert.',
+    why: 'Je krijgt deze e-mail omdat een beheerder dit voor je heeft aangevraagd.' }
+];
+const toMail = (m) => Object.assign({}, m, { hasAccts: !!(m.accts && m.accts.length), accts: (m.accts || []).map((a) => ({ kind: a[0], isP: a[0] === 'p', isG: a[0] === 'g', name: a[1], sub: a[2] })), canMute: ['code', 'invite', 'reset'].indexOf(m.id) < 0, hasBig: !!m.big, hasRows: m.rows.length > 0, hasCta: !!m.cta, rows: m.rows.map((r) => ({ k: r[0], v: r[1] })) });
+    const LABELS = { code: '1 · Inlogcode', rood: '2 · Planning: rood', buffer: '3 · Planning: in de buffer', consent14: '4 · Koppeling verloopt (14 dagen)', consent3: '5 · Koppeling verloopt (3 dagen)', stop: '6 · Synchronisatie gestopt', invite: '7 · Uitnodiging', joined: '8 · Lid gedeelde rekening', reset: '9 · Nieuw wachtwoord' };
+    return {
+      cls: 'optA', show: true,
+      mails: MAILS.map((m) => Object.assign(toMail(m), { label: LABELS[m.id] }))
+    };
+  }
+}
+</script>
+</body>
+</html>

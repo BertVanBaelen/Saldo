@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Saldo · app-icoon</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15803D}a:hover{color:#166534}
+</style>
+</helmet>
+<div style="width: 1200px; height: 760px; box-sizing: border-box; padding: 64px; background: #F4F7F5; color: #121A16; font-family: Geist, system-ui, sans-serif; display: flex; flex-direction: column; gap: 36px">
+  <header style="display: flex; flex-direction: column; gap: 10px">
+    <h1 style="margin: 0; font-size: 40px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1">App-icoon · Beurs</h1>
+    <p style="margin: 0; font-size: 18px; line-height: 1.5; color: #56615B">Een munt die uit de portemonnee piept. Witte lijnen op groen #15803D, munt in #FFD59E.</p>
+  </header>
+
+  <div style="display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 24px">
+    <div style="background: #FFFFFF; border: 1px solid #E2E8E4; border-radius: 24px; height: 440px; display: flex; align-items: center; justify-content: center">
+      <svg width="256" height="256" viewBox="0 0 96 96" role="img" aria-label="Saldo app-icoon: munt die uit een portemonnee piept">
+        <rect width="96" height="96" rx="30" fill="#15803D"></rect>
+        <circle cx="44" cy="31" r="12" fill="#FFD59E"></circle>
+        <rect x="18" y="36" width="60" height="40" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="6"></rect>
+        <rect x="58" y="48" width="23" height="16" rx="8" fill="#FFFFFF"></rect>
+        <circle cx="66" cy="56" r="3.5" fill="#15803D"></circle>
+      </svg>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+        <sc-for list="{{tiles}}" as="tile" hint-placeholder-count="2">
+          <div style="background: {{tile.bg}}; color: {{tile.text}}; border-radius: 20px; padding: 22px; height: 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+            <span style="font-size: 13px; font-weight: 600">{{tile.label}}</span>
+            <div style="flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 22px">
+              <sc-for list="{{sizes}}" as="s" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+                  <svg width="{{s.px}}" height="{{s.px}}" viewBox="0 0 96 96" aria-hidden="true">
+                    <rect width="96" height="96" rx="30" fill="#15803D"></rect>
+                    <circle cx="44" cy="31" r="12" fill="#FFD59E"></circle>
+                    <rect x="18" y="36" width="60" height="40" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="6"></rect>
+                    <rect x="58" y="48" width="23" height="16" rx="8" fill="#FFFFFF"></rect>
+                    <circle cx="66" cy="56" r="3.5" fill="#15803D"></circle>
+                  </svg>
+                  <span style="font-size: 12px; font-weight: 500">{{s.label}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E8E4; border-radius: 20px; padding: 22px; height: 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+        <span style="font-size: 13px; font-weight: 600">Vormen</span>
+        <div style="flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: end">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+            <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
+              <rect width="96" height="96" rx="22" fill="#15803D"></rect>
+              <circle cx="44" cy="31" r="12" fill="#FFD59E"></circle>
+              <rect x="18" y="36" width="60" height="40" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="6"></rect>
+              <rect x="58" y="48" width="23" height="16" rx="8" fill="#FFFFFF"></rect>
+              <circle cx="66" cy="56" r="3.5" fill="#15803D"></circle>
+            </svg>
+            <span style="font-size: 13px; color: #56615B">Afgerond vierkant · iOS</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+            <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
+              <circle cx="48" cy="48" r="48" fill="#15803D"></circle>
+              <circle cx="44" cy="31" r="12" fill="#FFD59E"></circle>
+              <rect x="18" y="36" width="60" height="40" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="6"></rect>
+              <rect x="58" y="48" width="23" height="16" rx="8" fill="#FFFFFF"></rect>
+              <circle cx="66" cy="56" r="3.5" fill="#15803D"></circle>
+            </svg>
+            <span style="font-size: 13px; color: #56615B">Rond · Android</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+            <div style="display: flex; align-items: flex-end; gap: 14px; height: 96px">
+              <svg width="32" height="32" viewBox="0 0 96 96" aria-hidden="true">
+                <rect width="96" height="96" rx="24" fill="#15803D"></rect>
+                <circle cx="44" cy="29" r="13" fill="#FFD59E"></circle>
+                <rect x="16" y="36" width="64" height="42" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="9"></rect>
+                <rect x="58" y="48" width="25" height="18" rx="9" fill="#FFFFFF"></rect>
+              </svg>
+              <svg width="16" height="16" viewBox="0 0 96 96" aria-hidden="true">
+                <rect width="96" height="96" rx="20" fill="#15803D"></rect>
+                <circle cx="44" cy="28" r="14" fill="#FFD59E"></circle>
+                <rect x="14" y="36" width="68" height="44" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="12"></rect>
+              </svg>
+            </div>
+            <span style="font-size: 13px; color: #56615B">Favicon · 32 en 16</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      tiles: [
+        { bg: '#E9EFEB', text: '#121A16', label: 'Op een licht beginscherm' },
+        { bg: '#0E1311', text: '#E7EEEA', label: 'Op een donker beginscherm' }
+      ],
+      sizes: [
+        { px: 72, label: 'Saldo' },
+        { px: 48, label: '48' },
+        { px: 32, label: '32' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+Saldo · Uitnodiging
+
+Bert nodigt je uit voor Saldo
+
+Saldo is jullie eigen huishoudboekje op de Home Assistant van Bert. Jij ziet alleen je eigen rekeningen en de rekeningen die je deelt.
+
+Uitgenodigd als: Gebruiker
+E-mail: partner@jouw-domein.be
+
+Account aanmaken:
+https://saldo.jouw-domein.be/uitnodiging/7f3c9a2e5b18
+
+De link is 7 dagen geldig en werkt één keer. Verwachtte je dit niet? Dan kan je deze e-mail negeren.
+
+-- 
+Je krijgt deze e-mail omdat Bert je heeft uitgenodigd.
+Saldo draait op je eigen Home Assistant.

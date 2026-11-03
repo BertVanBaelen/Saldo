@@ -1,0 +1,97 @@
+/* Start screen. Design boards: Telefoon-Start, Desktop-Start. */
+
+.start-top, .start-bottom { display: flex; flex-direction: column; gap: 14px; }
+
+@media (min-width: 1024px) {
+  .start-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: stretch; }
+  .start-bottom { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; align-items: start; }
+  .start-col-head { min-height: 32px; }
+}
+
+/* Hero "Saldo nu" */
+.hero {
+  background: var(--hero);
+  color: #FFFFFF;
+  border-radius: var(--r-hero);
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 14px;
+  text-decoration: none;
+  --heroText: var(--heroSub);
+}
+.hero--shared { background: var(--sharedHero); --heroText: var(--sharedSub); }
+.hero-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hero-label, .hero-sub { font-size: 15px; font-weight: 500; color: var(--heroText); }
+.hero-amount { font-size: 46px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; }
+.hero-meter { display: flex; flex-direction: column; gap: 8px; }
+.hero-track { position: relative; display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.22); }
+.hero-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  border-radius: 4px;
+  background: var(--heroAccent);
+  transform-origin: left;
+  animation: sGrowX 700ms var(--ease-out) both;
+  animation-delay: 160ms;
+}
+.hero-marker { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 1px; background: #FFFFFF; }
+.hero-meter-text { display: flex; justify-content: space-between; font-size: 13px; color: var(--heroText); }
+.hero-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.hero-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.14); }
+.hero-tile-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--heroText); }
+.hero-tile-amount { font-size: 15px; font-weight: 500; }
+.hero-tile-note { font-size: 12px; color: var(--heroText); }
+.hero-contrib {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 13px;
+}
+.hero-contrib .hero-sub { font-size: 13px; font-weight: 400; }
+.hero-contrib .contrib-chips { display: flex; gap: 10px; font-weight: 600; }
+
+@media (min-width: 1024px) {
+  .hero { padding: 22px 24px; }
+  .hero-amount { font-size: 50px; }
+  .hero-tiles, .hero-contrib { margin-top: auto; }
+  .hero-tile { padding: 8px 12px; }
+  .hero-contrib .contrib-chips { gap: 12px; }
+}
+
+/* Komende maanden */
+.start-forecast-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
+.start-forecast-head .section-title { flex: 1; }
+.start-forecast-sub { font-size: 12px; color: var(--muted); }
+@media (min-width: 1024px) {
+  .start-forecast { display: flex; }
+  .start-forecast-card { flex: 1; border-radius: var(--r-hero); padding: 18px 20px; }
+}
+
+/* Uitgaven: split by group in Alles */
+.start-split { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
+.start-split > span { flex: 1; display: flex; align-items: center; gap: 6px; }
+.start-split i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+/* Gedeelde rekeningen */
+.shared-card {
+  background: var(--sharedSoft);
+  border: 1px solid var(--sharedChip);
+  border-radius: var(--r-card);
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.shared-card-row { padding: 10px 12px; border-radius: 14px; background: var(--surface); }
+.shared-contrib {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px 10px;
+  font-size: 13px;
+}
+.shared-contrib .hero-sub { color: var(--sharedText); font-size: 13px; font-weight: 600; }
+.shared-contrib .contrib-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.shared-contrib .contrib-chips > span { padding: 3px 9px; border-radius: var(--r-pill); background: var(--surface); font-weight: 600; }
+@media (min-width: 1024px) {
+  .shared-contrib { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .row-icon { width: 34px; height: 34px; }
+  .row { padding: 10px 0; }
+  .row-sub { font-size: 12px; }
+  .group-head-icon { width: 30px; height: 30px; }
+}

@@ -1,0 +1,111 @@
+<!doctype html>
+<!--
+  Saldo e-mail: koppeling-14-dagen (design board E-mail-Berichten, "4 · Koppeling verloopt (14 dagen)").
+  Starting point for the Go html/template in phase 0.8-1. The body shows the demo values;
+  replace them with the fields below. Table layout, inline styles; the <style> block only
+  adds dark mode and phone padding where the client supports it.
+  Subject:   Je {{.Bank}}-koppeling verloopt over {{.DaysLeft}} dagen ({{len .Accounts}} rekeningen)
+  Preheader: Koppel opnieuw om te blijven synchroniseren. Het duurt een minuut.
+  Fields:
+    {{.Bank}}          "Argenta"
+    {{.DaysLeft}}      14
+    {{range .Accounts}} .Kind, .Name, .Sub  (every account on this consent)
+    {{.ExpiresOn}}     "30 november"         key figure, ochre
+    {{.LinkedBy}}      "Jij"
+    {{.Since}}         "3 juni 2026"         consent start; expiry = start + 180 days
+    {{.ActionURL}}     {{.BaseURL}}/bankkoppelingen/argenta
+  Sent to the user who made the connection.
+  Common fields (every template):
+    {{.BaseURL}}       absolute app URL, e.g. https://saldo.jouw-domein.be. Images become
+                       {{.BaseURL}}/mail/logo.png, person.png, people.png (PNG: Gmail and
+                       Outlook do not show SVG). The mockup uses img/*.svg.
+    {{.SettingsURL}}   {{.BaseURL}}/meldingen (only in templates with "Meldingen aanpassen")
+  Sender: Saldo <saldo@jouw-domein.be>. Send multipart/alternative with the .txt part.
+-->
+<html lang="nl" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Je Argenta-koppeling verloopt over 14 dagen (2 rekeningen)</title>
+<style>
+:root{color-scheme:light dark;supported-color-schemes:light dark}
+@media (max-width:480px){.sx-px{padding-left:20px!important;padding-right:20px!important}.sx-outer{padding:12px 8px!important}.sx-big{font-size:30px!important}}
+@media (prefers-color-scheme:dark){
+.sx-bg{background:#0E1311!important}
+.sx-card,.sx-acct{background:#161D1A!important;border-color:#24302A!important}
+.sx-line{border-color:#24302A!important}
+.sx-text{color:#E7EEEA!important}
+.sx-muted{color:#98A59E!important}
+.sx-brand,.sx-foot a{color:#86EFAC!important}
+.sx-foot{background:#0E1311!important;color:#98A59E!important;border-color:#24302A!important}
+.sx-btn{background:#4ADE80!important}.sx-btn a{color:#0E1311!important}
+.sx-soft{background:#2E2414!important}.sx-tone{color:#F5B94A!important}
+}
+</style>
+</head>
+<body class="sx-bg" style="margin:0;padding:0;background:#EEF2EF;-webkit-font-smoothing:antialiased;">
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#EEF2EF;">Koppel opnieuw om te blijven synchroniseren. Het duurt een minuut.&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;&#8204;&nbsp;</div>
+<table role="presentation" class="sx-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EEF2EF" style="background:#EEF2EF;">
+<tr><td class="sx-outer" align="center" style="padding:24px 18px;">
+<table role="presentation" class="sx-card" width="520" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:100%;max-width:520px;background:#FFFFFF;border:1px solid #E2E8E4;border-radius:16px;border-collapse:separate;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;color:#121A16;">
+<tr><td class="sx-px" style="padding-top:22px;padding-left:30px;padding-right:30px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="vertical-align:middle;"><img src="img/logo.svg" width="28" height="28" alt="" style="display:block;border:0;width:28px;height:28px;"></td>
+<td class="sx-brand" style="vertical-align:middle;padding-left:8px;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:17px;line-height:28px;font-weight:600;letter-spacing:-0.02em;color:#166534;">Saldo</td>
+</tr></table>
+</td></tr>
+<tr><td class="sx-px" style="padding-top:22px;padding-left:30px;padding-right:30px;">
+<div class="sx-tone" style="font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#8A5A00;">Bankkoppeling</div>
+<h1 class="sx-text" style="margin:6px 0 0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:24px;line-height:1.2;font-weight:600;letter-spacing:-0.02em;color:#121A16;">Je Argenta-koppeling verloopt over 14 dagen</h1>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;border-collapse:separate;">
+<tr><td class="sx-acct" bgcolor="#FFFFFF" style="padding:9px 12px;border:1px solid #E2E8E4;border-radius:12px;background:#FFFFFF;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="30" height="30" align="center" valign="middle" bgcolor="#15803D" style="width:30px;height:30px;border-radius:50%;background:#15803D;"><img src="img/person.svg" width="16" height="16" alt="Persoonlijke rekening" style="display:block;border:0;width:16px;height:16px;margin:0 auto;"></td>
+<td style="padding-left:10px;vertical-align:middle;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<div class="sx-text" style="font-size:15px;line-height:20px;font-weight:600;color:#121A16;">Zichtrekening</div>
+<div class="sx-muted" style="font-size:12px;line-height:16px;color:#56615B;">Persoonlijk · BE68 •••• •••• 4821</div>
+</td></tr></table>
+</td></tr>
+<tr><td height="6" style="height:6px;line-height:6px;font-size:6px;">&nbsp;</td></tr>
+<tr><td class="sx-acct" bgcolor="#FFFFFF" style="padding:9px 12px;border:1px solid #E2E8E4;border-radius:12px;background:#FFFFFF;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="30" height="30" align="center" valign="middle" bgcolor="#5B3FD9" style="width:30px;height:30px;border-radius:50%;background:#5B3FD9;"><img src="img/people.svg" width="16" height="16" alt="Gedeelde rekening" style="display:block;border:0;width:16px;height:16px;margin:0 auto;"></td>
+<td style="padding-left:10px;vertical-align:middle;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<div class="sx-text" style="font-size:15px;line-height:20px;font-weight:600;color:#121A16;">Gedeelde rekening</div>
+<div class="sx-muted" style="font-size:12px;line-height:16px;color:#56615B;">Gedeeld met Partner · BE12 •••• •••• 7730</div>
+</td></tr></table>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;border-collapse:separate;"><tr>
+<td class="sx-soft" bgcolor="#FFF4DB" style="padding:16px 18px;border-radius:14px;background:#FFF4DB;">
+<div class="sx-tone sx-big" style="font-family:'Geist Mono', ui-monospace, Menlo, Consolas, 'Courier New', monospace;font-size:34px;line-height:1.15;font-weight:600;letter-spacing:-0.01em;color:#8A5A00;">30 november</div>
+<div class="sx-muted" style="padding-top:2px;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:18px;color:#56615B;">Laatste dag dat Saldo je rekeningen kan lezen</div>
+</td></tr></table>
+</td></tr>
+<tr><td class="sx-px" style="padding-top:18px;padding-bottom:26px;padding-left:30px;padding-right:30px;">
+<p class="sx-text" style="margin:0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;line-height:1.55;color:#2B3530;">Banken vragen elke 180 dagen opnieuw toestemming. Bevestig in de Argenta-app, dan loopt alles gewoon door.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;border-collapse:separate;"><tr>
+<td class="sx-line" style="padding:2px 16px;border:1px solid #E2E8E4;border-radius:12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td class="sx-muted" style="padding:9px 16px 9px 0; font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#56615B;white-space:nowrap;vertical-align:top;">Gekoppeld door</td>
+<td class="sx-text" align="right" style="padding:9px 0;vertical-align:top; font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;font-weight:500;color:#121A16;text-align:right;">Jij</td></tr>
+<tr><td class="sx-muted sx-line" style="padding:9px 16px 9px 0;border-top:1px solid #E2E8E4; font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#56615B;white-space:nowrap;vertical-align:top;">Sinds</td>
+<td class="sx-text sx-line" align="right" style="padding:9px 0;vertical-align:top;border-top:1px solid #E2E8E4; font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;font-weight:500;color:#121A16;text-align:right;">3 juni 2026</td></tr>
+</table>
+</td></tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;border-collapse:separate;"><tr>
+<td class="sx-btn" bgcolor="#15803D" style="border-radius:12px;background:#15803D;"><a href="#" style="display:inline-block;padding:12px 20px;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:12px;">Opnieuw koppelen</a></td>
+</tr></table>
+<p class="sx-muted" style="margin:16px 0 0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:1.5;color:#56615B;">Je krijgt nog een herinnering 3 dagen voor het verloopt.</p>
+</td></tr>
+<tr><td class="sx-px sx-foot" bgcolor="#FAFBFA" style="padding-top:16px;padding-bottom:22px;padding-left:30px;padding-right:30px; border-top:1px solid #E2E8E4;border-radius:0 0 16px 16px;background:#FAFBFA;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:1.55;color:#6B766F;">
+Je krijgt dit omdat jij deze koppeling hebt gemaakt. <a href="../meldingen.html" target="_blank" style="color:#166534;text-decoration:underline;">Meldingen aanpassen</a><br>Saldo draait op je eigen Home Assistant.
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

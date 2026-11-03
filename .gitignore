@@ -1,0 +1,26 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Build output and dependencies (from version 0.2 on)
+node_modules/
+dist/
+build/
+coverage/
+*.exe
+/server/bin/
+
+# Local data, secrets and real bank or Bilance files: never commit these (public repository)
+*.db
+*.db-journal
+*.sqlite
+*.pem
+*.key
+.env
+.env.*
+/data/
+/private/
+*-real.csv

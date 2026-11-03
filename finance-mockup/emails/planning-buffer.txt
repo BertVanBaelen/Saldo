@@ -1,0 +1,23 @@
+Saldo · Planning · buffer
+
+Je zichtrekening komt in januari in de buffer
+
+Zichtrekening (Persoonlijk · BE68 •••• •••• 4821)
+
+€ 721,50
+€ 178,50 onder je buffer van € 900,00
+
+Je komt niet in het rood, maar je houdt minder over dan je buffer. Dat komt vooral door de familiale verzekering in januari.
+
+Jaarlijkse kost: Familiale verzekering −€ 684,00
+Laagste punt: 1 januari, voor het salaris
+
+Bekijk januari:
+https://saldo.jouw-domein.be/planning?groep=persoonlijk&maand=2027-01
+
+Je krijgt één e-mail per maand die in de buffer komt, niet elke dag opnieuw.
+
+-- 
+Je krijgt dit omdat "Rekening komt in de buffer" aanstaat voor e-mail.
+Meldingen aanpassen: https://saldo.jouw-domein.be/meldingen
+Saldo draait op je eigen Home Assistant.

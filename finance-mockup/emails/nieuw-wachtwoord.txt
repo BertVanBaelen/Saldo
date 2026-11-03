@@ -1,0 +1,17 @@
+Saldo · Wachtwoord
+
+Stel een nieuw wachtwoord in
+
+Bert heeft een link aangemaakt om je wachtwoord opnieuw in te stellen. Daarna log je in zoals altijd, met een code per e-mail.
+
+Aangemaakt door: Bert (beheerder)
+Geldig tot: Di 3 nov, 11:02
+
+Nieuw wachtwoord kiezen:
+https://saldo.jouw-domein.be/wachtwoord/9b41d07c3e62
+
+Heb je hier niet om gevraagd? Neem dan contact op met Bert.
+
+-- 
+Je krijgt deze e-mail omdat een beheerder dit voor je heeft aangevraagd.
+Saldo draait op je eigen Home Assistant.

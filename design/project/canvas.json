@@ -1,0 +1,248 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-03T11:17:16Z"
+  },
+  "title": "Saldo – ontwerp",
+  "launch": {
+    "view": "canvas",
+    "page": "overzicht"
+  },
+  "pages": [
+    {
+      "id": "overzicht",
+      "name": "Overzicht"
+    },
+    {
+      "id": "schermen",
+      "name": "Schermen"
+    },
+    {
+      "id": "berichten",
+      "name": "E-mails en meldingen"
+    }
+  ],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1200,
+      "h": 1480,
+      "title": "Saldo · stijl",
+      "page": "overzicht"
+    },
+    "Saldo-Start.dc.html": {
+      "x": 1280,
+      "y": 300,
+      "w": 960,
+      "h": 1380,
+      "title": "Saldo · Start licht en donker",
+      "page": "overzicht"
+    },
+    "Saldo-Icoon.dc.html": {
+      "x": 2320,
+      "y": 300,
+      "w": 1200,
+      "h": 760,
+      "title": "Saldo · app-icoon",
+      "page": "overzicht"
+    },
+    "Telefoon-Start.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 920,
+      "h": 2190,
+      "title": "Telefoon · Start",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Telefoon-Transacties.dc.html": {
+      "x": 1000,
+      "y": 300,
+      "w": 920,
+      "h": 1510,
+      "title": "Telefoon · Transacties",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Telefoon-Overzicht.dc.html": {
+      "x": 2000,
+      "y": 300,
+      "w": 920,
+      "h": 1290,
+      "title": "Telefoon · Overzicht",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Telefoon-Planning.dc.html": {
+      "x": 3000,
+      "y": 300,
+      "w": 920,
+      "h": 1710,
+      "title": "Telefoon · Planning",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Telefoon-Meer.dc.html": {
+      "x": 4000,
+      "y": 300,
+      "w": 920,
+      "h": 954,
+      "title": "Telefoon · Meer",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Desktop-Start.dc.html": {
+      "x": 0,
+      "y": 3000,
+      "w": 1360,
+      "h": 2180,
+      "title": "Desktop · Start",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Desktop-Transacties.dc.html": {
+      "x": 1440,
+      "y": 3000,
+      "w": 1360,
+      "h": 1800,
+      "title": "Desktop · Transacties",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Desktop-Overzicht.dc.html": {
+      "x": 2880,
+      "y": 3000,
+      "w": 1360,
+      "h": 1800,
+      "title": "Desktop · Overzicht",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Desktop-Planning.dc.html": {
+      "x": 4320,
+      "y": 3000,
+      "w": 1360,
+      "h": 2800,
+      "title": "Desktop · Planning",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Telefoon-Rekeningen.dc.html": {
+      "x": 5000,
+      "y": 300,
+      "w": 920,
+      "h": 954,
+      "title": "Telefoon · Rekeningen",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "Desktop-Rekeningen.dc.html": {
+      "x": 5760,
+      "y": 3000,
+      "w": 1360,
+      "h": 1800,
+      "title": "Desktop · Rekeningen",
+      "page": "schermen",
+      "is_interactive": true
+    },
+    "E-mail-Berichten.dc.html": {
+      "x": 0,
+      "y": 300,
+      "w": 1880,
+      "h": 2780,
+      "title": "E-mails",
+      "page": "berichten"
+    },
+    "Meldingen-Icoon.dc.html": {
+      "x": 1980,
+      "y": 300,
+      "w": 1240,
+      "h": 860,
+      "title": "Meldingen · statusbalk-icoon",
+      "page": "berichten"
+    },
+    "Meldingen-Android.dc.html": {
+      "x": 1980,
+      "y": 1240,
+      "w": 1240,
+      "h": 1010,
+      "title": "Meldingen · Android",
+      "page": "berichten",
+      "is_interactive": true
+    },
+    "Telefoon-Meldingen.dc.html": {
+      "x": 6000,
+      "y": 300,
+      "w": 920,
+      "h": 1540,
+      "title": "Telefoon · Meldingen",
+      "page": "schermen",
+      "is_interactive": true
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Saldo-Start.dc.html",
+    "Saldo-Icoon.dc.html",
+    "Telefoon-Start.dc.html",
+    "Telefoon-Transacties.dc.html",
+    "Telefoon-Overzicht.dc.html",
+    "Telefoon-Planning.dc.html",
+    "Telefoon-Meer.dc.html",
+    "Telefoon-Rekeningen.dc.html",
+    "Telefoon-Meldingen.dc.html",
+    "Desktop-Start.dc.html",
+    "Desktop-Transacties.dc.html",
+    "Desktop-Overzicht.dc.html",
+    "Desktop-Planning.dc.html",
+    "Desktop-Rekeningen.dc.html",
+    "E-mail-Berichten.dc.html",
+    "Meldingen-Icoon.dc.html",
+    "Meldingen-Android.dc.html"
+  ],
+  "notes": {
+    "titleOverzicht": {
+      "x": 0,
+      "y": 0,
+      "text": "Saldo · overzicht",
+      "kind": "title1",
+      "maxW": 3520,
+      "page": "overzicht"
+    },
+    "titleTelefoon": {
+      "x": 0,
+      "y": 0,
+      "text": "Telefoon",
+      "kind": "title1",
+      "maxW": 6920,
+      "page": "schermen"
+    },
+    "titleDesktop": {
+      "x": 0,
+      "y": 2700,
+      "text": "Desktop",
+      "kind": "title1",
+      "maxW": 7120,
+      "page": "schermen"
+    },
+    "titleEmail": {
+      "x": 0,
+      "y": 0,
+      "text": "E-mails",
+      "kind": "title1",
+      "maxW": 1880,
+      "page": "berichten"
+    },
+    "titleMeldingen": {
+      "x": 1980,
+      "y": 0,
+      "text": "Meldingen",
+      "kind": "title1",
+      "maxW": 1240,
+      "page": "berichten"
+    }
+  },
+  "designSystems": []
+}

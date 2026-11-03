@@ -1,0 +1,24 @@
+Saldo · Synchronisatie gestopt
+
+Je rekeningen worden niet meer bijgewerkt
+
+Zichtrekening (Persoonlijk · BE68 •••• •••• 4821)
+Gedeelde rekening (Gedeeld met Partner · BE12 •••• •••• 7730)
+
+30 nov · 04:02
+Laatste geslaagde synchronisatie
+
+De toestemming bij Argenta is verlopen. Je planning rekent nu met oude saldi, dus de cijfers kloppen niet meer.
+
+Bank: Argenta
+Status: Niet bijgewerkt sinds 30 nov
+
+Opnieuw koppelen:
+https://saldo.jouw-domein.be/bankkoppelingen/argenta
+
+Na het koppelen haalt Saldo de gemiste transacties vanzelf op.
+
+-- 
+Je krijgt dit omdat jij deze koppeling hebt gemaakt.
+Meldingen aanpassen: https://saldo.jouw-domein.be/meldingen
+Saldo draait op je eigen Home Assistant.

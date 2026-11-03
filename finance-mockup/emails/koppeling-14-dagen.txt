@@ -1,0 +1,24 @@
+Saldo · Bankkoppeling
+
+Je Argenta-koppeling verloopt over 14 dagen
+
+Zichtrekening (Persoonlijk · BE68 •••• •••• 4821)
+Gedeelde rekening (Gedeeld met Partner · BE12 •••• •••• 7730)
+
+30 november
+Laatste dag dat Saldo je rekeningen kan lezen
+
+Banken vragen elke 180 dagen opnieuw toestemming. Bevestig in de Argenta-app, dan loopt alles gewoon door.
+
+Gekoppeld door: Jij
+Sinds: 3 juni 2026
+
+Opnieuw koppelen:
+https://saldo.jouw-domein.be/bankkoppelingen/argenta
+
+Je krijgt nog een herinnering 3 dagen voor het verloopt.
+
+-- 
+Je krijgt dit omdat jij deze koppeling hebt gemaakt.
+Meldingen aanpassen: https://saldo.jouw-domein.be/meldingen
+Saldo draait op je eigen Home Assistant.

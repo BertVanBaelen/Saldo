@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Desktop · Overzicht</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15803D}a:hover{color:#166534}
+.licht{--shared:#5B3FD9;--onShared:#FFFFFF;--sharedText:#4A31C2;--sharedSoft:#ECE8FF;--bg:#F4F7F5;--surface:#FFFFFF;--line:#E2E8E4;--text:#121A16;--muted:#56615B;--green:#15803D;--onGreen:#FFFFFF;--greenText:#166534;--soft:#DCFCE7;--neg:#C62828;--warn:#8A5A00;--onPastel:#121A16;--c1:#BFE0FF;--c2:#FFD59E;--c3:#FFC6DC;--c4:#D8CCFF;--c5:#FFE58A;--c6:#E2E8E4;--barInc:#15803D;--barExp:#5B9BD5;--barSav:#B07F00;--track:#EAEFEC;--skel:#E7EDE9;--skel2:#F3F7F4;--shadow:0 24px 60px rgba(18,26,22,0.16)}
+.donker{--shared:#9C86FF;--onShared:#15111F;--sharedText:#B7A6FF;--sharedSoft:#231D3D;--bg:#0E1311;--surface:#161D1A;--line:#24302A;--text:#E7EEEA;--muted:#98A59E;--green:#4ADE80;--onGreen:#0E1311;--greenText:#86EFAC;--soft:#13321F;--neg:#FF6B6B;--warn:#F5B94A;--onPastel:#0E1311;--c1:#7DBDF0;--c2:#F2B35E;--c3:#F08FB7;--c4:#AE9BF7;--c5:#E8CB55;--c6:#3A4741;--barInc:#4ADE80;--barExp:#7DBDF0;--barSav:#E8CB55;--track:#222B27;--skel:#1F2824;--skel2:#2A3530;--shadow:0 24px 60px rgba(0,0,0,0.4)}
+@keyframes sIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes sFade{from{opacity:0}to{opacity:1}}
+@keyframes sGrowY{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes sShimmer{from{background-position:-320px 0}to{background-position:320px 0}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 1360px; height: 1800px; box-sizing: border-box; padding: 40px; background: #DFE6E1; display: flex; flex-direction: column; gap: 48px; font-family: Geist, system-ui, sans-serif">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 12px">
+  <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #36423B">{{t.label}}</div>
+  <div class="{{t.cls}}" style="width: 1280px; height: 800px; border-radius: 14px; overflow: hidden; display: flex; background: var(--bg); color: var(--text); box-shadow: var(--shadow)">
+
+    <aside style="width: 232px; flex: none; box-sizing: border-box; padding: 20px 14px 14px; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 22px">
+      <a href="Desktop-Start.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 8px; text-decoration: none">
+        <svg width="32" height="32" viewBox="0 0 96 96" aria-hidden="true"><rect width="96" height="96" rx="26" fill="#15803D"></rect><circle cx="44" cy="31" r="12" fill="#FFD59E"></circle><rect x="18" y="36" width="60" height="40" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="7"></rect><rect x="58" y="48" width="23" height="16" rx="8" fill="#FFFFFF"></rect></svg>
+        <span style="font-size: 22px; font-weight: 600; letter-spacing: -0.03em; color: var(--greenText)">Saldo</span>
+      </a>
+      <nav aria-label="Hoofdmenu" style="display: flex; flex-direction: column; gap: 2px">
+        <a href="Desktop-Start.dc.html" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20h14V9.5"></path></svg>Start</a>
+        <a href="Desktop-Transacties.dc.html" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></svg>Transacties<span style="margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: var(--soft); color: var(--greenText); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">8</span></a>
+        <a href="Desktop-Overzicht.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; background: var(--soft); color: var(--greenText); font-size: 15px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M6 17v-6"></path><path d="M11 17V6"></path><path d="M16 17v-9"></path></svg>Overzicht</a>
+        <a href="Desktop-Planning.dc.html" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Planning</a>
+      </nav>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span style="padding: 0 12px 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Beheer</span>
+        <a href="Desktop-Rekeningen.dc.html" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="3"></rect><path d="M3 10h18M16 15h2"></path></svg>Rekeningen</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"></path><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"></path></svg>Bankkoppelingen<span style="margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--warn)"></span></a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12Z"></path><path d="M7.5 7.5h.01"></path></svg>Categorieën</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"></path></svg>Importeren</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Instellingen</a>
+      </div>
+      <a href="#" style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid var(--line); color: var(--text); text-decoration: none">
+        <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--c2); color: var(--onPastel); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex: none">B</span>
+        <span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px; font-weight: 600">Bert</span><span style="font-size: 12px; color: var(--muted)">Beheerder</span></span>
+      </a>
+    </aside>
+
+    <main style="flex: 1; min-width: 0; overflow-y: auto">
+      <div style="padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 20px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; animation: sFade 200ms ease-out both">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em">Overzicht</h1>
+            <span style="font-size: 14px; color: var(--muted)">Al mijn rekeningen · {{rangeLabel}}</span>
+          </div>
+          <div role="group" aria-label="Welke rekeningen" style="display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); margin-left: auto; margin-right: 10px">
+            <button type="button" aria-pressed="{{sa.on}}" onClick="{{sa.pick}}" style="height: 38px; padding: 0 14px; border-radius: 10px; border: none; background: {{sa.bg}}; color: {{sa.fg}}; font: inherit; font-size: 14px; font-weight: 600; transition: background 200ms ease, color 200ms ease">Alles</button>
+            <button type="button" aria-pressed="{{sp.on}}" onClick="{{sp.pick}}" style="height: 38px; padding: 0 14px; border-radius: 10px; border: none; background: {{sp.bg}}; color: {{sp.fg}}; font: inherit; font-size: 14px; font-weight: 600; transition: background 200ms ease, color 200ms ease">Persoonlijk</button>
+            <button type="button" aria-pressed="{{sg.on}}" onClick="{{sg.pick}}" style="height: 38px; padding: 0 14px; border-radius: 10px; border: none; background: {{sg.bg}}; color: {{sg.fg}}; font: inherit; font-size: 14px; font-weight: 600; transition: background 200ms ease, color 200ms ease">Gedeeld</button>
+          </div>
+          <div role="group" aria-label="Periode" style="display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line)">
+            <sc-for list="{{periods}}" as="p" hint-placeholder-count="4">
+              <button type="button" aria-pressed="{{p.on}}" onClick="{{p.pick}}" style="min-width: 92px; height: 38px; border-radius: 10px; border: none; background: {{p.bg}}; color: {{p.fg}}; font: inherit; font-size: 14px; font-weight: 600; transition: background 200ms ease, color 200ms ease">{{p.name}}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 16px">
+            <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 16px; animation: sIn 260ms ease-out both; animation-delay: 40ms">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+                <h2 style="margin: 0; font-size: 16px; font-weight: 600">Inkomen, uitgaven en gespaard</h2>
+                <div style="display: flex; gap: 14px; font-size: 13px; color: var(--muted)">
+                  <span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--barInc)"></span>Inkomen</span>
+                  <span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--barExp)"></span>Uitgaven</span>
+                  <span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--barSav)"></span>Gespaard</span>
+                </div>
+              </div>
+              <sc-if value="{{swapping}}" hint-placeholder-val="{{ false }}">
+                <div aria-label="Laden" style="height: 300px; display: flex; align-items: flex-end; gap: 18px; padding: 0 12px">
+                  <sc-for list="{{skelBars}}" as="k" hint-placeholder-count="6">
+                    <div style="flex: 1; height: {{k.h}}px; border-radius: 10px 10px 0 0; background: linear-gradient(90deg, var(--skel) 0%, var(--skel2) 50%, var(--skel) 100%); background-size: 640px 100%; animation: sShimmer 1.1s linear infinite"></div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{notSwapping}}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; gap: 8px; height: 300px; align-items: stretch">
+                  <sc-for list="{{chart}}" as="g" hint-placeholder-count="6">
+                    <button type="button" onClick="{{g.pick}}" aria-pressed="{{g.on}}" aria-label="{{g.aria}}" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px; padding: 10px 0 8px; border: none; border-radius: 14px; background: {{g.bg}}; color: var(--text); font: inherit; cursor: pointer; transition: background 200ms ease">
+                      <span style="display: flex; align-items: flex-end; gap: 4px; height: 250px">
+                        <sc-for list="{{g.bars}}" as="b" hint-placeholder-count="3">
+                          <span style="width: {{b.w}}px; height: {{b.h}}px; border-radius: 5px 5px 1px 1px; background: {{b.bg}}; transform-origin: bottom; animation: sGrowY 560ms cubic-bezier(.2,.7,.2,1) both; animation-delay: {{b.delay}}ms"></span>
+                        </sc-for>
+                      </span>
+                      <span style="font-size: 13px; font-weight: {{g.weight}}; color: {{g.labelColor}}">{{g.short}}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </section>
+            <section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; animation: sIn 260ms ease-out both; animation-delay: 80ms">
+              <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: var(--muted)">Inkomen · {{sum.short}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 500">{{sum.inc}}</span></div>
+              <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: var(--muted)">Uitgaven · {{sum.short}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 500">{{sum.exp}}</span></div>
+              <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: var(--muted)">Gespaard · {{sum.short}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 500">{{sum.sav}}</span></div>
+            </section>
+          </div>
+
+          <section style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 6px; animation: sIn 260ms ease-out both; animation-delay: 120ms">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding-bottom: 6px">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 600">Per categorie · {{sum.title}}</h2>
+              <span style="font-size: 13px; color: var(--muted); white-space: nowrap">{{sum.compare}}</span>
+            </div>
+            <sc-for list="{{rowsCat}}" as="c" hint-placeholder-count="6">
+              <a href="Desktop-Transacties.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 10px; margin: 0 -10px; border-radius: 12px; border-top: {{c.divider}}; color: var(--text); text-decoration: none">
+                <span style="display: flex; align-items: center; gap: 10px; font-size: 15px">
+                  <span style="width: 12px; height: 12px; border-radius: 50%; background: {{c.bg}}; flex: none"></span>
+                  <span style="flex: 1; font-weight: 500">{{c.name}} <span style="color: var(--muted); font-weight: 400">{{c.share}}</span></span>
+                  <span style="font-size: 13px; font-weight: 600; color: {{c.trendColor}}">{{c.trend}}</span>
+                  <span style="font-family: 'Geist Mono', monospace; font-weight: 500; min-width: 110px; text-align: right">{{c.amount}}</span>
+                </span>
+                <span style="display: block; height: 8px; border-radius: 4px; background: var(--track)"><span style="display: block; width: {{c.pct}}%; height: 8px; border-radius: 4px; background: {{c.bg}}; transition: width 420ms cubic-bezier(.2,.7,.2,1)"></span></span>
+              </a>
+            </sc-for>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1800}}'>
+class Component extends DCLogic {
+  later(fn, ms) { (this._t = this._t || []).push(setTimeout(fn, ms)); }
+  componentWillUnmount() { (this._t || []).forEach(clearTimeout); }
+  eur(c) {
+    const neg = c < 0, a = Math.abs(Math.round(c));
+    const e = String(Math.floor(a / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return (neg ? '−' : '') + '€ ' + e + ',' + String(a % 100).padStart(2, '0');
+  }
+  scopeSeg(s, scope, color, onColor) {
+    return {
+      on: s === scope, bg: s === scope ? color : 'transparent', fg: s === scope ? onColor : 'var(--text)',
+      pick: () => { if (s === scope) return; this.setState({ scope: s, sel: null, swapping: true }); this.later(() => this.setState({ swapping: false }), 320); }
+    };
+  }
+  renderVals() {
+    const st = this.state || {};
+    const period = st.period || 'maand';
+    const scope = st.scope || 'alles';
+    const swapping = !!st.swapping;
+    const CATS = [
+      { n: 'Wonen', bg: 'var(--c1)' }, { n: 'Boodschappen', bg: 'var(--c2)' }, { n: 'Vrije tijd', bg: 'var(--c3)' },
+      { n: 'Vervoer', bg: 'var(--c4)' }, { n: 'Abonnementen', bg: 'var(--c5)' }, { n: 'Overig', bg: 'var(--c6)' }
+    ];
+    const M = [
+      ['november 2025', 'nov', 330000, 20000, [115000, 70200, 38800, 29100, 5497, 40200]],
+      ['december 2025', 'dec', 330000, 20000, [115000, 81200, 52000, 27600, 5497, 61000]],
+      ['januari 2026', 'jan', 330000, 20000, [115000, 59800, 24000, 26200, 5497, 101200]],
+      ['februari 2026', 'feb', 330000, 20000, [115000, 61100, 28600, 27000, 5497, 33000]],
+      ['maart 2026', 'mrt', 330000, 20000, [115000, 64000, 31200, 28800, 5497, 35600]],
+      ['april 2026', 'apr', 330000, 20000, [115000, 62200, 36400, 30100, 5497, 34100]],
+      ['mei 2026', 'mei', 330000, 20000, [115000, 63000, 34200, 27600, 5497, 39200]],
+      ['juni 2026', 'jun', 330000, 20000, [115000, 66500, 41000, 29000, 5497, 41000]],
+      ['juli 2026', 'jul', 330000, 0, [115000, 71200, 98400, 40200, 5497, 33700]],
+      ['augustus 2026', 'aug', 330000, 40000, [115000, 60100, 29600, 24800, 5497, 36000]],
+      ['september 2026', 'sep', 330000, 20000, [115000, 68800, 35200, 30100, 5497, 34400]],
+      ['oktober 2026', 'okt', 335000, 20000, [115000, 64200, 31800, 28400, 5497, 31100]]
+    ];
+    if (scope === 'persoonlijk') CATS.push({ n: 'Naar gedeelde rekening', bg: 'var(--shared)' });
+    const split = (row) => {
+      const c = row[4];
+      if (scope === 'gedeeld') return { inc: 90000, sav: 0, cats: [14500, c[1], 0, 0, 4298, 6202] };
+      if (scope === 'persoonlijk') return { inc: row[2] - 45000, sav: row[3], cats: [100500, 0, c[2], c[3], 1199, c[5] - 6202, 45000] };
+      return { inc: row[2], sav: row[3], cats: c };
+    };
+    const agg = (idx, title, short) => {
+      const cats = CATS.map(() => 0); let inc = 0, sav = 0;
+      idx.forEach((i) => { const s = split(M[i]); inc += s.inc; sav += s.sav; s.cats.forEach((v, k) => { cats[k] += v; }); });
+      return { title: title, short: short, inc: inc, sav: sav, cats: cats, exp: cats.reduce((a, b) => a + b, 0) };
+    };
+    let groups, rangeLabel, compareWord;
+    if (period === 'kwartaal') {
+      groups = [agg([2, 3, 4], 'K1 2026', 'K1'), agg([5, 6, 7], 'K2 2026', 'K2'), agg([8, 9, 10], 'K3 2026', 'K3')];
+      rangeLabel = '2026 per kwartaal'; compareWord = 'vorig kwartaal';
+    } else if (period === 'jaar') {
+      groups = [agg([0, 1], '2025 · vanaf november', '2025'), agg([2, 3, 4, 5, 6, 7, 8, 9, 10, 11], '2026 · tot oktober', '2026')];
+      rangeLabel = 'per jaar, sinds november 2025'; compareWord = '';
+    } else {
+      groups = [5, 6, 7, 8, 9, 10, 11].map((i) => agg([i], M[i][0], M[i][1]));
+      rangeLabel = 'mei – oktober 2026'; compareWord = 'vorige maand';
+    }
+    const first = period === 'maand' ? 1 : 0;
+    const view = groups.slice(first);
+    const selIdx = (st.sel !== undefined && st.sel !== null && st.sel < view.length) ? st.sel : view.length - 1;
+    const max = Math.max.apply(null, view.map((g) => Math.max(g.inc, g.exp, g.sav)));
+    const bw = view.length > 4 ? 18 : (view.length > 2 ? 30 : 40);
+    const chart = view.map((g, i) => ({
+      short: g.short, on: i === selIdx,
+      bg: i === selIdx ? 'var(--soft)' : 'transparent',
+      weight: i === selIdx ? '700' : '500',
+      labelColor: i === selIdx ? 'var(--greenText)' : 'var(--muted)',
+      aria: g.title + ': inkomen ' + this.eur(g.inc) + ', uitgaven ' + this.eur(g.exp) + ', gespaard ' + this.eur(g.sav),
+      pick: () => this.setState({ sel: i }),
+      bars: [
+        { w: bw, h: Math.max(2, Math.round(g.inc / max * 240)), bg: 'var(--barInc)', delay: 60 + i * 40 },
+        { w: bw, h: Math.max(2, Math.round(g.exp / max * 240)), bg: 'var(--barExp)', delay: 90 + i * 40 },
+        { w: bw, h: Math.max(2, Math.round(g.sav / max * 240)), bg: 'var(--barSav)', delay: 120 + i * 40 }
+      ]
+    }));
+    const cur = view[selIdx];
+    const prev = period === 'jaar' ? null : (groups[selIdx + first - 1] || null);
+    const rowsCat = CATS.map((c, k) => {
+      const v = cur.cats[k];
+      let trend = '', trendColor = 'var(--muted)';
+      if (prev) {
+        const pv = prev.cats[k];
+        const d = pv ? Math.round((v - pv) / pv * 100) : 0;
+        trend = d === 0 ? '= 0%' : (d > 0 ? '+' + d + '%' : '−' + Math.abs(d) + '%');
+        trendColor = d > 5 ? 'var(--warn)' : (d < -5 ? 'var(--greenText)' : 'var(--muted)');
+      }
+      return { name: c.n, bg: c.bg, v: v, amount: this.eur(v), share: Math.round(v / cur.exp * 100) + '%', pct: Math.round(v / cur.exp * 100), trend: trend, trendColor: trendColor };
+    }).filter((r) => r.v > 0).sort((a, b) => b.v - a.v).map((r, i) => Object.assign({}, r, { divider: i === 0 ? 'none' : '1px solid var(--line)' }));
+    const pick = (p) => () => {
+      if (p === period) return;
+      this.setState({ period: p, sel: null, swapping: true });
+      this.later(() => this.setState({ swapping: false }), 320);
+    };
+    const P = [['maand', 'Maand'], ['kwartaal', 'Kwartaal'], ['jaar', 'Jaar'], ['eigen', 'Eigen']];
+    return {
+      themes: [{ cls: 'licht', label: 'Licht' }, { cls: 'donker', label: 'Donker' }],
+      sa: this.scopeSeg('alles', scope, 'var(--text)', 'var(--bg)'),
+      sp: this.scopeSeg('persoonlijk', scope, 'var(--green)', 'var(--onGreen)'),
+      sg: this.scopeSeg('gedeeld', scope, 'var(--shared)', 'var(--onShared)'),
+      periods: P.map((p) => ({ name: p[1], on: p[0] === period, bg: p[0] === period ? 'var(--green)' : 'transparent', fg: p[0] === period ? 'var(--onGreen)' : 'var(--text)', pick: p[0] === 'eigen' ? () => {} : pick(p[0]) })),
+      rangeLabel: rangeLabel,
+      swapping: swapping,
+      notSwapping: !swapping,
+      skelBars: [{ h: 220 }, { h: 170 }, { h: 250 }, { h: 190 }, { h: 230 }, { h: 200 }],
+      chart: chart,
+      sum: { title: cur.title, short: cur.short, inc: this.eur(cur.inc), exp: this.eur(cur.exp), sav: this.eur(cur.sav), compare: prev ? 't.o.v. ' + compareWord : '' },
+      rowsCat: rowsCat
+    };
+  }
+}
+</script>
+</body>
+</html>

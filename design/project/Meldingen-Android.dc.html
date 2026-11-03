@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Meldingen · Android</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes sIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes sFade{from{opacity:0}to{opacity:1}}
+@keyframes sDrop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@keyframes sToast{0%{opacity:0;transform:translate(-50%,8px)}12%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms!important;animation-delay:0ms!important;transition:none!important}}
+
+</style>
+</helmet>
+<div style="width: 1240px; height: 1010px; box-sizing: border-box; padding: 40px; background: #DFE6E1; font-family: Geist, system-ui, sans-serif; color: #121A16; display: flex; flex-direction: column; gap: 24px">
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px">
+    <div style="display: flex; flex-direction: column; gap: 4px; max-width: 900px">
+      <span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Pushmeldingen op Android</span>
+      <span style="font-size: 14px; line-height: 1.5; color: #36423B">Het bedrag staat meteen bij de melding. Open de rode melding met de pijl om de komende maanden te zien.</span>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center">
+      <button type="button" onClick="{{reset}}" style="height: 40px; padding: 0 16px; border-radius: 12px; border: 1px solid #C9D3CD; background: #FFFFFF; color: #121A16; font: inherit; font-size: 14px; font-weight: 600">Opnieuw tonen</button>
+    </div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, 360px); gap: 32px">
+
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="position: relative; width: 360px; height: 760px; border-radius: 40px; overflow: hidden; background: linear-gradient(165deg, #166534 0%, #0E1311 72%); color: #FFFFFF; box-shadow: 0 24px 60px rgba(18,26,22,0.2)">
+        <span style="position: absolute; top: 12px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #000"></span>
+        <div style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 22px 0 26px; color: #FFFFFF; font-family: system-ui, sans-serif">
+          <span style="font-size: 14px; font-weight: 600; width: 40px">9:41</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="opacity: 0.85"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 3V6a1 1 0 0 1 1-1Z"></path></svg>
+          <span style="flex: 1"></span>
+          <span style="display: flex; align-items: center; gap: 5px; color: currentColor"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.5 1.5 9a15 15 0 0 1 21 0L12 20.5Z"></path></svg><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21 21 2v19H2Z"></path></svg><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 2h6v2h2a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h2V2Z"></path></svg></span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 70px; font-family: system-ui, sans-serif">
+          <span style="font-size: 84px; font-weight: 300; letter-spacing: -0.04em; line-height: 1">9:41</span>
+          <span style="font-size: 15px; opacity: 0.9">woensdag 18 november</span>
+        </div>
+        <div style="position: absolute; left: 14px; right: 14px; top: 300px; display: flex; flex-direction: column; gap: 6px">
+          <sc-for list="{{lock}}" as="n" hint-placeholder-count="2">
+            <div style="display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 22px; background: rgba(255,255,255,0.14); animation: sDrop 320ms cubic-bezier(.2,.8,.2,1) both; animation-delay: {{n.delay}}ms">
+              <span style="width: 36px; height: 36px; border-radius: 50%; background: {{n.tone}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg></span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; opacity: 0.8">Saldo · {{n.time}}</span><span style="font-size: 14px; font-weight: 600">{{n.title}}</span><span style="font-size: 13px; opacity: 0.8">{{n.text}}</span></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position: absolute; left: 0; right: 0; bottom: 46px; display: flex; justify-content: center"><span style="width: 56px; height: 56px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; font-weight: 600">Vergrendelscherm</span><span style="font-size: 13px; line-height: 1.45; color: #36423B">Geen bedragen en geen rekeningnamen zolang het toestel vergrendeld is. Je ziet alleen dat er iets is.</span></div>
+    </div>
+
+    <sc-for list="{{frames}}" as="f" hint-placeholder-count="2">
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="position: relative; width: 360px; height: 760px; border-radius: 40px; overflow: hidden; background: {{f.th.shade}}; color: {{f.th.text}}; box-shadow: 0 24px 60px rgba(18,26,22,0.2); transition: background 200ms ease">
+        <span style="position: absolute; top: 12px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #000"></span>
+        <div style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 22px 0 26px; color: {{f.th.text}}; font-family: system-ui, sans-serif">
+          <span style="font-size: 14px; font-weight: 600; width: 40px">9:41</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="opacity: 0.85"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 3V6a1 1 0 0 1 1-1Z"></path></svg>
+          <span style="flex: 1"></span>
+          <span style="display: flex; align-items: center; gap: 5px; color: currentColor"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.5 1.5 9a15 15 0 0 1 21 0L12 20.5Z"></path></svg><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21 21 2v19H2Z"></path></svg><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 2h6v2h2a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h2V2Z"></path></svg></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 6px 12px 16px">
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+              <sc-for list="{{f.tiles}}" as="tl" hint-placeholder-count="4"><span style="display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 14px; border-radius: 26px; background: {{tl.bg}}; color: {{tl.fg}}; font-size: 13px; font-weight: 600">{{tl.name}}</span></sc-for>
+            </div>
+            <span style="padding: 6px 6px 0; font-size: 13px; color: {{f.th.muted}}">woensdag 18 november</span>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <sc-for list="{{f.items}}" as="n" hint-placeholder-count="4">
+                <div style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 12px 12px 12px; border-radius: 24px; background: {{f.th.card}}; animation: sDrop 320ms cubic-bezier(.2,.8,.2,1) both; animation-delay: {{n.delay}}ms">
+                  <span style="width: 36px; height: 36px; border-radius: 50%; background: {{n.tone}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 7.5a4 4 0 0 1 8 0Z"></path><path fill-rule="evenodd" d="M6 9h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3ZM16.75 13h.5a2.25 2.25 0 0 1 0 4.5h-.5a2.25 2.25 0 0 1 0-4.5Z"></path></svg></span>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                    <div style="display: flex; align-items: center; gap: 6px; height: 28px; font-size: 12px; color: {{f.th.muted}}">
+                      <span>Saldo</span><span aria-hidden="true">·</span><span>{{n.time}}</span><span style="flex: 1"></span>
+                      <sc-if value="{{n.hasAmt}}" hint-placeholder-val="{{ false }}"><span style="font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{n.amtBg}}; color: {{n.amtFg}}">{{n.amt}}</span></sc-if>
+                      <button type="button" aria-label="{{n.expLabel}}" aria-expanded="{{n.open}}" onClick="{{n.toggle}}" style="width: 32px; height: 28px; border-radius: 14px; border: none; background: {{f.th.chip}}; color: {{f.th.text}}; display: flex; align-items: center; justify-content: center; flex: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: rotate({{n.rot}}deg); transition: transform 200ms ease"><path d="m6 9 6 6 6-6"></path></svg></button>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 600; line-height: 1.3; color: {{f.th.text}}">{{n.title}}</span>
+                    <span style="font-size: 13px; line-height: 1.4; color: {{f.th.muted}}; {{n.clamp}}">{{n.text}}</span>
+                    <sc-if value="{{n.showChart}}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top: 8px; padding: 10px 10px 6px; border-radius: 14px; background: {{f.th.chip}}; animation: sFade 200ms ease-out both">
+                        <svg width="240" height="76" viewBox="0 0 240 76" role="img" aria-label="Verwacht eindsaldo persoonlijk: november € 1.265, december € 1.160, januari € 722, februari −€ 1.033. Buffer € 900." style="display: block; overflow: visible">
+                          <rect x="0" y="{{f.chart.bufY}}" width="240" height="{{f.chart.bufH}}" style="fill: {{f.th.zoneBuf}}"></rect>
+                          <rect x="0" y="{{f.chart.zeroY}}" width="240" height="{{f.chart.negH}}" style="fill: {{f.th.zoneNeg}}"></rect>
+                          <sc-for list="{{f.chart.bars}}" as="b" hint-placeholder-count="4"><rect x="{{b.x}}" y="{{b.y}}" width="34" height="{{b.h}}" rx="5" style="fill: {{b.fill}}"></rect></sc-for>
+                          <line x1="0" x2="240" y1="{{f.chart.zeroY}}" y2="{{f.chart.zeroY}}" style="stroke: {{f.th.muted}}; stroke-width: 1.2"></line>
+                          <line x1="0" x2="240" y1="{{f.chart.bufY}}" y2="{{f.chart.bufY}}" style="stroke: {{f.th.text}}; stroke-width: 1.4; stroke-dasharray: 4 3"></line>
+                        </svg>
+                        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: 4px; font-size: 11px; color: {{f.th.muted}}; text-align: center"><span>nov</span><span>dec</span><span>jan</span><span style="font-weight: 600; color: {{f.th.negText}}">feb</span></div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{n.showActions}}" hint-placeholder-val="{{ false }}">
+                      <div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px">
+                        <sc-for list="{{n.acts}}" as="a" hint-placeholder-count="2"><button type="button" onClick="{{a.go}}" style="height: 36px; padding: 0 14px; border-radius: 18px; border: none; background: {{a.bg}}; color: {{a.fg}}; font: inherit; font-size: 13px; font-weight: 600">{{a.label}}</button></sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{f.empty}}" hint-placeholder-val="{{ false }}"><span style="padding: 20px 6px; font-size: 14px; color: {{f.th.muted}}; text-align: center">Geen meldingen</span></sc-if>
+            <div style="display: flex; justify-content: space-between; padding: 4px 4px 0"><span style="height: 32px; padding: 0 14px; border-radius: 16px; background: {{f.th.chip}}; font-size: 13px; font-weight: 600; display: flex; align-items: center">Beheren</span><span style="height: 32px; padding: 0 14px; border-radius: 16px; background: {{f.th.chip}}; font-size: 13px; font-weight: 600; display: flex; align-items: center">Alles wissen</span></div>
+          </div>
+        <sc-if value="{{f.hasToast}}" hint-placeholder-val="{{ false }}"><div role="status" style="position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); white-space: nowrap; padding: 10px 16px; border-radius: 999px; background: {{f.th.text}}; color: {{f.th.shade}}; font-size: 13px; font-weight: 600; animation: sToast 2.4s ease-out both">{{f.toast}}</div></sc-if>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; font-weight: 600">{{f.name}}</span><span style="font-size: 13px; line-height: 1.45; color: #36423B">{{f.desc}}</span></div>
+    </div>
+    </sc-for>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1240,"height":1010}}'>
+class Component extends DCLogic {
+  later(fn, ms) { (this._t = this._t || []).push(setTimeout(fn, ms)); }
+  componentWillUnmount() { (this._t || []).forEach(clearTimeout); }
+  renderVals() {
+    const st = this.state || {};
+    const exp = st.exp || {};
+    const gone = st.gone || {};
+    const theme = (dark) => dark
+      ? { shade: '#0B0F0D', card: '#1C221F', text: '#E7EEEA', muted: '#98A59E', chip: '#2A322E', tile: '#1C221F', tileFg: '#E7EEEA', tileOn: '#14532D', tileOnFg: '#DCFCE7', primary: '#4ADE80', onPrimary: '#0E1311', negText: '#FF7B7B', zoneBuf: 'rgba(245,185,74,0.22)', zoneNeg: 'rgba(255,107,107,0.2)', bar: '#4ADE80', barNeg: '#FF6B6B',
+          amt: { neg: ['#3A1A1C', '#FF7B7B'], warn: ['#2E2414', '#F5B94A'], info: ['#13321F', '#86EFAC'] } }
+      : { shade: '#E6ECE8', card: '#FFFFFF', text: '#121A16', muted: '#56615B', chip: '#EEF2EF', tile: '#FFFFFF', tileFg: '#121A16', tileOn: '#BBF7D0', tileOnFg: '#14532D', primary: '#15803D', onPrimary: '#FFFFFF', negText: '#B42323', zoneBuf: 'rgba(255,226,163,0.75)', zoneNeg: 'rgba(198,40,40,0.14)', bar: '#15803D', barNeg: '#C62828',
+          amt: { neg: ['#FBE9E9', '#B42323'], warn: ['#FFF4DB', '#8A5A00'], info: ['#DCFCE7', '#166534'] } };
+    const N = [
+      { id: 'rood', tone: '#C62828', kind: 'neg', time: '07:30', title: 'Persoonlijk staat rood in februari', text: 'Verwacht −€ 1.033 op 28 februari. De autoherstelling van 10 februari duwt je onder nul.', amt: '−€ 1.033', chart: true, acts: [['Bekijk planning', 'Opent Saldo › Planning'], ['Later', null]] },
+      { id: 'buffer', tone: '#A15C07', kind: 'warn', time: '07:30', title: 'Zichtrekening zakt in januari in de buffer', text: 'Verwacht € 722. Dat is € 179 onder je buffer van € 900.', amt: '€ 722', acts: [['Bekijk januari', 'Opent Saldo › Planning › januari'], ['Later', null]] },
+      { id: 'consent', tone: '#A15C07', kind: 'warn', time: 'gisteren', title: 'Argenta verloopt over 14 dagen', text: 'Koppel opnieuw om je zichtrekening en de gedeelde rekening te blijven synchroniseren.', amt: '14 dagen', acts: [['Opnieuw koppelen', 'Opent Argenta om te bevestigen'], ['Morgen', null]] },
+      { id: 'cat', tone: '#15803D', kind: 'info', time: 'gisteren', title: '8 transacties te categoriseren', text: 'Colruyt, Delhaize, NMBS en 5 andere.', amt: '8', acts: [['Categoriseren', 'Opent Saldo › Transacties']] }
+    ];
+    const F = [
+      { id: 'L', dark: false, name: 'Meldingenpaneel · licht', desc: 'Bedrag rechts bovenaan in de kleur van de melding. De rode melding staat open met de komende maanden.', defOpen: { rood: true } },
+      { id: 'D', dark: true, name: 'Meldingenpaneel · donker', desc: 'Hetzelfde in donkere modus. Android kiest dit vanzelf volgens je toestel.', defOpen: { rood: true } }
+    ];
+    const H = 64, max = 140000, min = -120000, sc = H / (max - min), zeroY = Math.round(max * sc) + 4;
+    const VALS = [126544, 116047, 72150, -103347];
+    const chartOf = (T) => ({
+      zeroY: zeroY, negH: 76 - zeroY, bufY: zeroY - Math.round(90000 * sc), bufH: Math.round(90000 * sc),
+      bars: VALS.map((v, i) => ({ x: 13 + i * 60, y: v >= 0 ? zeroY - Math.round(v * sc) : zeroY, h: Math.max(2, Math.round(Math.abs(v) * sc)), fill: v < 0 ? T.barNeg : T.bar }))
+    });
+    const set = (k, patch) => this.setState({ [k]: Object.assign({}, st[k] || {}, patch) });
+    const frames = F.map((f) => {
+      const T = theme(f.dark);
+      const items = N.filter((n) => !gone[f.id + n.id]).map((n, i) => {
+        const key = f.id + n.id;
+        const open = exp[key] !== undefined ? exp[key] : !!f.defOpen[n.id];
+        const a = T.amt[n.kind];
+        return {
+          tone: n.tone, time: n.time, title: n.title, text: n.text, delay: 80 + i * 60,
+          open: open, rot: open ? 180 : 0, expLabel: open ? 'Melding inklappen' : 'Melding openklappen',
+          toggle: () => set('exp', { [key]: !open }),
+          clamp: open ? '' : 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
+          hasAmt: true, amt: n.amt, amtBg: a[0], amtFg: a[1],
+          showChart: open && !!n.chart,
+          showActions: false,
+          acts: n.acts.map((x, j) => ({ label: x[0], bg: j === 0 ? T.primary : T.chip, fg: j === 0 ? T.onPrimary : T.text,
+            go: () => { if (x[1]) { this.setState({ toast: { [f.id]: x[1] } }); this.later(() => this.setState({ toast: null }), 2400); } else set('gone', { [key]: true }); } }))
+        };
+      });
+      const toast = (st.toast || {})[f.id];
+      return { name: f.name, desc: f.desc, items: items, empty: items.length === 0, hasToast: !!toast, toast: toast || '', th: T, chart: chartOf(T),
+        tiles: [['Wifi', true], ['Bluetooth', false], ['Niet storen', false], ['Zaklamp', false]].map((x) => ({ name: x[0], bg: x[1] ? T.tileOn : T.tile, fg: x[1] ? T.tileOnFg : T.tileFg })) };
+    });
+    return {
+      frames: frames,
+      lock: [
+        { tone: '#C62828', time: '07:30', title: 'Planning: actie nodig', text: 'Ontgrendel om de details te zien', delay: 80 },
+        { tone: '#A15C07', time: 'gisteren', title: 'Bankkoppeling verloopt binnenkort', text: 'Ontgrendel om de details te zien', delay: 140 }
+      ],
+      reset: () => this.setState({ exp: {}, gone: {}, toast: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

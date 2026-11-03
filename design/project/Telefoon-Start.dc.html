@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Telefoon · Start</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15803D}a:hover{color:#166534}
+.licht{--bg:#F4F7F5;--surface:#FFFFFF;--line:#E2E8E4;--text:#121A16;--muted:#56615B;--green:#15803D;--onGreen:#FFFFFF;--greenText:#166534;--soft:#DCFCE7;--softChip:#BBF7D0;--hero:#15803D;--heroSub:#DCFCE7;--shared:#5B3FD9;--onShared:#FFFFFF;--sharedText:#4A31C2;--sharedSoft:#ECE8FF;--sharedChip:#DAD2FF;--sharedHero:#5B3FD9;--sharedSub:#E9E3FF;--neg:#C62828;--negText:#B42323;--negSoft:#FBE9E9;--onNeg:#FFFFFF;--warn:#8A5A00;--warnSoft:#FFF4DB;--warnChip:#FFE2A3;--onPastel:#121A16;--c1:#BFE0FF;--c2:#FFD59E;--c3:#FFC6DC;--c4:#D8CCFF;--c5:#FFE58A;--c6:#E2E8E4;--track:#EAEFEC;--shadow:0 24px 60px rgba(18,26,22,0.16);--pop:0 12px 32px rgba(18,26,22,0.18)}
+.donker{--bg:#0E1311;--surface:#161D1A;--line:#24302A;--text:#E7EEEA;--muted:#98A59E;--green:#4ADE80;--onGreen:#0E1311;--greenText:#86EFAC;--soft:#13321F;--softChip:#1C4A2C;--hero:#166534;--heroSub:#DCFCE7;--shared:#9C86FF;--onShared:#15111F;--sharedText:#B7A6FF;--sharedSoft:#231D3D;--sharedChip:#342B5C;--sharedHero:#4A33B8;--sharedSub:#E9E3FF;--neg:#FF6B6B;--negText:#FF7B7B;--negSoft:#3A1A1C;--onNeg:#0E1311;--warn:#F5B94A;--warnSoft:#2E2414;--warnChip:#4A3816;--onPastel:#0E1311;--c1:#7DBDF0;--c2:#F2B35E;--c3:#F08FB7;--c4:#AE9BF7;--c5:#E8CB55;--c6:#3A4741;--track:#222B27;--shadow:0 24px 60px rgba(0,0,0,0.4);--pop:0 12px 32px rgba(0,0,0,0.5)}
+@keyframes sIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes sFade{from{opacity:0}to{opacity:1}}
+@keyframes sGrowX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes sGrowY{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes sSpin{to{transform:rotate(360deg)}}
+@keyframes sProgress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes sToast{0%{opacity:0;transform:translate(-50%,8px)}12%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important}}
+</style>
+</helmet>
+<div style="width: 920px; height: 2190px; box-sizing: border-box; padding: 36px 40px; background: #DFE6E1; display: flex; gap: 60px; font-family: Geist, system-ui, sans-serif">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 14px">
+  <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #36423B">{{t.label}}</div>
+  <div class="{{t.cls}}" style="position: relative; width: 390px; height: 2080px; border-radius: 44px; overflow: hidden; background: var(--bg); color: var(--text); box-shadow: var(--shadow)">
+
+    <sc-if value="{{syncing}}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--green); transform-origin: left; animation: sProgress 1.6s cubic-bezier(.3,.6,.2,1) both; z-index: 6"></div>
+    </sc-if>
+
+    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 84px; overflow-y: auto; scrollbar-width: none">
+    <div style="padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px">
+
+      <div style="display: flex; align-items: center; gap: 8px; animation: sFade 200ms ease-out both">
+        <h1 style="flex: 1; margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Start</h1>
+        <button type="button" onClick="{{sync}}" aria-label="{{syncLabel}}" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center">
+          <sc-if value="{{syncing}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="animation: sSpin 0.9s linear infinite"><path d="M20 12a8 8 0 1 1-2.34-5.66"></path><path d="M20 4v5h-5"></path></svg></sc-if>
+          <sc-if value="{{notSyncing}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"></path><path d="M20 4v5h-5"></path></svg></sc-if>
+        </button>
+        <a href="Telefoon-Meer.dc.html" aria-label="Profiel en meer" style="width: 44px; height: 44px; border-radius: 50%; background: var(--c2); color: var(--onPastel); display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 15px; font-weight: 600">B</a>
+      </div>
+
+      <div role="group" aria-label="Welke rekeningen" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); animation: sIn 240ms ease-out both; animation-delay: 20ms">
+        <button type="button" aria-pressed="{{sa.on}}" onClick="{{sa.pick}}" style="height: 40px; border-radius: 10px; border: none; background: {{sa.bg}}; color: {{sa.fg}}; font: inherit; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 200ms ease, color 200ms ease"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"></rect><rect x="14" y="3" width="7" height="7" rx="2"></rect><rect x="3" y="14" width="7" height="7" rx="2"></rect><rect x="14" y="14" width="7" height="7" rx="2"></rect></svg>Alles</button>
+        <button type="button" aria-pressed="{{sp.on}}" onClick="{{sp.pick}}" style="height: 40px; border-radius: 10px; border: none; background: {{sp.bg}}; color: {{sp.fg}}; font: inherit; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 200ms ease, color 200ms ease"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Persoonlijk</button>
+        <button type="button" aria-pressed="{{sg.on}}" onClick="{{sg.pick}}" style="height: 40px; border-radius: 10px; border: none; background: {{sg.bg}}; color: {{sg.fg}}; font: inherit; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 200ms ease, color 200ms ease"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14.2a5 5 0 0 1 5 4.8"></path></svg>Gedeeld</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; animation: sIn 260ms ease-out both; animation-delay: 30ms">
+        <sc-for list="{{alerts}}" as="al" hint-placeholder-count="2">
+          <a href="{{al.href}}" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: {{al.bg}}; color: var(--text); text-decoration: none">
+            <span style="width: 36px; height: 36px; border-radius: 50%; background: {{al.chipBg}}; display: flex; align-items: center; justify-content: center; flex: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{al.stroke}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3Z"></path><path d="M12 10v4M12 17h.01"></path></svg></span>
+            <span style="flex: 1; font-size: 14px; line-height: 1.35"><strong style="font-weight: 600">{{al.title}}</strong><br><span style="color: var(--muted)">{{al.note}}</span></span>
+          </a>
+        </sc-for>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--warnSoft); color: var(--text); text-decoration: none">
+          <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--warnChip); display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+          <span style="flex: 1; font-size: 14px; line-height: 1.35"><strong style="font-weight: 600">Toestemming verloopt over 12 dagen</strong><br><span style="color: var(--muted)">Argenta · opnieuw autoriseren</span></span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+        </a>
+        <a href="Telefoon-Transacties.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--soft); color: var(--text); text-decoration: none">
+          <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--softChip); display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--greenText)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12Z"></path><path d="M7.5 7.5h.01"></path></svg></span>
+          <span style="flex: 1; font-size: 14px; font-weight: 600">8 transacties te categoriseren</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+        </a>
+      </div>
+
+      <sc-if value="{{show}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 14px">
+
+      <a href="Telefoon-Planning.dc.html" style="background: {{h.bg}}; color: #FFFFFF; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 14px; text-decoration: none; animation: sIn 260ms ease-out both; animation-delay: 40ms">
+        <span style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+          <span style="font-size: 15px; font-weight: 500; color: {{h.sub}}">{{h.label}}</span>
+          <span style="font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; background: #FFD59E; color: #121A16">{{h.chip}}</span>
+        </span>
+        <span style="font-family: 'Geist Mono', monospace; font-size: 46px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums">{{h.now}}</span>
+        <sc-if value="{{h.hasBar}}" hint-placeholder-val="{{ true }}">
+        <span style="display: flex; flex-direction: column; gap: 8px">
+          <span style="position: relative; display: block; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.22)">
+            <span style="position: absolute; left: 0; top: 0; bottom: 0; width: {{h.fill}}%; border-radius: 4px; background: #FFD59E; transform-origin: left; animation: sGrowX 700ms cubic-bezier(.2,.7,.2,1) both; animation-delay: 160ms"></span>
+            <span style="position: absolute; left: {{h.marker}}%; top: -4px; bottom: -4px; width: 2px; border-radius: 1px; background: #FFFFFF"></span>
+          </span>
+          <span style="display: flex; justify-content: space-between; font-size: 13px; color: {{h.sub}}"><span>{{h.bufTxt}}</span><span>{{h.overTxt}}</span></span>
+        </span>
+        </sc-if>
+        <sc-if value="{{h.split}}" hint-placeholder-val="{{ true }}">
+          <span style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+            <span style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,0.14)"><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{h.sub}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Persoonlijk</span><span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">{{h.pVal}}</span><span style="font-size: 12px; color: {{h.sub}}">{{h.pNote}}</span></span>
+            <span style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,0.14)"><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{h.sub}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14.2a5 5 0 0 1 5 4.8"></path></svg>Gedeelde rekening</span><span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">{{h.gVal}}</span><span style="font-size: 12px; color: {{h.sub}}">{{h.gNote}}</span></span>
+          </span>
+        </sc-if>
+        <sc-if value="{{h.contrib}}" hint-placeholder-val="{{ false }}">
+          <span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.14); font-size: 13px">
+            <span style="color: {{h.sub}}">Bijdragen november</span>
+            <span style="display: flex; gap: 10px; font-weight: 600"><span>Jij € 450 ✓</span><span>Partner € 450 ✓</span></span>
+          </span>
+        </sc-if>
+      </a>
+
+      <section style="display: flex; flex-direction: column; gap: 10px; animation: sIn 260ms ease-out both; animation-delay: 70ms">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600">Komende maanden</h2>
+          <a href="Telefoon-Planning.dc.html" style="font-size: 14px; font-weight: 500; color: var(--greenText); text-decoration: none">Planning</a>
+        </div>
+        <a href="Telefoon-Planning.dc.html" aria-label="{{chartAria}}" style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; color: var(--text); text-decoration: none">
+          <span style="font-size: 12px; color: var(--muted)">Verwacht eindsaldo per rekening</span>
+          <sc-for list="{{charts}}" as="ch" hint-placeholder-count="2">
+            <span style="display: flex; flex-direction: column; gap: 8px; padding-top: {{ch.pad}}; border-top: {{ch.line}}">
+              <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted)">
+                <span style="width: 9px; height: 9px; border-radius: 3px; background: {{ch.dot}}; flex: none"></span>
+                <span style="flex: 1; font-size: 13px; font-weight: 600; color: var(--text)">{{ch.title}}</span>
+                <span style="display: flex; align-items: center; gap: 5px"><span style="width: 14px; border-top: 2px dashed var(--text)"></span>Buffer {{ch.bufLabel}}</span>
+              </span>
+              <span role="img" aria-label="{{ch.aria}}" style="position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: {{ch.H}}px">
+                <sc-for list="{{ch.bars}}" as="b" hint-placeholder-count="4">
+                  <span style="display: flex; flex-direction: column; align-items: center; height: {{ch.H}}px">
+                    <span style="height: {{ch.posH}}px; width: 100%; display: flex; justify-content: center; align-items: flex-end">
+                      <span style="width: 40px; display: flex; flex-direction: column; gap: 2px; transform-origin: bottom; animation: sGrowY 560ms cubic-bezier(.2,.7,.2,1) both; animation-delay: {{b.delay}}ms">
+                        <sc-for list="{{b.segs}}" as="sgm" hint-placeholder-count="1"><span style="display: block; height: {{sgm.h}}px; border-radius: {{sgm.r}}; background: {{sgm.bg}}"></span></sc-for>
+                      </span>
+                    </span>
+                    <span style="height: {{ch.negH}}px; width: 100%; display: flex; justify-content: center; align-items: flex-start">
+                      <sc-if value="{{b.isNeg}}" hint-placeholder-val="{{ false }}"><span style="display: block; width: 40px; height: {{b.negPx}}px; border-radius: 2px 2px 6px 6px; background: var(--neg); transform-origin: top; animation: sGrowY 560ms cubic-bezier(.2,.7,.2,1) both; animation-delay: {{b.delay}}ms"></span></sc-if>
+                    </span>
+                  </span>
+                </sc-for>
+                <span style="position: absolute; left: 0; right: 0; top: {{ch.posH}}px; border-top: 1.5px solid var(--muted); pointer-events: none"></span>
+                <span style="position: absolute; left: 0; right: 0; top: {{ch.bufTop}}px; border-top: 2px dashed var(--text); opacity: 0.75; pointer-events: none"></span>
+              </span>
+              <span style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); text-align: center">
+                <sc-for list="{{ch.bars}}" as="b" hint-placeholder-count="4">
+                  <span style="display: flex; flex-direction: column; gap: 2px">
+                    <span style="font-size: 13px; font-weight: 600">{{b.short}}</span>
+                    <span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: {{b.endColor}}">{{b.end}}</span>
+                    <span style="font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 600; color: {{b.resColor}}">{{b.res}}</span>
+                  </span>
+                </sc-for>
+              </span>
+            </span>
+          </sc-for>
+          <span style="display: flex; flex-wrap: wrap; gap: 6px 14px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted)">
+            <span style="display: flex; align-items: center; gap: 5px"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--greenText)"></span>Boven buffer</span>
+            <span style="display: flex; align-items: center; gap: 5px"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--warn)"></span>Onder buffer</span>
+            <span style="display: flex; align-items: center; gap: 5px"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--neg)"></span>Rood: negatief saldo</span>
+          </span>
+        </a>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px; animation: sIn 260ms ease-out both; animation-delay: 100ms">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600">Uitgaven november</h2>
+          <a href="Telefoon-Overzicht.dc.html" style="font-family: 'Geist Mono', monospace; font-size: 14px; color: var(--muted); text-decoration: none">{{spend.total}}</a>
+        </div>
+        <a href="Telefoon-Overzicht.dc.html" style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; color: var(--text); text-decoration: none">
+          <span style="display: flex; gap: 3px; height: 12px; border-radius: 6px; overflow: hidden; transform-origin: left; animation: sGrowX 700ms cubic-bezier(.2,.7,.2,1) both; animation-delay: 200ms">
+            <sc-for list="{{spend.rows}}" as="c" hint-placeholder-count="5">
+              <span style="width: {{c.pct}}%; background: {{c.bg}}"></span>
+            </sc-for>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+            <sc-for list="{{spend.rows}}" as="c" hint-placeholder-count="5">
+              <span style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 50%; background: {{c.bg}}; flex: none"></span><span style="flex: 1">{{c.name}} <span style="color: var(--muted)">{{c.share}}</span></span><span style="font-family: 'Geist Mono', monospace; font-weight: 500">{{c.amount}}</span></span>
+            </sc-for>
+          </span>
+          <sc-if value="{{spend.split}}" hint-placeholder-val="{{ true }}">
+            <span style="display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px">
+              <span style="flex: 1; display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--green)"></span>Persoonlijk <span style="font-family: 'Geist Mono', monospace; color: var(--muted)">€ 1.251,59</span></span>
+              <span style="flex: 1; display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--shared)"></span>Gedeeld <span style="font-family: 'Geist Mono', monospace; color: var(--muted)">€ 600,78</span></span>
+            </span>
+          </sc-if>
+        </a>
+      </section>
+
+      <sc-if value="{{showPers}}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 10px; animation: sIn 260ms ease-out both; animation-delay: 130ms">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="width: 32px; height: 32px; border-radius: 50%; background: var(--soft); color: var(--greenText); display: flex; align-items: center; justify-content: center; flex: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><h2 style="margin: 0; font-size: 16px; font-weight: 600">Persoonlijke rekeningen</h2><span style="font-size: 12px; color: var(--muted)">Alleen jij ziet deze rekeningen</span></span>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 2px 16px; display: flex; flex-direction: column">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0">
+              <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--soft); color: var(--greenText); display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="3"></rect><path d="M3 10h18M16 15h2"></path></svg></span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Zichtrekening</span><span style="font-size: 13px; color: var(--muted)">{{zichtSub}}</span></div>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">€ 1.968,82</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line)">
+              <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--c2); color: var(--onPastel); display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"></ellipse><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"></path><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path></svg></span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Spaarrekening</span><span style="font-size: 13px; color: var(--muted)">Handmatig · bijgewerkt 2 okt</span></div>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">€ 12.500,00</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line)">
+              <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--c5); color: var(--onPastel); display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"></ellipse><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"></path><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path></svg></span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Reserve</span><span style="font-size: 13px; color: var(--muted)">Handmatig · bijgewerkt 2 okt</span></div>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">€ 4.200,00</span>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{showGed}}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 10px; animation: sIn 260ms ease-out both; animation-delay: 160ms">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="width: 32px; height: 32px; border-radius: 50%; background: var(--sharedSoft); color: var(--sharedText); display: flex; align-items: center; justify-content: center; flex: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14.2a5 5 0 0 1 5 4.8"></path></svg></span>
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><h2 style="margin: 0; font-size: 16px; font-weight: 600">Gedeelde rekeningen</h2><span style="font-size: 12px; color: var(--muted)">Met Partner · jij bent beheerder</span></span>
+            <span style="display: flex" aria-label="Leden: jij en Partner"><span style="width: 28px; height: 28px; border-radius: 50%; background: var(--c2); color: var(--onPastel); border: 2px solid var(--bg); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600">B</span><span style="width: 28px; height: 28px; margin-left: -8px; border-radius: 50%; background: var(--c3); color: var(--onPastel); border: 2px solid var(--bg); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600">P</span></span>
+          </div>
+          <div style="background: var(--sharedSoft); border: 1px solid var(--sharedChip); border-radius: 20px; padding: 6px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--surface)">
+              <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--shared); color: var(--onShared); display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14.2a5 5 0 0 1 5 4.8"></path></svg></span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 500">Gedeelde rekening</span><span style="font-size: 13px; color: var(--muted)">{{gedeeldSub}}</span></div>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">€ 946,08</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px 10px; font-size: 13px">
+              <span style="color: var(--sharedText); font-weight: 600">Bijdragen november</span>
+              <span style="display: flex; gap: 6px">
+                <span style="padding: 3px 9px; border-radius: 999px; background: var(--surface); font-weight: 600">Jij € 450 ✓</span>
+                <span style="padding: 3px 9px; border-radius: 999px; background: var(--surface); font-weight: 600">Partner € 450 ✓</span>
+              </span>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      </div>
+      </sc-if>
+
+    </div>
+    </div>
+
+    <sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); white-space: nowrap; padding: 10px 16px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 14px; font-weight: 600; box-shadow: var(--pop); animation: sToast 2.6s ease-out both; z-index: 8">Bijgewerkt · 2 nieuwe transacties</div>
+    </sc-if>
+
+    <nav aria-label="Hoofdmenu" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 8px 8px 22px; background: var(--surface); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); z-index: 5">
+      <a href="Telefoon-Start.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--greenText); font-size: 12px; font-weight: 600"><span style="width: 56px; height: 30px; border-radius: 15px; background: var(--soft); display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20h14V9.5"></path></svg></span>Start</a>
+      <a href="Telefoon-Transacties.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 500"><span style="width: 56px; height: 30px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></svg></span>Transacties</a>
+      <a href="Telefoon-Overzicht.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 500"><span style="width: 56px; height: 30px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M6 17v-6"></path><path d="M11 17V6"></path><path d="M16 17v-9"></path></svg></span>Overzicht</a>
+      <a href="Telefoon-Planning.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 500"><span style="width: 56px; height: 30px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span>Planning</a>
+      <a href="Telefoon-Meer.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--muted); font-size: 12px; font-weight: 500"><span style="width: 56px; height: 30px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></span>Meer</a>
+    </nav>
+  </div>
+</div>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":920,"height":2190}}'>
+class Component extends DCLogic {
+  later(fn, ms) { (this._t = this._t || []).push(setTimeout(fn, ms)); }
+  componentWillUnmount() { (this._t || []).forEach(clearTimeout); }
+  eur(c, signed) {
+    const neg = c < 0, a = Math.abs(Math.round(c));
+    const e = String(Math.floor(a / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return (neg ? '−' : (signed ? '+' : '')) + '€ ' + e + ',' + String(a % 100).padStart(2, '0');
+  }
+  eur0(c, signed) {
+    const neg = c < 0;
+    return (neg ? '−' : (signed ? '+' : '')) + '€ ' + String(Math.round(Math.abs(c) / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+  renderVals() {
+    const st = this.state || {};
+    const scope = st.scope || 'alles';
+    const syncing = !!st.syncing;
+    const synced = !!st.synced;
+    const PERS = [126544, 116047, 72150, -103347];
+    const GED = [64686, 64686, 64686, 64686];
+    const S = {
+      alles: { buf: 150000, max: 200000, min: -60000, bufLabel: '€ 1.500',
+        h: { bg: 'var(--hero)', sub: 'var(--heroSub)', label: 'Einde november', left: '€ 412,30', expected: 'Verwacht € 1.912,30', buffer: 'Buffer € 1.500,00', fill: 78, marker: 61, split: true, contrib: false },
+        spend: { total: '€ 1.852,37', split: true, rows: [['Wonen', 115000, 'var(--c1)'], ['Boodschappen', 41280, 'var(--c2)'], ['Vrije tijd', 13820, 'var(--c3)'], ['Vervoer', 9640, 'var(--c4)'], ['Abonnementen', 5497, 'var(--c5)']] } },
+      persoonlijk: { buf: 90000, max: 140000, min: -120000, bufLabel: '€ 900',
+        h: { bg: 'var(--hero)', sub: 'var(--heroSub)', label: 'Einde november · persoonlijk', left: '€ 365,44', expected: 'Verwacht € 1.265,44', buffer: 'Buffer € 900,00', fill: 78, marker: 56, split: false, contrib: false },
+        spend: { total: '€ 1.251,59', split: false, rows: [['Wonen', 100500, 'var(--c1)'], ['Vrije tijd', 13820, 'var(--c3)'], ['Vervoer', 9640, 'var(--c4)'], ['Abonnementen', 1199, 'var(--c5)']] } },
+      gedeeld: { buf: 60000, max: 80000, min: 0, bufLabel: '€ 600',
+        h: { bg: 'var(--sharedHero)', sub: 'var(--sharedSub)', label: 'Einde november · gedeeld', left: '€ 46,86', expected: 'Verwacht € 646,86', buffer: 'Buffer € 600,00', fill: 78, marker: 72, split: false, contrib: true },
+        spend: { total: '€ 600,78', split: false, rows: [['Boodschappen', 41280, 'var(--c2)'], ['Wonen', 14500, 'var(--c1)'], ['Abonnementen', 4298, 'var(--c5)']] } }
+    };
+    const cur = S[scope];
+    const MON = ['nov · nu', 'dec', 'jan', 'feb'];
+    const MN = ['november', 'december', 'januari', 'februari'];
+    const ACCS = [
+      { key: 'p', title: 'Persoonlijk', dot: 'var(--green)', vals: PERS, buf: 90000, max: 140000, min: -120000, bufLabel: '€ 900', now: 196882 },
+      { key: 'g', title: 'Gedeelde rekening', dot: 'var(--shared)', vals: GED, buf: 60000, max: 80000, min: 0, bufLabel: '€ 600', now: 94608 }
+    ];
+    const shown = ACCS.filter((a) => scope === 'alles' || (scope === 'persoonlijk' ? a.key === 'p' : a.key === 'g'));
+    const CH = scope === 'alles' ? 84 : 124;
+    const charts = shown.map((a, ci) => {
+      const span = a.max - a.min;
+      const posH = Math.round(a.max / span * CH);
+      const px = (v) => Math.round(Math.abs(v) / span * CH);
+      const bars = MON.map((m, i) => {
+        const end = a.vals[i];
+        const res = end - a.buf;
+        const state = end < 0 ? 'neg' : (res < 0 ? 'under' : 'ok');
+        return {
+          short: m, end: this.eur0(end), endColor: end < 0 ? 'var(--neg)' : 'var(--muted)',
+          res: state === 'neg' ? 'rood' : this.eur0(res, true),
+          resColor: state === 'neg' ? 'var(--neg)' : (state === 'under' ? 'var(--warn)' : 'var(--greenText)'),
+          segs: end > 0 ? [{ h: px(end), bg: a.dot, r: '6px 6px 2px 2px' }] : [], isNeg: end < 0, negPx: px(Math.min(end, 0)),
+          delay: 120 + ci * 80 + i * 50, rawRes: res, state: state
+        };
+      });
+      return { title: a.title, dot: a.dot, bufLabel: a.bufLabel, H: CH, posH: posH, negH: CH - posH, bufTop: posH - px(a.buf), bars: bars,
+        pad: ci ? '12px' : '0px', line: ci ? '1px solid var(--line)' : 'none',
+        aria: a.title + ': ' + bars.map((b) => b.short + ' ' + b.end + ', ' + (b.state === 'neg' ? 'negatief saldo' : (b.state === 'under' ? 'onder buffer ' + this.eur0(Math.abs(b.rawRes)) : 'over ' + this.eur0(b.rawRes)))).join('; ') };
+    });
+    const alerts = [];
+    shown.forEach((a) => {
+      const ni = a.vals.findIndex((v) => v < 0);
+      const ui = a.vals.findIndex((v) => v >= 0 && v < a.buf);
+      if (ni >= 0) alerts.push({ title: a.title + ' staat rood in ' + MN[ni], note: 'Verwacht eindsaldo ' + this.eur0(a.vals[ni]) + ' · bekijk de planning', bg: 'var(--negSoft)', chipBg: 'var(--neg)', stroke: 'var(--onNeg)', href: 'Telefoon-Planning.dc.html' });
+      if (ui >= 0) alerts.push({ title: a.title + ' zakt in de buffer in ' + MN[ui], note: 'Verwacht ' + this.eur0(a.vals[ui]) + ', ' + this.eur0(a.buf - a.vals[ui]) + ' onder de buffer van ' + a.bufLabel, bg: 'var(--warnSoft)', chipBg: 'var(--warnChip)', stroke: 'var(--warn)', href: 'Telefoon-Planning.dc.html' });
+    });
+    const stOf = (a) => a.now < 0 ? 'Rood' : (a.now < a.buf ? 'In de buffer' : 'Boven buffer');
+    const pA = ACCS[0], gA = ACCS[1];
+    const one = shown.length === 1 ? shown[0] : null;
+    const scale = one ? Math.max(one.now, one.buf) * 1.3 : 1;
+    const hero = one ? {
+      label: 'Saldo nu · ' + (one.key === 'p' ? 'zichtrekening' : 'gedeelde rekening'), now: this.eur(one.now), chip: stOf(one), hasBar: true,
+      fill: (Math.max(one.now, 0) / scale * 100).toFixed(1), marker: (one.buf / scale * 100).toFixed(1),
+      bufTxt: 'Buffer ' + this.eur(one.buf), overTxt: one.now >= one.buf ? this.eur(one.now - one.buf) + ' boven buffer' : this.eur(one.buf - one.now) + ' onder buffer'
+    } : {
+      label: 'Saldo nu · alle rekeningen', now: this.eur(pA.now + gA.now), chip: [pA, gA].some((a) => a.now < a.buf) ? 'Let op' : 'Boven buffer', hasBar: false,
+      pVal: this.eur(pA.now), pNote: this.eur0(pA.now - pA.buf) + ' boven buffer',
+      gVal: this.eur(gA.now), gNote: this.eur0(gA.now - gA.buf) + ' boven buffer'
+    };
+    const tot = cur.spend.rows.reduce((a, r) => a + r[1], 0);
+    const pick = (s) => () => {
+      if (s === scope) return;
+      this.setState({ scope: s, flip: true });
+      this.later(() => this.setState({ flip: false }), 20);
+    };
+    const seg = (s, color, onColor) => ({ on: s === scope, bg: s === scope ? color : 'transparent', fg: s === scope ? onColor : 'var(--text)', pick: pick(s) });
+    return {
+      themes: [{ cls: 'licht', label: 'Licht' }, { cls: 'donker', label: 'Donker' }],
+      sa: seg('alles', 'var(--text)', 'var(--bg)'),
+      sp: seg('persoonlijk', 'var(--green)', 'var(--onGreen)'),
+      sg: seg('gedeeld', 'var(--shared)', 'var(--onShared)'),
+      show: !st.flip,
+      h: Object.assign({}, cur.h, hero),
+      charts: charts, alerts: alerts,
+      bufLabel: cur.bufLabel,
+      legPers: scope !== 'gedeeld',
+      legGed: scope !== 'persoonlijk',
+      chartAria: 'Verwacht eindsaldo per rekening. ' + charts.map((c) => c.aria).join('. '),
+      spend: { total: cur.spend.total, split: cur.spend.split, rows: cur.spend.rows.map((r) => ({ name: r[0], amount: this.eur(r[1]), bg: r[2], pct: (r[1] / tot * 100).toFixed(1), share: Math.round(r[1] / tot * 100) + '%' })) },
+      showPers: scope !== 'gedeeld',
+      showGed: scope !== 'persoonlijk',
+      syncing: syncing,
+      notSyncing: !syncing,
+      toast: !!st.toast,
+      syncLabel: syncing ? 'Bezig met synchroniseren' : 'Nu synchroniseren',
+      zichtSub: syncing ? 'Synchroniseren…' : (synced ? 'Argenta · zojuist' : 'Argenta · vandaag 04:02'),
+      gedeeldSub: syncing ? 'Synchroniseren…' : (synced ? 'Argenta · zojuist' : 'Argenta · vandaag 04:02'),
+      sync: () => {
+        if (syncing) return;
+        this.setState({ syncing: true, toast: false });
+        this.later(() => this.setState({ syncing: false, synced: true, toast: true }), 1600);
+        this.later(() => this.setState({ toast: false }), 4300);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Desktop · Planning</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Geist+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#15803D}a:hover{color:#166534}
+.licht{--bg:#F4F7F5;--surface:#FFFFFF;--line:#E2E8E4;--text:#121A16;--muted:#56615B;--green:#15803D;--onGreen:#FFFFFF;--greenText:#166534;--soft:#DCFCE7;--softChip:#BBF7D0;--shared:#5B3FD9;--onShared:#FFFFFF;--sharedText:#4A31C2;--sharedSoft:#ECE8FF;--neg:#C62828;--negText:#B42323;--negSoft:#FBE9E9;--onNeg:#FFFFFF;--warn:#8A5A00;--warnSoft:#FFF4DB;--warnChip:#FFE2A3;--onPastel:#121A16;--c1:#BFE0FF;--c2:#FFD59E;--c3:#FFC6DC;--c4:#D8CCFF;--c5:#FFE58A;--c6:#E2E8E4;--track:#EAEFEC;--skel:#E7EDE9;--skel2:#F3F7F4;--shadow:0 24px 60px rgba(18,26,22,0.16);--pop:0 12px 32px rgba(18,26,22,0.18)}
+.donker{--bg:#0E1311;--surface:#161D1A;--line:#24302A;--text:#E7EEEA;--muted:#98A59E;--green:#4ADE80;--onGreen:#0E1311;--greenText:#86EFAC;--soft:#13321F;--softChip:#1C4A2C;--shared:#9C86FF;--onShared:#15111F;--sharedText:#B7A6FF;--sharedSoft:#231D3D;--neg:#FF6B6B;--negText:#FF7B7B;--negSoft:#3A1A1C;--onNeg:#0E1311;--warn:#F5B94A;--warnSoft:#2E2414;--warnChip:#4A3816;--onPastel:#0E1311;--c1:#7DBDF0;--c2:#F2B35E;--c3:#F08FB7;--c4:#AE9BF7;--c5:#E8CB55;--c6:#3A4741;--track:#222B27;--skel:#1F2824;--skel2:#2A3530;--shadow:0 24px 60px rgba(0,0,0,0.4);--pop:0 12px 32px rgba(0,0,0,0.5)}
+@keyframes sIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes sFade{from{opacity:0}to{opacity:1}}
+@keyframes sShimmer{from{background-position:-320px 0}to{background-position:320px 0}}
+@keyframes sGrowX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes sToast{0%{opacity:0;transform:translate(-50%,8px)}12%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important}}
+</style>
+</helmet>
+<div style="width: 1360px; height: 2800px; box-sizing: border-box; padding: 40px; background: #DFE6E1; display: flex; flex-direction: column; gap: 48px; font-family: Geist, system-ui, sans-serif">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 12px">
+  <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #36423B">{{t.label}}</div>
+  <div class="{{t.cls}}" style="width: 1280px; height: 1300px; border-radius: 14px; overflow: hidden; display: flex; background: var(--bg); color: var(--text); box-shadow: var(--shadow)">
+
+    <aside style="width: 232px; flex: none; box-sizing: border-box; padding: 20px 14px 14px; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 22px">
+      <a href="Desktop-Start.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 8px; text-decoration: none">
+        <svg width="32" height="32" viewBox="0 0 96 96" aria-hidden="true"><rect width="96" height="96" rx="26" fill="#15803D"></rect><circle cx="44" cy="31" r="12" fill="#FFD59E"></circle><rect x="18" y="36" width="60" height="40" rx="12" fill="#15803D" stroke="#FFFFFF" stroke-width="7"></rect><rect x="58" y="48" width="23" height="16" rx="8" fill="#FFFFFF"></rect></svg>
+        <span style="font-size: 22px; font-weight: 600; letter-spacing: -0.03em; color: var(--greenText)">Saldo</span>
+      </a>
+      <nav aria-label="Hoofdmenu" style="display: flex; flex-direction: column; gap: 2px">
+        <a href="Desktop-Start.dc.html" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20h14V9.5"></path></svg>Start</a>
+        <a href="Desktop-Transacties.dc.html" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></svg>Transacties<span style="margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: var(--soft); color: var(--greenText); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">8</span></a>
+        <a href="Desktop-Overzicht.dc.html" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M6 17v-6"></path><path d="M11 17V6"></path><path d="M16 17v-9"></path></svg>Overzicht</a>
+        <a href="Desktop-Planning.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; background: var(--soft); color: var(--greenText); font-size: 15px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Planning</a>
+      </nav>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span style="padding: 0 12px 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Beheer</span>
+        <a href="Desktop-Rekeningen.dc.html" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="3"></rect><path d="M3 10h18M16 15h2"></path></svg>Rekeningen</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"></path><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"></path></svg>Bankkoppelingen<span style="margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--warn)"></span></a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12Z"></path><path d="M7.5 7.5h.01"></path></svg>Categorieën</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"></path></svg>Importeren</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Instellingen</a>
+      </div>
+      <a href="#" style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid var(--line); color: var(--text); text-decoration: none">
+        <span style="width: 36px; height: 36px; border-radius: 50%; background: var(--c2); color: var(--onPastel); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex: none">B</span>
+        <span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px; font-weight: 600">Bert</span><span style="font-size: 12px; color: var(--muted)">Beheerder</span></span>
+      </a>
+    </aside>
+
+    <main style="flex: 1; min-width: 0; position: relative; overflow-y: auto; scrollbar-width: thin">
+      <div style="padding: 24px 32px 28px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; animation: sFade 200ms ease-out both">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em">Planning</h1>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <div role="group" aria-label="Welke rekeningen" style="display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line)">
+              <button type="button" aria-pressed="{{sa.on}}" onClick="{{sa.pick}}" style="height: 36px; padding: 0 14px; border-radius: 10px; border: none; background: {{sa.bg}}; color: {{sa.fg}}; font: inherit; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: background 200ms ease, color 200ms ease"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"></rect><rect x="14" y="3" width="7" height="7" rx="2"></rect><rect x="3" y="14" width="7" height="7" rx="2"></rect><rect x="14" y="14" width="7" height="7" rx="2"></rect></svg>Alles</button>
+              <button type="button" aria-pressed="{{sp.on}}" onClick="{{sp.pick}}" style="height: 36px; padding: 0 14px; border-radius: 10px; border: none; background: {{sp.bg}}; color: {{sp.fg}}; font: inherit; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: background 200ms ease, color 200ms ease"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Persoonlijk</button>
+              <button type="button" aria-pressed="{{sg.on}}" onClick="{{sg.pick}}" style="height: 36px; padding: 0 14px; border-radius: 10px; border: none; background: {{sg.bg}}; color: {{sg.fg}}; font: inherit; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: background 200ms ease, color 200ms ease"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M16 14.2a5 5 0 0 1 5 4.8"></path></svg>Gedeeld</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; padding: 4px 4px 4px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line)">
+              <span style="font-size: 13px; color: var(--muted)">{{bufLabel}}</span>
+              <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">{{bufTxt}}</span>
+              <a href="Desktop-Rekeningen.dc.html" style="height: 36px; padding: 0 14px; border-radius: 10px; background: var(--soft); color: var(--greenText); font-size: 14px; font-weight: 600; display: flex; align-items: center; text-decoration: none">Wijzigen</a>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; animation: sIn 240ms ease-out both; animation-delay: 20ms">
+          <sc-for list="{{buds}}" as="sm" hint-placeholder-count="2">
+            <button type="button" onClick="{{goBudget}}" aria-label="{{sm.sumAria}}" style="flex: 1 1 0; min-width: 0; max-width: 470px; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer">
+              <span style="display: flex; align-items: center; gap: 10px">
+                <span style="width: 10px; height: 10px; border-radius: 3px; background: {{sm.dot}}; flex: none"></span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px; font-weight: 600">{{sm.name}}</span><span style="font-size: 12px; color: var(--muted)">{{sm.sumNoteLong}}</span></span>
+                <span style="font-family: 'Geist Mono', monospace; font-size: 18px; font-weight: 600; white-space: nowrap; color: {{sm.freeColor}}">{{sm.free}}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+              </span>
+              <span style="display: flex; gap: 2px; height: 6px; border-radius: 3px; overflow: hidden; background: var(--track)"><sc-for list="{{sm.segs}}" as="sgm" hint-placeholder-count="5"><span style="width: {{sgm.w}}%; background: {{sgm.bg}}"></span></sc-for></span>
+            </button>
+          </sc-for>
+        </div>
+
+        <div role="tablist" aria-label="Planning" style="display: flex; gap: 4px; border-bottom: 1px solid var(--line); animation: sIn 240ms ease-out both; animation-delay: 30ms">
+          <sc-for list="{{tabs}}" as="tb" hint-placeholder-count="5">
+            <button type="button" role="tab" aria-selected="{{tb.on}}" onClick="{{tb.pick}}" style="height: 44px; padding: 0 14px; border: none; border-bottom: 3px solid {{tb.line}}; background: transparent; color: {{tb.fg}}; font: inherit; font-size: 15px; font-weight: {{tb.weight}}; white-space: nowrap; transition: color 200ms ease, border-color 200ms ease">{{tb.name}}</button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{show}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 14px">
+
+        <sc-if value="{{isKalender}}" hint-placeholder-val="{{ true }}">
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; animation: sIn 240ms ease-out both">
+            <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 2px 4px">
+                <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 18px; font-weight: 600">{{cal.name}}</span><span style="font-size: 12px; color: var(--muted)">{{cal.note}}</span></div>
+                <div style="display: flex; gap: 6px">
+                  <button type="button" aria-label="Vorige maand" onClick="{{cal.prev}}" disabled="{{cal.noPrev}}" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); opacity: {{cal.prevOp}}; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></button>
+                  <button type="button" aria-label="Volgende maand" onClick="{{cal.next}}" disabled="{{cal.noNext}}" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); opacity: {{cal.nextOp}}; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></button>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted)"><span style="padding-left: 6px">ma</span><span style="padding-left: 6px">di</span><span style="padding-left: 6px">wo</span><span style="padding-left: 6px">do</span><span style="padding-left: 6px">vr</span><span style="padding-left: 6px">za</span><span style="padding-left: 6px">zo</span></div>
+              <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+                <sc-for list="{{cal.cells}}" as="c" hint-placeholder-count="35">
+                  <sc-if value="{{c.blank}}" hint-placeholder-val="{{ false }}"><span></span></sc-if>
+                  <sc-if value="{{c.isDay}}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.sel}}" aria-label="{{c.aria}}" style="height: 72px; padding: 5px 6px; box-sizing: border-box; border-radius: 12px; border: 2px solid {{c.borderD}}; background: {{c.bgD}}; color: {{c.fg}}; font: inherit; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 3px; text-align: left; cursor: pointer; overflow: hidden; transition: background 160ms ease, border-color 160ms ease">
+                      <span style="align-self: flex-start; min-width: 22px; height: 22px; padding: 0 4px; box-sizing: border-box; border-radius: 11px; background: {{c.numBg}}; color: {{c.numFg}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: {{c.weight}}">{{c.n}}</span>
+                      <sc-for list="{{c.tags}}" as="tg" hint-placeholder-count="1">
+                        <span style="display: block; font-size: 11px; line-height: 1.3; font-weight: 600; color: {{tg.color}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{tg.text}}</span>
+                      </sc-for>
+                    </button>
+                  </sc-if>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 14px; padding: 4px 4px 0; font-size: 12px; color: var(--muted)">
+                <span style="display: flex; align-items: center; gap: 5px"><span style="font-weight: 700; color: var(--greenText)">+</span>Inkomend</span>
+                <span style="display: flex; align-items: center; gap: 5px"><span style="font-weight: 700; color: var(--neg)">−</span>Uitgaand</span>
+                <span style="display: flex; align-items: center; gap: 5px"><span style="font-weight: 700; color: var(--warn)">±</span>Gepland</span>
+                <span style="display: flex; align-items: center; gap: 5px"><span style="width: 12px; height: 10px; border-radius: 3px; background: var(--warnSoft); border: 1px solid var(--warn); box-sizing: border-box"></span>Onder buffer</span>
+                <span style="display: flex; align-items: center; gap: 5px"><span style="width: 12px; height: 10px; border-radius: 3px; background: var(--negSoft); border: 1px solid var(--neg); box-sizing: border-box"></span>Negatief</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--line)">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+                  <span style="font-size: 14px; font-weight: 600">{{cal.selLabel}}</span>
+                  <sc-if value="{{day.single}}" hint-placeholder-val="{{ false }}"><span style="font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 600; color: {{day.balColor}}">{{day.bal}}</span></sc-if>
+                </div>
+                <sc-for list="{{charts}}" as="ch" hint-placeholder-count="2">
+                  <div style="display: flex; flex-direction: column; gap: 6px">
+                    <div style="display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap">
+                      <sc-if value="{{ch.hasTitle}}" hint-placeholder-val="{{ true }}"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{ch.dot}}; flex: none"></span><span style="font-size: 14px; font-weight: 600">{{ch.title}}</span><span style="font-size: 12px; color: var(--muted)">{{ch.sub}}</span></span></sc-if>
+                      <span style="display: flex; gap: 12px; font-size: 12px; color: var(--muted)">
+                        <span>Begin <span style="font-family: 'Geist Mono', monospace; font-weight: 600; color: var(--text)">{{ch.startTxt}}</span></span>
+                        <span>Laagste <span style="font-family: 'Geist Mono', monospace; font-weight: 600; color: {{ch.lowColor}}">{{ch.lowTxt}}</span></span>
+                        <span>Einde <span style="font-family: 'Geist Mono', monospace; font-weight: 600; color: {{ch.endColor}}">{{ch.endTxt}}</span></span>
+                        <span>Buffer <span style="font-family: 'Geist Mono', monospace; font-weight: 600; color: var(--text)">{{ch.bufShort}}</span></span>
+                      </span>
+                      <sc-if value="{{ch.hasTitle}}" hint-placeholder-val="{{ true }}"><span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 600; color: {{ch.selBalColor}}">{{ch.selBal}}</span></sc-if>
+                    </div>
+                    <div style="position: relative; height: {{ch.h}}px">
+                  <svg width="578" height="{{ch.h}}" viewBox="0 0 578 {{ch.h}}" role="img" aria-label="{{ch.chartAria}}" style="display: block; overflow: visible">
+                    <rect x="0" y="{{ch.zBufY}}" width="578" height="{{ch.zBufH}}" rx="3" style="fill: {{ch.zBufFill}}; opacity: {{ch.zBufOp}}"></rect>
+                    <rect x="0" y="{{ch.zNegY}}" width="578" height="{{ch.zNegH}}" rx="3" style="fill: {{ch.zNegFill}}; opacity: {{ch.zNegOp}}"></rect>
+                    <line x1="0" x2="578" y1="{{ch.zeroY}}" y2="{{ch.zeroY}}" style="stroke: var(--muted); stroke-width: 1.5"></line>
+                    <line x1="0" x2="578" y1="{{ch.bufY}}" y2="{{ch.bufY}}" style="stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4"></line>
+                    <text x="576" y="{{ch.bufLblY}}" text-anchor="end" style="font: 600 10px 'Geist Mono', monospace; fill: var(--muted); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; stroke-linejoin: round">buffer</text>
+                    <text x="576" y="{{ch.zeroLblY}}" text-anchor="end" style="font: 600 10px 'Geist Mono', monospace; fill: var(--muted); stroke: var(--surface); stroke-width: 3px; paint-order: stroke; stroke-linejoin: round">€ 0</text>
+                    <sc-if value="{{ch.hasToday}}" hint-placeholder-val="{{ false }}"><line x1="{{ch.todayX}}" x2="{{ch.todayX}}" y1="0" y2="{{ch.h}}" style="stroke: var(--line); stroke-width: 2"></line></sc-if>
+                    <line x1="{{ch.selX}}" x2="{{ch.selX}}" y1="0" y2="{{ch.h}}" style="stroke: var(--text); stroke-width: 1; opacity: 0.35"></line>
+                    <path d="{{ch.futD}}" fill="none" style="stroke: {{ch.lineColor}}; stroke-width: 2.5; stroke-dasharray: 5 4; stroke-linecap: round; stroke-linejoin: round"></path>
+                    <path d="{{ch.pastD}}" fill="none" style="stroke: {{ch.lineColor}}; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round"></path>
+                    <circle cx="{{ch.lowX}}" cy="{{ch.lowY}}" r="4" style="fill: {{ch.lowColor}}"></circle>
+                    <circle cx="{{ch.selX}}" cy="{{ch.selY}}" r="5.5" style="fill: var(--surface); stroke: var(--text); stroke-width: 2.5"></circle>
+                  </svg>
+                      <div aria-hidden="true" onPointerDown="{{ch.scrub}}" onPointerMove="{{ch.scrub}}" style="position: absolute; top: -8px; bottom: -8px; left: -4px; right: -4px; touch-action: pan-y; cursor: ew-resize"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--muted)"><span>1</span><span>{{ch.mid}}</span><span>{{ch.last}}</span></div>
+                    <span style="font-size: 12px; line-height: 1.4; color: var(--muted)">{{ch.lowText}}</span>
+                  </div>
+                </sc-for>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted)">
+                <span style="display: flex; align-items: center; gap: 4px"><span style="width: 14px; border-top: 2px dashed var(--muted)"></span>Buffer</span>
+                <span style="display: flex; align-items: center; gap: 4px"><span style="width: 14px; border-top: 1.5px solid var(--muted)"></span>Nul</span>
+                <span style="display: flex; align-items: center; gap: 4px"><span style="width: 12px; height: 10px; border-radius: 3px; background: var(--warnChip)"></span>In de bufferzone</span>
+                <span style="display: flex; align-items: center; gap: 4px"><span style="width: 12px; height: 10px; border-radius: 3px; background: var(--negSoft); border: 1px solid var(--neg); box-sizing: border-box"></span>Onder nul</span>
+                <span style="margin-left: auto">Beweeg over een grafiek om een dag te kiezen</span>
+              </div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 14px">
+              <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 6px">
+                  <span style="font-size: 15px; font-weight: 600">{{day.title}}</span>
+                  <span style="font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: {{day.chipBg}}; color: {{day.chipFg}}">{{day.chip}}</span>
+                </div>
+                <sc-for list="{{day.items}}" as="it" hint-placeholder-count="2">
+                  <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line)">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: {{it.dot}}; flex: none"></span>
+                    <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">{{it.label}}</span><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)"><sc-if value="{{it.hasAcc}}" hint-placeholder-val="{{ true }}"><span style="font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: {{it.accBg}}; color: {{it.accFg}}">{{it.accName}}</span></sc-if>{{it.note}}</span></span>
+                    <span style="font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 500; color: {{it.color}}">{{it.amount}}</span>
+                    <sc-if value="{{it.canRemove}}" hint-placeholder-val="{{ false }}"><button type="button" aria-label="Geplande post verwijderen" onClick="{{it.remove}}" style="width: 44px; height: 44px; margin: -10px -12px -10px -6px; border: none; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{day.canAdd}}" hint-placeholder-val="{{ true }}">
+                  <sc-if value="{{f.closed}}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{f.open}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; margin: 6px 0 10px; border-radius: 12px; border: 2px dashed var(--line); background: transparent; color: var(--greenText); font: inherit; font-size: 14px; font-weight: 600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Uitgave of inkomst plannen op {{day.short}}</button>
+                  </sc-if>
+                  <sc-if value="{{f.isOpen}}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin: 6px 0 10px; padding: 12px; border-radius: 14px; background: var(--bg); animation: sIn 200ms ease-out both">
+                      <span style="font-size: 14px; font-weight: 600">{{f.title}}</span>
+                      <div role="group" aria-label="Soort" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line)">
+                        <button type="button" aria-pressed="{{f.kOut.on}}" onClick="{{f.kOut.pick}}" style="height: 36px; border-radius: 9px; border: none; background: {{f.kOut.bg}}; color: {{f.kOut.fg}}; font: inherit; font-size: 13px; font-weight: 600; transition: background 160ms ease">− Uitgave</button>
+                        <button type="button" aria-pressed="{{f.kIn.on}}" onClick="{{f.kIn.pick}}" style="height: 36px; border-radius: 9px; border: none; background: {{f.kIn.bg}}; color: {{f.kIn.fg}}; font: inherit; font-size: 13px; font-weight: 600; transition: background 160ms ease">+ Inkomst</button>
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px">
+                        <label for="d-{{t.cls}}-pl-desc" style="font-size: 12px; font-weight: 600; color: var(--muted)">Omschrijving</label>
+                        <input id="d-{{t.cls}}-pl-desc" value="{{f.desc}}" onChange="{{f.setDesc}}" placeholder="{{f.ph}}" style="height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 15px">
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px">
+                        <label for="d-{{t.cls}}-pl-amt" style="font-size: 12px; font-weight: 600; color: var(--muted)">Bedrag</label>
+                        <div style="position: relative"><span aria-hidden="true" style="position: absolute; left: 12px; top: 12px; font-family: 'Geist Mono', monospace; font-size: 15px; color: var(--muted)">€</span><input id="d-{{t.cls}}-pl-amt" inputmode="decimal" value="{{f.amt}}" onChange="{{f.setAmt}}" placeholder="0,00" style="width: 100%; height: 44px; box-sizing: border-box; padding: 0 12px 0 30px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-family: 'Geist Mono', monospace; font-size: 15px"></div>
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px">
+                        <span style="font-size: 12px; font-weight: 600; color: var(--muted)">{{f.accLabel}}</span>
+                        <sc-if value="{{f.choose}}" hint-placeholder-val="{{ true }}">
+                          <div role="group" aria-label="{{f.accLabel}}" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+                            <button type="button" aria-pressed="{{f.accP.on}}" onClick="{{f.accP.pick}}" style="height: 40px; border-radius: 10px; border: 1px solid {{f.accP.line}}; background: {{f.accP.bg}}; color: {{f.accP.fg}}; font: inherit; font-size: 13px; font-weight: 600">Zichtrekening</button>
+                            <button type="button" aria-pressed="{{f.accG.on}}" onClick="{{f.accG.pick}}" style="height: 40px; border-radius: 10px; border: 1px solid {{f.accG.line}}; background: {{f.accG.bg}}; color: {{f.accG.fg}}; font: inherit; font-size: 13px; font-weight: 600">Gedeelde rekening</button>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{f.fixed}}" hint-placeholder-val="{{ false }}"><span style="align-self: flex-start; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: {{f.fixedBg}}; color: {{f.fixedFg}}">{{f.fixedName}}</span></sc-if>
+                      </div>
+                      <sc-if value="{{f.hasImpact}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; font-weight: 600; color: {{f.impactColor}}">{{f.impact}}</span></sc-if>
+                      <sc-if value="{{f.err}}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size: 13px; color: var(--neg)">Vul een omschrijving en een bedrag in.</span></sc-if>
+                      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+                        <button type="button" onClick="{{f.cancel}}" style="height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; font-weight: 600">Annuleren</button>
+                        <button type="button" onClick="{{f.add}}" style="height: 44px; border-radius: 12px; border: none; background: var(--green); color: var(--onGreen); font: inherit; font-size: 14px; font-weight: 600">Toevoegen</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{day.single}}" hint-placeholder-val="{{ false }}"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 2px solid var(--text)">
+                  <span style="font-size: 14px; font-weight: 600">{{day.balLabel}}</span>
+                  <span style="font-family: 'Geist Mono', monospace; font-size: 16px; font-weight: 600; color: {{day.balColor}}">{{day.bal}}</span>
+                </div></sc-if>
+                <sc-if value="{{day.split}}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 2px solid var(--text)">
+                    <span style="font-size: 14px; font-weight: 600">{{day.balLabel}}</span>
+                    <sc-for list="{{day.accBals}}" as="ab" hint-placeholder-count="2"><div style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{ab.dot}}; flex: none"></span><span style="flex: 1; font-size: 14px">{{ab.name}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 600; color: {{ab.color}}">{{ab.bal}}</span></div></sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isMaanden}}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; animation: sIn 240ms ease-out both">
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+                <span style="font-size: 14px; color: var(--muted)">Vooruitkijken</span>
+                <div role="group" aria-label="Horizon" style="display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line)">
+                  <sc-for list="{{horizons}}" as="hz" hint-placeholder-count="4">
+                    <button type="button" aria-pressed="{{hz.on}}" onClick="{{hz.pick}}" style="min-width: 64px; height: 36px; border-radius: 9px; border: none; background: {{hz.bg}}; color: {{hz.fg}}; font: inherit; font-size: 13px; font-weight: 600; transition: background 200ms ease">{{hz.name}}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <sc-if value="{{loading}}" hint-placeholder-val="{{ false }}">
+                <div aria-label="Laden" style="display: flex; flex-direction: column; gap: 8px">
+                  <sc-for list="{{skel}}" as="k" hint-placeholder-count="4"><div style="height: 64px; border-radius: 16px; background: linear-gradient(90deg, var(--skel) 0%, var(--skel2) 50%, var(--skel) 100%); background-size: 640px 100%; animation: sShimmer 1.1s linear infinite"></div></sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{notLoading}}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <sc-for list="{{months}}" as="m" hint-placeholder-count="4">
+                    <button type="button" aria-pressed="{{m.open}}" onClick="{{m.select}}" style="display: grid; grid-template-columns: 158px minmax(0, 1fr) 112px 172px; gap: 10px; align-items: center; min-height: 60px; padding: 8px 16px; border-radius: 16px; border: 2px solid {{m.selLine}}; background: {{m.cardBg}}; color: var(--text); font: inherit; text-align: left; cursor: pointer; animation: sIn 260ms ease-out both; animation-delay: {{m.delay}}ms; transition: border-color 160ms ease">
+                      <span style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 15px; font-weight: 600">{{m.name}}<sc-if value="{{m.current}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted)">lopend</span></sc-if></span>
+                      <span style="font-size: 13px; color: var(--muted)">{{m.summary}}</span>
+                      <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500; text-align: right; white-space: nowrap">{{m.end}}</span>
+                      <span style="justify-self: end; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: {{m.chipBg}}; color: {{m.chipFg}}; white-space: nowrap">{{m.chip}}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+            <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column">
+              <span style="font-size: 16px; font-weight: 600; padding-bottom: 8px">{{selM.name}}</span>
+              <sc-for list="{{selM.lines}}" as="l" hint-placeholder-count="5">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line)">
+                  <span style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px">{{l.label}}</span><span style="font-size: 12px; color: var(--muted)">{{l.note}}</span></span>
+                  <span style="font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 500; white-space: nowrap">{{l.amount}}</span>
+                </div>
+              </sc-for>
+              <div style="display: flex; justify-content: space-between; gap: 10px; padding: 10px 0 6px; border-top: 2px solid var(--text); font-size: 15px; font-weight: 600"><span>Eindsaldo</span><span style="font-family: 'Geist Mono', monospace">{{selM.end}}</span></div>
+              <div style="display: flex; justify-content: space-between; gap: 10px; padding: 2px 0 10px; font-size: 14px; color: var(--muted)"><span>Min. buffer</span><span style="font-family: 'Geist Mono', monospace">−{{bufTxt}}</span></div>
+              <div style="display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: {{selM.chipBg}}; color: {{selM.chipFg}}; font-size: 15px; font-weight: 600"><span>{{selM.resultLabel}}</span><span style="font-family: 'Geist Mono', monospace">{{selM.result}}</span></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isTerug}}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 18px; align-items: start; animation: sIn 240ms ease-out both">
+            <section style="display: flex; flex-direction: column; gap: 8px">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600">Te bevestigen <span style="font-weight: 500; color: var(--muted)">· {{suggestCount}}</span></h2>
+              <sc-for list="{{suggest}}" as="sg" hint-placeholder-count="2">
+                <div style="padding: 14px; border-radius: 18px; background: var(--warnSoft); display: flex; flex-direction: column; gap: 10px; animation: sIn 240ms ease-out both">
+                  <div style="display: flex; justify-content: space-between; gap: 10px"><span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 600">{{sg.name}}</span><span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted)"><span style="font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: {{sg.accBg}}; color: {{sg.accFg}}">{{sg.accName}}</span>{{sg.rhythm}}</span></span><span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500">{{sg.amount}}</span></div>
+                  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+                    <button type="button" onClick="{{sg.yes}}" style="height: 40px; border-radius: 10px; border: none; background: var(--green); color: var(--onGreen); font: inherit; font-size: 14px; font-weight: 600">Bevestigen</button>
+                    <button type="button" onClick="{{sg.no}}" style="height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; font-weight: 600">Negeren</button>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{noSuggest}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); font-size: 14px; color: var(--muted)">Alles bevestigd.</p></sc-if>
+            </section>
+            <section style="display: flex; flex-direction: column; gap: 8px">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600">Bevestigd</h2>
+              <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 2px 16px; display: flex; flex-direction: column">
+                <sc-for list="{{recurring}}" as="rc" hint-placeholder-count="6">
+                  <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: {{rc.divider}}">
+                    <span style="flex: 1; font-size: 15px; font-weight: 500">{{rc.name}}</span>
+                    <span style="width: 96px"><span style="font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: {{rc.accBg}}; color: {{rc.accFg}}">{{rc.accName}}</span></span>
+                    <span style="width: 240px; font-size: 13px; color: var(--muted)">{{rc.rhythm}}</span>
+                    <span style="width: 120px; text-align: right; font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 500; color: {{rc.color}}">{{rc.amount}}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isEenmalig}}" hint-placeholder-val="{{ false }}">
+          <div style="max-width: 660px; display: flex; flex-direction: column; gap: 10px; animation: sIn 240ms ease-out both">
+            <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 2px 16px; display: flex; flex-direction: column">
+              <sc-for list="{{oneoffs}}" as="o" hint-placeholder-count="2">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: {{o.divider}}">
+                  <span style="width: 44px; height: 44px; border-radius: 12px; background: {{o.chipBg}}; color: {{o.chipFg}}; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; font-size: 11px; font-weight: 700; line-height: 1.1"><span>{{o.m}}</span><span>{{o.y}}</span></span>
+                  <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 15px; font-weight: 500">{{o.label}}</span><span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted)"><span style="font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: {{o.accBg}}; color: {{o.accFg}}">{{o.accName}}</span>{{o.note}}</span></span>
+                  <span style="font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 500; color: {{o.color}}">{{o.amount}}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{noOneoffs}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 14px 0; font-size: 14px; color: var(--muted)">Nog geen eenmalige posten voor deze rekeningen.</p></sc-if>
+            </div>
+            <button type="button" onClick="{{goKalender}}" style="height: 48px; border-radius: 14px; border: 2px dashed var(--line); background: transparent; color: var(--greenText); font: inherit; font-size: 15px; font-weight: 600">Eenmalige uitgave of inkomst toevoegen via de kalender</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isBudget}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 12px; animation: sIn 240ms ease-out both">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <button type="button" aria-label="Vorige maand" onClick="{{cal.prev}}" disabled="{{cal.noPrev}}" style="width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); opacity: {{cal.prevOp}}; display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></button>
+              <span style="display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center"><span style="font-size: 17px; font-weight: 600">Budget {{bMonth}}</span><span style="font-size: 12px; color: var(--muted)">Verwachte kosten zijn al afgetrokken</span></span>
+              <button type="button" aria-label="Volgende maand" onClick="{{cal.next}}" disabled="{{cal.noNext}}" style="width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); opacity: {{cal.nextOp}}; display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat({{sumCols}}, minmax(0, 1fr)); gap: 12px; align-items: start">
+            <sc-for list="{{buds}}" as="bc" hint-placeholder-count="2">
+            <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px">
+                <span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{bc.dot}}; flex: none"></span><span style="font-size: 15px; font-weight: 600">{{bc.name}}</span></span>
+                <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"><span style="font-size: 12px; color: var(--muted)">{{bc.freeLabel}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 22px; font-weight: 600; white-space: nowrap; color: {{bc.freeColor}}">{{bc.free}}</span></span>
+              </div>
+              <div role="img" aria-label="{{bc.aria}}" style="display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; background: var(--track)">
+                <sc-for list="{{bc.segs}}" as="sgm" hint-placeholder-count="6"><span style="width: {{sgm.w}}%; background: {{sgm.bg}}; transition: width 400ms cubic-bezier(.2,.7,.2,1)"></span></sc-for>
+              </div>
+              <div style="display: flex; flex-direction: column">
+                <sc-for list="{{bc.rows}}" as="r" hint-placeholder-count="8">
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 5px 0 5px {{r.pad}}; border-top: 1px solid var(--line)">
+                    <sc-if value="{{r.sq}}" hint-placeholder-val="{{ true }}"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{r.sqBg}}; flex: none"></span></sc-if>
+                    <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: {{r.size}}; font-weight: {{r.weight}}">{{r.label}}</span><span style="font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.note}}</span></span>
+                    <span style="font-family: 'Geist Mono', monospace; font-size: {{r.size}}; font-weight: 500; white-space: nowrap">{{r.amount}}</span>
+                  </div>
+                </sc-for>
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 12px; margin-top: 4px; border-radius: 12px; background: {{bc.chipBg}}; color: {{bc.chipFg}}; font-size: 15px; font-weight: 600"><span>{{bc.freeLabel}}</span><span style="font-family: 'Geist Mono', monospace">{{bc.free}}</span></div>
+              </div>
+            </div>
+            </sc-for>
+            </div>
+            <h2 style="margin: 8px 4px 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)">Per categorie · deze maand</h2>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+              <sc-for list="{{budgets}}" as="bd" hint-placeholder-count="4">
+                <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+                  <div style="display: flex; align-items: center; gap: 10px; font-size: 15px">
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: {{bd.bg}}; flex: none"></span>
+                    <span style="flex: 1; font-weight: 600">{{bd.name}}</span>
+                    <span style="font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: {{bd.accBg}}; color: {{bd.accFg}}">{{bd.accName}}</span>
+                  </div>
+                  <span style="display: block; height: 10px; border-radius: 5px; background: var(--track)"><span style="display: block; width: {{bd.pct}}%; height: 10px; border-radius: 5px; background: {{bd.bg}}; transform-origin: left; animation: sGrowX 600ms cubic-bezier(.2,.7,.2,1) both; animation-delay: {{bd.delay}}ms"></span></span>
+                  <span style="font-family: 'Geist Mono', monospace; font-size: 13px; color: var(--muted)">{{bd.spent}} van {{bd.budget}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <p style="margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted)">{{budgetNote}}</p>
+          </div>
+        </sc-if>
+
+        </div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+        <div role="status" style="position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); white-space: nowrap; padding: 10px 16px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 14px; font-weight: 600; box-shadow: var(--pop); animation: sToast 2.6s ease-out both; z-index: 8">{{toastText}}</div>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":2800}}'>
+class Component extends DCLogic {
+  later(fn, ms) { (this._t = this._t || []).push(setTimeout(fn, ms)); }
+  componentWillUnmount() { (this._t || []).forEach(clearTimeout); }
+  eur(c, signed) {
+    const neg = c < 0, a = Math.abs(Math.round(c));
+    const e = String(Math.floor(a / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return (neg ? '−' : (signed ? '+' : '')) + '€ ' + e + ',' + String(a % 100).padStart(2, '0');
+  }
+  eur0(c, signed) {
+    const neg = c < 0;
+    return (neg ? '−' : (signed ? '+' : '')) + '€ ' + String(Math.round(Math.abs(c) / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+  model(st, chartW, chartH, opts) {
+    opts = opts || {};
+    const scope = st.scope || 'alles';
+    const planned = st.planned || {};
+    const inScope = (acc) => scope === 'alles' || (scope === 'persoonlijk' ? acc === 'p' : acc === 'g');
+    const ACC = {
+      p: { name: 'Persoonlijk', full: 'Zichtrekening', bg: 'var(--soft)', fg: 'var(--greenText)' },
+      g: { name: 'Gedeeld', full: 'Gedeelde rekening', bg: 'var(--sharedSoft)', fg: 'var(--sharedText)' }
+    };
+    const S = {
+      alles: { buf: 150000, nov1: 166727, today: 291490, pastVar: 64740, futVar: 100260, varM: 165000, novEnd: 191230, inc: 330000, rec: 120497, sav: 20000, novExp: 285497, incNote: 'Salaris en bijdrage Partner', recNote: 'Huur, energie, internet, streaming', varNote: 'Volgens je budgetten', todayNote: 'Zichtrekening en gedeelde rekening', line: 'var(--green)' },
+      persoonlijk: { buf: 90000, nov1: 102041, today: 196882, pastVar: 23460, futVar: 70338, varM: 93798, novEnd: 126544, inc: 285000, rec: 146699, sav: 20000, novExp: 240497, incNote: 'Salaris', recNote: 'Huur, bijdrage gedeelde rekening, Spotify', varNote: 'Vrije tijd, vervoer, overig', todayNote: 'Zichtrekening', line: 'var(--green)' },
+      gedeeld: { buf: 60000, nov1: 64686, today: 94608, pastVar: 41280, futVar: 29922, varM: 71202, novEnd: 64686, inc: 90000, rec: 18798, sav: 0, novExp: 90000, incNote: 'Bijdragen van jou en Partner', recNote: 'Energie, internet, Netflix', varNote: 'Boodschappen en overig', todayNote: 'Gedeelde rekening', line: 'var(--shared)' }
+    };
+    const C = S[scope];
+    const BUF = C.buf;
+    const plList = (k) => (planned[k] || []).filter((p) => inScope(p.acc));
+    const plSum = (k) => plList(k).reduce((a, p) => a + p.amt, 0);
+    const plIn = (k) => plList(k).filter((p) => p.amt > 0).reduce((a, p) => a + p.amt, 0);
+    const MN = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+    const forecast = (h) => {
+      const e0 = plSum(0);
+      const novEnd = C.novEnd + e0;
+      const l0 = [['Saldo vandaag', C.today, C.todayNote], ['Terugkerende posten', 0, 'Deze maand al ontvangen en betaald'], ['Variabele uitgaven', -C.futVar, C.varNote + ' · rest van de maand']];
+      if (e0) l0.push(['Gepland', e0, 'Via de kalender']);
+      const out = [{ key: 'm0', name: 'November', current: true, inc: C.inc + plIn(0), exp: C.novExp + plIn(0) - e0, sav: C.sav, end: novEnd, lines: l0 }];
+      let bal = novEnd;
+      for (let i = 1; i <= h; i++) {
+        const m = (10 + i) % 12, y = 2026 + Math.floor((10 + i) / 12);
+        const yearly = (m === 0 && scope !== 'gedeeld') ? 68400 : 0;
+        const rec = C.rec + yearly;
+        const ONE_M = { '11-2026': ['Kerstcadeaus', -35000], '1-2027': ['Autoherstelling', -200000], '6-2027': ['Zomervakantie', -150000], '7-2027': ['Belastingteruggave', 68000] };
+        const one = scope === 'gedeeld' ? null : (ONE_M[m + '-' + y] || null);
+        const ex = i <= 3 ? plSum(i) : 0;
+        const exIn = i <= 3 ? plIn(i) : 0;
+        const oneIn = one && one[1] > 0 ? one[1] : 0;
+        const start = bal;
+        const end = start + C.inc - rec - C.varM - C.sav + (one ? one[1] : 0) + ex;
+        const lines = [['Startsaldo', start, 'Einde vorige maand'], ['Terugkerend inkomen', C.inc, C.incNote], ['Terugkerende uitgaven', -rec, yearly ? C.recNote + ', familiale verzekering' : C.recNote], ['Variabele uitgaven', -C.varM, C.varNote]];
+        if (one) lines.push(['Eenmalig', one[1], one[0]]);
+        if (ex) lines.push(['Gepland', ex, 'Via de kalender']);
+        if (C.sav) lines.push(['Naar spaarrekening', -C.sav, 'Gespaard']);
+        out.push({ key: 'm' + i, name: MN[m] + (y !== 2026 ? ' ' + y : ''), current: false, inc: C.inc + oneIn + exIn, exp: rec + C.varM + oneIn - (one ? one[1] : 0) + exIn - ex, sav: C.sav, end: end, lines: lines });
+        bal = end;
+      }
+      return out.map((o) => Object.assign({}, o, { left: o.end - BUF }));
+    };
+    const chain = forecast(3);
+    const EV = [
+      [1, -100500, 'Huur', 'Terugkerend', 'Huur', 'p'],
+      [1, -45000, 'Naar gedeelde rekening', 'Jouw bijdrage', 'Bijdrage', 'p', 'int'],
+      [1, 45000, 'Jouw bijdrage', 'Van je zichtrekening', 'Bijdrage', 'g', 'int'],
+      [1, 45000, 'Bijdrage Partner', 'Terugkerend', 'Partner', 'g'],
+      [2, 285000, 'Salaris', 'Werkgever nv', 'Salaris', 'p'],
+      [5, -14500, 'Energie', 'Terugkerend', 'Energie', 'g'],
+      [8, -2899, 'Internet en tv', 'Terugkerend', 'Internet', 'g'],
+      [12, -1399, 'Netflix', 'Terugkerend', 'Netflix', 'g'],
+      [16, -20000, 'Naar spaarrekening', 'Gespaard', 'Sparen', 'p'],
+      [17, -1199, 'Spotify', 'Terugkerend', 'Spotify', 'p']
+    ];
+    const EXTRA = { 1: [[20, -35000, 'Kerstcadeaus', 'Eenmalig', 'Kerst', 'p']], 2: [[15, -68400, 'Familiale verzekering', 'Jaarlijks', 'Verzekering', 'p']], 3: [[10, -200000, 'Autoherstelling', 'Eenmalig · offerte garage', 'Auto', 'p']] };
+    const MONTHS = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+    const WD = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+    const CM = [{ y: 2026, m: 10, today: 18, start: C.nov1 }, { y: 2026, m: 11, start: chain[0].end }, { y: 2027, m: 0, start: chain[1].end }, { y: 2027, m: 1, start: chain[2].end }];
+    const mi = st.calMonth || 0;
+    const M = CM[mi];
+    const PL = planned[mi] || [];
+    const ev = EV.concat(EXTRA[mi] || []).concat(PL.map((p) => [p.day, p.amt, p.label, 'Gepland', p.label, p.acc, null, p.id]))
+      .filter((e) => inScope(e[5]) && !(scope === 'alles' && e[6] === 'int'));
+    const days = new Date(M.y, M.m + 1, 0).getDate();
+    const offset = (new Date(M.y, M.m, 1).getDay() + 6) % 7;
+    const varFor = (d) => M.today ? (d <= M.today ? C.pastVar / M.today : C.futVar / (days - M.today)) : C.varM / days;
+    const bal = [M.start];
+    for (let d = 1; d <= days; d++) bal.push(bal[d - 1] + ev.filter((e) => e[0] === d).reduce((a, e) => a + e[1], 0) - varFor(d));
+    const sel = (st.calSel && st.calSel[mi]) || (M.today ? M.today : 1);
+    const split = scope === 'alles' && !opts.inner;
+    const SUBS = [['persoonlijk', 'Persoonlijk', 'Zichtrekening', 'p'], ['gedeeld', 'Gedeelde rekening', 'met Partner', 'g']];
+    const subs = split ? SUBS.map((x) => ({ key: x[0], name: x[1], sub: x[2], acc: x[3], md: this.model(Object.assign({}, st, { scope: x[0] }), chartW, opts.subH || chartH, { inner: true }) })) : [];
+    const stOf = (v, b) => v < 0 ? 'neg' : (v < b ? 'low' : 'ok');
+    const stateAt = (d) => {
+      if (!split) return stOf(bal[d], BUF);
+      const ss = subs.map((s) => stOf(s.md.bal[d], s.md.BUF));
+      return ss.indexOf('neg') >= 0 ? 'neg' : (ss.indexOf('low') >= 0 ? 'low' : 'ok');
+    };
+    const stateTxt = (d) => {
+      if (!split) { const x = stateAt(d); return x === 'neg' ? ', negatief saldo' : (x === 'low' ? ', onder je buffer' : ''); }
+      return subs.map((s) => { const x = stOf(s.md.bal[d], s.md.BUF); return x === 'neg' ? ', ' + s.name.toLowerCase() + ' negatief' : (x === 'low' ? ', ' + s.name.toLowerCase() + ' onder buffer' : ''); }).join('');
+    };
+    const cells = [];
+    for (let i = 0; i < offset; i++) cells.push({ blank: true, isDay: false, tags: [] });
+    for (let d = 1; d <= days; d++) {
+      const evs = ev.filter((e) => e[0] === d);
+      const dst = stateAt(d);
+      const low = dst !== 'ok';
+      const neg = dst === 'neg';
+      const isToday = M.today === d;
+      const past = M.today && d < M.today;
+      const isSel = d === sel;
+      const tags = evs.slice(0, 2).map((e) => ({ text: (e[1] < 0 ? '− ' : '+ ') + e[4], color: e[7] ? 'var(--warn)' : (e[1] < 0 ? 'var(--neg)' : 'var(--greenText)') }));
+      if (evs.length > 2) tags.push({ text: '+' + (evs.length - 2) + ' meer', color: 'var(--muted)' });
+      cells.push({
+        blank: false, isDay: true, n: String(d), sel: isSel, tags: tags,
+        hasIn: evs.some((e) => e[1] > 0), hasOut: evs.some((e) => e[1] < 0 && !e[7]), hasPlan: evs.some((e) => !!e[7]),
+        bg: neg ? 'var(--negSoft)' : (low ? 'var(--warnSoft)' : 'transparent'),
+        bgD: neg ? 'var(--negSoft)' : (low ? 'var(--warnSoft)' : (past ? 'transparent' : 'var(--bg)')),
+        border: isSel ? 'var(--text)' : (neg ? 'var(--negSoft)' : (low ? 'var(--warnSoft)' : 'transparent')),
+        borderD: isSel ? 'var(--text)' : 'transparent',
+        fg: past ? 'var(--muted)' : 'var(--text)',
+        numBg: isToday ? 'var(--green)' : 'transparent',
+        numFg: isToday ? 'var(--onGreen)' : (neg ? 'var(--negText)' : (past ? 'var(--muted)' : 'var(--text)')),
+        weight: isToday || isSel ? '700' : '500',
+        aria: d + ' ' + MONTHS[M.m] + ': ' + (evs.length ? evs.map((e) => e[2]).join(', ') + ', ' : '') + (split ? subs.map((s) => s.name.toLowerCase() + ' ' + this.eur0(s.md.bal[d])).join(', ') : 'saldo ' + this.eur0(bal[d])) + stateTxt(d),
+        pick: () => this.setState({ calSel: Object.assign({}, st.calSel || {}, { [mi]: d }), addOpen: false })
+      });
+    }
+    const W = chartW, Hh = chartH;
+    const vals = bal.slice(1);
+    const vMin = Math.min(Math.min.apply(null, vals), 0), vMax = Math.max(Math.max.apply(null, vals), BUF);
+    const pad = (vMax - vMin) * 0.08;
+    const lo = vMin - pad;
+    const hi = vMax + pad;
+    const X = (d) => Math.round((d - 1) / (days - 1) * W * 10) / 10;
+    const Y = (v) => Math.round((Hh - (v - lo) / (hi - lo) * Hh) * 10) / 10;
+    const pathOf = (a, b) => { let s = ''; for (let d = a; d <= b; d++) s += (d === a ? 'M' : 'L') + X(d) + ' ' + Y(bal[d]) + ' '; return s.trim(); };
+    let lowD = 1; for (let d = 2; d <= days; d++) if (bal[d] < bal[lowD]) lowD = d;
+    const lowV = bal[lowD], endV = bal[days];
+    const mName = MONTHS[M.m];
+    const wasPast = (d) => M.today && d < M.today;
+    let lowText;
+    if (endV < 0) {
+      let fromD = days; while (fromD > 1 && bal[fromD - 1] < 0) fromD--;
+      lowText = (fromD > 1 ? 'Vanaf ' + fromD + ' ' + mName + ' sta je rood. ' : '') + 'Je eindigt de maand ' + this.eur0(-endV) + ' rood. Schuif een uitgave op of verlaag een budget.';
+    } else if (lowV < 0) {
+      lowText = 'Op ' + lowD + ' ' + mName + (wasPast(lowD) ? ' stond je ' : ' sta je ') + this.eur0(-lowV) + ' rood' + (lowD <= 2 && scope !== 'gedeeld' ? ', tot het salaris binnenkomt.' : '.');
+      if (endV < BUF) lowText += ' Je eindigt de maand ' + this.eur0(BUF - endV) + ' onder je buffer.';
+    } else if (lowV < BUF) {
+      const under = M.today && lowD < M.today;
+      lowText = (under ? 'Op ' + lowD + ' ' + mName + ' zat je ' : 'Op ' + lowD + ' ' + mName + ' zak je ') + this.eur0(BUF - lowV) + ' onder je buffer' + (lowD <= 2 && scope !== 'gedeeld' ? ', tot het salaris binnenkomt.' : '.');
+      if (endV < BUF) lowText += ' Je eindigt de maand ' + this.eur0(BUF - endV) + ' onder je buffer.';
+    } else {
+      lowText = 'Je blijft de hele maand boven je buffer van ' + this.eur0(BUF) + '.';
+    }
+    const selDate = new Date(M.y, M.m, sel);
+    const isPastSel = M.today && sel < M.today;
+    const isTodaySel = M.today === sel;
+    const items = ev.filter((e) => e[0] === sel).map((e) => ({
+      label: e[2], note: e[7] ? (e[1] < 0 ? 'Geplande uitgave' : 'Verwachte inkomst') : e[3], amount: this.eur(e[1], true),
+      color: e[1] < 0 ? 'var(--neg)' : 'var(--text)',
+      dot: e[7] ? 'var(--warn)' : (e[1] < 0 ? 'var(--neg)' : 'var(--green)'),
+      hasAcc: true, accName: ACC[e[5]].name, accBg: ACC[e[5]].bg, accFg: ACC[e[5]].fg,
+      canRemove: !!e[7],
+      remove: () => this.setState({ planned: Object.assign({}, planned, { [mi]: PL.filter((p) => p.id !== e[7]) }) })
+    }));
+    items.push({ label: isPastSel ? 'Dagelijkse uitgaven' : 'Dagelijkse uitgaven (schatting)', note: C.varNote, amount: this.eur(-varFor(sel), true), color: 'var(--neg)', dot: 'var(--muted)', hasAcc: false, canRemove: false });
+    const selSt = stateAt(sel);
+    const selLow = selSt !== 'ok';
+    const selNeg = selSt === 'neg';
+    const shortDay = sel + ' ' + mName.slice(0, 3);
+
+    const afterDay = M.today || 0;
+    const fut = ev.filter((e) => e[0] > afterDay);
+    const isSav = (e) => e[2] === 'Naar spaarrekening';
+    const isOne = (e) => !!e[7] || e[3] === 'Eenmalig';
+    const sumNeg = (arr) => -arr.reduce((a, e) => a + e[1], 0);
+    const incEv = fut.filter((e) => e[1] > 0);
+    const incRest = incEv.reduce((a, e) => a + e[1], 0);
+    const fixedRest = sumNeg(fut.filter((e) => e[1] < 0 && !isSav(e) && !isOne(e)));
+    const oneEv = fut.filter((e) => e[1] < 0 && isOne(e));
+    const oneRest = sumNeg(oneEv);
+    const savRest = sumNeg(fut.filter((e) => e[1] < 0 && isSav(e)));
+    const BUDS = [['Boodschappen', 'var(--c2)', 'g', 65000, 41280], ['Vrije tijd', 'var(--c3)', 'p', 35000, 13820], ['Vervoer', 'var(--c4)', 'p', 30000, 9640], ['Overig', 'var(--c6)', 'p', 28798, 0], ['Overig gedeeld', 'var(--c6)', 'g', 6202, 0]].filter((b) => inScope(b[2]));
+    const budRows = BUDS.map((b) => ({ name: b[0], bg: b[1], rest: mi === 0 ? b[3] - b[4] : b[3], note: mi === 0 ? this.eur0(b[4]) + ' van ' + this.eur0(b[3]) + ' al besteed' : 'Volledig budget ' + this.eur0(b[3]) }));
+    const budTot = budRows.reduce((a, b) => a + b.rest, 0);
+    const startB = mi === 0 ? bal[M.today] : M.start;
+    const free = startB + incRest - fixedRest - oneRest - savRest - budTot - BUF;
+    const hatch = 'repeating-linear-gradient(135deg, var(--muted) 0 2px, transparent 2px 6px)';
+    const rowsB = [{ label: mi === 0 ? 'Saldo vandaag' : 'Startsaldo 1 ' + mName, note: C.todayNote, amount: this.eur(startB), sq: false, bold: true }];
+    if (incRest) rowsB.push({ label: 'Nog te ontvangen', note: incEv.map((e) => e[2]).join(', '), amount: this.eur(incRest, true), sq: false });
+    if (fixedRest) rowsB.push({ label: 'Vaste kosten', note: 'Nog te betalen deze maand', amount: this.eur(-fixedRest, true), sq: true, sqBg: 'var(--c1)' });
+    if (oneRest) rowsB.push({ label: 'Eenmalig en gepland', note: oneEv.map((e) => e[2]).join(', '), amount: this.eur(-oneRest, true), sq: true, sqBg: 'var(--warn)' });
+    rowsB.push({ label: 'Budgetten', note: mi === 0 ? 'Nog te besteden tot 30 ' + mName : 'Gereserveerd voor ' + mName, amount: this.eur(-budTot, true), sq: false });
+    budRows.forEach((b) => rowsB.push({ label: b.name, note: b.note, amount: this.eur(-b.rest, true), sq: true, sqBg: b.bg, sub: true }));
+    if (savRest) rowsB.push({ label: 'Naar spaarrekening', note: 'Gespaard', amount: this.eur(-savRest, true), sq: true, sqBg: 'var(--c5)' });
+    rowsB.push({ label: 'Buffer', note: 'Blijft altijd staan', amount: this.eur(-BUF, true), sq: true, sqBg: hatch });
+    const pos = startB + incRest;
+    const costs = fixedRest + oneRest + savRest + budTot + BUF;
+    const tot = Math.max(pos, costs) || 1;
+    const segs = [];
+    if (fixedRest) segs.push({ w: fixedRest / tot * 100, bg: 'var(--c1)' });
+    budRows.forEach((b) => segs.push({ w: b.rest / tot * 100, bg: b.bg }));
+    if (oneRest) segs.push({ w: oneRest / tot * 100, bg: 'var(--warn)' });
+    if (savRest) segs.push({ w: savRest / tot * 100, bg: 'var(--c5)' });
+    segs.push({ w: BUF / tot * 100, bg: hatch });
+    if (free > 0) segs.push({ w: free / tot * 100, bg: C.line });
+    const freeOk = free >= 0;
+    const bud = {
+      title: 'Budget ' + mName, month: mName, ok: freeOk,
+      free: this.eur(Math.abs(free)),
+      freeLabel: freeOk ? 'Vrij te besteden' : 'Tekort',
+      freeColor: freeOk ? (scope === 'gedeeld' ? 'var(--sharedText)' : 'var(--greenText)') : 'var(--neg)',
+      chipBg: freeOk ? (scope === 'gedeeld' ? 'var(--sharedSoft)' : 'var(--soft)') : 'var(--neg)',
+      chipFg: freeOk ? (scope === 'gedeeld' ? 'var(--sharedText)' : 'var(--greenText)') : 'var(--onNeg)',
+      aria: 'Van ' + this.eur0(pos) + ' is ' + this.eur0(costs - BUF) + ' voorzien voor verwachte kosten, ' + this.eur0(BUF) + ' is buffer en ' + this.eur0(Math.max(free, 0)) + ' is vrij.',
+      segs: segs.map((s) => ({ w: s.w.toFixed(2), bg: s.bg })),
+      rows: rowsB.map((r) => ({ label: r.label, note: r.note, amount: r.amount, sq: !!r.sq, sqBg: r.sqBg || 'transparent', pad: r.sub ? '18px' : '0px', size: r.sub ? '13px' : '14px', weight: r.bold ? '600' : (r.sub ? '400' : '500') }))
+    };
+
+    const open = !!st.addOpen;
+    const desc = st.draftDesc || '';
+    const amtStr = st.draftAmt || '';
+    const acc = scope === 'gedeeld' ? 'g' : (scope === 'persoonlijk' ? 'p' : (st.draftAcc || 'p'));
+    const pv = parseFloat(String(amtStr).replace(/[\s€]/g, '').replace(/\./g, '').replace(',', '.'));
+    const cents = isFinite(pv) && pv > 0 ? Math.round(pv * 100) : 0;
+    const kind = st.draftKind || 'out';
+    const isIn = kind === 'in';
+    const sign = isIn ? 1 : -1;
+    const accMd = split ? subs.filter((s) => s.acc === acc)[0].md : null;
+    const aBuf = accMd ? accMd.BUF : BUF;
+    const afterBal = (accMd ? accMd.bal[sel] : bal[sel]) + sign * cents;
+    const kindBtn = (k) => ({ on: kind === k, bg: kind === k ? 'var(--text)' : 'transparent', fg: kind === k ? 'var(--bg)' : 'var(--text)', pick: () => this.setState({ draftKind: k, draftErr: false }) });
+    const accBtn = (k) => ({ on: acc === k, bg: acc === k ? (k === 'p' ? 'var(--green)' : 'var(--shared)') : 'var(--surface)', fg: acc === k ? (k === 'p' ? 'var(--onGreen)' : 'var(--onShared)') : 'var(--text)', line: acc === k ? 'transparent' : 'var(--line)', pick: () => this.setState({ draftAcc: k }) });
+    const f = {
+      isOpen: open, closed: !open,
+      open: () => this.setState({ addOpen: true, draftDesc: '', draftAmt: '', draftErr: false, draftKind: 'out' }),
+      kOut: kindBtn('out'), kIn: kindBtn('in'),
+      title: (isIn ? 'Verwachte inkomst op ' : 'Geplande uitgave op ') + shortDay,
+      ph: isIn ? 'Bijvoorbeeld: verkoop oude fiets' : 'Bijvoorbeeld: nieuwe fiets',
+      accLabel: isIn ? 'Ontvangen op' : 'Betalen met',
+      cancel: () => this.setState({ addOpen: false }),
+      setDesc: (e) => this.setState({ draftDesc: e.target.value, draftErr: false }),
+      setAmt: (e) => this.setState({ draftAmt: e.target.value, draftErr: false }),
+      desc: desc, amt: amtStr,
+      choose: scope === 'alles', fixed: scope !== 'alles',
+      fixedName: ACC[acc].full, fixedBg: ACC[acc].bg, fixedFg: ACC[acc].fg,
+      accP: accBtn('p'), accG: accBtn('g'),
+      hasImpact: cents > 0,
+      impact: (split ? ACC[acc].full + ' einde dag: ' : 'Saldo einde dag wordt ') + this.eur(afterBal) + (afterBal < 0 ? ' · je staat rood' : (afterBal < aBuf ? ' · onder je buffer' : '')),
+      impactColor: afterBal < 0 ? 'var(--neg)' : (afterBal < aBuf ? 'var(--warn)' : 'var(--greenText)'),
+      err: !!st.draftErr,
+      add: () => {
+        if (!desc.trim() || !cents) { this.setState({ draftErr: true }); return; }
+        const item = { id: 'p' + Date.now(), day: sel, amt: sign * cents, label: desc.trim(), acc: acc };
+        this.setState({ planned: Object.assign({}, planned, { [mi]: PL.concat([item]) }), addOpen: false, toast: 'Gepland op ' + shortDay + ' · ' + this.eur(sign * cents, true) });
+        this.later(() => this.setState({ toast: null }), 2700);
+      }
+    };
+    const flip = (patch) => { this.setState(Object.assign({ flip: true }, patch)); this.later(() => this.setState({ flip: false }), 20); };
+    return {
+      scope: scope, inScope: inScope, ACC: ACC, C: C, forecast: forecast, flip: flip, planned: planned,
+      cal: {
+        name: mName.charAt(0).toUpperCase() + mName.slice(1) + ' ' + M.y,
+        note: (M.today ? 'Vandaag is ' + M.today + ' ' + mName : 'Verwachting') + ' · ' + (scope === 'alles' ? 'alle rekeningen' : (scope === 'persoonlijk' ? 'persoonlijk' : 'gedeeld')),
+        prev: () => { if (mi > 0) flip({ calMonth: mi - 1, addOpen: false }); },
+        next: () => { if (mi < CM.length - 1) flip({ calMonth: mi + 1, addOpen: false }); },
+        noPrev: mi === 0, noNext: mi === CM.length - 1,
+        prevOp: mi === 0 ? '0.4' : '1', nextOp: mi === CM.length - 1 ? '0.4' : '1',
+        cells: cells,
+        startTxt: this.eur0(M.start), endTxt: this.eur0(endV), lowTxt: lowD + ' ' + mName.slice(0, 3) + ' · ' + this.eur0(lowV),
+        lowColor: lowV < 0 ? 'var(--neg)' : (lowV < BUF ? 'var(--warn)' : C.line), endColor: endV < 0 ? 'var(--neg)' : (endV < BUF ? 'var(--warn)' : 'var(--text)'),
+        lineColor: C.line,
+        bufY: Y(BUF), zeroY: Y(0), bufLblY: Math.max(9, Y(BUF) - 4), zeroLblY: Math.min(Hh - 2, Y(0) + 11),
+        zBufY: Math.max(0, Y(BUF)), zBufH: Math.max(0, Math.min(Hh, Y(0)) - Math.max(0, Y(BUF))),
+        zNegY: Math.min(Hh, Y(0)), zNegH: Math.max(0, Hh - Math.min(Hh, Y(0))),
+        zBufFill: lowV < BUF ? 'var(--warnChip)' : 'var(--track)', zBufOp: lowV < BUF ? '0.75' : '0.5',
+        zNegFill: lowV < 0 ? 'var(--neg)' : 'var(--track)', zNegOp: lowV < 0 ? '0.18' : '0',
+        hasToday: !!M.today, todayX: M.today ? X(M.today) : 0,
+        pastD: M.today ? pathOf(1, M.today) : 'M0 0',
+        futD: pathOf(M.today ? M.today : 1, days),
+        lowX: X(lowD), lowY: Y(lowV), selX: X(sel), selY: Y(bal[sel]),
+        mid: String(Math.round(days / 2)), last: String(days),
+        chartAria: 'Verwacht saldo in ' + mName + ': begin ' + this.eur0(M.start) + ', laagste ' + this.eur0(lowV) + ' op ' + lowD + ' ' + mName + ', einde ' + this.eur0(endV) + '. Buffer ' + this.eur0(BUF) + '.' + (lowV < 0 ? ' De lijn zakt onder nul.' : (lowV < BUF ? ' De lijn komt in de bufferzone.' : '')),
+        lowText: lowText,
+        selLabel: WD[selDate.getDay()].slice(0, 2).replace(/^./, (c) => c.toUpperCase()) + ' ' + sel + ' ' + mName + (isPastSel || isTodaySel ? ' · saldo' : ' · verwacht'),
+        scrub: (e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          if (!r.width) return;
+          const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+          const d = Math.min(days, Math.max(1, Math.round(x * (days - 1)) + 1));
+          if (d !== sel) this.setState({ calSel: Object.assign({}, st.calSel || {}, { [mi]: d }), addOpen: false });
+        }
+      },
+      day: {
+        title: WD[selDate.getDay()].charAt(0).toUpperCase() + WD[selDate.getDay()].slice(1) + ' ' + sel + ' ' + mName,
+        short: shortDay,
+        canAdd: !isPastSel,
+        chip: isTodaySel ? 'Vandaag' : (isPastSel ? 'Geboekt' : (selNeg ? 'Negatief' : (selLow ? 'Onder buffer' : 'Verwacht'))),
+        chipBg: selNeg && !isPastSel ? 'var(--neg)' : (selLow && !isPastSel ? 'var(--warnChip)' : (isTodaySel ? 'var(--soft)' : 'var(--bg)')),
+        chipFg: selNeg && !isPastSel ? 'var(--onNeg)' : (selLow && !isPastSel ? 'var(--warn)' : (isTodaySel ? 'var(--greenText)' : 'var(--muted)')),
+        items: items,
+        balLabel: isPastSel || isTodaySel ? 'Saldo einde dag' : 'Verwacht saldo einde dag',
+        bal: this.eur(bal[sel]),
+        balColor: selNeg ? 'var(--neg)' : (selLow ? 'var(--warn)' : 'var(--text)'),
+        single: !split, split: split,
+        accBals: subs.map((s) => { const v = s.md.bal[sel]; return { name: s.name, bal: this.eur(v), color: v < 0 ? 'var(--neg)' : (v < s.md.BUF ? 'var(--warn)' : 'var(--text)'), dot: s.acc === 'p' ? 'var(--green)' : 'var(--shared)' }; })
+      },
+      f: f,
+      bud: bud,
+      bal: bal, BUF: BUF, split: split, subs: subs, chartH: chartH
+    };
+  }
+  renderVals() {
+    const st = this.state || {};
+    const md = this.model(st, 578, 110, { subH: 76 });
+    const chartOf = (m, title, sub, dot) => Object.assign({}, m.cal, { title: title, sub: sub, dot: dot, hasTitle: !!title, h: m.chartH, bufShort: this.eur0(m.BUF), selBal: m.day.bal, selBalColor: m.day.balColor });
+    const budOf = (m, name, dot) => Object.assign({}, m.bud, { name: name, dot: dot, sumNote: (m.bud.ok ? 'vrij in ' : 'tekort in ') + m.bud.month, sumNoteLong: (m.bud.ok ? 'Vrij te besteden in ' : 'Tekort in ') + m.bud.month, sumAria: name + ': ' + (m.bud.ok ? 'vrij te besteden ' : 'tekort ') + m.bud.free + ' in ' + m.bud.month + '. Open de volledige berekening.' });
+    const buds = md.split ? md.subs.map((s) => budOf(s.md, s.name, s.acc === 'p' ? 'var(--green)' : 'var(--shared)')) : [budOf(md, md.scope === 'gedeeld' ? 'Gedeelde rekening' : 'Persoonlijk', md.scope === 'gedeeld' ? 'var(--shared)' : 'var(--green)')];
+    const charts = md.split ? md.subs.map((s) => chartOf(s.md, s.name, s.sub, s.acc === 'p' ? 'var(--green)' : 'var(--shared)')) : [chartOf(md, '', '', '')];
+
+    const scope = md.scope, ACC = md.ACC, inScope = md.inScope;
+    const tab = st.tab || 'kalender';
+    const horizon = st.horizon || 3;
+    const loading = !!st.loading;
+    const selKey = st.open || 'm3';
+    const done = st.done || {};
+    const fc = md.forecast(horizon);
+    const pill = (a) => ({ accName: ACC[a].name, accBg: ACC[a].bg, accFg: ACC[a].fg });
+    const months = fc.map((o, i) => {
+      const short = o.left < 0;
+      const mst = o.end < 0 ? 'neg' : (short ? 'under' : 'ok');
+      return {
+        name: o.name, current: o.current, open: o.key === selKey,
+        select: () => this.setState({ open: o.key }),
+        cardBg: mst === 'neg' ? 'var(--negSoft)' : (mst === 'under' ? 'var(--warnSoft)' : 'var(--surface)'),
+        selLine: o.key === selKey ? 'var(--text)' : (mst === 'neg' ? 'var(--neg)' : (mst === 'under' ? 'var(--warnChip)' : 'var(--line)')),
+        chip: mst === 'neg' ? this.eur(Math.abs(o.end)) + ' rood' : this.eur(Math.abs(o.left)) + (short ? ' onder buffer' : ' over'),
+        chipBg: mst === 'neg' ? 'var(--neg)' : (mst === 'under' ? 'var(--warnChip)' : 'var(--soft)'), chipFg: mst === 'neg' ? 'var(--onNeg)' : (mst === 'under' ? 'var(--warn)' : 'var(--greenText)'),
+        summary: 'In ' + this.eur0(o.inc) + ' · uit ' + this.eur0(o.exp) + (o.sav ? ' · gespaard ' + this.eur0(o.sav) : ''),
+        end: this.eur(o.end),
+        delay: Math.min(i, 8) * 30
+      };
+    });
+    const so = fc.find((o) => o.key === selKey) || fc[0];
+    const sShort = so.left < 0;
+    const sSt = so.end < 0 ? 'neg' : (sShort ? 'under' : 'ok');
+    const SUG = [
+      { id: 's1', name: 'Basic-Fit', rhythm: 'Maandelijks · rond de 3e · 4 keer gezien', amt: -2999, acc: 'p' },
+      { id: 's2', name: 'Proximus Mobile', rhythm: 'Maandelijks · rond de 20e · 3 keer gezien', amt: -1500, acc: 'p' },
+      { id: 's3', name: 'Farys water', rhythm: 'Maandelijks · rond de 22e · 3 keer gezien', amt: -3500, acc: 'g' }
+    ];
+    const REC = [
+      ['Salaris', 'Maandelijks · rond de 2e', 285000, 'p'],
+      ['Bijdrage Partner', 'Maandelijks · rond de 1e', 45000, 'g'],
+      ['Jouw bijdrage', 'Maandelijks · 1e · van je zichtrekening', 45000, 'g', 'int'],
+      ['Naar gedeelde rekening', 'Maandelijks · 1e · jouw bijdrage', -45000, 'p', 'int'],
+      ['Huur', 'Maandelijks · 1e', -100500, 'p'],
+      ['Energie', 'Maandelijks · rond de 5e', -14500, 'g'],
+      ['Internet en tv', 'Maandelijks · rond de 8e', -2899, 'g'],
+      ['Netflix', 'Maandelijks · rond de 12e', -1399, 'g'],
+      ['Spotify', 'Maandelijks · rond de 17e', -1199, 'p'],
+      ['Naar spaarrekening', 'Maandelijks · 16e · gespaard', -20000, 'p'],
+      ['Familiale verzekering', 'Jaarlijks · januari', -68400, 'p']
+    ];
+    const visible = (acc, int) => inScope(acc) && !(scope === 'alles' && int);
+    const confirmed = SUG.filter((s) => done[s.id] === 'ja').map((s) => [s.name, s.rhythm.split(' · ').slice(0, 2).join(' · '), s.amt, s.acc]);
+    const openSug = SUG.filter((s) => !done[s.id] && inScope(s.acc));
+    const recurring = REC.concat(confirmed).filter((r) => visible(r[3], r[4])).map((r, i) => Object.assign({ name: r[0], rhythm: r[1], amount: this.eur(r[2], true), color: r[2] < 0 ? 'var(--neg)' : 'var(--text)', divider: i === 0 ? 'none' : '1px solid var(--line)' }, pill(r[3])));
+    const MY = [['NOV', '2026', 'november'], ['DEC', '2026', 'december'], ['JAN', '2027', 'januari'], ['FEB', '2027', 'februari']];
+    const ONE = [['DEC', '2026', 'Kerstcadeaus', 'Rond 20 december', -35000, 'p', 'var(--c3)'], ['FEB', '2027', 'Autoherstelling', '10 februari · offerte garage', -200000, 'p', 'var(--c4)'], ['JUL', '2027', 'Zomervakantie', 'Juli 2027', -150000, 'p', 'var(--c1)'], ['AUG', '2027', 'Belastingteruggave', 'Verwachte inkomst · augustus 2027', 68000, 'p', 'var(--soft)']];
+    Object.keys(md.planned).forEach((k) => (md.planned[k] || []).forEach((p) => ONE.push([MY[k][0], MY[k][1], p.label, (p.amt < 0 ? 'Gepland op ' : 'Verwacht op ') + p.day + ' ' + MY[k][2], p.amt, p.acc, 'var(--warnSoft)'])));
+    const oneoffs = ONE.filter((o) => inScope(o[5])).map((o, i) => Object.assign({ m: o[0], y: o[1], label: o[2], note: o[3], amount: this.eur(o[4], true), chipBg: o[6], chipFg: o[6] === 'var(--warnSoft)' ? 'var(--warn)' : (o[6] === 'var(--soft)' ? 'var(--greenText)' : 'var(--onPastel)'), color: o[4] < 0 ? 'var(--neg)' : 'var(--greenText)', divider: i === 0 ? 'none' : '1px solid var(--line)' }, pill(o[5])));
+    const BUD = [['Boodschappen', 41280, 65000, 'var(--c2)', 'g'], ['Vrije tijd', 13820, 35000, 'var(--c3)', 'p'], ['Vervoer', 9640, 30000, 'var(--c4)', 'p'], ['Overig', 0, 28798, 'var(--c6)', 'p'], ['Overig gedeeld', 0, 6202, 'var(--c6)', 'g']];
+    const answer = (id, v) => () => {
+      this.setState({ done: Object.assign({}, done, { [id]: v }), toast: v === 'ja' ? 'Toegevoegd aan terugkerende posten' : 'Genegeerd' });
+      this.later(() => this.setState({ toast: null }), 2700);
+    };
+    const TABS = [['kalender', 'Kalender'], ['maanden', 'Maanden'], ['terug', 'Terugkerend'], ['eenmalig', 'Eenmalig'], ['budget', 'Budget']];
+    const seg = (s, color, onColor) => ({ on: s === scope, bg: s === scope ? color : 'transparent', fg: s === scope ? onColor : 'var(--text)', pick: () => { if (s !== scope) md.flip({ scope: s, addOpen: false }); } });
+    return {
+      themes: [{ cls: 'licht', label: 'Licht' }, { cls: 'donker', label: 'Donker' }],
+      sa: seg('alles', 'var(--text)', 'var(--bg)'),
+      sp: seg('persoonlijk', 'var(--green)', 'var(--onGreen)'),
+      sg: seg('gedeeld', 'var(--shared)', 'var(--onShared)'),
+      show: !st.flip,
+      tabs: TABS.map((x) => ({ name: x[1], on: x[0] === tab, fg: x[0] === tab ? 'var(--text)' : 'var(--muted)', weight: x[0] === tab ? '600' : '500', line: x[0] === tab ? 'var(--green)' : 'transparent', pick: () => this.setState({ tab: x[0] }) })),
+      isKalender: tab === 'kalender', isMaanden: tab === 'maanden', isTerug: tab === 'terug', isEenmalig: tab === 'eenmalig', isBudget: tab === 'budget',
+      cal: md.cal, day: md.day, f: md.f, bud: md.bud, charts: charts,
+      buds: buds, sumCols: String(buds.length), bMonth: md.cal.name.toLowerCase(),
+      goBudget: () => this.setState({ tab: 'budget' }),
+      bufTxt: this.eur(md.C.buf), bufShort: this.eur0(md.C.buf),
+      bufLabel: scope === 'alles' ? 'Buffer · zicht + gedeeld' : (scope === 'persoonlijk' ? 'Buffer · zichtrekening' : 'Buffer · gedeelde rekening'),
+      horizons: [3, 6, 12, 24].map((n) => ({ name: n + ' mnd', on: n === horizon, bg: n === horizon ? 'var(--green)' : 'transparent', fg: n === horizon ? 'var(--onGreen)' : 'var(--text)', pick: () => { if (n === horizon) return; this.setState({ horizon: n, loading: true }); this.later(() => this.setState({ loading: false }), 380); } })),
+      loading: loading, notLoading: !loading, skel: [{}, {}, {}, {}],
+      months: months,
+      selM: {
+        name: so.name, end: this.eur(so.end),
+        lines: so.lines.map((l) => ({ label: l[0], amount: l[1] === 0 ? '€ 0,00' : this.eur(l[1], true), note: l[2] })),
+        resultLabel: sSt === 'neg' ? 'Tekort · je staat rood' : (sShort ? 'Onder buffer' : 'Over'), result: this.eur(Math.abs(so.left)),
+        chipBg: sSt === 'neg' ? 'var(--neg)' : (sSt === 'under' ? 'var(--warnChip)' : 'var(--soft)'), chipFg: sSt === 'neg' ? 'var(--onNeg)' : (sSt === 'under' ? 'var(--warn)' : 'var(--greenText)')
+      },
+      suggest: openSug.map((s) => Object.assign({ name: s.name, rhythm: s.rhythm, amount: this.eur(s.amt, true), yes: answer(s.id, 'ja'), no: answer(s.id, 'nee') }, pill(s.acc))),
+      suggestCount: String(openSug.length), noSuggest: openSug.length === 0,
+      recurring: recurring,
+      oneoffs: oneoffs, noOneoffs: oneoffs.length === 0,
+      goKalender: () => this.setState({ tab: 'kalender' }),
+      budgets: BUD.filter((b) => inScope(b[4])).map((b, i) => Object.assign({ name: b[0], spent: this.eur(b[1]), budget: this.eur(b[2]), pct: Math.round(b[1] / b[2] * 100), bg: b[3], delay: 80 + i * 50 }, pill(b[4]))),
+      budgetNote: scope === 'gedeeld' ? 'Energie, internet en Netflix lopen via terugkerende posten. Jullie bijdragen (€ 900 per maand) dekken de vaste kosten en deze budgetten.' : 'Wonen en abonnementen lopen via terugkerende posten. Zonder budget rekent de planning met het gemiddelde van de afgelopen 6 maanden.',
+      hasToast: !!st.toast, toastText: st.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

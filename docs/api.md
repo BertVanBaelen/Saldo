@@ -161,6 +161,29 @@ Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-
 
 Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window). IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
 
+## Bank link (phase 0.2-6)
+
+Real bank data comes from Enable Banking (`server/internal/bank/enablebanking`); demo mode and tests use the fake provider. Secrets (the application's private key, the bank session id) are stored sealed with `internal/secrets`, never returned by the API and never logged.
+
+**Redirect URL.** The user comes back from the bank to the web page `<public_url>/bankkoppelingen/terug?code=…&state=…`, not to an API route: that navigation starts on the bank's site, so the `SameSite=Strict` device cookie is not sent with it. The page then calls `POST /api/bank/callback` from within the app (same site, cookie sent). The same URL is what the user registers as redirect URL in their Enable Banking application.
+
+### `GET /api/bank/enablebanking`
+`{"configured": true, "applicationId": "…", "redirectUrl": "https://…/bankkoppelingen/terug"}`. `configured` is false until a key is stored; `applicationId` is then null. `redirectUrl` is null when no `public_url` is set (linking then answers `503`). Never returns the key.
+
+### `PUT /api/bank/enablebanking`
+Body `{"applicationId": "…", "privateKey": "-----BEGIN … PEM"}`. The key must parse as an RSA PEM key, and a connection test (Enable Banking `GET /application`) must succeed; otherwise `400 invalid` (Dutch message saying what is wrong) or `503 unavailable` when the provider cannot be reached. Stores both for the viewer (sealed key) and answers like `GET`. Replacing the key keeps existing links.
+
+### `POST /api/bank/link`
+Body `{"connectionId": 1}` (optional; present = re-authorise that connection, absent = a new Argenta link). Answers `200 {"url": "https://…"}`: the bank's consent page. The server makes a random `state`, kept in memory with the viewer, the connection and an expiry of 15 minutes, single use. The consent asks for the maximum `valid_until`. Not configured: `400 invalid`; no `public_url`: `503`. Limit: 10 per user per hour.
+
+### `POST /api/bank/callback`
+Body `{"code": "…", "state": "…"}`. The `state` must be known, unexpired, unused and bound to the signed-in viewer, else `400 invalid` with one generic Dutch message (nothing about which check failed). Then: create the session at the bank, store the sealed session id, the consent start and `valid_until`, mark the connection active, match every returned IBAN, and run the first sync. Answers `200 {"connection": <as in GET /api/connections>, "accounts": [<as in GET /api/accounts>], "skipped": [{"iban": "BE68 •••• •••• 4821", "reason": "exists"}]}`.
+- Matching is by IBAN. A new IBAN creates a bank account with the viewer as manager (type `current`, the bank's product name as name, default colour, buffer 0). An IBAN the viewer already has for this connection is updated, never duplicated (re-authorisation). An IBAN that belongs to another user is skipped with reason `exists` (joining arrives in 0.6-1).
+- The first sync does not undo the link when it fails: the connection is kept and its `status` shows `failed`.
+
+### Sync with a real connection
+`POST /api/sync` (15-minute cooldown, as before) now syncs every active connection of the viewer: unseal the credentials, fetch transactions and balances per account, store new transactions (dedupe by `ledger.Keyed`/`InsertTransactions`; a pending row without booking date uses its value date), store the bank balance as a `balance_snapshot` (origin `bank`) and set `last_sync`. The first sync of a connection has no `from` date (`strategy=longest`); later ones start 14 days before the newest stored transaction. A lapsed session (`bank.ErrSessionExpired`) marks the connection `expired`; any other error marks it `failed` with the error code only. The nightly job is phase 0.3-1.
+
 ## Planned changes
 - A count for `uncategorised=1` (or a `total`), so the sidebar badge does not need a page of rows.
 - A sync status to poll once real syncs run in the background (0.3-1); in demo mode `POST /api/sync` finishes before it answers.

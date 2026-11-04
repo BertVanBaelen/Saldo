@@ -1,5 +1,5 @@
 // Small shared pieces: scope switch, page title, breakpoint, error and empty states, skeletons.
-import { useEffect, useSyncExternalStore, type CSSProperties } from 'react';
+import { useEffect, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { useApp } from '../app/AppContext';
 import type { Scope } from '../lib/types';
 import { Icon, type IconName } from './Icon';
@@ -21,6 +21,17 @@ export function ScopeSwitch({ className, style }: { className?: string; style?: 
           {s.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Pages without navigation (boot, sign-in, links from e-mails): a centred column (analysis/concepts/app-shell.md). */
+export function Bare({ children }: { children: ReactNode }) {
+  return (
+    <div className="app app--bare">
+      <main className="main main--bare" id="main">
+        <div className="page">{children}</div>
+      </main>
     </div>
   );
 }

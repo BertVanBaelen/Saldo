@@ -1,4 +1,4 @@
-// Meer: profile, the Geld and App menus, Weergave (Systeem · Licht · Donker) and Afmelden.
+// Meer: profile, the Geld and App menus, Weergave (Systeem · Licht · Donker) and Afmelden (this device).
 // Design: finance-mockup/js/screens/meer.js; spec: analysis/screens/meer.md. Desktop: a centred column.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -6,7 +6,7 @@ import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
 import { ROLE_LABEL } from '../components/Shell';
 import { delay, useTitle } from '../components/ui';
-import { api } from '../lib/api';
+import { api, errorMessage, leave } from '../lib/api';
 import type { Account, Connection, Theme } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import './Meer.css';
@@ -74,12 +74,21 @@ export function connectionsSub(list: Connection[] | undefined): { sub: string; t
 
 export function Meer() {
   useTitle('Meer');
-  const { me, theme, setTheme, dataVersion } = useApp();
+  const { me, theme, setTheme, dataVersion, toast } = useApp();
   const [themeOpen, setThemeOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const accounts = useAsync((signal) => api.accounts(signal), [dataVersion]);
   const connections = useAsync((signal) => api.connections(signal), [dataVersion]);
   const bank = connectionsSub(connections.data);
   const current = THEMES.find((t) => t.id === theme) || THEMES[0];
+
+  const signOut = () => {
+    setLeaving(true);
+    leave(api.logout()).catch((e) => {
+      setLeaving(false);
+      toast(errorMessage(e));
+    });
+  };
 
   const geld: Item[] = [
     { to: '/rekeningen', icon: 'card', tile: 'var(--soft)', ink: 'var(--greenText)', name: 'Rekeningen', sub: accountsSub(accounts.data) },
@@ -97,13 +106,13 @@ export function Meer() {
       <div className="mr-head anim-fade">
         <h1>Meer</h1>
       </div>
-      <Link className="mr-profile anim-in" style={delay(30)} to="/instellingen">
+      <Link className="mr-profile anim-in" style={delay(30)} to="/instellingen/profiel">
         <span className="avatar mr-profile-avatar" style={{ background: 'var(--c2)' }} aria-hidden="true">
           {me.user.initial}
         </span>
         <span className="mr-profile-main">
           <span className="mr-profile-name">{me.user.name}</span>
-          <span className="mr-row-sub">Profiel, wachtwoord, taal</span>
+          <span className="mr-row-sub">Naam en wachtwoord</span>
         </span>
         <span className="mr-role">{ROLE_LABEL[me.user.role]}</span>
       </Link>
@@ -147,12 +156,9 @@ export function Meer() {
         </div>
       </section>
       <div className="mr-logout anim-in" style={delay(120)}>
-        <button type="button" className="btn btn--danger btn--block" disabled aria-describedby="mr-logout-note">
+        <button type="button" className="btn btn--danger btn--block" disabled={leaving} aria-busy={leaving || undefined} onClick={signOut}>
           Afmelden
         </button>
-        <p className="mr-logout-note" id="mr-logout-note">
-          Afmelden kan zodra aanmelden er is, later in versie 0.2.
-        </p>
       </div>
     </div>
   );

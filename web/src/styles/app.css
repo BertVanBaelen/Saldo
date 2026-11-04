@@ -61,7 +61,35 @@ body.sheet-open { overflow: hidden; }
 }
 .boot h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-top: 6px; }
 .boot p { font-size: 15px; line-height: 1.5; color: var(--muted); }
-.boot .boot-note { font-size: 13px; }
 .boot .btn { margin-top: 10px; }
 .boot-logo { display: flex; width: 48px; height: 48px; border-radius: 13px; }
 .boot-logo--pulse { animation: sFade 600ms ease-out both; }
+
+/* ---------- Password field and hints (link pages, Instellingen → Profiel) ---------- */
+
+.input[aria-invalid="true"] { border-color: var(--neg); }
+
+.pw { position: relative; }
+.pw .input { padding-right: 52px; }
+.pw-eye {
+  position: absolute; top: 0; right: 0;
+  width: 44px; height: 44px;
+  border: none; border-radius: var(--r-control);
+  background: transparent; color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+}
+.pw-eye[aria-pressed="true"] { color: var(--greenText); }
+
+.pw-rules { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.pw-rules li { display: flex; align-items: flex-start; gap: 8px; }
+.pw-rule-dot {
+  width: 16px; height: 16px; margin-top: 1px; flex: none;
+  border-radius: 50%;
+  border: 1.5px solid var(--lineStrong);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.pw-rules li.is-ok { color: var(--text); }
+.pw-rules .is-ok .pw-rule-dot { background: var(--green); border-color: var(--green); color: var(--onGreen); }
+.pw-rules li.is-bad { color: var(--negText); }
+.pw-rules .is-bad .pw-rule-dot { background: var(--neg); border-color: var(--neg); color: var(--onNeg); }

@@ -130,6 +130,52 @@ export interface Connection {
   accounts: number[];
 }
 
+// ---------- Sign-in, devices and users (docs/api.md, "Sign-in") ----------
+
+/** Answer of POST /api/auth/login: always 200, `email` is the typed address, masked. */
+export interface LoginChallenge {
+  challenge: string;
+  email: string;
+}
+
+export type TokenKind = 'setup' | 'invitation' | 'password_reset';
+
+/** A live link from GET /api/auth/token/{token}. */
+export interface TokenInfo {
+  kind: TokenKind;
+  email: string | null;
+  name: string | null;
+}
+
+export interface Redeem {
+  token: string;
+  password: string;
+  name?: string;
+  email?: string;
+}
+
+export interface Device {
+  id: number;
+  /** From the User-Agent, for example "Safari op iPhone". */
+  name: string;
+  createdAt: string;
+  lastUsedAt: string;
+  /** The device of this request. */
+  current: boolean;
+}
+
+export interface Invitation {
+  id: number;
+  email: string;
+  role: User['role'];
+  expiresAt: string;
+}
+
+export interface UserList {
+  users: User[];
+  invitations: Invitation[];
+}
+
 export interface ApiErrorBody {
   error?: { code?: string; message?: string };
 }

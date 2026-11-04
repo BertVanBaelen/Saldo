@@ -88,7 +88,6 @@
 
 /* ---------- Web app additions ---------- */
 
-/* Afmelden waits for sign-in (later in version 0.2): disabled, with a note */
+/* Afmelden signs this device out */
 .mr-logout { display: flex; flex-direction: column; gap: 8px; }
 .mr-logout .btn:disabled { opacity: 0.5; }
-.mr-logout-note { margin: 0 4px; font-size: 12px; color: var(--muted); text-align: center; }

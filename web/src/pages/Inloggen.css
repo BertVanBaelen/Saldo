@@ -1,0 +1,135 @@
+/* Inloggen and the link pages, ported from finance-mockup/css/screens/inloggen.css.
+   No design board: derived from Rekeningen (fields, 48 px actions) and the e-mails (calm white card).
+   Spec: analysis/screens/inloggen.md. Bare page: no sidebar, no tab bar.
+   Web app: one code field (like the mockup's e-mail code in Instellingen) instead of 8 boxes; the password
+   field and its hints are shared (.pw, .pw-rules in styles/app.css). */
+
+.main--bare .page { gap: 18px; }
+@media (min-width: 1024px) {
+  .main--bare .page { max-width: 464px; padding-top: 64px; gap: 20px; }
+}
+
+/* ---------- Brand ---------- */
+
+.il-brand { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.il-brand svg { display: block; }
+.il-brand-name { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; color: var(--greenText); }
+.il-brand-host { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* ---------- Card ---------- */
+
+.il-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 22px 20px 24px;
+  display: flex; flex-direction: column; gap: 18px;
+  color: var(--text);
+}
+@media (min-width: 1024px) { .il-card { padding: 30px 32px 32px; gap: 20px; } }
+
+.il-progress { display: flex; align-items: center; gap: 10px; margin-bottom: -4px; }
+.il-progress-bar { display: grid; grid-template-columns: repeat(2, 24px); gap: 4px; }
+.il-progress-bar i { height: 4px; border-radius: 2px; background: var(--track); }
+.il-progress-bar i.is-on { background: var(--green); }
+.il-progress-text { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+.il-head { display: flex; flex-direction: column; gap: 6px; }
+.il-head h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.il-head h1:focus { outline: none; }
+.il-lead { font-size: 15px; line-height: 1.5; color: var(--muted); }
+.il-lead strong { font-weight: 600; color: var(--text); white-space: nowrap; }
+
+.il-badge {
+  width: 48px; height: 48px; margin-bottom: 8px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.il-badge--ok { background: var(--soft); color: var(--greenText); }
+.il-badge--warn { background: var(--warnSoft); color: var(--warn); }
+.il-badge--neg { background: var(--negSoft); color: var(--negText); }
+
+.il-meta { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.il-meta svg { flex: none; margin-top: 1px; }
+
+/* Messages inside the card */
+.il-alert {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 14px; line-height: 1.45;
+  color: var(--text);
+}
+.il-alert svg { flex: none; margin-top: 1px; }
+.il-alert--neg { background: var(--negSoft); }
+.il-alert--neg svg { color: var(--negText); }
+.il-alert--warn { background: var(--warnSoft); }
+.il-alert--warn svg { color: var(--warn); }
+.il-alert--ok { background: var(--soft); }
+.il-alert--ok svg { color: var(--greenText); }
+
+/* ---------- Fields ---------- */
+
+.il-form { display: flex; flex-direction: column; gap: 16px; }
+.il-field { display: flex; flex-direction: column; gap: 6px; }
+.il-label { margin: 0; font-size: 14px; font-weight: 600; }
+.il-help { font-size: 12px; line-height: 1.45; color: var(--muted); }
+.il-field-error { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; line-height: 1.4; color: var(--negText); }
+.il-field-error svg { flex: none; margin-top: 2px; }
+
+.il-fixed { position: relative; }
+.il-fixed .input { padding-right: 44px; background: var(--bg); border-color: var(--line); }
+.il-fixed-icon { position: absolute; top: 14px; right: 14px; display: flex; color: var(--muted); pointer-events: none; }
+
+/* The 8-digit code: one field, 4 + 4 digits */
+.il-code { height: 56px; font-family: var(--mono); font-size: 24px; font-weight: 500; letter-spacing: 0.12em; text-align: center; }
+.il-code::placeholder { color: var(--dashed); }
+
+/* ---------- Buttons ---------- */
+
+.il-submit, .il-btn { height: 48px; border-radius: 14px; text-decoration: none; }
+.il-submit:disabled, .il-btn:disabled { opacity: 0.5; }
+.il-submit[aria-busy="true"] { opacity: 1; }
+.il-btn { gap: 10px; }
+.il-spin { display: flex; animation: sSpin 0.9s linear infinite; }
+
+.il-hint { font-size: 13px; line-height: 1.5; color: var(--muted); text-align: center; text-wrap: balance; }
+
+.il-link {
+  min-height: 44px; padding: 0 4px;
+  border: none; background: none;
+  font-size: 14px; font-weight: 600; color: var(--greenText);
+}
+
+.il-resend {
+  display: flex; flex-direction: column; align-items: center;
+  margin: -6px 0 -8px;
+  font-size: 13px; line-height: 1.45; color: var(--muted); text-align: center; text-wrap: balance;
+}
+
+.il-trust { display: flex; gap: 12px; padding: 14px; border-radius: 14px; background: var(--bg); }
+.il-trust-icon {
+  width: 36px; height: 36px; flex: none;
+  border-radius: 50%;
+  background: var(--soft); color: var(--greenText);
+  display: flex; align-items: center; justify-content: center;
+}
+.il-trust-text { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.il-trust-text strong { font-size: 14px; font-weight: 600; color: var(--text); }
+
+/* ---------- Dead link ---------- */
+
+.il-todo { list-style: none; margin: 0; padding: 0 14px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; }
+.il-todo li { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; font-size: 14px; line-height: 1.45; }
+.il-todo li + li { border-top: 1px solid var(--line); }
+.il-todo-n {
+  width: 24px; height: 24px; flex: none;
+  border-radius: 50%;
+  background: var(--soft); color: var(--greenText);
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ---------- Footer ---------- */
+
+.il-foot { font-size: 12px; color: var(--muted); text-align: center; }

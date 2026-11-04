@@ -21,13 +21,13 @@ cd web; npm install; npm run dev                       # http://localhost:5180, 
 | Path | Holds |
 |---|---|
 | `src/styles/tokens.css`, `components.css` | Ported from the mockup: colour tokens (light, dark, `data-theme`), shell and shared components |
-| `src/styles/app.css` | App additions: skeletons, error and "not built yet" cards, boot screen |
+| `src/styles/app.css` | App additions: skeletons, error and "not built yet" cards, boot screen, password field |
 | `src/lib/format.ts` | `eur`, `eur0`, Dutch dates (U+2212 minus, `€` and a space) |
-| `src/lib/api.ts`, `types.ts` | Typed client for every endpoint; errors carry the server's Dutch message |
+| `src/lib/api.ts`, `types.ts` | Typed client for every endpoint; errors carry the server's Dutch message; a 401 sends the app to sign-in |
 | `src/lib/accounts.ts` | Scope filter, account colour and icon, states, sync lines |
 | `src/app/` | App state (viewer, scope, theme, toasts, sync, counts) and the navigation |
-| `src/components/` | Shell (sidebar, tab bar, offline banner, toast), icons and logo, sheet, scope switch |
-| `src/pages/<Page>.tsx`, `.css` | Start, Transacties, Rekeningen, Meer and the pages that are not built yet |
+| `src/components/` | Shell (sidebar, tab bar, offline banner, toast), icons and logo, sheet, scope switch, password field and hints |
+| `src/pages/<Page>.tsx`, `.css` | Start, Transacties, Rekeningen, Meer, Instellingen, Inloggen with the link pages (`/setup`, `/uitnodiging`, `/nieuw-wachtwoord`) and the pages that are not built yet |
 | `sw/sw.js`, `sw-plugin.ts` | The service worker: caches the app shell and static assets, never `/api` |
 | `public/` | Manifest, icons, favicon, `theme-init.js` (applies the saved theme before the first paint) |
 

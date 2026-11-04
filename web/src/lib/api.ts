@@ -6,11 +6,18 @@ import type {
   Alert,
   ApiErrorBody,
   Connection,
+  Device,
   Health,
+  Invitation,
+  LoginChallenge,
   Me,
   Preferences,
+  Redeem,
+  TokenInfo,
   TransactionPage,
   TransactionQuery,
+  User,
+  UserList,
 } from './types';
 
 export class ApiError extends Error {
@@ -43,6 +50,19 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
+let unauthorized: (() => void) | null = null;
+
+/**
+ * Called when a request answers 401 because the device is not (or no longer) signed in; the public sign-in
+ * routes under /api/auth/ answer their own 401s (a wrong code) and do not call it. Returns the unsubscribe.
+ */
+export function onUnauthorized(fn: () => void): () => void {
+  unauthorized = fn;
+  return () => {
+    if (unauthorized === fn) unauthorized = null;
+  };
+}
+
 async function request<T>(method: string, path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
@@ -72,6 +92,7 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
   }
 
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith('/api/auth/')) unauthorized?.();
     const err = (data as ApiErrorBody | null)?.error;
     const retry = Number(res.headers.get('Retry-After'));
     throw new ApiError(res.status, err?.code || 'http_' + res.status, err?.message || fallbackMessage(res.status), retry > 0 ? retry : undefined);
@@ -103,7 +124,41 @@ export const api = {
   alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),
   sync: () => request<{ started: boolean }>('POST', '/api/sync'),
+
+  // Sign-in (public) and the viewer's devices, profile and, for admins, the users.
+  login: (email: string, password: string) => request<LoginChallenge>('POST', '/api/auth/login', { body: { email, password } }),
+  verify: (challenge: string, code: string) => request<{ user: User }>('POST', '/api/auth/verify', { body: { challenge, code } }),
+  logout: () => request<null>('POST', '/api/auth/logout'),
+  token: (token: string, signal?: AbortSignal) => request<TokenInfo>('GET', '/api/auth/token/' + encodeURIComponent(token), { signal }),
+  redeem: (body: Redeem) => request<null>('POST', '/api/auth/redeem', { body }),
+  devices: (signal?: AbortSignal) => request<Device[]>('GET', '/api/devices', { signal }),
+  signOutDevice: (id: number) => request<null>('DELETE', '/api/devices/' + id),
+  signOutOthers: () => request<null>('POST', '/api/devices/sign-out-others'),
+  updateMe: (name: string) => request<User>('PATCH', '/api/me', { body: { name } }),
+  changePassword: (current: string, next: string) => request<null>('PUT', '/api/me/password', { body: { current, new: next } }),
+  users: (signal?: AbortSignal) => request<UserList>('GET', '/api/users', { signal }),
+  invite: (email: string, role: User['role']) => request<Invitation>('POST', '/api/users/invitations', { body: { email, role } }),
+  cancelInvitation: (id: number) => request<null>('DELETE', '/api/users/invitations/' + id),
+  sendPasswordReset: (userId: number) => request<null>('POST', '/api/users/' + userId + '/password-reset'),
 };
+
+/** Full page loads, behind a seam so tests can watch them (jsdom cannot navigate). */
+export const browser = {
+  /** Load `path` afresh: after signing out nothing of the old session stays in memory. */
+  go: (path: string) => window.location.assign(path),
+};
+
+/** Sign this device out (`api.logout()` or deleting the current device), then open Saldo afresh at sign-in. */
+export function leave(signOut: Promise<unknown>): Promise<void> {
+  return signOut.then(
+    () => browser.go('/'),
+    (e) => {
+      // Already signed out counts as done.
+      if (e instanceof ApiError && e.status === 401) browser.go('/');
+      else throw e;
+    },
+  );
+}
 
 export type Api = typeof api;
 

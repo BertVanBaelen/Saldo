@@ -5,7 +5,7 @@ import { vi } from 'vitest';
 import { AppRoutes, Root } from '../App';
 import { AppProvider } from '../app/AppContext';
 import { api } from '../lib/api';
-import type { Account, Alert, Connection, Device, Me, Transaction, TransactionPage, TransactionQuery, UserList } from '../lib/types';
+import type { Account, Alert, Connection, Device, EnableBanking, Me, Transaction, TransactionPage, TransactionQuery, UserList } from '../lib/types';
 
 export const ME: Me = {
   user: { id: 1, name: 'Bert', email: 'bert@jouw-domein.be', role: 'admin', initial: 'B' },
@@ -101,12 +101,21 @@ export const USERS: UserList = {
   invitations: [{ id: 7, email: 'sam@example.com', role: 'user', expiresAt: '2026-11-25T20:14:00+01:00' }],
 };
 
+// Invented Enable Banking app (Instellingen → Enable Banking, Bankkoppelingen).
+export const EB_ON: EnableBanking = {
+  configured: true,
+  applicationId: '3f9c2a1e-8b4d-4c6a-9e21-5d7b0a4f1c88',
+  redirectUrl: 'https://saldo.jouw-domein.be/bankkoppelingen/terug',
+};
+export const EB_OFF: EnableBanking = { configured: false, applicationId: null, redirectUrl: 'https://saldo.jouw-domein.be/bankkoppelingen/terug' };
+
 interface Stub {
   accounts?: Account[];
   transactions?: Transaction[] | ((q: TransactionQuery) => TransactionPage);
   alerts?: Alert[];
   connections?: Connection[];
   devices?: Device[];
+  enableBanking?: EnableBanking;
 }
 
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
@@ -127,6 +136,7 @@ export function stubApi(s: Stub = {}) {
     updateAccount: vi.spyOn(api, 'updateAccount').mockImplementation(async (id, patch) => ({ ...(s.accounts ?? ACCOUNTS).find((a) => a.id === id)!, ...patch })),
     devices: vi.spyOn(api, 'devices').mockImplementation(async () => structuredClone(s.devices ?? DEVICES)),
     users: vi.spyOn(api, 'users').mockImplementation(async () => structuredClone(USERS)),
+    enableBanking: vi.spyOn(api, 'enableBanking').mockImplementation(async () => structuredClone(s.enableBanking ?? EB_ON)),
   };
 }
 
@@ -145,7 +155,8 @@ export function renderRoot(path: string) {
   );
 }
 
-export function renderAt(path: string, me: Me = ME) {
+/** The signed-in app at `path`; `strict` renders in React's StrictMode (effects run twice, as in development). */
+export function renderAt(path: string, me: Me = ME, strict = false) {
   return render(
     <AppProvider me={me}>
       <MemoryRouter initialEntries={[path]}>
@@ -153,5 +164,6 @@ export function renderAt(path: string, me: Me = ME) {
         <Where />
       </MemoryRouter>
     </AppProvider>,
+    { reactStrictMode: strict },
   );
 }

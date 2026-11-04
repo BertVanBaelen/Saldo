@@ -5,8 +5,10 @@ import type {
   AccountPatch,
   Alert,
   ApiErrorBody,
+  BankLinkResult,
   Connection,
   Device,
+  EnableBanking,
   Health,
   Invitation,
   LoginChallenge,
@@ -125,6 +127,13 @@ export const api = {
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),
   sync: () => request<{ started: boolean }>('POST', '/api/sync'),
 
+  // Bank link: the viewer's Enable Banking app, the consent at the bank and the way back from it.
+  enableBanking: (signal?: AbortSignal) => request<EnableBanking>('GET', '/api/bank/enablebanking', { signal }),
+  saveEnableBanking: (applicationId: string, privateKey: string) => request<EnableBanking>('PUT', '/api/bank/enablebanking', { body: { applicationId, privateKey } }),
+  /** The bank's consent page; with `connectionId` it re-authorises that connection. */
+  startLink: (connectionId?: number) => request<{ url: string }>('POST', '/api/bank/link', { body: connectionId === undefined ? {} : { connectionId } }),
+  bankCallback: (code: string, state: string) => request<BankLinkResult>('POST', '/api/bank/callback', { body: { code, state } }),
+
   // Sign-in (public) and the viewer's devices, profile and, for admins, the users.
   login: (email: string, password: string) => request<LoginChallenge>('POST', '/api/auth/login', { body: { email, password } }),
   verify: (challenge: string, code: string) => request<{ user: User }>('POST', '/api/auth/verify', { body: { challenge, code } }),
@@ -144,7 +153,7 @@ export const api = {
 
 /** Full page loads, behind a seam so tests can watch them (jsdom cannot navigate). */
 export const browser = {
-  /** Load `path` afresh: after signing out nothing of the old session stays in memory. */
+  /** Load `path` afresh (after signing out nothing of the old session stays in memory), or go to the bank. */
   go: (path: string) => window.location.assign(path),
 };
 

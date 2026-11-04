@@ -1,8 +1,8 @@
-// Instellingen: Profiel (name, password), Toestellen (trusted devices), Enable Banking (filled in by the bank-link
-// phase) and, for admins, Gebruikers. Phone: an index list (Meer style) that opens one section per path
+// Instellingen: Profiel (name, password), Toestellen (trusted devices), Enable Banking (the viewer's own app for
+// the bank link) and, for admins, Gebruikers. Phone: an index list (Meer style) that opens one section per path
 // (/instellingen/toestellen); desktop: a section nav left of the content, /instellingen shows Profiel.
 // Design: finance-mockup/js/screens/instellingen.js; spec: analysis/screens/instellingen.md.
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
@@ -12,7 +12,7 @@ import { ROLE_LABEL } from '../components/Shell';
 import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
 import { api, errorMessage, leave } from '../lib/api';
 import { dateYear, isoDate, momentLabel } from '../lib/format';
-import type { Device, Invitation, User, UserList } from '../lib/types';
+import type { Device, EnableBanking, Invitation, User, UserList } from '../lib/types';
 import { useAsync, type AsyncState } from '../lib/useAsync';
 import './Instellingen.css';
 
@@ -79,9 +79,9 @@ function ErrorLine({ id, children }: { id?: string; children: ReactNode }) {
   );
 }
 
-function Note({ icon, children }: { icon: IconName; children: ReactNode }) {
+function Note({ icon, tone, children }: { icon: IconName; tone?: 'warn'; children: ReactNode }) {
   return (
-    <div className="in-note">
+    <div className={'in-note' + (tone ? ' in-note--' + tone : '')}>
       <span className="in-note-icon" aria-hidden="true">
         <Icon name={icon} size={18} />
       </span>
@@ -414,25 +414,332 @@ function Toestellen({ devices }: { devices: AsyncState<Device[]> }) {
   );
 }
 
-// ---------- Enable Banking: set up in the bank-link phase ----------
+// ---------- Enable Banking: the viewer's own app (application id and private key) ----------
 
-function EnableBanking() {
+/** The redirect URL to register at Enable Banking, with a copy button; without `public_url`, how to set one. */
+function RedirectUrl({ url }: { url: string | null }) {
+  const { toast } = useApp();
+  if (!url) {
+    return (
+      <Note icon="warning" tone="warn">
+        <strong>Saldo kent zijn publieke adres nog niet.</strong> Vul <code>public_url</code> in bij de opties van de Saldo-add-on (in Docker: <code>SALDO_PUBLIC_URL</code>) en
+        herstart Saldo. Daarna staat de redirect-URL hier, en kan je je bank koppelen.
+      </Note>
+    );
+  }
+  const copy = () =>
+    Promise.resolve()
+      .then(() => navigator.clipboard.writeText(url))
+      .then(
+        () => toast('Redirect-URL gekopieerd'),
+        () => toast('Kopiëren lukt niet. Selecteer het adres en kopieer het zelf.'),
+      );
+  return (
+    <div className="in-copy">
+      <code className="in-copy-text">{url}</code>
+      <button type="button" className="in-copy-btn" aria-label="Redirect-URL kopiëren" onClick={copy}>
+        <Icon name="copy" size={18} />
+      </button>
+    </div>
+  );
+}
+
+interface Step {
+  title: ReactNode;
+  text: ReactNode;
+  extra?: ReactNode;
+}
+
+function Steps({ list }: { list: Step[] }) {
+  return (
+    <ol className="in-steps">
+      {list.map((s, i) => (
+        <li className="in-step" key={i}>
+          <span className="in-step-num" aria-hidden="true">
+            {i + 1}
+          </span>
+          <div className="in-step-body">
+            <span className="in-step-title">{s.title}</span>
+            <span className="in-step-text">{s.text}</span>
+            {s.extra}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** A PEM key is a few kB; anything much bigger is the wrong file. */
+const MAX_KEY_BYTES = 64 * 1024;
+
+/**
+ * Set up (or replace) the app: the private key from a .pem file or pasted, read in the browser, and the
+ * application id. `PUT /api/bank/enablebanking` tests the connection; its Dutch error is shown here.
+ */
+function BankForm({ current, onSaved, onCancel }: { current: EnableBanking; onSaved: (eb: EnableBanking) => void; onCancel?: () => void }) {
+  const replacing = current.configured;
+  const [appId, setAppId] = useState(current.applicationId ?? '');
+  const [key, setKey] = useState('');
+  const [file, setFile] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (replacing) fileRef.current?.focus();
+  }, [replacing]);
+
+  async function pick(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setError(null);
+    if (f.size > MAX_KEY_BYTES) return setError('Dit bestand is te groot voor een sleutel. Kies het .pem-bestand van je app.');
+    try {
+      setKey(await f.text());
+      setFile(f.name);
+    } catch {
+      setError('Dit bestand lezen lukt niet. Plak de sleutel in de plaats.');
+    }
+  }
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const id = appId.trim();
+    const pem = key.trim();
+    const err = !pem ? 'Kies je .pem-bestand of plak de sleutel.' : !id ? 'Vul je application ID in.' : null;
+    setError(err);
+    if (err) return;
+    setBusy(true);
+    try {
+      onSaved(await api.saveEnableBanking(id, pem));
+    } catch (x) {
+      setBusy(false);
+      setError(errorMessage(x));
+    }
+  }
+
+  const keyStep: Step = {
+    title: <label htmlFor="in-pem">{replacing ? 'Upload de nieuwe privésleutel (.pem)' : 'Upload de privésleutel (.pem)'}</label>,
+    text: replacing ? 'Maak in het Enable Banking-dashboard een nieuwe sleutel en download hem.' : 'Je krijgt hem bij het aanmaken van de app. Saldo bewaart hem versleuteld.',
+    extra: (
+      <>
+        <div className="in-file">
+          <input ref={fileRef} type="file" id="in-pem" className="visually-hidden" accept=".pem,.key,.txt,application/x-pem-file" onChange={pick} />
+          <label htmlFor="in-pem" className="in-file-drop">
+            <span className="in-file-icon" aria-hidden="true">
+              <Icon name={file ? 'check' : 'file'} size={20} stroke={2.2} />
+            </span>
+            <span className="in-file-text">
+              {file ? (
+                <>
+                  <strong>{file}</strong>
+                  <small>Wordt versleuteld opgeslagen</small>
+                </>
+              ) : (
+                <>
+                  <strong>{replacing ? 'Kies de nieuwe sleutel' : 'Kies je .pem-bestand'}</strong>
+                  <small>Bijvoorbeeld saldo.pem</small>
+                </>
+              )}
+            </span>
+            <span className="in-file-btn" aria-hidden="true">
+              {file ? 'Ander bestand' : 'Kiezen'}
+            </span>
+          </label>
+        </div>
+        <details className="in-paste">
+          <summary>Of plak de sleutel</summary>
+          <label className="visually-hidden" htmlFor="in-pem-text">
+            Privésleutel plakken
+          </label>
+          <textarea
+            className="input in-pem"
+            id="in-pem-text"
+            rows={5}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="-----BEGIN PRIVATE KEY-----"
+            value={file ? '' : key}
+            onChange={(e) => {
+              setKey(e.target.value);
+              setFile(null);
+            }}
+          />
+        </details>
+      </>
+    ),
+  };
+  const idStep: Step = {
+    title: <label htmlFor="in-appid">{replacing ? 'Application ID' : 'Vul het application ID in'}</label>,
+    text: replacing ? 'Alleen anders als je een nieuwe app maakte.' : 'Je vindt het bij je app in het Enable Banking-dashboard.',
+    extra: (
+      <input
+        className="input in-appid"
+        id="in-appid"
+        autoComplete="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        placeholder="Bijvoorbeeld 3f9c2a1e-8b4d-…"
+        value={appId}
+        onChange={(e) => setAppId(e.target.value)}
+      />
+    ),
+  };
+  const steps: Step[] = replacing
+    ? [keyStep, idStep]
+    : [
+        {
+          title: 'Maak een gratis app bij Enable Banking',
+          text: 'Kies "Restricted production" (beperkte productie): alleen je eigen rekeningen, niet commercieel. Dat is gratis.',
+          extra: (
+            <a className="in-btn in-btn--ghost in-btn--sm in-step-btn" href="https://enablebanking.com/" target="_blank" rel="noopener noreferrer">
+              <Icon name="external" size={16} stroke={2.2} />
+              Enable Banking openen
+            </a>
+          ),
+        },
+        { title: 'Zet deze redirect-URL in je app', text: 'Na je akkoord bij de bank stuurt Enable Banking je naar dit adres terug.', extra: <RedirectUrl url={current.redirectUrl} /> },
+        keyStep,
+        idStep,
+      ];
+
   return (
     <section className="in-card anim-in" style={delay(60)} aria-labelledby="in-eb-t">
-      <div className="in-card-row">
-        <Tile s={SECTIONS[2]} size="lg" />
-        <span className="in-card-text">
-          <h3 className="in-card-title" id="in-eb-t">
-            Enable Banking
-          </h3>
-          <span className="state-tag in-status">Komt in deze versie</span>
-        </span>
-      </div>
-      <p className="in-text">
-        Saldo leest je bank via Enable Banking. Daarvoor maak je één keer een eigen, gratis app aan. Hier vul je straks het application ID in en upload je de privésleutel
-        (.pem); Saldo bewaart die versleuteld.
-      </p>
+      {replacing ? (
+        <div className="in-card-row">
+          <span className="in-card-text">
+            <h3 className="in-card-title" id="in-eb-t">
+              Sleutel vervangen
+            </h3>
+            <span className="in-card-sub">Je bankkoppelingen blijven werken zolang het application ID hetzelfde blijft. Met een nieuwe app koppel je je bank daarna opnieuw.</span>
+          </span>
+        </div>
+      ) : (
+        <>
+          <div className="in-card-row">
+            <Tile s={{ ...SECTIONS[2], tile: 'var(--warnSoft)', ink: 'var(--warn)' }} size="lg" />
+            <span className="in-card-text">
+              <h3 className="in-card-title" id="in-eb-t">
+                Enable Banking
+              </h3>
+              <span className="chip chip--warn in-status">Nog niet ingesteld</span>
+            </span>
+          </div>
+          <p className="in-text">Saldo leest je bank via Enable Banking. Daarvoor maak je één keer een eigen, gratis app aan. Dat duurt ongeveer tien minuten.</p>
+        </>
+      )}
+      <form className="in-form" onSubmit={submit} noValidate>
+        <Steps list={steps} />
+        {error && <ErrorLine>{error}</ErrorLine>}
+        <div className="in-actions">
+          {onCancel && (
+            <button type="button" className="in-btn in-btn--ghost" onClick={onCancel}>
+              Annuleren
+            </button>
+          )}
+          <button type="submit" className="in-btn in-btn--primary" disabled={busy} aria-busy={busy || undefined}>
+            {busy ? 'Testen…' : 'Opslaan en testen'}
+          </button>
+        </div>
+      </form>
     </section>
+  );
+}
+
+function BankStatus({ eb, justSet, onReplace, replaceRef }: { eb: EnableBanking; justSet: boolean; onReplace: () => void; replaceRef: RefObject<HTMLButtonElement | null> }) {
+  return (
+    <>
+      {justSet && (
+        <Link className="alert alert--ok anim-in" style={delay(40)} to="/bankkoppelingen">
+          <span className="alert-icon" aria-hidden="true">
+            <Icon name="check" size={18} stroke={2.4} />
+          </span>
+          <span className="alert-text">
+            <strong>Enable Banking is ingesteld.</strong> <span>Koppel nu je bank onder Bankkoppelingen.</span>
+          </span>
+          <span className="in-chev" aria-hidden="true">
+            <Icon name="chevron" size={16} />
+          </span>
+        </Link>
+      )}
+      <section className="in-card anim-in" style={delay(60)} aria-labelledby="in-eb-t">
+        <div className="in-card-row">
+          <Tile s={SECTIONS[2]} size="lg" />
+          <span className="in-card-text">
+            <h3 className="in-card-title" id="in-eb-t">
+              Enable Banking
+            </h3>
+            <span className="chip chip--ok in-status">
+              <Icon name="check" size={14} stroke={2.6} />
+              Ingesteld
+            </span>
+          </span>
+        </div>
+        <dl className="in-kv">
+          <div className="in-kv-row">
+            <dt>Application ID</dt>
+            <dd className="mono in-mono">{eb.applicationId}</dd>
+          </div>
+          <div className="in-kv-row">
+            <dt>Privésleutel</dt>
+            <dd>Opgeslagen · versleuteld</dd>
+          </div>
+          <div className="in-kv-row">
+            <dt>Redirect-URL</dt>
+            <dd>
+              <RedirectUrl url={eb.redirectUrl} />
+            </dd>
+          </div>
+        </dl>
+        <div className="in-actions">
+          <button ref={replaceRef} type="button" className="in-btn in-btn--ghost" onClick={onReplace}>
+            <Icon name="upload" size={18} stroke={2.2} />
+            Sleutel vervangen
+          </button>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function EnableBankingSection({ eb }: { eb: AsyncState<EnableBanking> }) {
+  const { toast } = useApp();
+  const [replacing, setReplacing] = useState(false);
+  const [justSet, setJustSet] = useState(false);
+  const replaceRef = useRef<HTMLButtonElement>(null);
+  const wasReplacing = useRef(false);
+  const data = eb.data;
+
+  // Back from replacing the key (saved or cancelled): the focus returns to its button.
+  useEffect(() => {
+    if (wasReplacing.current && !replacing) replaceRef.current?.focus();
+    wasReplacing.current = replacing;
+  }, [replacing]);
+
+  if (!data) return eb.error ? <ErrorState message={eb.error} onRetry={eb.reload} /> : <SkelList rows={2} label="Enable Banking laden" />;
+
+  const saved = (next: EnableBanking) => {
+    const first = !data.configured;
+    eb.setData(next);
+    setReplacing(false);
+    setJustSet(first);
+    toast(first ? 'Opgeslagen · verbinding werkt' : 'Sleutel vervangen · verbinding werkt');
+  };
+
+  return (
+    <>
+      {data.configured && !replacing ? (
+        <BankStatus eb={data} justSet={justSet} replaceRef={replaceRef} onReplace={() => setReplacing(true)} />
+      ) : (
+        <BankForm current={data} onSaved={saved} onCancel={data.configured ? () => setReplacing(false) : undefined} />
+      )}
+      <div className="in-notes">
+        <Note icon="people">
+          <strong>Elke gebruiker gebruikt een eigen app.</strong> Wie Saldo mee gebruikt, stelt die zelf in bij de eigen login. Jullie zien elkaars sleutel nooit.
+        </Note>
+      </div>
+    </>
   );
 }
 
@@ -635,6 +942,7 @@ export function Instellingen() {
   const shown = active ?? visible[0];
   const devices = useAsync((signal) => api.devices(signal), []);
   const users = useAsync<UserList | null>((signal) => (admin ? api.users(signal) : Promise.resolve(null)), [admin]);
+  const bank = useAsync((signal) => api.enableBanking(signal), []);
   const [inviting, setInviting] = useState(false);
   const h1 = useRef<HTMLHeadingElement>(null);
   const first = useRef(true);
@@ -652,7 +960,7 @@ export function Instellingen() {
   const sub = (s: Section): string => {
     if (s.id === 'profiel') return 'Naam en wachtwoord';
     if (s.id === 'toestellen') return devices.data ? (devices.data.length === 1 ? 'Alleen dit toestel' : devices.data.length + ' toestellen aangemeld') : 'Waar je aangemeld blijft';
-    if (s.id === 'enable-banking') return 'Komt in deze versie';
+    if (s.id === 'enable-banking') return bank.data ? (bank.data.configured ? 'Ingesteld · sleutel versleuteld' : 'Nog niet ingesteld') : 'Je eigen app voor je bank';
     const d = users.data;
     return d ? plural(d.users.length, 'gebruiker', 'gebruikers') + (d.invitations.length ? ' · ' + d.invitations.length + ' uitgenodigd' : '') : 'Uitnodigen en wachtwoordlinks';
   };
@@ -732,7 +1040,7 @@ export function Instellingen() {
           </div>
           {shown.id === 'profiel' && <Profiel onPasswordChanged={devices.reload} />}
           {shown.id === 'toestellen' && <Toestellen devices={devices} />}
-          {shown.id === 'enable-banking' && <EnableBanking />}
+          {shown.id === 'enable-banking' && <EnableBankingSection eb={bank} />}
           {shown.id === 'gebruikers' && <Gebruikers users={users} inviting={inviting} setInviting={setInviting} />}
         </div>
       </div>

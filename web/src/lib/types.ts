@@ -130,6 +130,31 @@ export interface Connection {
   accounts: number[];
 }
 
+// ---------- Bank link (docs/api.md, "Bank link") ----------
+
+/** GET /api/bank/enablebanking: never the key itself. */
+export interface EnableBanking {
+  configured: boolean;
+  /** `null` until a key is stored. */
+  applicationId: string | null;
+  /** `<public_url>/bankkoppelingen/terug`; `null` while no `public_url` is set. */
+  redirectUrl: string | null;
+}
+
+/** An account the bank returned that was not linked: its IBAN belongs to another user (joining arrives in 0.6-1). */
+export interface SkippedAccount {
+  /** Masked. */
+  iban: string;
+  reason: 'exists';
+}
+
+/** Answer of POST /api/bank/callback. */
+export interface BankLinkResult {
+  connection: Connection;
+  accounts: Account[];
+  skipped: SkippedAccount[];
+}
+
 // ---------- Sign-in, devices and users (docs/api.md, "Sign-in") ----------
 
 /** Answer of POST /api/auth/login: always 200, `email` is the typed address, masked. */

@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '../lib/api';
 import type { Me } from '../lib/types';
-import { ME, renderAt, stubApi } from '../test/helpers';
+import { EB_OFF, EB_ON, ME, renderAt, stubApi } from '../test/helpers';
 
 const content = () => document.getElementById('in-content') as HTMLElement;
 const nav = () => screen.getByRole('navigation', { name: 'Instellingen' });
@@ -88,6 +88,84 @@ describe('Instellingen · Profiel', () => {
     await waitFor(() => expect(toast()).toBe('Naam opgeslagen'));
     expect(update).toHaveBeenCalledWith('Robin');
     expect((document.querySelector('.side-user-name') as HTMLElement).textContent).toContain('Robin');
+  });
+});
+
+// An invented, truncated key: the test only checks it is sent and never shown again.
+const PEM = '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC-test-only\n-----END PRIVATE KEY-----\n';
+const shown = (text: string) =>
+  document.body.textContent!.includes(text) || Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')).some((el) => el.value.includes(text));
+
+describe('Instellingen · Enable Banking', () => {
+  it('sets up the app: redirect URL to copy, key from a .pem file, application id; the key is never shown again', async () => {
+    stubApi({ enableBanking: EB_OFF });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const save = vi.spyOn(api, 'saveEnableBanking').mockResolvedValue({ ...EB_ON, applicationId: 'app-7b0a4f' });
+    renderAt('/instellingen/enable-banking');
+
+    expect(await within(content()).findByText('Nog niet ingesteld')).toBeTruthy();
+    expect(within(content()).getByText(EB_OFF.redirectUrl!)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Redirect-URL kopiëren' }));
+    await waitFor(() => expect(toast()).toBe('Redirect-URL gekopieerd'));
+    expect(writeText).toHaveBeenCalledWith(EB_OFF.redirectUrl);
+
+    // Both are needed.
+    fireEvent.click(screen.getByRole('button', { name: 'Opslaan en testen' }));
+    expect(screen.getByRole('alert').textContent).toBe('Kies je .pem-bestand of plak de sleutel.');
+    fireEvent.change(screen.getByLabelText('Upload de privésleutel (.pem)'), { target: { files: [new File([PEM], 'saldo.pem', { type: 'application/x-pem-file' })] } });
+    expect(await screen.findByText('saldo.pem')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Opslaan en testen' }));
+    expect(screen.getByRole('alert').textContent).toBe('Vul je application ID in.');
+    expect(save).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Vul het application ID in'), { target: { value: ' app-7b0a4f ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Opslaan en testen' }));
+    expect(await within(content()).findByText('Ingesteld')).toBeTruthy();
+    expect(save).toHaveBeenCalledWith('app-7b0a4f', PEM.trim());
+    expect(within(content()).getByText('Opgeslagen · versleuteld')).toBeTruthy();
+    expect(within(content()).getByText('app-7b0a4f')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Enable Banking is ingesteld/ }).getAttribute('href')).toBe('/bankkoppelingen');
+    expect(toast()).toBe('Opgeslagen · verbinding werkt');
+    expect(shown('BEGIN PRIVATE KEY')).toBe(false);
+  });
+
+  it('shows the server’s message when the key does not work, and keeps the form', async () => {
+    stubApi({ enableBanking: EB_OFF });
+    vi.spyOn(api, 'saveEnableBanking').mockRejectedValue(new ApiError(400, 'invalid', 'Enable Banking kent deze sleutel niet. Kijk het application ID na.'));
+    renderAt('/instellingen/enable-banking');
+
+    fireEvent.change(await screen.findByLabelText('Privésleutel plakken'), { target: { value: PEM } });
+    fireEvent.change(screen.getByLabelText('Vul het application ID in'), { target: { value: 'app-7b0a4f' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Opslaan en testen' }));
+    expect((await screen.findByRole('alert')).textContent).toBe('Enable Banking kent deze sleutel niet. Kijk het application ID na.');
+    expect(within(content()).getByText('Nog niet ingesteld')).toBeTruthy();
+  });
+
+  it('shows a configured app without its key, says how to set public_url, and replaces the key', async () => {
+    stubApi({ enableBanking: { ...EB_ON, redirectUrl: null } });
+    const save = vi.spyOn(api, 'saveEnableBanking').mockResolvedValue({ ...EB_ON, redirectUrl: null });
+    renderAt('/instellingen/enable-banking');
+
+    expect(await within(content()).findByText('Ingesteld')).toBeTruthy();
+    expect(within(content()).getByText(EB_ON.applicationId!)).toBeTruthy();
+    expect(within(content()).getByText('Opgeslagen · versleuteld')).toBeTruthy();
+    expect(content().textContent).toContain('Vul public_url in bij de opties van de Saldo-add-on');
+    expect(screen.queryByRole('button', { name: 'Redirect-URL kopiëren' })).toBeNull();
+
+    const replace = screen.getByRole('button', { name: 'Sleutel vervangen' });
+    fireEvent.click(replace);
+    expect((screen.getByLabelText('Application ID') as HTMLInputElement).value).toBe(EB_ON.applicationId);
+    fireEvent.click(screen.getByRole('button', { name: 'Annuleren' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Sleutel vervangen' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sleutel vervangen' }));
+    fireEvent.change(screen.getByLabelText('Privésleutel plakken'), { target: { value: PEM } });
+    fireEvent.click(screen.getByRole('button', { name: 'Opslaan en testen' }));
+    await waitFor(() => expect(toast()).toBe('Sleutel vervangen · verbinding werkt'));
+    expect(save).toHaveBeenCalledWith(EB_ON.applicationId, PEM.trim());
+    expect(shown('BEGIN PRIVATE KEY')).toBe(false);
+    expect(within(nav()).getByRole('link', { name: /Enable Banking/ })).toBeTruthy();
   });
 });
 

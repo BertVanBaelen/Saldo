@@ -5,3 +5,24 @@ configuration:
   log_level:
     name: Log level
     description: How much Saldo writes to the log.
+  smtp_host:
+    name: Mail server
+    description: The SMTP server that sends sign-in codes and invitations, for example smtp.example.com. Without it, signing in is not possible.
+  smtp_port:
+    name: Mail server port
+    description: Usually 587 for STARTTLS and 465 for TLS. Empty uses that default.
+  smtp_security:
+    name: Mail encryption
+    description: STARTTLS or TLS. Saldo never sends mail unencrypted.
+  smtp_user:
+    name: Mail user name
+    description: The user name at the mail server, often your e-mail address.
+  smtp_password:
+    name: Mail password
+    description: The password (or app password) at the mail server.
+  smtp_from:
+    name: Sender
+    description: The sender of Saldo's e-mails, for example Saldo <saldo@example.com>. Empty uses the mail user name.
+  admin_recovery:
+    name: Admin recovery
+    description: Writes a link to choose a new password for the first admin to the log at every start. Only for a locked-out admin; turn it off right after use.

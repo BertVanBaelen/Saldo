@@ -155,10 +155,21 @@ func TestOutsideDemoModeEverythingButHealthIs401(t *testing.T) {
 		{"GET", "/api/connections", ""},
 		{"POST", "/api/sync", ""},
 		{"GET", "/api/unknown", ""},
+		{"PATCH", "/api/me", `{"name":"x"}`},
+		{"PUT", "/api/me/password", `{"current":"x","new":"y"}`},
+		{"POST", "/api/auth/logout", ""},
+		{"GET", "/api/devices", ""},
+		{"DELETE", "/api/devices/1", ""},
+		{"POST", "/api/devices/sign-out-others", ""},
+		{"GET", "/api/users", ""},
+		{"POST", "/api/users/invitations", `{"email":"x@example.com","role":"user"}`},
+		{"DELETE", "/api/users/invitations/1", ""},
+		{"POST", "/api/users/1/password-reset", ""},
+		{"GET", "/api/auth/token/../../me", ""},
 	}
 	for _, c := range calls {
 		r := do(t, h, c.method, c.path, c.body)
-		if msg := expectError(t, r, http.StatusUnauthorized, "unauthorized"); msg != "Inloggen is nog niet beschikbaar." {
+		if msg := expectError(t, r, http.StatusUnauthorized, "unauthorized"); msg != "Log in om verder te gaan." {
 			t.Errorf("%s %s: message %q", c.method, c.path, msg)
 		}
 	}

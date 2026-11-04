@@ -2,10 +2,13 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/BertVanBaelen/Saldo/server/internal/apperr"
 )
 
 // contentSecurityPolicy allows only Saldo's own origin.
@@ -30,29 +33,83 @@ func securityHeaders(next http.Handler) http.Handler {
 
 func isAPI(path string) bool { return path == "/api" || strings.HasPrefix(path, "/api/") }
 
-type viewerKey struct{}
+// session is the signed-in viewer and their device (0 in demo mode and with
+// Options.Viewer).
+type session struct{ user, device int64 }
+
+type sessionKey struct{}
 
 // viewerOf returns the viewer that requireViewer put in the context.
 func viewerOf(r *http.Request) int64 {
-	id, _ := r.Context().Value(viewerKey{}).(int64)
-	return id
+	s, _ := r.Context().Value(sessionKey{}).(session)
+	return s.user
 }
 
-// requireViewer resolves the viewer of every /api request except health.
-// Without one the request answers 401; nothing under /api is public.
+// deviceOf returns the viewer's current device, 0 when there is none.
+func deviceOf(r *http.Request) int64 {
+	s, _ := r.Context().Value(sessionKey{}).(session)
+	return s.device
+}
+
+// isPublic lists the /api routes that need no viewer: health and the steps
+// before a device is trusted.
+func isPublic(path string) bool {
+	switch path {
+	case "/api/health", "/api/auth/login", "/api/auth/verify", "/api/auth/redeem":
+		return true
+	}
+	token, ok := strings.CutPrefix(path, "/api/auth/token/")
+	return ok && token != "" && !strings.ContainsAny(token, "/.")
+}
+
+// requireViewer resolves the viewer of every /api request except the public
+// ones. Without one the request answers 401.
 func (s *Server) requireViewer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/api/health" {
+		if !strings.HasPrefix(r.URL.Path, "/api/") || isPublic(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		id, ok := s.opts.Viewer(r)
-		if !ok || id <= 0 {
-			writeError(w, http.StatusUnauthorized, "unauthorized", "Inloggen is nog niet beschikbaar.")
+		sess, err := s.resolve(w, r)
+		if errors.Is(err, apperr.ErrNotFound) {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "Log in om verder te gaan.")
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), viewerKey{}, id)))
+		if err != nil {
+			s.fail(w, r, err, msgNotFound)
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionKey{}, sess)))
 	})
+}
+
+// resolve finds the viewer: Options.Viewer when set, Bert in demo mode,
+// otherwise the trusted device of the cookie (renewing it while used).
+func (s *Server) resolve(w http.ResponseWriter, r *http.Request) (session, error) {
+	if s.opts.Viewer != nil {
+		if id, ok := s.opts.Viewer(r); ok && id > 0 {
+			return session{user: id}, nil
+		}
+		return session{}, apperr.ErrNotFound
+	}
+	if s.opts.Demo {
+		return session{user: DemoViewer}, nil
+	}
+	c, err := r.Cookie(deviceCookie)
+	if err != nil {
+		return session{}, apperr.ErrNotFound
+	}
+	dev, renewed, err := s.auth.Resolve(r.Context(), c.Value)
+	if errors.Is(err, apperr.ErrNotFound) {
+		s.clearDeviceCookie(w)
+	}
+	if err != nil {
+		return session{}, err
+	}
+	if renewed {
+		s.setDeviceCookie(w, c.Value)
+	}
+	return session{user: dev.UserID, device: dev.DeviceID}, nil
 }
 
 // recoverPanics turns a panic into a logged 500.

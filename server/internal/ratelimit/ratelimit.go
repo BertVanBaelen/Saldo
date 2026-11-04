@@ -1,4 +1,5 @@
-// Package ratelimit holds small in-memory limiters.
+// Package ratelimit holds small in-memory limiters: a cooldown per user and
+// a fixed-window attempt counter per key.
 package ratelimit
 
 import (

@@ -113,12 +113,12 @@ Starts a sync of the viewer's connections (in demo mode: the fake provider). Ans
 
 The viewer is resolved from the **device cookie** `saldo_device`: a random 32-byte token (base64url), stored only as a SHA-256 hash in `devices.token_hash`; `HttpOnly`, `SameSite=Strict`, `Secure` when the public URL is https, `Path=/`, 90 days, renewed while used. A device unused for 90 days or revoked answers `401`. Demo mode (`SALDO_DEMO=1`) keeps acting as Bert without a cookie. Every unsafe request (anything but `GET`/`HEAD`) must come from the same origin (`http.CrossOriginProtection`, with the public URL as trusted origin); otherwise `403 forbidden`.
 
-Extra error code: `invalid_code` (401). Rate-limited answers are `429` with `Retry-After`. The sign-in endpoints never reveal whether an e-mail address has an account.
+Extra error code: `invalid_code` (401). Rate-limited answers are `429` with `Retry-After`. The sign-in endpoints never reveal whether an e-mail address has an account. Limits per 10 minutes: login 20 per IP and 5 per typed address; verify 20 per IP; token and redeem together 20 per IP; 5 wrong current passwords per user.
 
 Links in e-mails and in the add-on log use the public URL: `/setup/<token>` (first admin, 1 hour), `/uitnodiging/<token>` (invitation, 7 days), `/nieuw-wachtwoord/<token>` (reset, 1 hour). Tokens are random, stored hashed, single use.
 
 ### `POST /api/auth/login` (public)
-Body `{"email": "…", "password": "…"}`. Always `200 {"challenge": "<opaque>", "email": "b•••@jouw-domein.be"}` (the typed address, masked), also for an unknown address or a wrong password; then no e-mail is sent and step 2 fails. Only when the password is right is an 8-digit code (valid 10 minutes, single use, hashed, 5 attempts) e-mailed. Limits: per IP and per address, and at most 3 codes per user per 10 minutes. `503 unavailable` when no mail can be sent (SMTP not configured).
+Body `{"email": "…", "password": "…"}`. Always `200 {"challenge": "<opaque>", "email": "b•••@jouw-domein.be"}` (the typed address, masked), also for an unknown address or a wrong password; then no e-mail is sent and step 2 fails. Only when the password is right is an 8-digit code (valid 10 minutes, single use, hashed, 5 attempts) e-mailed; it replaces the user's earlier codes. Limits: per IP and per address, and at most 3 codes per user per 10 minutes: a fourth request answers `200` as above but sends no code (a `429` there would confirm the password). `400 invalid` for something that is not an e-mail address or an empty password. `503 unavailable` when no mail can be sent (SMTP not configured).
 
 ### `POST /api/auth/verify` (public)
 Body `{"challenge": "…", "code": "12345678"}`. `200 {"user": {…as in /api/me…}}` and `Set-Cookie: saldo_device`. This creates a new trusted device (name from the User-Agent, for example "Safari op iPhone") and e-mails "Nieuw toestel aangemeld". Wrong, expired, used or unknown: `401 invalid_code`.
@@ -130,7 +130,7 @@ Body `{"challenge": "…", "code": "12345678"}`. `200 {"user": {…as in /api/me
 `200 {"kind": "setup" | "invitation" | "password_reset", "email": "…" | null, "name": "…" | null}` for a live token, else `404 not_found`. Rate limited per IP.
 
 ### `POST /api/auth/redeem` (public)
-Body `{"token": "…", "password": "…", "name": "…", "email": "…"}`. `setup` needs `name`, `email` and `password` and creates the first admin (only while no user exists); `invitation` needs `name` and `password` (the e-mail is the invited one); `password_reset` needs `password`. `204`, the token is spent, and the user then signs in normally. Password: at least 12 characters, not on a short blocklist of common passwords, not the e-mail address; otherwise `400 invalid` with a Dutch message.
+Body `{"token": "…", "password": "…", "name": "…", "email": "…"}`. `setup` needs `name`, `email` and `password` and creates the first admin (only while no user exists); `invitation` needs `name` and `password` (the e-mail is the invited one); `password_reset` needs `password` and signs out every device of that user. `204`, the token is spent, and the user then signs in normally. A token that is not live answers `404 not_found`. Password: at least 12 characters, not on a short blocklist of common passwords, not the e-mail address; otherwise `400 invalid` with a Dutch message (also for a missing name, 1–40 characters).
 
 ### `GET /api/devices`
 `[{"id": 3, "name": "Safari op iPhone", "createdAt": "…", "lastUsedAt": "…", "current": true}]` of the viewer's active devices.
@@ -151,15 +151,15 @@ Body `{"current": "…", "new": "…"}`. `204`; revokes every other device. A wr
 `{"users": [{"id": 1, "name": "Bert", "email": "…", "role": "admin", "initial": "B"}], "invitations": [{"id": 2, "email": "…", "role": "user", "expiresAt": "…"}]}`. A non-admin answers `403 forbidden`.
 
 ### `POST /api/users/invitations` (admin)
-Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-mails the link. An address that already has an account answers `400 invalid`.
+Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-mails the link and replaces an earlier pending invitation for the same address. An address that already has an account, or another role, answers `400 invalid`. `503 unavailable` without mail or without `public_url` (the link needs it), or when the mail could not be sent (the invitation is then withdrawn).
 
 ### `DELETE /api/users/invitations/{id}` (admin)
-`204`; the link stops working.
+`204`; the link stops working. An unknown id answers `404`.
 
 ### `POST /api/users/{id}/password-reset` (admin)
-`204`; e-mails that user a reset link (1 hour) and signs out none of their devices until it is used.
+`204`; e-mails that user a reset link (1 hour, replacing an earlier unused one) and signs out none of their devices until it is used. An unknown user answers `404`; `503` as for invitations.
 
-Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed, invitation and reset sent, setup done, rate limit hit. IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
+Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window). IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
 
 ## Planned changes
 - A count for `uncategorised=1` (or a `total`), so the sidebar badge does not need a page of rows.

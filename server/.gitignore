@@ -1,3 +1,5 @@
-# Local state of `go run` (database, WAL files, migration backups) and build output.
+# Local state of `go run` (database, WAL files, migration backups; data-dev
+# outside demo mode) and build output.
 /data/
+/data-dev/
 /bin/

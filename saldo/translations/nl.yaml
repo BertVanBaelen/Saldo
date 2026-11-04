@@ -5,3 +5,24 @@ configuration:
   log_level:
     name: Logniveau
     description: Hoeveel Saldo in het logboek schrijft.
+  smtp_host:
+    name: Mailserver
+    description: De SMTP-server die inlogcodes en uitnodigingen verstuurt, bijvoorbeeld smtp.example.com. Zonder mailserver kan niemand inloggen.
+  smtp_port:
+    name: Poort van de mailserver
+    description: Meestal 587 voor STARTTLS en 465 voor TLS. Leeg gebruikt die standaard.
+  smtp_security:
+    name: Versleuteling van de mail
+    description: STARTTLS of TLS. Saldo verstuurt nooit onversleuteld.
+  smtp_user:
+    name: Gebruikersnaam van de mail
+    description: De gebruikersnaam bij de mailserver, vaak je e-mailadres.
+  smtp_password:
+    name: Wachtwoord van de mail
+    description: Het wachtwoord (of app-wachtwoord) bij de mailserver.
+  smtp_from:
+    name: Afzender
+    description: De afzender van de e-mails van Saldo, bijvoorbeeld Saldo <saldo@example.com>. Leeg gebruikt de gebruikersnaam van de mail.
+  admin_recovery:
+    name: Beheerder herstellen
+    description: Schrijft bij elke start een link in het logboek om een nieuw wachtwoord te kiezen voor de eerste beheerder. Alleen voor een buitengesloten beheerder; zet het meteen na gebruik weer uit.

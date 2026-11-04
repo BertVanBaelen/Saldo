@@ -8,8 +8,11 @@ package fake
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/bank"
 )
@@ -121,6 +124,39 @@ func (Provider) FetchBalances(ctx context.Context, s bank.Session, id string) ([
 		return nil, err
 	}
 	return []bank.Balance{{Amount: balances[iban], Date: StoryEnd, Type: "CLBD"}}, nil
+}
+
+// DemoCode is the only authorisation code the demo bank accepts.
+const DemoCode = "demo"
+
+// Client is the demo bank behind the link wizard: there is no consent page,
+// the "bank" sends the browser straight back with DemoCode, and the session
+// is the demo user's own.
+type Client struct {
+	Provider
+	Session string // SessionBert or SessionPartner
+}
+
+// CheckApplication always succeeds; there is no application to check.
+func (Client) CheckApplication(context.Context) error { return nil }
+
+// StartAuth returns the redirect page itself with DemoCode and the state.
+func (Client) StartAuth(_ context.Context, _, _, state, redirectURL string, _ time.Time) (string, error) {
+	return redirectURL + "?" + url.Values{"code": {DemoCode}, "state": {state}}.Encode(), nil
+}
+
+// CreateSession completes the demo consent: the accounts of c.Session, valid
+// for 180 days from the demo date.
+func (c Client) CreateSession(ctx context.Context, code string) (bank.SessionInfo, error) {
+	if code != DemoCode {
+		return bank.SessionInfo{}, errors.New("fake: unknown authorisation code")
+	}
+	accs, err := c.ListAccounts(ctx, bank.Session{ID: c.Session})
+	if err != nil {
+		return bank.SessionInfo{}, err
+	}
+	until := time.Date(2027, 5, 17, 10, 0, 0, 0, time.UTC) // StoryEnd + 180 days, 12:00 Brussels
+	return bank.SessionInfo{ID: c.Session, Accounts: accs, ValidUntil: until}, nil
 }
 
 // transaction renders a story row as the provider would return it, with a raw

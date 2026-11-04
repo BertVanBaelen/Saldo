@@ -31,7 +31,7 @@ Subcommands: `saldo serve` (default), `saldo healthcheck` (exit 0 when `GET /hea
 | Variable | Default | Meaning |
 |---|---|---|
 | `SALDO_ADDR` | `:8080` | Listen address |
-| `SALDO_STATE_DIR` | `./data` | Database (`saldo.db`) and migration backups (`backups/`); the add-on uses `/data` |
+| `SALDO_STATE_DIR` | `./data` | Database (`saldo.db`), migration backups (`backups/`) and `secret.key`, which seals the bank credentials (made on first start; without it they cannot be read); the add-on uses `/data` |
 | `SALDO_WEB_DIR` | – | Built web app; empty or missing shows a notice |
 | `SALDO_OPTIONS_FILE` | `<state>/options.json` | Add-on options (`log_level`, `public_url`, `smtp_*`, `admin_recovery`); optional |
 | `SALDO_DEMO` | `0` | `1` = demo mode |
@@ -52,7 +52,9 @@ Logs are JSON lines on stdout. Request logs hold the method, path, status and du
 | `internal/config` | Environment and add-on options |
 | `internal/clock` | Now and today in Europe/Brussels, with the demo date override |
 | `internal/db` | Opening SQLite (WAL, foreign keys, busy timeout) and the embedded numbered migrations (`migrations/NNNN_name.sql`), with a backup before migrating a database that already has a schema |
-| `internal/bank` | The provider interface (`ListAccounts`, `FetchTransactions`, `FetchBalances`); `bank/fake` serves the demo story |
+| `internal/bank` | The provider interface (`ListAccounts`, `FetchTransactions`, `FetchBalances`); `bank/enablebanking` is the real client, `bank/fake` serves the demo story and the demo link wizard |
+| `internal/banklink` | Bank links: the user's sealed Enable Banking credentials, the single-use link `state`, account matching by IBAN and the sync of real connections |
+| `internal/secrets` | AES-GCM sealing of the bank credentials with `secret.key` |
 | `internal/ledger` | Accounts, access, transactions, transfers, alerts and connections, always scoped to the viewer through `account_access` |
 | `internal/users` | Profile and display preferences |
 | `internal/auth` | Sign-in: argon2id passwords and the password rules, the e-mailed code, trusted devices, setup/invitation/reset links, first start and the audit log |
@@ -73,4 +75,4 @@ go vet ./...
 gofmt -l .
 ```
 
-The tests cover configuration, migrations (on an empty database, idempotent, backup, rollback), IBAN masking, account states, transfer detection per viewer, the privacy rules (Bert never sees Partner's own account, Partner never sees Bert's personal accounts, a hidden account answers `404`), every API endpoint with `httptest` (shapes, errors, `401` outside demo mode), the sync rate limit and the web app fallback.
+The tests cover configuration, migrations (on an empty database, idempotent, backup, rollback), IBAN masking, account states, transfer detection per viewer, the privacy rules (Bert never sees Partner's own account, Partner never sees Bert's personal accounts, a hidden account answers `404`), every API endpoint with `httptest` (shapes, errors, `401` outside demo mode), the sync rate limit, the bank link against a scriptable fake bank (sealed credentials, single-use state, IBAN matching, first and later syncs, expired and failed syncs, the demo wizard) and the web app fallback.

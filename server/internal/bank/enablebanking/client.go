@@ -237,12 +237,12 @@ func unwrapURL(err error) error {
 	return err
 }
 
-// SessionInfo is a completed consent: the session to sync with, the accounts
-// the user shared and the moment the consent lapses.
-type SessionInfo struct {
-	ID         string // the credential for the Provider methods, as bank.Session{ID: ID}
-	Accounts   []bank.Account
-	ValidUntil time.Time
+// CheckApplication reads the application's own details: the cheapest call
+// that proves the application id and the key belong together (the connection
+// test when the user stores them).
+func (c *Client) CheckApplication(ctx context.Context) error {
+	var app json.RawMessage
+	return c.do(ctx, "get application", http.MethodGet, "/application", nil, nil, &app)
 }
 
 // validUntilLayout matches the reference's example, "2025-12-01T12:00:00.000000+00:00".
@@ -277,7 +277,7 @@ func (c *Client) StartAuth(ctx context.Context, aspspName, country, state, redir
 
 // CreateSession completes the consent with the code from the bank's
 // redirect and returns the new session and the accounts the user shared.
-func (c *Client) CreateSession(ctx context.Context, code string) (SessionInfo, error) {
+func (c *Client) CreateSession(ctx context.Context, code string) (bank.SessionInfo, error) {
 	var resp struct {
 		SessionID string            `json:"session_id"`
 		Accounts  []accountResource `json:"accounts"`
@@ -289,16 +289,16 @@ func (c *Client) CreateSession(ctx context.Context, code string) (SessionInfo, e
 		} `json:"access"`
 	}
 	if err := c.do(ctx, "create session", http.MethodPost, "/sessions", nil, map[string]string{"code": code}, &resp); err != nil {
-		return SessionInfo{}, err
+		return bank.SessionInfo{}, err
 	}
 	if resp.SessionID == "" {
-		return SessionInfo{}, errors.New("enablebanking: create session: no session id in the response")
+		return bank.SessionInfo{}, errors.New("enablebanking: create session: no session id in the response")
 	}
 	validUntil, err := time.Parse(time.RFC3339, resp.Access.ValidUntil)
 	if err != nil {
-		return SessionInfo{}, fmt.Errorf("enablebanking: create session: valid_until: %w", err)
+		return bank.SessionInfo{}, fmt.Errorf("enablebanking: create session: valid_until: %w", err)
 	}
-	info := SessionInfo{ID: resp.SessionID, ValidUntil: validUntil}
+	info := bank.SessionInfo{ID: resp.SessionID, ValidUntil: validUntil}
 	for _, a := range resp.Accounts {
 		info.Accounts = append(info.Accounts, a.account(resp.ASPSP.Name))
 	}

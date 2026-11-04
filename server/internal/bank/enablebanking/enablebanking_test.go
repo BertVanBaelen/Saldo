@@ -210,6 +210,25 @@ func TestStartAuth(t *testing.T) {
 	}
 }
 
+func TestCheckApplication(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		want(t, r, http.MethodGet, "/application")
+		fmt.Fprint(w, `{"name":"Saldo","kid":"00000000-0000-4000-8000-000000000001","environment":"PRODUCTION","active":true}`)
+	})
+	if err := c.CheckApplication(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	refused := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, `{"code":401,"message":"Invalid token","error":"UNAUTHORIZED"}`)
+	})
+	var apiErr *APIError
+	if err := refused.CheckApplication(context.Background()); !errors.As(err, &apiErr) || apiErr.Status != 401 {
+		t.Fatalf("got %v, want an APIError with status 401", err)
+	}
+}
+
 func TestCreateSession(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		want(t, r, http.MethodPost, "/sessions")
@@ -237,7 +256,7 @@ func TestCreateSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantInfo := SessionInfo{
+	wantInfo := bank.SessionInfo{
 		ID:         "sess-1",
 		Accounts:   []bank.Account{{ID: "uid-1", IBAN: "BE68539007547034", Name: "Zichtrekening", Currency: "EUR", Bank: "Argenta"}},
 		ValidUntil: time.Date(2027, 5, 3, 10, 0, 0, 0, time.UTC),

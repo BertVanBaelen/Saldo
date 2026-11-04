@@ -27,10 +27,10 @@ const (
 	msgMailFailed   = "De e-mail kon niet verstuurd worden. Probeer het later opnieuw."
 )
 
-// limits are the in-memory sign-in limits per IP and per account (analysis
-// 7); the codes per user are limited in package auth.
+// limits are the in-memory limits per IP and per account (analysis 7); the
+// codes per user are limited in package auth.
 type limits struct {
-	loginIP, loginEmail, verifyIP, tokenIP, password *ratelimit.Limiter
+	loginIP, loginEmail, verifyIP, tokenIP, password, bankLink *ratelimit.Limiter
 }
 
 func newLimits(now func() time.Time) limits {
@@ -41,6 +41,7 @@ func newLimits(now func() time.Time) limits {
 		verifyIP:   ratelimit.NewLimiter(20, window, now),
 		tokenIP:    ratelimit.NewLimiter(20, window, now),
 		password:   ratelimit.NewLimiter(5, window, now), // wrong current passwords
+		bankLink:   ratelimit.NewLimiter(10, time.Hour, now),
 	}
 }
 

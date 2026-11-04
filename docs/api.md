@@ -9,7 +9,7 @@ The web app talks to the Go server over JSON under `/api`. This file is the cont
 - Errors: HTTP status plus `{"error": {"code": "not_found", "message": "Dutch text for the user"}}`. Codes: `invalid` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `method_not_allowed` (405), `too_large` (413), `unsupported_media_type` (415), `rate_limited` (429), `internal` (500), `unavailable` (503).
 - Request bodies are JSON objects sent with `Content-Type: application/json` (anything else answers `415`); unknown fields answer `400`.
 - Every financial query is scoped to the **viewer** through `account_access` (analysis 2, 8). A resource the viewer cannot see answers `404`, never `403`, so nothing leaks.
-- Until sign-in exists (phase 0.2-4) the viewer only exists in **demo mode** (`SALDO_DEMO=1`): the server then seeds the demo story and acts as Bert. Outside demo mode every `/api` route except health answers `401`.
+- The viewer is the signed-in user of the device cookie (see "Sign-in" below). In **demo mode** (`SALDO_DEMO=1`) the server seeds the demo story and acts as Bert without signing in. Every `/api` route except health and the public sign-in routes answers `401` without a viewer.
 
 ## Endpoints
 
@@ -108,6 +108,58 @@ The viewer's own bank connections.
 
 ### `POST /api/sync`
 Starts a sync of the viewer's connections (in demo mode: the fake provider). Answers `202 {"started": true}`; a second call within 15 minutes answers `429` with a Dutch message and a `Retry-After` header (seconds).
+
+## Sign-in (phase 0.2-4)
+
+The viewer is resolved from the **device cookie** `saldo_device`: a random 32-byte token (base64url), stored only as a SHA-256 hash in `devices.token_hash`; `HttpOnly`, `SameSite=Strict`, `Secure` when the public URL is https, `Path=/`, 90 days, renewed while used. A device unused for 90 days or revoked answers `401`. Demo mode (`SALDO_DEMO=1`) keeps acting as Bert without a cookie. Every unsafe request (anything but `GET`/`HEAD`) must come from the same origin (`http.CrossOriginProtection`, with the public URL as trusted origin); otherwise `403 forbidden`.
+
+Extra error code: `invalid_code` (401). Rate-limited answers are `429` with `Retry-After`. The sign-in endpoints never reveal whether an e-mail address has an account.
+
+Links in e-mails and in the add-on log use the public URL: `/setup/<token>` (first admin, 1 hour), `/uitnodiging/<token>` (invitation, 7 days), `/nieuw-wachtwoord/<token>` (reset, 1 hour). Tokens are random, stored hashed, single use.
+
+### `POST /api/auth/login` (public)
+Body `{"email": "…", "password": "…"}`. Always `200 {"challenge": "<opaque>", "email": "b•••@jouw-domein.be"}` (the typed address, masked), also for an unknown address or a wrong password; then no e-mail is sent and step 2 fails. Only when the password is right is an 8-digit code (valid 10 minutes, single use, hashed, 5 attempts) e-mailed. Limits: per IP and per address, and at most 3 codes per user per 10 minutes. `503 unavailable` when no mail can be sent (SMTP not configured).
+
+### `POST /api/auth/verify` (public)
+Body `{"challenge": "…", "code": "12345678"}`. `200 {"user": {…as in /api/me…}}` and `Set-Cookie: saldo_device`. This creates a new trusted device (name from the User-Agent, for example "Safari op iPhone") and e-mails "Nieuw toestel aangemeld". Wrong, expired, used or unknown: `401 invalid_code`.
+
+### `POST /api/auth/logout`
+`204`; revokes the current device and clears the cookie.
+
+### `GET /api/auth/token/{token}` (public)
+`200 {"kind": "setup" | "invitation" | "password_reset", "email": "…" | null, "name": "…" | null}` for a live token, else `404 not_found`. Rate limited per IP.
+
+### `POST /api/auth/redeem` (public)
+Body `{"token": "…", "password": "…", "name": "…", "email": "…"}`. `setup` needs `name`, `email` and `password` and creates the first admin (only while no user exists); `invitation` needs `name` and `password` (the e-mail is the invited one); `password_reset` needs `password`. `204`, the token is spent, and the user then signs in normally. Password: at least 12 characters, not on a short blocklist of common passwords, not the e-mail address; otherwise `400 invalid` with a Dutch message.
+
+### `GET /api/devices`
+`[{"id": 3, "name": "Safari op iPhone", "createdAt": "…", "lastUsedAt": "…", "current": true}]` of the viewer's active devices.
+
+### `DELETE /api/devices/{id}`
+`204`; signs a device of the viewer out (a device of someone else answers `404`). Deleting the current device is the same as logout.
+
+### `POST /api/devices/sign-out-others`
+`204`; revokes every device of the viewer except the current one.
+
+### `PATCH /api/me`
+Body `{"name": "…"}` (1–40 characters). Answers the user.
+
+### `PUT /api/me/password`
+Body `{"current": "…", "new": "…"}`. `204`; revokes every other device. A wrong `current` answers `400 invalid` and counts against the rate limit.
+
+### `GET /api/users` (admin)
+`{"users": [{"id": 1, "name": "Bert", "email": "…", "role": "admin", "initial": "B"}], "invitations": [{"id": 2, "email": "…", "role": "user", "expiresAt": "…"}]}`. A non-admin answers `403 forbidden`.
+
+### `POST /api/users/invitations` (admin)
+Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-mails the link. An address that already has an account answers `400 invalid`.
+
+### `DELETE /api/users/invitations/{id}` (admin)
+`204`; the link stops working.
+
+### `POST /api/users/{id}/password-reset` (admin)
+`204`; e-mails that user a reset link (1 hour) and signs out none of their devices until it is used.
+
+Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed, invitation and reset sent, setup done, rate limit hit. IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
 
 ## Planned changes
 - A count for `uncategorised=1` (or a `total`), so the sidebar badge does not need a page of rows.

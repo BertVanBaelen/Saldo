@@ -1,0 +1,19 @@
+Saldo · {{.Kicker}}
+
+{{.Heading}}
+{{if .Figure}}
+{{.Figure}}
+{{.FigureNote}}
+{{end}}
+{{.Intro}}
+
+{{range .Rows}}{{.Label}}: {{.Value}}
+{{end}}
+{{if .Button}}{{.Button}}:
+{{.ButtonURL}}
+
+{{end}}{{.Note}}
+
+--
+{{.Why}}
+Saldo draait op je eigen Home Assistant.

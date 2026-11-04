@@ -20,12 +20,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/BertVanBaelen/Saldo/server/internal/auth"
 	"github.com/BertVanBaelen/Saldo/server/internal/bank/fake"
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
 	"github.com/BertVanBaelen/Saldo/server/internal/config"
 	"github.com/BertVanBaelen/Saldo/server/internal/db"
 	"github.com/BertVanBaelen/Saldo/server/internal/demo"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
+	"github.com/BertVanBaelen/Saldo/server/internal/mail"
 	"github.com/BertVanBaelen/Saldo/server/internal/server"
 )
 
@@ -81,13 +83,30 @@ func serve() error {
 		return err
 	}
 
-	opts := server.Options{DB: database, Version: version, Demo: cfg.Demo, Clock: clk, WebDir: cfg.WebDir, Logger: log}
+	opts := server.Options{DB: database, Version: version, Demo: cfg.Demo, Clock: clk, WebDir: cfg.WebDir, Logger: log,
+		PublicURL: cfg.PublicURL}
+	switch {
+	case cfg.MailLog:
+		opts.Mailer = mail.Log{Logger: log}
+		log.Warn("SALDO_MAIL_LOG: e-mails, including sign-in codes and links, are written to this log instead of sent")
+	case cfg.SMTP.Host != "":
+		opts.Mailer = mail.SMTP{Host: cfg.SMTP.Host, Port: cfg.SMTP.Port, TLS: cfg.SMTP.Security == "tls",
+			Username: cfg.SMTP.User, Password: cfg.SMTP.Password, From: cfg.SMTP.From}
+		log.Info("mail through SMTP", "host", cfg.SMTP.Host, "port", cfg.SMTP.Port, "security", cfg.SMTP.Security)
+	default:
+		log.Warn("no SMTP server configured: signing in and inviting answer 503 until smtp_host is set")
+	}
+	if cfg.PublicURL == "" {
+		log.Warn("public_url is not set: e-mails cannot link to Saldo")
+	}
 	if cfg.Demo {
 		if _, err := demo.Seed(ctx, database, fake.Provider{}, log); err != nil {
 			return err
 		}
 		opts.Syncer = demo.Syncer{Store: ledger.New(database)}
 		log.Warn("demo mode: every request acts as the demo user Bert, without signing in")
+	} else if err := auth.New(database, nil).Bootstrap(ctx, cfg.PublicURL, cfg.AdminRecovery, log); err != nil {
+		return err
 	}
 
 	srv := &http.Server{

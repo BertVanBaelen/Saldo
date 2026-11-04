@@ -1,5 +1,5 @@
-// Package users reads a user's profile and stores their display preferences.
-// Sign-in, devices and invitations arrive with phase 0.2-4.
+// Package users reads and changes a user's profile and display preferences.
+// Sign-in, devices and invitations are in package auth.
 package users
 
 import (
@@ -44,6 +44,19 @@ func Initial(name string) string {
 	return string(unicode.ToUpper(r))
 }
 
+// CheckName trims a display name and checks its length (1–40 characters).
+func CheckName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if n := utf8.RuneCountInString(name); n < 1 || n > 40 {
+		return "", apperr.Invalid("De naam moet tussen 1 en 40 tekens lang zijn.")
+	}
+	// The name goes into e-mail subjects and bodies.
+	if strings.IndexFunc(name, unicode.IsControl) >= 0 {
+		return "", apperr.Invalid("De naam mag geen regeleinden of andere stuurtekens bevatten.")
+	}
+	return name, nil
+}
+
 // Get returns the user and their preferences.
 func Get(ctx context.Context, db *sql.DB, id int64) (User, Preferences, error) {
 	var u User
@@ -59,6 +72,42 @@ func Get(ctx context.Context, db *sql.DB, id int64) (User, Preferences, error) {
 	}
 	u.Initial = Initial(u.Name)
 	return u, p, nil
+}
+
+// List returns every user, in the order they joined.
+func List(ctx context.Context, db *sql.DB) ([]User, error) {
+	rows, err := db.QueryContext(ctx, `SELECT id, display_name, email, role FROM users ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := []User{}
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.Role); err != nil {
+			return nil, err
+		}
+		u.Initial = Initial(u.Name)
+		list = append(list, u)
+	}
+	return list, rows.Err()
+}
+
+// SetName changes the display name and returns the user.
+func SetName(ctx context.Context, db *sql.DB, id int64, name string) (User, error) {
+	name, err := CheckName(name)
+	if err != nil {
+		return User{}, err
+	}
+	res, err := db.ExecContext(ctx, `UPDATE users SET display_name = ? WHERE id = ?`, name, id)
+	if err != nil {
+		return User{}, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return User{}, apperr.ErrNotFound
+	}
+	u, _, err := Get(ctx, db, id)
+	return u, err
 }
 
 // SetPreferences changes the scope and/or theme (nil leaves a value as is)

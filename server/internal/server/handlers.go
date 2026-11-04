@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/http"
 	"slices"
 	"strconv"
@@ -157,14 +156,7 @@ func (s *Server) postSync(w http.ResponseWriter, r *http.Request) {
 	}
 	viewer := viewerOf(r)
 	if ok, wait := s.cooldown.Allow(viewer); !ok {
-		minutes := int(math.Ceil(wait.Minutes()))
-		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
-		unit := "minuten"
-		if minutes == 1 {
-			unit = "minuut"
-		}
-		writeError(w, http.StatusTooManyRequests, "rate_limited",
-			fmt.Sprintf("Je hebt net gesynchroniseerd. Probeer het over %d %s opnieuw.", minutes, unit))
+		rateLimited(w, wait, "Je hebt net gesynchroniseerd. Probeer het over %d %s opnieuw.")
 		return
 	}
 	if err := s.opts.Syncer.Sync(r.Context(), viewer, s.now()); err != nil {

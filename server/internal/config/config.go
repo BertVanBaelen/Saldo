@@ -13,9 +13,11 @@ import (
 	"io/fs"
 	"log/slog"
 	"net"
+	"net/mail"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -33,6 +35,31 @@ type Config struct {
 	Today       string     // clock override as YYYY-MM-DD; empty = real clock
 	LogLevel    slog.Level // minimum log level
 	PublicURL   string     // public base URL without trailing slash; may be empty
+	SMTP        SMTP       // mail server; Host empty = not configured
+	MailLog     bool       // development: write mails to the log instead of sending
+	// AdminRecovery logs a password-reset link for the first admin at every
+	// start, for a locked-out sole admin.
+	AdminRecovery bool
+}
+
+// SMTP is the mail server. Security is "starttls" or "tls"; Saldo never
+// sends unencrypted.
+type SMTP struct {
+	Host     string
+	Port     int
+	Security string
+	User     string
+	Password string
+	From     string
+}
+
+// String hides the password, so the settings can be printed or logged.
+func (s SMTP) String() string {
+	pw := ""
+	if s.Password != "" {
+		pw = "***"
+	}
+	return fmt.Sprintf("{Host:%s Port:%d Security:%s User:%s Password:%s From:%s}", s.Host, s.Port, s.Security, s.User, pw, s.From)
 }
 
 // DBPath is the SQLite database file.
@@ -52,8 +79,15 @@ func (c Config) Port() (string, error) {
 
 // options is the subset of the add-on options file the server reads.
 type options struct {
-	LogLevel  string `json:"log_level"`
-	PublicURL string `json:"public_url"`
+	LogLevel      string `json:"log_level"`
+	PublicURL     string `json:"public_url"`
+	SMTPHost      string `json:"smtp_host"`
+	SMTPPort      int    `json:"smtp_port"`
+	SMTPSecurity  string `json:"smtp_security"`
+	SMTPUser      string `json:"smtp_user"`
+	SMTPPassword  string `json:"smtp_password"`
+	SMTPFrom      string `json:"smtp_from"`
+	AdminRecovery bool   `json:"admin_recovery"`
 }
 
 // Load builds the configuration. getenv is os.Getenv in production.
@@ -108,10 +142,77 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, err
 	}
 
-	if c.PublicURL, err = parsePublicURL(opts.PublicURL); err != nil {
+	if c.PublicURL, err = parsePublicURL(or(env("SALDO_PUBLIC_URL"), opts.PublicURL)); err != nil {
+		return Config{}, err
+	}
+
+	if c.MailLog, err = parseBool(env("SALDO_MAIL_LOG")); err != nil {
+		return Config{}, fmt.Errorf("SALDO_MAIL_LOG: %w", err)
+	}
+	c.AdminRecovery = opts.AdminRecovery
+	if raw := env("SALDO_ADMIN_RECOVERY"); raw != "" {
+		if c.AdminRecovery, err = parseBool(raw); err != nil {
+			return Config{}, fmt.Errorf("SALDO_ADMIN_RECOVERY: %w", err)
+		}
+	}
+	if c.SMTP, err = parseSMTP(env, opts); err != nil {
 		return Config{}, err
 	}
 	return c, nil
+}
+
+func or(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return strings.TrimSpace(b)
+}
+
+func parseSMTP(env func(string) string, o options) (SMTP, error) {
+	s := SMTP{
+		Host:     or(env("SALDO_SMTP_HOST"), o.SMTPHost),
+		Security: strings.ToLower(or(env("SALDO_SMTP_SECURITY"), o.SMTPSecurity)),
+		User:     or(env("SALDO_SMTP_USER"), o.SMTPUser),
+		Password: o.SMTPPassword, // not trimmed: spaces may belong to it
+		From:     or(env("SALDO_SMTP_FROM"), o.SMTPFrom),
+		Port:     o.SMTPPort,
+	}
+	if p := env("SALDO_SMTP_PASSWORD"); p != "" {
+		s.Password = p
+	}
+	if raw := env("SALDO_SMTP_PORT"); raw != "" {
+		p, err := strconv.Atoi(raw)
+		if err != nil {
+			return SMTP{}, fmt.Errorf("SALDO_SMTP_PORT %q: not a number", raw)
+		}
+		s.Port = p
+	}
+	if s.Host == "" {
+		return SMTP{}, nil
+	}
+	switch s.Security {
+	case "", "starttls":
+		s.Security = "starttls"
+		if s.Port == 0 {
+			s.Port = 587
+		}
+	case "tls":
+		if s.Port == 0 {
+			s.Port = 465
+		}
+	default:
+		return SMTP{}, fmt.Errorf("smtp_security %q: use starttls or tls (Saldo never sends unencrypted)", s.Security)
+	}
+	if s.Port < 1 || s.Port > 65535 {
+		return SMTP{}, fmt.Errorf("smtp_port %d: not a port", s.Port)
+	}
+	if s.From == "" {
+		s.From = s.User
+	}
+	if a, err := mail.ParseAddress(s.From); err != nil || !strings.Contains(a.Address, "@") {
+		return SMTP{}, fmt.Errorf("smtp_from %q: expected an address such as Saldo <saldo@example.com>", s.From)
+	}
+	return s, nil
 }
 
 func readOptions(path string) (options, error) {

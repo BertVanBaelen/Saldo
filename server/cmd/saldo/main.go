@@ -22,12 +22,14 @@ import (
 
 	"github.com/BertVanBaelen/Saldo/server/internal/auth"
 	"github.com/BertVanBaelen/Saldo/server/internal/bank/fake"
+	"github.com/BertVanBaelen/Saldo/server/internal/banklink"
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
 	"github.com/BertVanBaelen/Saldo/server/internal/config"
 	"github.com/BertVanBaelen/Saldo/server/internal/db"
 	"github.com/BertVanBaelen/Saldo/server/internal/demo"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 	"github.com/BertVanBaelen/Saldo/server/internal/mail"
+	"github.com/BertVanBaelen/Saldo/server/internal/secrets"
 	"github.com/BertVanBaelen/Saldo/server/internal/server"
 )
 
@@ -83,8 +85,20 @@ func serve() error {
 		return err
 	}
 
+	// The key that seals the bank credentials lives next to the database, not
+	// in it (analysis 7).
+	box, err := secrets.Load(filepath.Join(cfg.StateDir, "secret.key"))
+	if err != nil {
+		return err
+	}
+	open := banklink.EnableBanking
+	if cfg.Demo {
+		open = demo.Bank
+	}
+	links := banklink.New(database, box, open, nil, log)
+
 	opts := server.Options{DB: database, Version: version, Demo: cfg.Demo, Clock: clk, WebDir: cfg.WebDir, Logger: log,
-		PublicURL: cfg.PublicURL}
+		PublicURL: cfg.PublicURL, Bank: links, Syncer: links}
 	switch {
 	case cfg.MailLog:
 		opts.Mailer = mail.Log{Logger: log}
@@ -103,6 +117,8 @@ func serve() error {
 		if _, err := demo.Seed(ctx, database, fake.Provider{}, log); err != nil {
 			return err
 		}
+		// The seeded demo connections hold no session to fetch with, and the
+		// story has nothing after the demo date anyway.
 		opts.Syncer = demo.Syncer{Store: ledger.New(database)}
 		log.Warn("demo mode: every request acts as the demo user Bert, without signing in")
 	} else if err := auth.New(database, nil).Bootstrap(ctx, cfg.PublicURL, cfg.AdminRecovery, log); err != nil {

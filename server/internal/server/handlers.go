@@ -159,7 +159,9 @@ func (s *Server) postSync(w http.ResponseWriter, r *http.Request) {
 		rateLimited(w, wait, "Je hebt net gesynchroniseerd. Probeer het over %d %s opnieuw.")
 		return
 	}
-	if err := s.opts.Syncer.Sync(r.Context(), viewer, s.now()); err != nil {
+	ctx, cancel := bankContext(w, r)
+	defer cancel()
+	if err := s.opts.Syncer.Sync(ctx, viewer, s.now()); err != nil {
 		s.fail(w, r, err, msgNotFound)
 		return
 	}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/auth"
+	"github.com/BertVanBaelen/Saldo/server/internal/banklink"
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 	"github.com/BertVanBaelen/Saldo/server/internal/mail"
@@ -42,6 +43,9 @@ type Options struct {
 	// cookie (for tests). Demo mode acts as DemoViewer without a cookie.
 	Viewer func(*http.Request) (int64, bool)
 	Syncer Syncer
+	// Bank links bank accounts (docs/api.md, "Bank link"); nil answers 503
+	// on those routes.
+	Bank *banklink.Service
 	// Mailer sends the sign-in mails; nil means mail is not configured and
 	// the endpoints that need it answer 503.
 	Mailer mail.Sender
@@ -131,6 +135,10 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/alerts", s.listAlerts)
 	m.HandleFunc("GET /api/connections", s.listConnections)
 	m.HandleFunc("POST /api/sync", s.postSync)
+	m.HandleFunc("GET /api/bank/enablebanking", s.getEnableBanking)
+	m.HandleFunc("PUT /api/bank/enablebanking", s.putEnableBanking)
+	m.HandleFunc("POST /api/bank/link", s.postBankLink)
+	m.HandleFunc("POST /api/bank/callback", s.postBankCallback)
 	m.HandleFunc("/api/", s.apiFallback)
 	m.HandleFunc("/api", s.apiFallback)
 	m.HandleFunc("/", s.serveWeb)

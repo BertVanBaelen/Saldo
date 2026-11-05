@@ -216,10 +216,16 @@ func newBankEnv(t *testing.T) *bankEnv {
 	return be
 }
 
+// request calls the API as user and does not wait for the background syncs it started.
+func (e *bankEnv) request(user int64, method, path, body string) response {
+	e.t.Helper()
+	return e.do(call{method: method, path: path, body: body, header: map[string]string{"X-Test-User": strconv.FormatInt(user, 10)}})
+}
+
 // as calls the API as user and waits for the background syncs it started.
 func (e *bankEnv) as(user int64, method, path, body string) response {
 	e.t.Helper()
-	r := e.do(call{method: method, path: path, body: body, header: map[string]string{"X-Test-User": strconv.FormatInt(user, 10)}})
+	r := e.request(user, method, path, body)
 	e.s.syncs.Wait()
 	return r
 }

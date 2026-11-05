@@ -121,9 +121,9 @@ export interface Alert {
 export interface Connection {
   id: number;
   bank: string;
-  since: string;
-  validUntil: string;
-  daysLeft: number;
+  since: string | null;
+  validUntil: string | null;
+  daysLeft: number | null;
   lastSync: string | null;
   /** `stale`: no successful sync for 36 hours; `expired`: the consent lapsed; `pending`: linking not finished. */
   status: 'ok' | 'stale' | 'failed' | 'expired' | 'pending';

@@ -2,7 +2,7 @@
 # installs: the release workflow publishes ghcr.io/<owner>/saldo:<version>
 # for it once CI passes on main (see .github/workflows/release.yml).
 name: Saldo
-version: "0.2.1"
+version: "0.2.2"
 slug: saldo
 description: Weet vandaag hoe je maand eindigt. Je eigen budget- en planningsapp, op je eigen Home Assistant.
 url: https://github.com/BertVanBaelen/Saldo

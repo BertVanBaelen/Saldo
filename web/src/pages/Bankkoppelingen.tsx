@@ -18,7 +18,12 @@ import './Bankkoppelingen.css';
 const CONSENT_WARN_DAYS = 14;
 
 const plural = (n: number, one: string, many: string) => n + ' ' + (n === 1 ? one : many);
-const daysLeft = (c: Connection) => (c.daysLeft > 0 ? 'nog ' + plural(c.daysLeft, 'dag', 'dagen') : 'laatste dag');
+// A pending link has no consent dates yet (the server sends null until the bank has answered).
+const year = (d: string | null) => (d ? dateYear(d) : '');
+const daysLeft = (c: Connection) => {
+  const n = c.daysLeft ?? 0;
+  return n > 0 ? 'nog ' + plural(n, 'dag', 'dagen') : 'laatste dag';
+};
 const linkPath = (c?: Connection) => '/bankkoppelingen/koppelen' + (c ? '?koppeling=' + c.id : '');
 
 // ---------- Small pieces ----------
@@ -107,7 +112,7 @@ function headChip(c: Connection): { tone: 'ok' | 'warn' | 'neg'; text: string } 
   if (c.status === 'failed') return { tone: 'neg', text: 'Mislukt' };
   if (c.status === 'pending') return { tone: 'warn', text: 'Niet afgerond' };
   if (c.status === 'stale') return { tone: 'warn', text: 'Verouderd' };
-  if (c.daysLeft <= CONSENT_WARN_DAYS) return { tone: 'warn', text: c.daysLeft > 0 ? 'Nog ' + plural(c.daysLeft, 'dag', 'dagen') : 'Laatste dag' };
+  if (c.daysLeft !== null && c.daysLeft <= CONSENT_WARN_DAYS) return { tone: 'warn', text: c.daysLeft > 0 ? 'Nog ' + plural(c.daysLeft, 'dag', 'dagen') : 'Laatste dag' };
   return { tone: 'ok', text: 'Actief' };
 }
 
@@ -117,10 +122,10 @@ function ConnectionCard({ c, accounts, index }: { c: Connection; accounts: Accou
   const pending = c.status === 'pending';
   const failed = c.status === 'failed';
   const stale = c.status === 'stale';
-  const warnConsent = !expired && !pending && c.daysLeft <= CONSENT_WARN_DAYS;
+  const warnConsent = !expired && !pending && c.daysLeft !== null && c.daysLeft <= CONSENT_WARN_DAYS;
   const chip = headChip(c);
   const feeds = c.accounts.map((id) => accounts.find((a) => a.id === id)).filter((a): a is Account => !!a);
-  const until = dateYear(c.validUntil);
+  const until = year(c.validUntil);
   const when = c.lastSync ? momentLabel(c.lastSync, today) : null;
   const canSync = !expired && !pending && !failed;
   const titleId = 'bk-conn-' + c.id;
@@ -216,7 +221,7 @@ function ConnectionCard({ c, accounts, index }: { c: Connection; accounts: Accou
             </button>
           )}
         </Fact>
-        <Fact icon="link" text={'Gekoppeld sinds ' + dateYear(c.since)} small="Door jou, met je eigen Enable Banking-app" />
+        {c.since && <Fact icon="link" text={'Gekoppeld sinds ' + dateYear(c.since)} small="Door jou, met je eigen Enable Banking-app" />}
       </div>
 
       <div className="bk-actions">
@@ -486,8 +491,8 @@ export function BankKoppelen() {
               {pending
                 ? 'Het koppelen is nog niet afgerond.'
                 : expired
-                  ? 'Je toestemming is verlopen op ' + dateYear(conn.validUntil) + '.'
-                  : 'Je toestemming loopt tot ' + dateYear(conn.validUntil) + ', ' + daysLeft(conn) + '.'}{' '}
+                  ? 'Je toestemming is verlopen op ' + year(conn.validUntil) + '.'
+                  : 'Je toestemming loopt tot ' + year(conn.validUntil) + ', ' + daysLeft(conn) + '.'}{' '}
               Bevestig opnieuw bij {bank}, dan leest Saldo je rekeningen weer 180 dagen.
             </p>
             <div className="bk-box bk-summary">
@@ -594,7 +599,7 @@ function Linked({ result }: { result: BankLinkResult }) {
         <span className="bk-okline-dot" aria-hidden="true">
           <Icon name="clock" size={13} stroke={2.6} />
         </span>
-        <span>Toestemming tot {dateYear(c.validUntil)}.</span>
+        <span>Toestemming tot {year(c.validUntil)}.</span>
       </p>
     </>
   );

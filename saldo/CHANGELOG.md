@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.2
+- Fix: Bankkoppelingen and Meer failed with an error as soon as the Enable Banking key was saved. A link that is not finished yet has no consent dates, and the pages tried to show them. They now show "Niet afgerond".
+
 ## 0.2.1
 - Fix: Rekeningen failed with an error for a user without accounts (for example before the first bank link), because the accounts list answered `null` instead of an empty list. It now shows "Nog geen rekeningen".
 

@@ -138,7 +138,8 @@ describe('Back from the bank', () => {
     renderAt('/bankkoppelingen/terug?code=' + CODE + '&state=' + STATE, ME, true);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Klaar. Je rekening is gekoppeld.' })).toBeTruthy();
-    expect(where()).toBe('/bankkoppelingen/terug');
+    // The address is cleaned in an effect; the router applies it a moment after the result shows.
+    await waitFor(() => expect(where()).toBe('/bankkoppelingen/terug'));
     expect(callback).toHaveBeenCalledTimes(1);
     expect(callback).toHaveBeenCalledWith(CODE, STATE);
     expect(screen.getByText(ZICHT.name)).toBeTruthy();
@@ -158,7 +159,8 @@ describe('Back from the bank', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Koppelen lukt niet' })).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toBe('Deze koppelpoging is verlopen of al gebruikt. Begin opnieuw.');
     expect(screen.getByRole('link', { name: 'Opnieuw proberen' }).getAttribute('href')).toBe('/bankkoppelingen');
-    expect(where()).toBe('/bankkoppelingen/terug');
+    // The address is cleaned in an effect; the router applies it a moment after the result shows.
+    await waitFor(() => expect(where()).toBe('/bankkoppelingen/terug'));
   });
 
   it('says when the first sync failed, and when nothing came back from the bank', async () => {
@@ -171,7 +173,8 @@ describe('Back from the bank', () => {
     // Cancelled at the bank: nothing to post.
     renderAt('/bankkoppelingen/terug?error=access_denied&state=' + STATE);
     expect(await screen.findByRole('heading', { level: 1, name: 'Koppelen geannuleerd' })).toBeTruthy();
-    expect(where()).toBe('/bankkoppelingen/terug');
+    // The address is cleaned in an effect; the router applies it a moment after the result shows.
+    await waitFor(() => expect(where()).toBe('/bankkoppelingen/terug'));
     expect(callback).toHaveBeenCalledTimes(1);
   });
 
@@ -201,7 +204,8 @@ describe('Back from the bank', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Klaar. Je rekening is gekoppeld.' })).toBeTruthy();
     expect(callback).toHaveBeenCalledTimes(1);
     expect(callback).toHaveBeenCalledWith(CODE, STATE);
-    expect(where()).toBe('/bankkoppelingen/terug');
+    // The address is cleaned in an effect; the router applies it a moment after the result shows.
+    await waitFor(() => expect(where()).toBe('/bankkoppelingen/terug'));
   });
 
   it('explains the page when it is opened without an answer from the bank', async () => {

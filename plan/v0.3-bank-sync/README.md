@@ -19,7 +19,7 @@ Status: in progress (5 Nov 2026): the sync engine (0.3-1) and the consent remind
 |---|---|---|---|---|
 | [0.3-1](01-sync-engine.md) | Sync engine | L | BANK-3 | built, to verify |
 | [0.3-2](02-consent-reminders.md) | Consent status and reminders | M | BANK-4 | built, to verify |
-| [0.3-3](03-transacties.md) | Transacties | M | TX-2 | planned |
+| [0.3-3](03-transacties.md) | Transacties | M | TX-2 | built (5 Nov 2026), to verify on the live add-on |
 | [0.3-4](04-rekeningen-and-manual-accounts.md) | Rekeningen, account detail and manual accounts | M | ACCT-1 | planned |
 | [0.3-5](05-start-balances.md) | Start with balances and alerts | S | ACCT-2 | planned |
 | [0.3-6](06-csv-import.md) | Basic CSV import | M | TX-1 | planned |

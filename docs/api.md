@@ -66,7 +66,7 @@ Every account the viewer can see.
 Body with any of `name` (1–40 characters), `colour`, `buffer` (cents, ≥ 0, multiple of 100, current accounts only). Needs `permission: edit` (a read-only member gets `403`). Answers the updated account. Validation errors answer `400` with a Dutch message.
 
 ### `GET /api/transactions`
-Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, optional, default `alles`), `q` (search in counterparty, communication and amount), `uncategorised=1`, `before` (opaque cursor from `next`), `limit` (default 50, max 200).
+Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, optional, default `alles`), `q` (search in counterparty, communication and amount), `uncategorised=1`, `from` and `to` (booking dates `YYYY-MM-DD`, both inclusive, each optional), `before` (opaque cursor from `next`), `limit` (default 50, max 200).
 ```json
 {
   "items": [
@@ -82,10 +82,11 @@ Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, o
       "transfer": false
     }
   ],
-  "next": null
+  "next": null,
+  "total": 1
 }
 ```
-Newest first (booking date, then id). `status`: `pending` | `booked`. `category`: `{"id": 3, "name": "Boodschappen", "colour": "c2"}` or `null` (`colour` is a category pastel token `c1` … `c6`, or `soft` for income). `transfer`: true for a transfer between the viewer's own accounts (shown in text colour, not as an expense). `next` is a cursor string or `null`. `uncategorised=1` lists the rows without a category that are not a transfer for the viewer (the count of the categorise alert). Invalid parameters answer `400`; a `limit` above 200 is capped at 200.
+Newest first (booking date, then id). `status`: `pending` | `booked`. `category`: `{"id": 3, "name": "Boodschappen", "colour": "c2"}` or `null` (`colour` is a category pastel token `c1` … `c6`, or `soft` for income). `transfer`: true for a transfer between the viewer's own accounts (shown in text colour, not as an expense). `next` is a cursor string or `null`. `total` is the number of rows that match the filters (all pages; the cursor and `limit` do not change it), so `uncategorised=1&limit=1` gives the count for the badge. The amount search reads `12,50`, `12.50`, `€ 12,50` and `-12,5` as € 12,50 (the sign is ignored), whole euros as every amount of that euro (`12` is € 12,00 to € 12,99, never € 120). `uncategorised=1` lists the rows without a category that are not a transfer for the viewer (the count of the categorise alert). Invalid parameters answer `400`; a `limit` above 200 is capped at 200.
 
 ### `GET /api/alerts`
 The alerts for Start, already scoped to the viewer.
@@ -213,6 +214,5 @@ A sync of a connection (from `POST /api/sync`, the link callback or the nightly 
 **Which balance.** The snapshot is the booked balance, because pending rows stay out of the totals (4.1) and an "available" balance can include a credit line: of `ITBD` (interim booked) and `CLBD` (closing booked) the one with the newer date, `ITBD` on the same date; without a booked balance `XPCD` (expected), else the first one reported (verify in S1 which types Argenta sends).
 
 ## Planned changes
-- A count for `uncategorised=1` (or a `total`), so the sidebar badge does not need a page of rows.
 - Alerts about one account carry its `accountId` (planning alerts, 0.8).
 - Transfers to a savings account are shown as "Gespaard" (analysis 5.2), not only as "Overschrijving" (0.6-3).

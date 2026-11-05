@@ -111,7 +111,8 @@ export const EB_OFF: EnableBanking = { configured: false, applicationId: null, r
 
 interface Stub {
   accounts?: Account[];
-  transactions?: Transaction[] | ((q: TransactionQuery) => TransactionPage);
+  /** A list, or a page per query (`total` defaults to the page's rows). */
+  transactions?: Transaction[] | ((q: TransactionQuery) => Omit<TransactionPage, 'total'> & { total?: number });
   alerts?: Alert[];
   connections?: Connection[];
   devices?: Device[];
@@ -121,10 +122,20 @@ interface Stub {
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
 export function stubApi(s: Stub = {}) {
   const list = s.transactions ?? TRANSACTIONS;
+  // The server's shape: `total` counts every matching row, `limit` cuts the page.
   const page = (q: TransactionQuery): TransactionPage => {
-    if (typeof list === 'function') return list(q);
-    const items = list.filter((t) => !q.uncategorised || (!t.category && !t.transfer));
-    return { items, next: null };
+    if (typeof list === 'function') {
+      const p = list(q);
+      return { ...p, total: p.total ?? p.items.length };
+    }
+    const items = list.filter(
+      (t) =>
+        (!q.uncategorised || (!t.category && !t.transfer)) &&
+        (!q.account || t.accountId === q.account) &&
+        (!q.from || t.bookingDate >= q.from) &&
+        (!q.to || t.bookingDate <= q.to),
+    );
+    return { items: items.slice(0, q.limit ?? 50), next: null, total: items.length };
   };
   return {
     accounts: vi.spyOn(api, 'accounts').mockImplementation(async () => structuredClone(s.accounts ?? ACCOUNTS)),

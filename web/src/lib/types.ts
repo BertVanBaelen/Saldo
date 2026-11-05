@@ -99,6 +99,8 @@ export interface Transaction {
 export interface TransactionPage {
   items: Transaction[];
   next: string | null;
+  /** Rows that match the filters, on all pages. */
+  total: number;
 }
 
 export interface TransactionQuery {
@@ -106,6 +108,9 @@ export interface TransactionQuery {
   scope?: Scope;
   q?: string;
   uncategorised?: boolean;
+  /** Booking dates `YYYY-MM-DD`, inclusive. */
+  from?: string;
+  to?: string;
   before?: string;
   limit?: number;
 }

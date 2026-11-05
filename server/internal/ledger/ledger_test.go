@@ -358,6 +358,8 @@ func TestFiltersAndPagination(t *testing.T) {
 		{"24,99", "Bol.com"},
 		{"€ 86.42", "Colruyt Laagste Prijzen"},
 		{"graankorrel", "Bakkerij De Graankorrel"},
+		{"8,40", "Bakkerij De Graankorrel"},
+		{"-8,4", "Bakkerij De Graankorrel"},
 		{"100%", ""},
 		{"_", ""},
 	}

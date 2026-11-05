@@ -311,6 +311,7 @@ func TestPatchAccount(t *testing.T) {
 type pageBody struct {
 	Items []json.RawMessage `json:"items"`
 	Next  *string           `json:"next"`
+	Total *int              `json:"total"`
 }
 
 func TestTransactions(t *testing.T) {
@@ -346,8 +347,24 @@ func TestTransactions(t *testing.T) {
 
 	r = do(t, h, "GET", "/api/transactions?uncategorised=1", "")
 	page = decode[pageBody](t, r.body)
-	if len(page.Items) != 4 || page.Next != nil {
-		t.Errorf("uncategorised: %d items, next %v", len(page.Items), page.Next)
+	if len(page.Items) != 4 || page.Next != nil || page.Total == nil || *page.Total != 4 {
+		t.Errorf("uncategorised: %d items, next %v, total %v", len(page.Items), page.Next, page.Total)
+	}
+	// The badge asks one row and reads the total.
+	r = do(t, h, "GET", "/api/transactions?uncategorised=1&limit=1", "")
+	if page = decode[pageBody](t, r.body); len(page.Items) != 1 || page.Total == nil || *page.Total != 4 {
+		t.Errorf("uncategorised count: %s", r.body)
+	}
+	// A period: booking dates from and to, both inclusive.
+	r = do(t, h, "GET", "/api/transactions?from=2026-11-17&to=2026-11-17&limit=200", "")
+	page = decode[pageBody](t, r.body)
+	if len(page.Items) == 0 || *page.Total != len(page.Items) {
+		t.Fatalf("period: %s", r.body)
+	}
+	for _, raw := range page.Items {
+		if tx := decode[ledger.Transaction](t, string(raw)); tx.BookingDate != "2026-11-17" {
+			t.Fatalf("period holds %s", tx.BookingDate)
+		}
 	}
 	r = do(t, h, "GET", "/api/transactions?scope=gedeeld&limit=200", "")
 	for _, raw := range decode[pageBody](t, r.body).Items {
@@ -372,6 +389,8 @@ func TestTransactions(t *testing.T) {
 	expectError(t, do(t, h, "GET", "/api/transactions?limit=x", ""), http.StatusBadRequest, "invalid")
 	expectError(t, do(t, h, "GET", "/api/transactions?uncategorised=ja", ""), http.StatusBadRequest, "invalid")
 	expectError(t, do(t, h, "GET", "/api/transactions?before=garbage", ""), http.StatusBadRequest, "invalid")
+	expectError(t, do(t, h, "GET", "/api/transactions?from=18-11-2026", ""), http.StatusBadRequest, "invalid")
+	expectError(t, do(t, h, "GET", "/api/transactions?from=2026-11-18&to=2026-11-01", ""), http.StatusBadRequest, "invalid")
 	expectError(t, do(t, h, "GET", "/api/transactions?q="+strings.Repeat("x", 101), ""), http.StatusBadRequest, "invalid")
 }
 

@@ -111,6 +111,8 @@ export function transactionsPath(q: TransactionQuery = {}): string {
   if (q.scope && q.scope !== 'alles') p.set('scope', q.scope);
   if (q.q && q.q.trim()) p.set('q', q.q.trim());
   if (q.uncategorised) p.set('uncategorised', '1');
+  if (q.from) p.set('from', q.from);
+  if (q.to) p.set('to', q.to);
   if (q.before) p.set('before', q.before);
   if (q.limit !== undefined) p.set('limit', String(q.limit));
   const s = p.toString();

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.3 Bank sync](README.md) |
-| Status | planned |
+| Status | built (5 Nov 2026), to verify on the live add-on |
 | Size | M |
 | Features | TX-2 |
 | Concepts | [transaction](../../analysis/concepts/transaction.md), [account](../../analysis/concepts/account.md) |

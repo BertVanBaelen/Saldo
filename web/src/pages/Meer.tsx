@@ -54,23 +54,31 @@ function accountsSub(list: Account[] | undefined): string {
   return list.length + (list.length === 1 ? ' rekening' : ' rekeningen') + ' · buffer en kleur';
 }
 
+/** No successful sync for this long: "Synchronisatie gestopt", as the server's alert and mail. */
+const STOPPED_MS = 72 * 3600 * 1000;
+
 /**
- * "Argenta · toestemming nog 12 dagen" (warn from 14 days), "Argenta · synchronisatie mislukt" or
- * "… toestemming verlopen" (red), "… koppelen niet afgerond" (warn).
+ * "Argenta · toestemming nog 12 dagen" (warn from 14 days), "Argenta · synchronisatie mislukt",
+ * "… synchronisatie gestopt" or "… toestemming verlopen" (red), "… koppelen niet afgerond" (warn).
  */
-export function connectionsSub(list: Connection[] | undefined): { sub: string; tone: '' | 'warn' | 'neg' } {
+export function connectionsSub(list: Connection[] | undefined, now = Date.now()): { sub: string; tone: '' | 'warn' | 'neg' } {
   if (!list) return { sub: 'Je banken en toestemmingen', tone: '' };
   if (!list.length) return { sub: 'Nog geen bank gekoppeld', tone: '' };
   const failed = list.find((c) => c.status === 'failed');
   if (failed) return { sub: failed.bank + ' · synchronisatie mislukt', tone: 'neg' };
-  const expired = list.find((c) => c.status === 'expired' || (c.daysLeft !== null && c.daysLeft <= 0));
+  const expired = list.find((c) => c.status === 'expired');
   if (expired) return { sub: expired.bank + ' · toestemming verlopen', tone: 'neg' };
+  const stopped = list.find((c) => c.status === 'stale' && c.lastSync !== null && now - Date.parse(c.lastSync) > STOPPED_MS);
+  if (stopped) return { sub: stopped.bank + ' · synchronisatie gestopt', tone: 'neg' };
   const pending = list.find((c) => c.status === 'pending');
   if (pending) return { sub: pending.bank + ' · koppelen niet afgerond', tone: 'warn' };
-  const left = (x: Connection) => x.daysLeft ?? 0; // no pending link is left here
-  const c = [...list].sort((a, b) => left(a) - left(b))[0];
-  const days = left(c) === 1 ? '1 dag' : left(c) + ' dagen';
-  return { sub: c.bank + ' · toestemming nog ' + days, tone: left(c) <= 14 || c.status === 'stale' ? 'warn' : '' };
+  const stale = list.some((c) => c.status === 'stale');
+  const dated = list.filter((c) => c.daysLeft !== null).sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
+  if (!dated.length) return { sub: list[0].bank + ' · gekoppeld', tone: stale ? 'warn' : '' };
+  const c = dated[0];
+  const left = c.daysLeft ?? 0;
+  const days = left === 0 ? 'verloopt vandaag' : 'nog ' + (left === 1 ? '1 dag' : left + ' dagen');
+  return { sub: c.bank + ' · toestemming ' + days, tone: left <= 14 || stale ? 'warn' : '' };
 }
 
 export function Meer() {

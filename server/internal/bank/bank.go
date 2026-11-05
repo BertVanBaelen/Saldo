@@ -2,18 +2,18 @@
 // implements (analysis 6.4): list the accounts of a consent, fetch their
 // transactions and fetch their balances.
 //
-// Two implementations are planned. The fake provider in package bank/fake
-// serves the demo story for local development, demo mode and tests, so CI
-// never calls a real bank. The Enable Banking client (JWT RS256 signed with
-// the user's own application key) arrives with the first real bank link in
-// phase 0.2-6 and implements the same interface; CSV imports feed the same
-// pipeline later.
+// Two implementations exist. The fake provider in package bank/fake serves
+// the demo story for local development, demo mode and tests, so CI never
+// calls a real bank. The Enable Banking client in bank/enablebanking (JWT
+// RS256 signed with the user's own application key) talks to the real bank;
+// CSV imports feed the same pipeline later.
 package bank
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 )
 
 // Status of a transaction at the bank.
@@ -29,6 +29,14 @@ var ErrSessionExpired = errors.New("bank: session expired")
 // Session identifies an authorised consent at the provider.
 type Session struct {
 	ID string
+}
+
+// SessionInfo is a completed consent: the session to sync with, the accounts
+// the user shared and the moment the consent lapses.
+type SessionInfo struct {
+	ID         string // the credential for the Provider methods, as Session{ID: ID}
+	Accounts   []Account
+	ValidUntil time.Time
 }
 
 // Account is a bank account as the provider reports it.

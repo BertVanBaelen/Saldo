@@ -2,7 +2,7 @@
 // See analysis/concepts/app-shell.md and analysis/concepts/scope.md.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, errorMessage } from '../lib/api';
-import type { Alert, Me, Scope, Theme } from '../lib/types';
+import type { Alert, Me, Scope, Theme, User } from '../lib/types';
 
 export interface Toast {
   id: number;
@@ -17,6 +17,8 @@ export interface UncategorisedCount {
 
 export interface AppContextValue {
   me: Me;
+  /** Show a changed profile (name) everywhere at once. */
+  setUser: (u: User) => void;
   today: string;
   scope: Scope;
   setScope: (s: Scope) => void;
@@ -76,7 +78,9 @@ export function useOnline(): boolean {
   return online;
 }
 
-export function AppProvider({ me, children }: { me: Me; children: ReactNode }) {
+export function AppProvider({ me: initial, children }: { me: Me; children: ReactNode }) {
+  const [user, setUser] = useState<User>(initial.user);
+  const me = useMemo<Me>(() => ({ ...initial, user }), [initial, user]);
   const [scope, setScopeState] = useState<Scope>(me.preferences.scope);
   const [theme, setThemeState] = useState<Theme>(me.preferences.theme);
   const [current, setCurrent] = useState<Toast | null>(null);
@@ -175,6 +179,7 @@ export function AppProvider({ me, children }: { me: Me; children: ReactNode }) {
   const value = useMemo<AppContextValue>(
     () => ({
       me,
+      setUser,
       today: me.today,
       scope,
       setScope,

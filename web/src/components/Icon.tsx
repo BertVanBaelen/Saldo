@@ -50,6 +50,7 @@ const paths = {
   eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>,
   filter: <path d="M4 5h16l-6 8v5l-4 2v-7L4 5Z" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
+  copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></>,
   spark: <path d="M12 4.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z" />,
 } satisfies Record<string, ReactElement>;
 

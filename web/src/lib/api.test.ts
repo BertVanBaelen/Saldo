@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, errorMessage, NETWORK_MESSAGE, transactionsPath } from './api';
+import { api, ApiError, errorMessage, NETWORK_MESSAGE, onUnauthorized, transactionsPath } from './api';
 
 function respond(status: number, body: unknown, raw = false) {
   return vi.fn().mockResolvedValue(new Response(raw ? (body as string) : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -67,6 +67,19 @@ describe('api client', () => {
     await api.updateAccount(4, { name: 'Huishouden', colour: 'teal' });
     expect(patch.mock.calls[0][0]).toBe('/api/accounts/4');
     expect(patch.mock.calls[0][1].method).toBe('PATCH');
+  });
+
+  it('reports a 401 as signed out, except the sign-in routes’ own 401 (a wrong code)', async () => {
+    const signedOut = vi.fn();
+    const off = onUnauthorized(signedOut);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { code: 'invalid_code', message: 'Deze code klopt niet.' } }), { status: 401 })));
+    await expect(api.verify('ch', '12345678')).rejects.toMatchObject({ status: 401, code: 'invalid_code', message: 'Deze code klopt niet.' });
+    expect(signedOut).not.toHaveBeenCalled();
+
+    vi.stubGlobal('fetch', respond(401, { error: { code: 'unauthorized', message: 'Je bent niet aangemeld.' } }));
+    await expect(api.accounts()).rejects.toMatchObject({ status: 401 });
+    expect(signedOut).toHaveBeenCalledTimes(1);
+    off();
   });
 
   it('builds the transactions query and leaves out empty values', () => {

@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -96,6 +98,52 @@ func TestLoad(t *testing.T) {
 				t.Errorf("got  %+v\nwant %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMailAndRecovery(t *testing.T) {
+	dir := t.TempDir()
+	opts := filepath.Join(dir, "options.json")
+	if err := os.WriteFile(opts, []byte(`{"smtp_host":"smtp.example.com","smtp_security":"tls","smtp_user":"saldo@example.com",
+		"smtp_password":" s3cret ","admin_recovery":true,"public_url":"https://saldo.example.com"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(func(k string) string { return map[string]string{"SALDO_OPTIONS_FILE": opts}[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := SMTP{Host: "smtp.example.com", Port: 465, Security: "tls", User: "saldo@example.com", Password: " s3cret ", From: "saldo@example.com"}
+	if got.SMTP != want || !got.AdminRecovery || got.MailLog {
+		t.Errorf("from the options file: %+v", got)
+	}
+	if s := fmt.Sprintf("%+v", got); strings.Contains(s, "s3cret") {
+		t.Errorf("the password shows when printed: %s", s)
+	}
+
+	env := map[string]string{
+		"SALDO_OPTIONS_FILE": opts, "SALDO_SMTP_SECURITY": "starttls", "SALDO_SMTP_PORT": "2525",
+		"SALDO_SMTP_FROM": "Saldo <saldo@example.com>", "SALDO_ADMIN_RECOVERY": "0", "SALDO_MAIL_LOG": "1",
+		"SALDO_PUBLIC_URL": "http://localhost:5173",
+	}
+	got, err = Load(func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SMTP.Security != "starttls" || got.SMTP.Port != 2525 || got.SMTP.From != "Saldo <saldo@example.com>" ||
+		got.AdminRecovery || !got.MailLog || got.PublicURL != "http://localhost:5173" {
+		t.Errorf("environment overrides: %+v", got)
+	}
+
+	for _, bad := range []map[string]string{
+		{"SALDO_SMTP_HOST": "smtp.example.com", "SALDO_SMTP_SECURITY": "none", "SALDO_SMTP_FROM": "saldo@example.com"},
+		{"SALDO_SMTP_HOST": "smtp.example.com"}, // no sender
+		{"SALDO_SMTP_HOST": "smtp.example.com", "SALDO_SMTP_FROM": "saldo@example.com", "SALDO_SMTP_PORT": "99999"},
+		{"SALDO_SMTP_PORT": "x"},
+	} {
+		bad["SALDO_OPTIONS_FILE"] = filepath.Join(dir, "missing.json")
+		if _, err := Load(func(k string) string { return bad[k] }); err == nil {
+			t.Errorf("%v: want an error", bad)
+		}
 	}
 }
 

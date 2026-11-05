@@ -378,7 +378,7 @@ function Welcome() {
     ['chart', 'Waar je geld naartoe gaat'],
   ];
   const steps = [
-    { to: '/instellingen', title: 'Enable Banking instellen', sub: 'Je eigen application id en sleutel · eenmalig' },
+    { to: '/instellingen/enable-banking', title: 'Enable Banking instellen', sub: 'Je eigen application id en sleutel · eenmalig' },
     { to: '/bankkoppelingen', title: 'Bank koppelen', sub: 'Kies je bank en geef toestemming in je bankapp' },
     { to: '/importeren', title: 'Geschiedenis importeren', sub: 'Optioneel · een CSV-bestand, bv. de export uit Bilance' },
   ];

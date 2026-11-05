@@ -7,10 +7,16 @@ import (
 	"database/sql"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/BertVanBaelen/Saldo/server/internal/auth"
+	"github.com/BertVanBaelen/Saldo/server/internal/banklink"
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
+	"github.com/BertVanBaelen/Saldo/server/internal/mail"
 	"github.com/BertVanBaelen/Saldo/server/internal/ratelimit"
 )
 
@@ -33,12 +39,21 @@ type Options struct {
 	Clock   clock.Clock
 	WebDir  string // built web app; empty or missing shows a short notice
 	Logger  *slog.Logger
-	// Viewer resolves the signed-in user of a request. When nil, demo mode
-	// acts as DemoViewer and outside demo mode nobody is signed in (sign-in
-	// arrives in phase 0.2-4).
+	// Viewer, when set, resolves the signed-in user instead of the device
+	// cookie (for tests). Demo mode acts as DemoViewer without a cookie.
 	Viewer func(*http.Request) (int64, bool)
 	Syncer Syncer
-	// Now is the clock of the sync rate limit; time.Now when nil.
+	// Bank links bank accounts (docs/api.md, "Bank link"); nil answers 503
+	// on those routes.
+	Bank *banklink.Service
+	// Mailer sends the sign-in mails; nil means mail is not configured and
+	// the endpoints that need it answer 503.
+	Mailer mail.Sender
+	// PublicURL is the address Saldo is opened on (no trailing slash): the
+	// trusted origin, the cookie's Secure flag and the links in mails.
+	PublicURL string
+	// Now is the clock of rate limits, sign-in codes, links and devices;
+	// time.Now when nil.
 	Now func() time.Time
 }
 
@@ -47,30 +62,51 @@ type Server struct {
 	opts     Options
 	db       *sql.DB
 	store    *ledger.Store
+	auth     *auth.Store
 	log      *slog.Logger
 	cooldown *ratelimit.Cooldown
+	limits   limits
+	secure   bool // device cookie only over https
+	mails    sync.WaitGroup
 	mux      *http.ServeMux
 }
 
 // New returns the complete HTTP handler with its middleware.
 func New(o Options) http.Handler {
+	_, h := newServer(o)
+	return h
+}
+
+func newServer(o Options) (*Server, http.Handler) {
 	if o.Logger == nil {
 		o.Logger = slog.New(slog.DiscardHandler)
 	}
-	if o.Viewer == nil {
-		demo := o.Demo
-		o.Viewer = func(*http.Request) (int64, bool) { return DemoViewer, demo }
+	if o.Now == nil {
+		o.Now = time.Now
 	}
 	s := &Server{
 		opts:     o,
 		db:       o.DB,
 		store:    ledger.New(o.DB),
+		auth:     auth.New(o.DB, o.Now),
 		log:      o.Logger,
 		cooldown: ratelimit.NewCooldown(SyncCooldown, o.Now),
+		limits:   newLimits(o.Now),
+		secure:   strings.HasPrefix(o.PublicURL, "https://"),
 		mux:      http.NewServeMux(),
 	}
 	s.routes()
-	return s.logRequests(s.recoverPanics(securityHeaders(s.requireViewer(s.mux))))
+
+	csrf := http.NewCrossOriginProtection()
+	if u, err := url.Parse(o.PublicURL); err == nil && u.Host != "" {
+		if err := csrf.AddTrustedOrigin(u.Scheme + "://" + u.Host); err != nil {
+			s.log.Error("public_url is not a usable origin", "error", err)
+		}
+	}
+	csrf.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusForbidden, "forbidden", "Deze aanvraag komt niet van Saldo zelf en is geweigerd.")
+	}))
+	return s, s.logRequests(s.recoverPanics(securityHeaders(csrf.Handler(s.requireViewer(s.mux)), s.secure)))
 }
 
 func (s *Server) routes() {
@@ -78,13 +114,31 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/health", s.health)
 	m.HandleFunc("GET /healthz", s.health)
 	m.HandleFunc("GET /api/me", s.getMe)
+	m.HandleFunc("PATCH /api/me", s.patchMe)
 	m.HandleFunc("PUT /api/me/preferences", s.putPreferences)
+	m.HandleFunc("PUT /api/me/password", s.putPassword)
+	m.HandleFunc("POST /api/auth/login", s.postLogin)
+	m.HandleFunc("POST /api/auth/verify", s.postVerify)
+	m.HandleFunc("POST /api/auth/logout", s.postLogout)
+	m.HandleFunc("GET /api/auth/token/{token}", s.getToken)
+	m.HandleFunc("POST /api/auth/redeem", s.postRedeem)
+	m.HandleFunc("GET /api/devices", s.listDevices)
+	m.HandleFunc("DELETE /api/devices/{id}", s.deleteDevice)
+	m.HandleFunc("POST /api/devices/sign-out-others", s.signOutOthers)
+	m.HandleFunc("GET /api/users", s.listUsers)
+	m.HandleFunc("POST /api/users/invitations", s.postInvitation)
+	m.HandleFunc("DELETE /api/users/invitations/{id}", s.deleteInvitation)
+	m.HandleFunc("POST /api/users/{id}/password-reset", s.postPasswordReset)
 	m.HandleFunc("GET /api/accounts", s.listAccounts)
 	m.HandleFunc("PATCH /api/accounts/{id}", s.patchAccount)
 	m.HandleFunc("GET /api/transactions", s.listTransactions)
 	m.HandleFunc("GET /api/alerts", s.listAlerts)
 	m.HandleFunc("GET /api/connections", s.listConnections)
 	m.HandleFunc("POST /api/sync", s.postSync)
+	m.HandleFunc("GET /api/bank/enablebanking", s.getEnableBanking)
+	m.HandleFunc("PUT /api/bank/enablebanking", s.putEnableBanking)
+	m.HandleFunc("POST /api/bank/link", s.postBankLink)
+	m.HandleFunc("POST /api/bank/callback", s.postBankCallback)
 	m.HandleFunc("/api/", s.apiFallback)
 	m.HandleFunc("/api", s.apiFallback)
 	m.HandleFunc("/", s.serveWeb)

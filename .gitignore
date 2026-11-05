@@ -27,3 +27,6 @@ coverage/
 /data/
 /private/
 *-real.csv
+
+# Agent worktrees
+/.claude/worktrees/

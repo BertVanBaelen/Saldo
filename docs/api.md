@@ -9,7 +9,7 @@ The web app talks to the Go server over JSON under `/api`. This file is the cont
 - Errors: HTTP status plus `{"error": {"code": "not_found", "message": "Dutch text for the user"}}`. Codes: `invalid` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `method_not_allowed` (405), `too_large` (413), `unsupported_media_type` (415), `rate_limited` (429), `internal` (500), `unavailable` (503).
 - Request bodies are JSON objects sent with `Content-Type: application/json` (anything else answers `415`); unknown fields answer `400`.
 - Every financial query is scoped to the **viewer** through `account_access` (analysis 2, 8). A resource the viewer cannot see answers `404`, never `403`, so nothing leaks.
-- Until sign-in exists (phase 0.2-4) the viewer only exists in **demo mode** (`SALDO_DEMO=1`): the server then seeds the demo story and acts as Bert. Outside demo mode every `/api` route except health answers `401`.
+- The viewer is the signed-in user of the device cookie (see "Sign-in" below). In **demo mode** (`SALDO_DEMO=1`) the server seeds the demo story and acts as Bert without signing in. Every `/api` route except health and the public sign-in routes answers `401` without a viewer.
 
 ## Endpoints
 
@@ -109,8 +109,92 @@ The viewer's own bank connections.
 ### `POST /api/sync`
 Starts a sync of the viewer's connections (in demo mode: the fake provider). Answers `202 {"started": true}`; a second call within 15 minutes answers `429` with a Dutch message and a `Retry-After` header (seconds).
 
+## Sign-in (phase 0.2-4)
+
+The viewer is resolved from the **device cookie** `saldo_device`: a random 32-byte token (base64url), stored only as a SHA-256 hash in `devices.token_hash`; `HttpOnly`, `SameSite=Strict`, `Secure` when the public URL is https or the request was https at the edge (`X-Forwarded-Proto` or `CF-Visitor`, believed only from a private or loopback peer such as the Cloudflared add-on), `Path=/`, 90 days, renewed while used. With an https public URL every answer carries `Strict-Transport-Security: max-age=31536000`. One-time tokens in paths are left out of the log. A device unused for 90 days or revoked answers `401`. Demo mode (`SALDO_DEMO=1`) keeps acting as Bert without a cookie. Every unsafe request (anything but `GET`/`HEAD`) must come from the same origin (`http.CrossOriginProtection`, with the public URL as trusted origin); otherwise `403 forbidden`.
+
+Extra error code: `invalid_code` (401). Rate-limited answers are `429` with `Retry-After`. The sign-in endpoints never reveal whether an e-mail address has an account. Limits per 10 minutes: login 20 per IP and 5 per typed address; verify 20 per IP; token and redeem together 20 per IP; 5 wrong current passwords per user.
+
+Links in e-mails and in the add-on log use the public URL: `/setup/<token>` (first admin, 1 hour), `/uitnodiging/<token>` (invitation, 7 days), `/nieuw-wachtwoord/<token>` (reset, 1 hour). Tokens are random, stored hashed, single use.
+
+### `POST /api/auth/login` (public)
+Body `{"email": "…", "password": "…"}`. Always `200 {"challenge": "<opaque>", "email": "b•••@jouw-domein.be"}` (the typed address, masked), also for an unknown address or a wrong password; then no e-mail is sent and step 2 fails. Only when the password is right is an 8-digit code (valid 10 minutes, single use, hashed, 5 attempts) e-mailed; it replaces the user's earlier codes. Limits: per IP and per address, and at most 3 codes per user per 10 minutes: a fourth request answers `200` as above but sends no code (a `429` there would confirm the password). `400 invalid` for something that is not an e-mail address or an empty password. `503 unavailable` when no mail can be sent (SMTP not configured).
+
+### `POST /api/auth/verify` (public)
+Body `{"challenge": "…", "code": "12345678"}`. `200 {"user": {…as in /api/me…}}` and `Set-Cookie: saldo_device`. This creates a new trusted device (name from the User-Agent, for example "Safari op iPhone") and e-mails "Nieuw toestel aangemeld". Wrong, expired, used or unknown: `401 invalid_code`.
+
+### `POST /api/auth/logout`
+`204`; revokes the current device and clears the cookie.
+
+### `GET /api/auth/token/{token}` (public)
+`200 {"kind": "setup" | "invitation" | "password_reset", "email": "…" | null, "name": "…" | null}` for a live token, else `404 not_found`. Rate limited per IP.
+
+### `POST /api/auth/redeem` (public)
+Body `{"token": "…", "password": "…", "name": "…", "email": "…"}`. `setup` needs `name`, `email` and `password` and creates the first admin (only while no user exists); `invitation` needs `name` and `password` (the e-mail is the invited one); `password_reset` needs `password` and signs out every device of that user. `204`, the token is spent, and the user then signs in normally. A token that is not live answers `404 not_found`. Password: at least 12 characters, not on a short blocklist of common passwords, not the e-mail address; otherwise `400 invalid` with a Dutch message (also for a missing name, 1–40 characters).
+
+### `GET /api/devices`
+`[{"id": 3, "name": "Safari op iPhone", "createdAt": "…", "lastUsedAt": "…", "current": true}]` of the viewer's active devices.
+
+### `DELETE /api/devices/{id}`
+`204`; signs a device of the viewer out (a device of someone else answers `404`). Deleting the current device is the same as logout.
+
+### `POST /api/devices/sign-out-others`
+`204`; revokes every device of the viewer except the current one.
+
+### `PATCH /api/me`
+Body `{"name": "…"}` (1–40 characters). Answers the user.
+
+### `PUT /api/me/password`
+Body `{"current": "…", "new": "…"}`. `204`; revokes every other device. A wrong `current` answers `400 invalid` and counts against the rate limit.
+
+### `GET /api/users` (admin)
+`{"users": [{"id": 1, "name": "Bert", "email": "…", "role": "admin", "initial": "B"}], "invitations": [{"id": 2, "email": "…", "role": "user", "expiresAt": "…"}]}`. A non-admin answers `403 forbidden`.
+
+### `POST /api/users/invitations` (admin)
+Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-mails the link and replaces an earlier pending invitation for the same address. An address that already has an account, or another role, answers `400 invalid`. `503 unavailable` without mail or without `public_url` (the link needs it), or when the mail could not be sent (the invitation is then withdrawn).
+
+### `DELETE /api/users/invitations/{id}` (admin)
+`204`; the link stops working. An unknown id answers `404`.
+
+### `POST /api/users/{id}/password-reset` (admin)
+`204`; e-mails that user a reset link (1 hour, replacing an earlier unused one) and signs out none of their devices until it is used. An unknown user answers `404`; `503` as for invitations.
+
+Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window). IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
+
+## Bank link (phase 0.2-6)
+
+Real bank data comes from Enable Banking (`server/internal/bank/enablebanking`); demo mode and tests use the fake provider. Secrets (the application's private key, the bank session id) are stored sealed with `internal/secrets`, never returned by the API and never logged.
+
+**Redirect URL.** The user comes back from the bank to the web page `<public_url>/bankkoppelingen/terug?code=…&state=…`, not to an API route: that navigation starts on the bank's site, so the `SameSite=Strict` device cookie is not sent with it. The page then calls `POST /api/bank/callback` from within the app (same site, cookie sent). The same URL is what the user registers as redirect URL in their Enable Banking application.
+
+**One connection per bank.** A user has one Argenta connection: saving the credentials the first time creates it with status `pending` (it shows in `GET /api/connections`), and every later link of that user is a (re-)authorisation of it.
+
+**Demo mode** runs the same code against the fake bank: the "consent page" is the redirect page itself with `code=demo`, and the callback re-matches the demo accounts by IBAN (no duplicates) and records a sync. Without `public_url`, demo mode builds the redirect URL from the request's own origin. `POST /api/sync` in demo mode still only records a sync.
+
+Link and sync with the bank run detached from the request for up to 5 minutes, so a browser or tunnel that gives up does not lose a consent the bank has already confirmed.
+
+### `GET /api/bank/enablebanking`
+`{"configured": true, "applicationId": "…", "redirectUrl": "https://…/bankkoppelingen/terug"}`. `configured` is false until a key is stored; `applicationId` is then null. `redirectUrl` is null when no `public_url` is set (linking then answers `503`). Never returns the key. Demo mode: `configured: true`, `applicationId: "demo"`.
+
+### `PUT /api/bank/enablebanking`
+Body `{"applicationId": "…", "privateKey": "-----BEGIN … PEM"}`. The key must parse as an RSA PEM key, and a connection test (Enable Banking `GET /application`) must succeed; otherwise `400 invalid` (Dutch message saying what is wrong) or `503 unavailable` when the provider cannot be reached. Stores both for the viewer (sealed key) and answers like `GET`. Replacing the key keeps existing links. Demo mode: `400 invalid` "Niet beschikbaar in de demo.".
+
+### `POST /api/bank/link`
+Body `{"connectionId": 1}` (optional, the body may be left out; present = re-authorise that connection, absent = the viewer's Argenta connection). Answers `200 {"url": "https://…"}`: the bank's consent page. The server makes a random `state`, kept in memory with the viewer, the connection and an expiry of 15 minutes, single use. The consent asks for the maximum `valid_until` (180 days). Not configured: `400 invalid`; no `public_url`: `503`; a connection id that is not the viewer's: `404`; Enable Banking refuses (for example a redirect URL not registered in the app): `400 invalid`; Enable Banking unreachable: `503`. Limit: 10 per user per hour.
+
+### `POST /api/bank/callback`
+Body `{"code": "…", "state": "…"}`. The `state` must be known, unexpired, unused and bound to the signed-in viewer, else `400 invalid` with one generic Dutch message (nothing about which check failed); a state is spent by any attempt, also by someone else's. Then: create the session at the bank (a code the bank refuses: `400 invalid`; unreachable: `503`), store the sealed session id, the consent start and `valid_until`, mark the connection active, match every returned IBAN, and run the first sync. Answers `200 {"connection": <as in GET /api/connections>, "accounts": [<as in GET /api/accounts>], "skipped": [{"iban": "BE68 •••• •••• 4821", "reason": "exists"}]}`; `accounts` are the accounts this consent feeds.
+- Matching is by IBAN. A new IBAN creates a bank account with the viewer as manager (type `current`, the bank's product name as name, default colour, buffer 0). An IBAN the viewer already has for this connection is updated, never duplicated (re-authorisation). An IBAN that is already a bank account fed by another connection (another user's) is skipped with reason `exists` (joining arrives in 0.6-1). An account the bank returns without an IBAN is left out. An account the new consent no longer covers is kept but not fetched any more.
+- The first sync does not undo the link when it fails: the connection is kept and its `status` shows `failed`.
+
+### Sync with a real connection
+`POST /api/sync` (15-minute cooldown, as before) now syncs every active connection of the viewer: unseal the credentials, fetch transactions and balances per account, store new transactions (dedupe by `ledger.Keyed`/`InsertTransactions`; a pending row without booking date uses its value date), store the bank balance as a `balance_snapshot` (origin `bank`) and set `last_sync`. An account without stored transactions is fetched without a `from` date (`strategy=longest`): that is the first sync of a new link. Otherwise the sync starts 14 days before the account's newest stored transaction, also after re-authorising, which fetches what was missed while the consent had lapsed. A lapsed session (`bank.ErrSessionExpired`) marks the connection `expired` (it is then left alone until it is re-authorised); any other error marks it `failed` with an error code only: the provider's code (`ASPSP_ERROR`), `http_<status>`, `timeout`, `credentials` (the key or session cannot be unsealed) or `provider_error`. The nightly job is phase 0.3-1.
+
+**Which balance.** The snapshot is the booked balance, because pending rows stay out of the totals (4.1) and an "available" balance can include a credit line: of `ITBD` (interim booked) and `CLBD` (closing booked) the one with the newer date, `ITBD` on the same date; without a booked balance `XPCD` (expected), else the first one reported (verify in S1 which types Argenta sends).
+
 ## Planned changes
 - A count for `uncategorised=1` (or a `total`), so the sidebar badge does not need a page of rows.
-- A sync status to poll once real syncs run in the background (0.3-1); in demo mode `POST /api/sync` finishes before it answers.
+- A sync status to poll once real syncs run in the background (0.3-1); until then `POST /api/sync` and the callback finish the sync before they answer.
+- A pending row that the bank later books arrives as a new booked row; replacing the pending one is part of the sync engine (0.3-1).
 - Alerts about one account carry its `accountId` (planning alerts, 0.8).
 - Transfers to a savings account are shown as "Gespaard" (analysis 5.2), not only as "Overschrijving" (0.6-3).

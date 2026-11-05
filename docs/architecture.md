@@ -38,6 +38,6 @@ saldo (one Go binary, Home Assistant add-on)
 ```powershell
 pwsh -File scripts/dev.ps1
 ```
-starts the Go server in demo mode on http://localhost:8080 and the web app with hot reload on http://localhost:5180 (the frozen mockup keeps http://localhost:5173). Demo mode (`SALDO_DEMO=1`) seeds the demo story of analysis 12 and acts as Bert, because sign-in arrives in phase 0.2-4. Without demo mode the API answers `401`.
+starts the Go server in demo mode on http://localhost:8080 and the web app with hot reload on http://localhost:5180 (the frozen mockup keeps http://localhost:5173). Demo mode (`SALDO_DEMO=1`) seeds the demo story of analysis 12 and acts as Bert without signing in. Without demo mode the API answers `401` until you sign in; the first-admin setup link is written to the server log (set `SALDO_MAIL_LOG=1` to read the e-mail codes there too).
 
 Tests: `cd server; go test ./...` and `cd web; npm test`.

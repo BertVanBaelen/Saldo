@@ -201,15 +201,15 @@ Verified in the provider's docs and Argenta's own PSD2 page:
 - Account IDs change per session, so match accounts by IBAN (Argenta provides it).
 
 ### 6.2 Linking flow
-1. **One-time setup per user:** register a free Enable Banking app in restricted production mode, then enter the **application ID** and upload the **private key** (PEM) in the app's settings. The key is stored encrypted (see section 7). The redirect URL is `https://<your-domain>/api/bank/callback`.
+1. **One-time setup per user:** register a free Enable Banking app in restricted production mode, then enter the **application ID** and upload the **private key** (PEM) in the app's settings. The key is stored encrypted (see section 7). The redirect URL is `https://<your-domain>/bankkoppelingen/terug`, a page of the web app (see step 4).
 2. **Start linking:** the user picks Argenta. The server calls `POST /auth` with the maximum `valid_until` and a random `state` bound to the user's session, valid for 15 minutes and single use. The user is sent to the bank.
 3. **Consent at the bank:** strong authentication in the Argenta app, Digipass or itsme. The user selects the accounts to share.
-4. **Callback:** the bank redirects to the callback with a code and the `state`. The server rejects an unknown, expired or reused `state` and any callback that doesn't match the logged-in user. It then creates the session and lists the accounts.
+4. **Callback:** the bank redirects the browser to the web page `/bankkoppelingen/terug` with a code and the `state`; that page posts both to `/api/bank/callback`. The server rejects an unknown, expired or reused `state` and any callback that doesn't match the logged-in user. It then creates the session and lists the accounts.
 5. **Account matching:** for each returned IBAN, the app either creates the account (the user becomes manager) or offers to **join** an existing shared account (see 6.3).
 6. **First sync** with `strategy=longest` runs immediately, then the nightly sync takes over.
 7. **Re-authorisation** repeats steps 2 to 6 for the same connection. Accounts are matched by IBAN, so nothing is duplicated.
 
-The callback is reached by the user's **browser** (a redirect after the consent at the bank); the bank never calls Saldo's server. It needs the user's session, so it is not an open endpoint. Saldo runs on the public domain from the first development version (section 10), so the callback URL there is the real one from the start.
+The callback is reached by the user's **browser** (a redirect after the consent at the bank); the bank never calls Saldo's server. It needs the user's session, so it is not an open endpoint. That is why the redirect goes to a web page and not to the API: a navigation that starts on the bank's site does not carry the `SameSite=Strict` device cookie, but the page's own request to the API does. Saldo runs on the public domain from the first development version (section 10), so the callback URL there is the real one from the start.
 
 ### 6.3 Shared account: manager, members, automatic grouping
 - Accounts from the bank are keyed by **IBAN** (unique among bank-linked accounts). If a user links an IBAN that already exists, the app does **not** create a second account. It offers "this account already exists, join it?", and after confirmation adds the user as a member of the existing account and notifies the other members. From then on the account has more than one member and shows as **Gedeeld** for all of them.

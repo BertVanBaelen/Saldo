@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.2 Foundation and first bank link](README.md) |
-| Status | in progress (3 Nov 2026): server, add-on folder, Dockerfile and workflows done; CI green on GitHub (Go with race detector and govulncheck, web, secret scan, multi-arch image); to do: the first release and the install on Home Assistant |
+| Status | built (3 Nov 2026), CI green on GitHub (Go with race detector and govulncheck, web, secret scan, multi-arch image); to do: the first release and the install on Home Assistant |
 | Size | M |
 | Features | PLAT-2 |
 | Concepts | [money-and-format](../../analysis/concepts/money-and-format.md) |

@@ -130,6 +130,77 @@ export interface Connection {
   accounts: number[];
 }
 
+// ---------- Bank link (docs/api.md, "Bank link") ----------
+
+/** GET /api/bank/enablebanking: never the key itself. */
+export interface EnableBanking {
+  configured: boolean;
+  /** `null` until a key is stored. */
+  applicationId: string | null;
+  /** `<public_url>/bankkoppelingen/terug`; `null` while no `public_url` is set. */
+  redirectUrl: string | null;
+}
+
+/** An account the bank returned that was not linked: its IBAN belongs to another user (joining arrives in 0.6-1). */
+export interface SkippedAccount {
+  /** Masked. */
+  iban: string;
+  reason: 'exists';
+}
+
+/** Answer of POST /api/bank/callback. */
+export interface BankLinkResult {
+  connection: Connection;
+  accounts: Account[];
+  skipped: SkippedAccount[];
+}
+
+// ---------- Sign-in, devices and users (docs/api.md, "Sign-in") ----------
+
+/** Answer of POST /api/auth/login: always 200, `email` is the typed address, masked. */
+export interface LoginChallenge {
+  challenge: string;
+  email: string;
+}
+
+export type TokenKind = 'setup' | 'invitation' | 'password_reset';
+
+/** A live link from GET /api/auth/token/{token}. */
+export interface TokenInfo {
+  kind: TokenKind;
+  email: string | null;
+  name: string | null;
+}
+
+export interface Redeem {
+  token: string;
+  password: string;
+  name?: string;
+  email?: string;
+}
+
+export interface Device {
+  id: number;
+  /** From the User-Agent, for example "Safari op iPhone". */
+  name: string;
+  createdAt: string;
+  lastUsedAt: string;
+  /** The device of this request. */
+  current: boolean;
+}
+
+export interface Invitation {
+  id: number;
+  email: string;
+  role: User['role'];
+  expiresAt: string;
+}
+
+export interface UserList {
+  users: User[];
+  invitations: Invitation[];
+}
+
 export interface ApiErrorBody {
   error?: { code?: string; message?: string };
 }

@@ -9,7 +9,7 @@ Analysis: 4.1, 6.1, 6.2, 6.4, risks 2–5b · Data: `provider_connection`, `acco
 - Account ids change per session: match by IBAN. Argenta exposes current accounts only (no savings, no credit cards).
 
 ## Linking flow (6.2)
-1. One-time setup per user: application id + PEM key in Instellingen → Enable Banking. Redirect `https://<domain>/api/bank/callback` (reached by the user's browser, not by the bank).
+1. One-time setup per user: application id + PEM key in Instellingen → Enable Banking. Redirect `https://<domain>/bankkoppelingen/terug` (a web page reached by the user's browser, not by the bank; it posts the code and state to `/api/bank/callback`).
 2. Start: `POST /auth` with max `valid_until` and a random single-use `state` bound to the session (15 min).
 3. Consent at the bank, the user picks accounts.
 4. Callback: reject unknown, expired or reused `state` or a session mismatch. Create the session, list accounts.

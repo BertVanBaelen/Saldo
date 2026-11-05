@@ -65,6 +65,12 @@ export function dateFull(d: string | Date): string {
   return DAYS[x.getDay()] + ' ' + x.getDate() + ' ' + MONTHS[x.getMonth()] + ' ' + x.getFullYear();
 }
 
+/** "3 juni 2026" */
+export function dateYear(d: string | Date): string {
+  const x = toDate(d);
+  return x.getDate() + ' ' + MONTHS[x.getMonth()] + ' ' + x.getFullYear();
+}
+
 /** Day heading in lists: "Vandaag · woensdag 18 november", "Gisteren · …", "Maandag · 16 november". */
 export function dayHeading(d: string, today: string): { main: string; sub: string } {
   const x = toDate(d);

@@ -11,6 +11,22 @@ Saldo answers one question: *will I have enough money at the end of each coming 
 4. Open the **Log** tab. On the first start, while there is no account yet, Saldo writes a one-time link there: `<public_url>/setup/…`. Open it within an hour to create the first admin. Every restart writes a new link; the old one stops working.
 5. Invite others from Instellingen → Gebruikers. There is no self-registration and no "forgot password" link: an admin sends a reset link instead.
 
+## Public access
+Saldo holds your bank data on a public address, so set this up before you link a bank.
+
+- **Cloudflared route.** In the Cloudflared add-on, add a host for Saldo, for example `saldo.example.com` with service `http://<saldo-hostname>:8080`. The hostname is on Saldo's **Info** tab (something like `a1b2c3d4-saldo`). Saldo publishes no port on your network; only Cloudflared reaches it. Let Cloudflare redirect http to https ("Always Use HTTPS").
+- **`public_url`.** Set it to the exact address you open, with `https://`, for example `https://saldo.example.com`. Saldo uses it for the links in e-mails and the bank redirect, accepts sign-in requests from that origin, marks the sign-in cookie `Secure` and sends `Strict-Transport-Security`. Without it nobody can be invited and no bank can be linked.
+- **Backups must be encrypted.** The key that encrypts your bank credentials (`/data/secret.key`) sits in the same backup as the database. Only an encrypted Home Assistant backup keeps both safe. If the key is lost (a backup restored without it), the stored bank key cannot be read: store the Enable Banking key again under Instellingen and re-authorise the link at Bankkoppelingen.
+- **Mail.** Fill in `smtp_host`, `smtp_port`, `smtp_security` (STARTTLS or TLS; the server certificate is checked), `smtp_user`, `smtp_password` and `smtp_from`. Use a mail account with its own two-step sign-in: the code by e-mail is the second factor.
+- **First admin.** On the first start Saldo writes a one-time link `<public_url>/setup/…` to the **Log** tab, valid for an hour; a restart writes a new one. Open it, choose your name, address and password.
+- **Admin recovery.** Locked out as the only admin? Turn `admin_recovery` on, restart, use the link in the log within an hour, then turn it off and restart again.
+
+### Checklist before the first real bank link
+1. Restore test: take an encrypted backup of an empty Saldo, uninstall Saldo, restore the backup and check that it starts with your account.
+2. On the real address, open the browser's developer tools: the `saldo_device` cookie is `Secure`, `HttpOnly` and `SameSite=Strict`, and answers carry `Strict-Transport-Security`.
+3. Run an external TLS and headers check on the address (for example SSL Labs and securityheaders.com): grade A, no plain-http access.
+4. Register `<public_url>/bankkoppelingen/terug` as the redirect URL of your Enable Banking application (Instellingen → Enable Banking shows it).
+
 ## Signing in
 You sign in with your e-mail address and password, then with an 8-digit code that Saldo e-mails you (valid 10 minutes, works once). The device or browser is then trusted and stays signed in until you sign it out, change your password, or do not use it for 90 days. Every new device sends you the e-mail "Nieuw toestel aangemeld". Instellingen → Toestellen lists your devices.
 

@@ -103,7 +103,7 @@ func (s *Store) accounts(ctx context.Context, viewer, only int64, now time.Time)
 	}
 	defer rows.Close()
 
-	var list []Account
+	list := []Account{}
 	index := map[int64]int{}
 	for rows.Next() {
 		var a Account

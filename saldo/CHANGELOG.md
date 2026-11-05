@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.1
+- Fix: Rekeningen failed with an error for a user without accounts (for example before the first bank link), because the accounts list answered `null` instead of an empty list. It now shows "Nog geen rekeningen".
+
 ## 0.2.0
 - First add-on build: the Go server with its database, health check and the web app shell.
 - Sign-in: e-mail and password plus an 8-digit e-mail code, trusted devices (90 days), first-admin setup link in the log, invitations, admin reset links and admin recovery. New options for the mail server (`smtp_*`, STARTTLS or TLS only) and `admin_recovery`.

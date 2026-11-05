@@ -1,15 +1,17 @@
 Saldo · {{.Kicker}}
 
 {{.Heading}}
-{{if .Figure}}
+{{if .Accounts}}
+{{range .Accounts}}{{.Name}} ({{.Sub}})
+{{end}}{{end}}{{if .Figure}}
 {{.Figure}}
 {{.FigureNote}}
 {{end}}
 {{.Intro}}
 
-{{range .Rows}}{{.Label}}: {{.Value}}
+{{if .Rows}}{{range .Rows}}{{.Label}}: {{.Value}}
 {{end}}
-{{if .Button}}{{.Button}}:
+{{end}}{{if .Button}}{{.Button}}:
 {{.ButtonURL}}
 
 {{end}}{{.Note}}

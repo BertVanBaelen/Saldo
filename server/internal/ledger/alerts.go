@@ -47,7 +47,21 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 				Title: "Toestemming voor " + c.Bank + " is verlopen",
 				Note:  "Synchronisatie gestopt · opnieuw autoriseren", Href: hrefConnections})
 			continue
-		case ConnFailed:
+		case ConnPending:
+			continue // linking not finished: no dates, nothing synced yet
+		}
+		switch {
+		case c.Stopped(now):
+			// Failing or silent for three days: the same verdict as the
+			// "Synchronisatie gestopt" mail.
+			broken[c.ID] = true
+			note := "Nog nooit gesynchroniseerd · bekijk de koppeling"
+			if c.LastSync != nil {
+				note = "Niet bijgewerkt sinds " + whenDutch(c.lastGood, now) + " · bekijk de koppeling"
+			}
+			neg = append(neg, Alert{Kind: "neg", Type: "sync",
+				Title: "Synchronisatie gestopt · " + c.Bank, Note: note, Href: hrefConnections})
+		case c.Status == ConnFailed:
 			broken[c.ID] = true
 			note := "Bekijk de koppeling"
 			if !c.lastAttempt.IsZero() {
@@ -86,6 +100,9 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 			neg = append(neg, Alert{Kind: "neg", Type: "sync",
 				Title: a.Name + " wordt niet meer gesynchroniseerd", Note: note, Href: hrefConnections})
 		case "stale":
+			if coveredBy(a.sources, broken) {
+				continue
+			}
 			title := a.Name + " is nog niet gesynchroniseerd"
 			if t, ok := parseAPITime(a.LastSync); ok {
 				title = a.Name + " niet bijgewerkt sinds " + whenDutch(t, now)

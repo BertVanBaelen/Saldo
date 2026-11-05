@@ -11,9 +11,11 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
 )
 
-// The four sign-in mails share one layout, adapted from the designs in
-// finance-mockup/emails (board option A "rustig"). They are always sent and
-// cannot be turned off, so none has a "Meldingen aanpassen" link.
+// Every mail shares one layout, adapted from the designs in
+// finance-mockup/emails (board option A "rustig"). The four sign-in mails are
+// always sent and cannot be turned off. The bank mails could, but the
+// Meldingen screen arrives in 0.9, so no mail has a "Meldingen aanpassen" link
+// yet.
 
 //go:embed templates
 var files embed.FS
@@ -25,9 +27,11 @@ var (
 
 // layout holds the parts of a mail in the order the design shows them.
 type layout struct {
+	Tone               tone
 	Subject, Preheader string
 	Kicker, Heading    string
-	Figure, FigureNote string // key figure box, optional
+	Accounts           []account // account block, optional
+	Figure, FigureNote string    // key figure box, optional
 	Intro              string
 	Rows               []row
 	Button, ButtonURL  string // optional
@@ -37,7 +41,22 @@ type layout struct {
 
 type row struct{ Label, Value string }
 
+type account struct{ Name, Sub string }
+
+// tone is the colour of the kicker and the key figure: info (green), warn
+// (ochre) or error (red), light and dark.
+type tone struct{ Text, Soft, DarkText, DarkSoft string }
+
+var (
+	toneInfo  = tone{"#166534", "#DCFCE7", "#86EFAC", "#13321F"}
+	toneWarn  = tone{"#8A5A00", "#FFF4DB", "#F5B94A", "#2E2414"}
+	toneError = tone{"#B42323", "#FBE9E9", "#FF7B7B", "#3A1A1C"}
+)
+
 func render(to string, l layout) (Message, error) {
+	if l.Tone == (tone{}) {
+		l.Tone = toneInfo
+	}
 	var h, t bytes.Buffer
 	if err := htmlLayout.Execute(&h, l); err != nil {
 		return Message{}, fmt.Errorf("mail: %w", err)

@@ -3,6 +3,7 @@ package ledger_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"slices"
@@ -566,5 +567,18 @@ func TestInsertTransactionsIsIdempotent(t *testing.T) {
 	n, err := ledger.InsertTransactions(ctx, d, ledger.Keyed(4, accs[1].IBAN, 2, txs))
 	if err != nil || n != 0 {
 		t.Errorf("re-fetching the shared account inserted %d rows (%v)", n, err)
+	}
+}
+
+// A user who has not linked a bank yet has no accounts: the API must answer
+// [], not null, which the web app cannot iterate.
+func TestAccountsWithoutAccountsIsAnEmptyList(t *testing.T) {
+	_, s := seeded(t)
+	list, err := s.Accounts(context.Background(), 999, demoNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := json.Marshal(list); string(b) != "[]" {
+		t.Fatalf("accounts of a viewer without accounts = %s, want []", b)
 	}
 }

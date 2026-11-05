@@ -34,7 +34,7 @@ import (
 )
 
 // version is set at build time: -ldflags "-X main.version=0.2.0".
-var version = "0.2.0-dev"
+var version = "0.2.0"
 
 func main() {
 	cmd := "serve"

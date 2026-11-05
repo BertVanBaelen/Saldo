@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { api, ApiError, browser } from '../lib/api';
 import type { BankLinkResult, Connection } from '../lib/types';
+import { connectionsSub } from './Meer';
 import { CONNECTIONS, EB_OFF, GEDEELD, ME, renderAt, renderRoot, stubApi, ZICHT } from '../test/helpers';
 
 const where = () => screen.getByTestId('location').textContent;
@@ -39,7 +40,8 @@ describe('Bankkoppelingen', () => {
         conn({ id: 2, bank: 'Bank B', status: 'stale' }),
         conn({ id: 3, bank: 'Bank C', status: 'failed' }),
         conn({ id: 4, bank: 'Bank D', daysLeft: 0, status: 'expired' }),
-        conn({ id: 5, bank: 'Bank E', status: 'pending', accounts: [], lastSync: null }),
+        // The server sends null dates until the bank has answered (saving the Enable Banking key creates this row).
+        conn({ id: 5, bank: 'Bank E', status: 'pending', accounts: [], lastSync: null, since: null, validUntil: null, daysLeft: null }),
       ],
     });
     renderAt('/bankkoppelingen');
@@ -215,5 +217,12 @@ describe('Back from the bank', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Niets om af te ronden' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Naar Bankkoppelingen' }).getAttribute('href')).toBe('/bankkoppelingen');
     expect(callback).not.toHaveBeenCalled();
+  });
+});
+
+describe('Meer · bankkoppelingen summary', () => {
+  it('calls a link that is not finished unfinished, not expired', () => {
+    const pending = conn({ status: 'pending', accounts: [], lastSync: null, since: null, validUntil: null, daysLeft: null });
+    expect(connectionsSub([pending])).toEqual({ sub: 'Argenta · koppelen niet afgerond', tone: 'warn' });
   });
 });

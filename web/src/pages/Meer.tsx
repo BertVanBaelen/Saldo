@@ -63,13 +63,14 @@ export function connectionsSub(list: Connection[] | undefined): { sub: string; t
   if (!list.length) return { sub: 'Nog geen bank gekoppeld', tone: '' };
   const failed = list.find((c) => c.status === 'failed');
   if (failed) return { sub: failed.bank + ' · synchronisatie mislukt', tone: 'neg' };
-  const expired = list.find((c) => c.status === 'expired' || c.daysLeft <= 0);
+  const expired = list.find((c) => c.status === 'expired' || (c.daysLeft !== null && c.daysLeft <= 0));
   if (expired) return { sub: expired.bank + ' · toestemming verlopen', tone: 'neg' };
   const pending = list.find((c) => c.status === 'pending');
   if (pending) return { sub: pending.bank + ' · koppelen niet afgerond', tone: 'warn' };
-  const c = [...list].sort((a, b) => a.daysLeft - b.daysLeft)[0];
-  const days = c.daysLeft === 1 ? '1 dag' : c.daysLeft + ' dagen';
-  return { sub: c.bank + ' · toestemming nog ' + days, tone: c.daysLeft <= 14 || c.status === 'stale' ? 'warn' : '' };
+  const left = (x: Connection) => x.daysLeft ?? 0; // no pending link is left here
+  const c = [...list].sort((a, b) => left(a) - left(b))[0];
+  const days = left(c) === 1 ? '1 dag' : left(c) + ' dagen';
+  return { sub: c.bank + ' · toestemming nog ' + days, tone: left(c) <= 14 || c.status === 'stale' ? 'warn' : '' };
 }
 
 export function Meer() {

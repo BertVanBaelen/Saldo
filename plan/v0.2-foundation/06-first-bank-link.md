@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.2 Foundation and first bank link](README.md) |
-| Status | planned |
+| Status | built (5 Nov 2026): Enable Banking client, settings, link, callback, first sync, Bankkoppelingen and the fake provider for demo mode; tested against fakes only. To do: spike S1 (0.2-1), then the first real link on the live add-on |
 | Size | L |
 | Features | BANK-1, BANK-2, PLAT-4 |
 | Concepts | [bank-connection](../../analysis/concepts/bank-connection.md), [account](../../analysis/concepts/account.md), [transaction](../../analysis/concepts/transaction.md), [shared-account](../../analysis/concepts/shared-account.md) |

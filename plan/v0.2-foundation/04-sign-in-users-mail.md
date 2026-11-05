@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.2 Foundation and first bank link](README.md) |
-| Status | planned |
+| Status | built (5 Nov 2026), server and web, tested against a recording mailer; to verify: a real mail server and Partner's iPhone. Left out: Log in with Home Assistant (ACC-3, optional) |
 | Size | L |
 | Features | ACC-1, ACC-2, ACC-3, ACC-4 |
 | Concepts | [authentication](../../analysis/concepts/authentication.md), [user-and-visibility](../../analysis/concepts/user-and-visibility.md), [notification](../../analysis/concepts/notification.md) |

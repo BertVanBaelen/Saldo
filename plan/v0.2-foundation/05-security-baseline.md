@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.2 Foundation and first bank link](README.md) |
-| Status | planned |
+| Status | built (5 Nov 2026): review, fixes and [docs/security-baseline.md](../../docs/security-baseline.md); waits for the user's checklist (Cloudflared route, encrypted backups with a restore test, headers on the real domain). Go for the first real link after that |
 | Size | M |
 | Features | SEC-0 |
 | Concepts | [authentication](../../analysis/concepts/authentication.md), [user-and-visibility](../../analysis/concepts/user-and-visibility.md), [bank-connection](../../analysis/concepts/bank-connection.md) |

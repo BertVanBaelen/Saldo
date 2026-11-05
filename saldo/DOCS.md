@@ -2,7 +2,7 @@
 
 Saldo answers one question: *will I have enough money at the end of each coming month, and how much is left or short?* It syncs your bank accounts, categorises your transactions and plans the coming months, and everything stays on your own Home Assistant.
 
-> **Version 0.2 is under construction.** Signing in works; the bank link is not available yet. Follow the roadmap in the repository.
+> **Version 0.2 is built but not yet verified with a real bank.** Signing in, the Enable Banking link and the first sync work against test doubles; follow the checklist under "Public access" and spike S1 in the roadmap before you link your real accounts.
 
 ## Installation
 1. In Home Assistant, go to **Settings → Add-ons → Add-on store → ⋮ → Repositories** and add `https://github.com/BertVanBaelen/Saldo`.

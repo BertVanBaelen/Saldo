@@ -23,7 +23,7 @@ flowchart LR
 | Version | Name | After this version you can … | Analysis | Size | Status |
 |---|---|---|---|---|---|
 | [0.1](v0.1-mockup/README.md) | Mockup | click through the screens with demo data: the frozen design reference | 12, 13.6 | done | done |
-| [0.2](v0.2-foundation/README.md) | Foundation and first bank link | install the add-on, sign in on your domain on trusted devices, and see your real Argenta accounts and transactions | S1, M0, 6, 7 | 1 S · 3 M · 2 L | in progress |
+| [0.2](v0.2-foundation/README.md) | Foundation and first bank link | install the add-on, sign in on your domain on trusted devices, and see your real Argenta accounts and transactions | S1, M0, 6, 7 | 1 S · 3 M · 2 L | built, to verify |
 | [0.3](v0.3-bank-sync/README.md) | Bank sync | rely on a nightly sync without duplicates, consent reminders, Transacties, Rekeningen, manual accounts and a CSV import | M1 | 1 S · 4 M · 1 L | planned |
 | [0.4](v0.4-categorisation/README.md) | Categorisation | have rules categorise transactions and fix the rest in a tap | M2 | 1 S · 3 M | planned |
 | [0.5](v0.5-bilance-import/README.md) | Bilance import | bring in your full Bilance history, mapped to your categories, without duplicates | S2, M6 | 2 S · 4 M | planned |

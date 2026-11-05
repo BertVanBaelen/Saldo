@@ -17,6 +17,9 @@ type Connection struct {
 	LastSync   *string `json:"lastSync"`
 	Status     string  `json:"status"`
 	Accounts   []int64 `json:"accounts"`
+	// Error is the last sync's error code, nil after a good sync; only
+	// GET /api/sync shows it.
+	Error *string `json:"-"`
 
 	lastAttempt time.Time
 	lastGood    time.Time // last successful sync, else when the link was made
@@ -47,7 +50,7 @@ const (
 func (s *Store) Connections(ctx context.Context, viewer int64, now time.Time) ([]Connection, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, aspsp_name, COALESCE(consent_since, ''), COALESCE(valid_until, ''), status, sync_status,
-		       COALESCE(last_sync_at, ''), COALESCE(last_attempt_at, ''), created_at
+		       COALESCE(last_sync_at, ''), COALESCE(last_attempt_at, ''), created_at, last_error
 		FROM provider_connections WHERE user_id = ? AND status <> 'revoked' ORDER BY id`, viewer)
 	if err != nil {
 		return nil, err
@@ -58,7 +61,7 @@ func (s *Store) Connections(ctx context.Context, viewer int64, now time.Time) ([
 	for rows.Next() {
 		var c Connection
 		var since, validUntil, status, syncStatus, lastSync, lastAttempt, created string
-		if err := rows.Scan(&c.ID, &c.Bank, &since, &validUntil, &status, &syncStatus, &lastSync, &lastAttempt, &created); err != nil {
+		if err := rows.Scan(&c.ID, &c.Bank, &since, &validUntil, &status, &syncStatus, &lastSync, &lastAttempt, &created, &c.Error); err != nil {
 			return nil, err
 		}
 		c.Accounts = []int64{}

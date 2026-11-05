@@ -27,8 +27,10 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/config"
 	"github.com/BertVanBaelen/Saldo/server/internal/db"
 	"github.com/BertVanBaelen/Saldo/server/internal/demo"
+	"github.com/BertVanBaelen/Saldo/server/internal/jobs"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 	"github.com/BertVanBaelen/Saldo/server/internal/mail"
+	"github.com/BertVanBaelen/Saldo/server/internal/notify"
 	"github.com/BertVanBaelen/Saldo/server/internal/secrets"
 	"github.com/BertVanBaelen/Saldo/server/internal/server"
 )
@@ -138,6 +140,26 @@ func serve() error {
 	go func() {
 		log.Info("listening", "addr", cfg.Addr)
 		errc <- srv.ListenAndServe()
+	}()
+
+	// Demo mode has no real connections to sync at night.
+	jobsCtx, stopJobs := context.WithCancel(ctx)
+	jobsDone := make(chan struct{})
+	if cfg.Demo {
+		close(jobsDone)
+	} else {
+		sched := jobs.New(clk.Now, log)
+		sched.Every(10*time.Minute, "bank-sync", links.Nightly)
+		// Hourly is enough: the log keeps a reminder from being sent twice (0.3-2).
+		sched.Every(time.Hour, "reminders", notify.New(database, opts.Mailer, cfg.PublicURL, log).CheckConnections)
+		go func() {
+			defer close(jobsDone)
+			sched.Run(jobsCtx)
+		}()
+	}
+	defer func() {
+		stopJobs()
+		<-jobsDone // before the database closes
 	}()
 
 	select {

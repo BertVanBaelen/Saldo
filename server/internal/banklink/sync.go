@@ -21,32 +21,84 @@ const overlapDays = 14
 
 // Sync is "Sync now" for the viewer's active connections (server.Syncer). A
 // bank error is stored on its connection and is not an error here; only a
-// database failure is.
+// database failure is. A connection that is syncing already (the nightly job,
+// the link callback) is not fetched twice: Sync waits for that sync instead.
 func (s *Service) Sync(ctx context.Context, viewer int64, now time.Time) error {
-	rows, err := s.db.QueryContext(ctx, `SELECT id FROM provider_connections
-		WHERE user_id = ? AND status = 'active' AND session_id_enc IS NOT NULL ORDER BY id`, viewer)
+	ids, err := s.activeConnections(ctx, viewer)
 	if err != nil {
 		return err
 	}
-	var ids []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return err
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return err
-	}
 	for _, id := range ids {
-		if err := s.syncConnection(ctx, id, now); err != nil {
+		if err := s.run(ctx, id, now, true); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// SyncConnection is the first sync of a link that was just completed. It
+// waits for a sync of the connection that is still running, which may have
+// used the session of before the new consent, and then syncs it anyway.
+func (s *Service) SyncConnection(ctx context.Context, connection int64, now time.Time) error {
+	return s.run(ctx, connection, now, false)
+}
+
+// activeConnections lists the active connections with a session: of the
+// viewer, or of everyone for viewer 0.
+func (s *Service) activeConnections(ctx context.Context, viewer int64) ([]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id FROM provider_connections
+		WHERE (? = 0 OR user_id = ?) AND status = 'active' AND session_id_enc IS NOT NULL ORDER BY id`, viewer, viewer)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// claim marks the connection as syncing. When it already is, it returns nil
+// and a channel that closes when that sync ends.
+func (s *Service) claim(id int64) (release func(), busy <-chan struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if done, ok := s.syncing[id]; ok {
+		return nil, done
+	}
+	done := make(chan struct{})
+	s.syncing[id] = done
+	return func() {
+		s.mu.Lock()
+		delete(s.syncing, id)
+		s.mu.Unlock()
+		close(done)
+	}, nil
+}
+
+// run syncs one connection, never two at once. With join a sync that is
+// already running counts as this one.
+func (s *Service) run(ctx context.Context, id int64, now time.Time, join bool) error {
+	for {
+		release, busy := s.claim(id)
+		if release != nil {
+			defer release()
+			return s.syncConnection(ctx, id, now)
+		}
+		select {
+		case <-busy:
+			if join {
+				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 type source struct {
@@ -55,8 +107,10 @@ type source struct {
 	external string // the provider's account id in the current session
 }
 
-// syncConnection fetches every account the connection feeds. The first bank
-// error stops it and is recorded; what was stored before it stays.
+// syncConnection fetches every account the connection feeds. A failing
+// account is recorded on its account_sources row and the others still sync;
+// the connection is ok only when every account is. A lapsed session stops it.
+// The caller holds the connection's claim.
 func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) error {
 	c, err := scanConnection(s.db.QueryRowContext(ctx, `SELECT `+connectionColumns+` FROM provider_connections WHERE id = ?`, id))
 	if err != nil {
@@ -72,7 +126,7 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 	}
 	if err != nil || len(session) == 0 {
 		// A lost secret.key or credentials removed: only new ones help.
-		return s.broken(ctx, c.id, 0, ts, "credentials", false)
+		return s.broken(ctx, c.id, ts, "credentials", false)
 	}
 	sess := bank.Session{ID: string(session)}
 
@@ -80,6 +134,7 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 	if err != nil {
 		return err
 	}
+	failed := ""
 	for _, src := range sources {
 		from, err := s.fromDate(ctx, src.account, today)
 		if err != nil {
@@ -90,12 +145,25 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 		if err == nil {
 			bals, err = client.FetchBalances(ctx, sess, src.external)
 		}
-		if err != nil {
-			return s.broken(ctx, c.id, src.account, ts, errorCode(err), errors.Is(err, bank.ErrSessionExpired))
+		if errors.Is(err, bank.ErrSessionExpired) {
+			return s.broken(ctx, c.id, ts, errorCode(err), true)
 		}
-		if err := s.storeAccount(ctx, c.id, src, txs, bals, today, ts); err != nil {
+		if err != nil {
+			code := errorCode(err)
+			if err := s.accountFailed(ctx, c.id, src.account, ts, code); err != nil {
+				return err
+			}
+			failed = cmp.Or(failed, code)
+			continue
+		}
+		if err := s.storeAccount(ctx, c.id, src, from, txs, bals, today, ts); err != nil {
 			return err
 		}
+	}
+	if failed != "" {
+		_, err = s.db.ExecContext(context.WithoutCancel(ctx), `UPDATE provider_connections
+			SET sync_status = 'failed', last_attempt_at = ?, last_error = ? WHERE id = ?`, ts, failed, c.id)
+		return err
 	}
 	_, err = s.db.ExecContext(ctx, `UPDATE provider_connections
 		SET last_sync_at = ?, last_attempt_at = ?, sync_status = 'ok', last_error = NULL WHERE id = ?`, ts, ts, c.id)
@@ -138,8 +206,9 @@ func (s *Service) fromDate(ctx context.Context, account int64, today string) (st
 	return min(t.AddDate(0, 0, -overlapDays).Format(time.DateOnly), today), nil
 }
 
-// storeAccount stores one account's new transactions and its bank balance.
-func (s *Service) storeAccount(ctx context.Context, connection int64, src source, txs []bank.Transaction, bals []bank.Balance, today, ts string) error {
+// storeAccount stores one account's complete fetch and its bank balance in
+// one database transaction.
+func (s *Service) storeAccount(ctx context.Context, connection int64, src source, from string, txs []bank.Transaction, bals []bank.Balance, today, ts string) error {
 	for i := range txs {
 		// A pending row often has no booking date yet; it is listed on its
 		// value date until the bank books it.
@@ -157,11 +226,12 @@ func (s *Service) storeAccount(ctx context.Context, connection int64, src source
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := ledger.InsertTransactions(ctx, tx, rows); err != nil {
+	if _, err := ledger.StoreFetch(ctx, tx, src.account, connection, from, rows); err != nil {
 		return err
 	}
 	if b, ok := pickBalance(bals); ok {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO balance_snapshots (account_id, balance, date, origin) VALUES (?, ?, ?, 'bank')`,
+		if _, err := tx.ExecContext(ctx, `INSERT INTO balance_snapshots (account_id, balance, date, origin) VALUES (?, ?, ?, 'bank')
+			ON CONFLICT (account_id, date, origin) DO UPDATE SET balance = excluded.balance, created_at = excluded.created_at`,
 			src.account, b.Amount, cmp.Or(b.Date, today)); err != nil {
 			return err
 		}
@@ -214,10 +284,22 @@ func pickBalance(bals []bank.Balance) (bank.Balance, bool) {
 	return best, true
 }
 
-// broken records a failed sync: a lapsed session marks the connection expired
-// (only a new consent helps), anything else failed. Only an error code is
-// stored and logged, never the error, which can quote bank data.
-func (s *Service) broken(ctx context.Context, connection, account int64, ts, code string, expired bool) error {
+// accountFailed records that one account could not be fetched. Only an error
+// code is stored and logged, never the error, which can quote bank data. It
+// is written also when the sync ran out of time, so the status shows it.
+func (s *Service) accountFailed(ctx context.Context, connection, account int64, ts, code string) error {
+	s.log.Warn("bank sync failed", "connection", connection, "account", account, "code", code)
+	_, err := s.db.ExecContext(context.WithoutCancel(ctx), `UPDATE account_sources
+		SET status = 'failed', last_attempt_at = ?, last_error = ? WHERE account_id = ? AND connection_id = ?`,
+		ts, code, account, connection)
+	return err
+}
+
+// broken records a sync that failed for the whole connection: a lapsed
+// session marks it expired (only a new consent helps), anything else failed,
+// and every account it feeds failed with the same code.
+func (s *Service) broken(ctx context.Context, connection int64, ts, code string, expired bool) error {
+	ctx = context.WithoutCancel(ctx)
 	q := `UPDATE provider_connections SET sync_status = 'failed', last_attempt_at = ?, last_error = ? WHERE id = ?`
 	if expired {
 		q = `UPDATE provider_connections SET status = 'expired', last_attempt_at = ?, last_error = ? WHERE id = ?`
@@ -232,7 +314,7 @@ func (s *Service) broken(ctx context.Context, connection, account int64, ts, cod
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE account_sources SET status = 'failed', last_attempt_at = ?, last_error = ?
-		WHERE account_id = ? AND connection_id = ?`, ts, code, account, connection); err != nil {
+		WHERE connection_id = ?`, ts, code, connection); err != nil {
 		return err
 	}
 	return tx.Commit()

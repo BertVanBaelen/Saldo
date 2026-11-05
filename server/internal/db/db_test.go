@@ -2,8 +2,10 @@ package db
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"testing/fstest"
 )
@@ -186,5 +188,71 @@ func TestMigrationNames(t *testing.T) {
 		if _, err := list(fsys); err == nil {
 			t.Errorf("want an error for %v", fsys)
 		}
+	}
+}
+
+// Migration 0003 collapses balance snapshots of the same account, date and
+// origin to the newest one, and nothing else. A real database that synced
+// twice in a day has such duplicates; the copy before the migration is the way back.
+func TestMigration0003KeepsTheNewestSnapshotOfADay(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	full := Migrations()
+	old := fstest.MapFS{}
+	for _, name := range []string{"0001_init.sql", "0002_login_challenge.sql"} {
+		b, err := fs.ReadFile(full, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		old[name] = &fstest.MapFile{Data: b}
+	}
+	backups := filepath.Join(t.TempDir(), "backups")
+	if _, err := Migrate(ctx, db, old, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	mustExec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustExec(`INSERT INTO accounts (id, type, source, name) VALUES (1, 'current', 'bank', 'A'), (2, 'current', 'bank', 'B')`)
+	snap := `INSERT INTO balance_snapshots (id, account_id, balance, date, origin) VALUES (?, ?, ?, ?, ?)`
+	mustExec(snap, 1, 1, 100, "2026-11-04", "bank")
+	mustExec(snap, 2, 1, 150, "2026-11-04", "bank")  // same day, synced again: this one stays
+	mustExec(snap, 3, 1, 90, "2026-11-03", "bank")   // another day
+	mustExec(snap, 4, 1, 80, "2026-11-04", "manual") // another origin
+	mustExec(snap, 5, 2, 70, "2026-11-04", "bank")   // another account
+
+	if _, err := Migrate(ctx, db, full, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.Query(`SELECT id FROM balance_snapshots ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var got []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, id)
+	}
+	if want := []int{2, 3, 4, 5}; !slices.Equal(got, want) {
+		t.Fatalf("snapshots after the migration = %v, want %v", got, want)
+	}
+	if _, err := db.Exec(snap, 6, 1, 1, "2026-11-04", "bank"); err == nil {
+		t.Error("a second bank snapshot of the same account and day was accepted")
+	}
+	if files, _ := filepath.Glob(filepath.Join(backups, "*before-0003*")); len(files) != 1 {
+		t.Errorf("want one backup before 0003, found %v", files)
 	}
 }

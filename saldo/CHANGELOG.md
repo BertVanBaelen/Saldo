@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (0.3)
+- Sync engine: a nightly sync around 04:00 that catches up after a restart or a Home Assistant backup, retries a failed night with backoff, and syncs every account on its own. "Nu synchroniseren" and the first sync after linking run in the background; the web app follows them. A pending transaction is replaced when the bank books it, and a failed sync deletes nothing. The database copy kept before this update protects the one data change: older duplicate balances of the same day are merged.
+- Reminders: e-mails "Koppeling verloopt" at 14 and 3 days and "Synchronisatie gestopt" (consent lapsed, or no good sync for 3 days), each sent once; a red alert on Start for a stopped sync.
+
 ## 0.2.2
 - Fix: Bankkoppelingen and Meer failed with an error as soon as the Enable Banking key was saved. A link that is not finished yet has no consent dates, and the pages tried to show them. They now show "Niet afgerond".
 

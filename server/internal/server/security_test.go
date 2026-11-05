@@ -187,6 +187,7 @@ func TestPrivacySweep(t *testing.T) {
 		{"GET", "/api/devices", "", 200},
 		{"GET", "/api/bank/enablebanking", "", 200},
 		{"POST", "/api/sync", "", 202},
+		{"GET", "/api/sync", "", 200},
 		{"GET", "/api/transactions?account=" + acc1, "", 404},
 		{"GET", "/api/transactions?account=" + acc2, "", 404},
 		{"PATCH", "/api/accounts/" + acc1, `{"name":"Gezien"}`, 404},

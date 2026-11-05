@@ -2,7 +2,7 @@
 // See analysis/concepts/app-shell.md and analysis/concepts/scope.md.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, errorMessage } from '../lib/api';
-import type { Alert, Me, Scope, Theme, User } from '../lib/types';
+import type { Alert, Me, Scope, SyncStatus, Theme, User } from '../lib/types';
 
 export interface Toast {
   id: number;
@@ -34,6 +34,8 @@ export interface AppContextValue {
   refreshShell: () => void;
   syncing: boolean;
   startSync: () => void;
+  /** Follows a sync the server runs already (the first sync after linking); resolves with its final state. */
+  followSync: () => Promise<SyncStatus | null>;
   /** Goes up after a sync, so screens load their data again. */
   dataVersion: number;
 }
@@ -48,7 +50,17 @@ export function useApp(): AppContextValue {
 
 /** Page size used to count uncategorised transactions for the badge and the chip. */
 export const COUNT_LIMIT = 200;
-const SYNC_MIN_MS = 1600;
+export const SYNC_POLL_MS = 2000;
+/** After this the app stops polling; the sync goes on on the server and its data shows on the next load. */
+export const SYNC_MAX_MS = 4 * 60_000;
+
+/** The toast after a sync, from its final state (null: the app stopped waiting). */
+export function syncMessage(s: SyncStatus | null): string {
+  if (!s) return 'Synchroniseren duurt langer dan verwacht. De gegevens komen vanzelf binnen.';
+  if (s.connections.some((c) => c.status === 'failed')) return 'Synchroniseren is mislukt · bekijk Bankkoppelingen';
+  if (s.connections.some((c) => c.status === 'expired')) return 'Toestemming verlopen · autoriseer opnieuw bij Bankkoppelingen';
+  return 'Gesynchroniseerd';
+}
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
@@ -93,6 +105,8 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
   const toastTimer = useRef<number | undefined>(undefined);
   const toastId = useRef(0);
   const syncingRef = useRef(false);
+  const following = useRef<Promise<SyncStatus | null> | null>(null);
+  const pollTimer = useRef<number | undefined>(undefined);
   const scopeRef = useRef(scope);
 
   useEffect(() => applyTheme(theme), [theme]);
@@ -148,7 +162,36 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
 
   useEffect(() => refreshShell(), [refreshShell]);
 
-  // Sync now: spinner and progress bar for at least 1.6 s, then the screens load their data again.
+  // The server syncs in the background: poll GET /api/sync until it is done (or gives up after a few
+  // minutes), then the screens load their data again and the outcome is toasted.
+  const followSync = useCallback((): Promise<SyncStatus | null> => {
+    if (following.current) return following.current;
+    syncingRef.current = true;
+    setSyncing(true);
+    const until = Date.now() + SYNC_MAX_MS;
+    const p = new Promise<SyncStatus | null>((resolve) => {
+      const next = () => {
+        if (Date.now() >= until) resolve(null);
+        else pollTimer.current = window.setTimeout(check, SYNC_POLL_MS);
+      };
+      // A failed poll (a network hiccup) is retried until the deadline.
+      const check = () => api.syncStatus().then((s) => (s.running ? next() : resolve(s)), next);
+      check();
+    }).then((s) => {
+      following.current = null;
+      syncingRef.current = false;
+      setSyncing(false);
+      setDataVersion((v) => v + 1);
+      refreshShell();
+      toast(syncMessage(s));
+      return s;
+    });
+    following.current = p;
+    return p;
+  }, [refreshShell, toast]);
+  useEffect(() => () => window.clearTimeout(pollTimer.current), []);
+
+  // Sync now: start it on the server, then follow it.
   const startSync = useCallback(() => {
     if (!isOnline()) {
       toast('Offline · synchroniseren kan niet');
@@ -157,24 +200,15 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
     if (syncingRef.current) return;
     syncingRef.current = true;
     setSyncing(true);
-    const started = Date.now();
-    const finish = (text: string, reload: boolean) => {
-      const wait = Math.max(0, SYNC_MIN_MS - (Date.now() - started));
-      window.setTimeout(() => {
+    api.sync().then(
+      () => void followSync(),
+      (e) => {
         syncingRef.current = false;
         setSyncing(false);
-        if (reload) {
-          setDataVersion((v) => v + 1);
-          refreshShell();
-        }
-        toast(text);
-      }, wait);
-    };
-    api.sync().then(
-      () => finish('Bijgewerkt', true),
-      (e) => finish(errorMessage(e), false),
+        toast(errorMessage(e));
+      },
     );
-  }, [refreshShell, toast]);
+  }, [followSync, toast]);
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -194,9 +228,10 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
       refreshShell,
       syncing,
       startSync,
+      followSync,
       dataVersion,
     }),
-    [me, scope, setScope, theme, setTheme, toast, current, online, loadedAt, alerts, uncategorised, refreshShell, syncing, startSync, dataVersion],
+    [me, scope, setScope, theme, setTheme, toast, current, online, loadedAt, alerts, uncategorised, refreshShell, syncing, startSync, followSync, dataVersion],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

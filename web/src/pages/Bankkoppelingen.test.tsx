@@ -166,10 +166,12 @@ describe('Back from the bank', () => {
   });
 
   it('says when the first sync failed, and when nothing came back from the bank', async () => {
-    stubApi();
-    const callback = vi.spyOn(api, 'bankCallback').mockResolvedValue({ ...RESULT, connection: { ...RESULT.connection, status: 'failed' }, skipped: [] });
+    const stub = stubApi();
+    stub.syncStatus.mockResolvedValue({ running: false, startedAt: null, finishedAt: null, connections: [{ id: 1, status: 'failed', lastSync: null, error: 'http_500' }] });
+    const callback = vi.spyOn(api, 'bankCallback').mockResolvedValue({ ...RESULT, skipped: [] });
     const first = renderAt('/bankkoppelingen/terug?code=' + CODE + '&state=' + STATE);
     expect(await screen.findByText('De eerste synchronisatie is mislukt')).toBeTruthy();
+    expect(screen.queryByText(/Je transacties en je saldo zijn binnen/)).toBeNull();
     first.unmount();
 
     // Cancelled at the bank: nothing to post.

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -104,4 +105,118 @@ func nullIfZero(n int64) any {
 		return nil
 	}
 	return n
+}
+
+// StoreFetch stores one complete fetch (every page) of an account from a
+// connection, inside the caller's transaction, and returns how many rows were
+// new. from is the fetch's first date ("" for the whole history).
+//
+// Pending rows follow the bank: a local pending row of this connection inside
+// the window that the bank no longer reports as pending is deleted, because
+// it is booked now (and arrives as a booked row in the same fetch) or gone.
+// Booked rows are never deleted or changed. Call it only after the whole
+// fetch succeeded: a failed or partial fetch must change nothing.
+//
+// A category or note set on a deleted pending row goes with it; none can be
+// set today. Carrying it over to the booked row is for 0.4 to decide.
+func StoreFetch(ctx context.Context, tx *sql.Tx, accountID, connectionID int64, from string, rows []NewTransaction) (int, error) {
+	type slot struct {
+		key string
+		occ int
+	}
+	reported := map[slot]bool{}
+	refs := map[string]bool{}
+	for _, r := range rows {
+		switch {
+		case r.Status == bank.StatusPending:
+			reported[slot{r.DedupeKey, r.Occurrence}] = true
+		case r.EntryReference != "":
+			refs[r.EntryReference] = true
+		}
+	}
+
+	// Rows before from were not asked for, so their absence says nothing.
+	q, err := tx.QueryContext(ctx, `SELECT id, dedupe_key, occurrence FROM transactions
+		WHERE account_id = ? AND source_connection_id = ? AND status = 'pending' AND booking_date >= ?`,
+		accountID, connectionID, from)
+	if err != nil {
+		return 0, err
+	}
+	var stale []int64
+	for q.Next() {
+		var id int64
+		var s slot
+		if err := q.Scan(&id, &s.key, &s.occ); err != nil {
+			q.Close()
+			return 0, err
+		}
+		if !reported[s] {
+			stale = append(stale, id)
+		}
+	}
+	q.Close()
+	if err := q.Err(); err != nil {
+		return 0, err
+	}
+	for _, id := range stale {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM transactions WHERE id = ?`, id); err != nil {
+			return 0, err
+		}
+	}
+
+	keep := make([]NewTransaction, 0, len(rows))
+	for _, r := range rows {
+		if r.Status != bank.StatusBooked || r.EntryReference == "" {
+			keep = append(keep, r)
+			continue
+		}
+		skip, err := checkReference(ctx, tx, &r, refs)
+		if err != nil {
+			return 0, err
+		}
+		if !skip {
+			keep = append(keep, r)
+		}
+	}
+	return InsertTransactions(ctx, tx, keep)
+}
+
+// checkReference guards a booked row's entry reference against a bank that
+// reuses or changes it. A stored row with the same reference but another
+// date or amount is a different transaction (a reused reference): the row
+// gets a key of reference plus content, the same on every later fetch. A row
+// whose reference is new while a stored booked row with the same content has
+// a reference this fetch no longer lists is that row re-referenced: skip it.
+func checkReference(ctx context.Context, tx *sql.Tx, r *NewTransaction, refs map[string]bool) (skip bool, err error) {
+	var date string
+	var amount int64
+	err = tx.QueryRowContext(ctx, `SELECT booking_date, amount FROM transactions
+		WHERE account_id = ? AND dedupe_key = ? AND occurrence = ?`, r.AccountID, r.DedupeKey, r.Occurrence).Scan(&date, &amount)
+	switch {
+	case err == nil:
+		if date != r.BookingDate || amount != r.Amount {
+			r.DedupeKey += ":" + ContentHash(r.Transaction)
+		}
+		return false, nil
+	case !errors.Is(err, sql.ErrNoRows):
+		return false, err
+	}
+	q, err := tx.QueryContext(ctx, `SELECT external_id FROM transactions
+		WHERE account_id = ? AND status = 'booked' AND external_id IS NOT NULL
+		  AND booking_date = ? AND amount = ? AND counterparty_name = ? AND communication = ?`,
+		r.AccountID, r.BookingDate, r.Amount, r.CounterpartyName, r.Communication)
+	if err != nil {
+		return false, err
+	}
+	defer q.Close()
+	for q.Next() {
+		var ref string
+		if err := q.Scan(&ref); err != nil {
+			return false, err
+		}
+		if !refs[ref] {
+			return true, nil
+		}
+	}
+	return false, q.Err()
 }

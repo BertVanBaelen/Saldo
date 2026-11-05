@@ -133,6 +133,13 @@ export function stubApi(s: Stub = {}) {
     connections: vi.spyOn(api, 'connections').mockResolvedValue(s.connections ?? CONNECTIONS),
     savePreferences: vi.spyOn(api, 'savePreferences').mockImplementation(async (p) => ({ ...ME.preferences, ...p })),
     sync: vi.spyOn(api, 'sync').mockResolvedValue({ started: true }),
+    // As in demo mode: the sync is done before the first poll.
+    syncStatus: vi.spyOn(api, 'syncStatus').mockImplementation(async () => ({
+      running: false,
+      startedAt: '2026-11-18T20:00:00+01:00',
+      finishedAt: '2026-11-18T20:00:01+01:00',
+      connections: (s.connections ?? CONNECTIONS).map((c) => ({ id: c.id, status: c.status, lastSync: c.lastSync, error: null })),
+    })),
     updateAccount: vi.spyOn(api, 'updateAccount').mockImplementation(async (id, patch) => ({ ...(s.accounts ?? ACCOUNTS).find((a) => a.id === id)!, ...patch })),
     devices: vi.spyOn(api, 'devices').mockImplementation(async () => structuredClone(s.devices ?? DEVICES)),
     users: vi.spyOn(api, 'users').mockImplementation(async () => structuredClone(USERS)),

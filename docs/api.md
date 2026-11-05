@@ -97,6 +97,13 @@ The alerts for Start, already scoped to the viewer.
 ```
 `kind`: `neg` | `warn` | `ok`; `type`: `consent` | `sync` | `categorise`. Planning alerts (`type: planning`) arrive with the forecast in version 0.8.
 
+Bank alerts (0.3-2), per connection of the viewer; a pending connection never raises one:
+- `consent`, `warn`: the consent ends within 14 days ("Toestemming verloopt over N dagen"). `consent`, `neg`: the consent has lapsed ("Toestemming voor <bank> is verlopen", note "Synchronisatie gestopt · opnieuw autoriseren").
+- `sync`, `neg`: **"Synchronisatie gestopt · <bank>"**, when a connection that is not expired has had no successful sync for more than 72 hours (note "Niet bijgewerkt sinds <when>", or "Nog nooit gesynchroniseerd"). "Last good" is `last_sync_at`, or, for a connection that never synced, the later of the consent start and its creation. It replaces "Synchronisatie mislukt" for that connection.
+- `sync`, `warn`: an account that was not updated for 36 hours ("niet bijgewerkt sinds ..."); left out when its connection already raises one of the red alerts above.
+
+The same moments send e-mails (`notification_log` keeps them from repeating): "Koppeling verloopt" at 14 and at 3 days (only the 3-day one when first seen at 3 days or less), "Synchronisatie gestopt" once per lapse and once per failing episode. Only the connection owner gets them; `notification_prefs` with `email = 0` for type `consent` or `stop` turns them off.
+
 ### `GET /api/connections`
 The viewer's own bank connections.
 ```json

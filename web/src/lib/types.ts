@@ -130,6 +130,14 @@ export interface Connection {
   accounts: number[];
 }
 
+/** GET /api/sync: the viewer's background sync and the state of their connections. */
+export interface SyncStatus {
+  running: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  connections: { id: number; status: Connection['status']; lastSync: string | null; error: string | null }[];
+}
+
 // ---------- Bank link (docs/api.md, "Bank link") ----------
 
 /** GET /api/bank/enablebanking: never the key itself. */

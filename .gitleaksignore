@@ -1,0 +1,2 @@
+# Test fixture, not a secret: the made-up link token in TestTokensNotLogged.
+ab3d903bda820bb498722e35a2c37efb8b41747f:server/internal/server/security_test.go:generic-api-key:81

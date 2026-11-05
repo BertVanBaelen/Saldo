@@ -67,6 +67,9 @@ func State(accountType string, balance, buffer int64) *string {
 	return ptr("ok")
 }
 
+// SyncUnlinked is the syncStatus of a bank account that no link feeds any more.
+const SyncUnlinked = "unlinked"
+
 // Accounts returns every account the viewer can see, oldest first.
 func (s *Store) Accounts(ctx context.Context, viewer int64, now time.Time) ([]Account, error) {
 	return s.accounts(ctx, viewer, 0, now)
@@ -228,6 +231,12 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 			continue
 		}
 		srcs := byAccount[a.ID]
+		if len(srcs) == 0 {
+			// Its link was removed with "keep history": nothing syncs it
+			// until it is linked again.
+			a.SyncStatus = ptr(SyncUnlinked)
+			continue
+		}
 		for _, src := range srcs {
 			a.sources = append(a.sources, src.connection)
 		}
@@ -288,6 +297,8 @@ type AccountPatch struct {
 	Name   *string `json:"name"`
 	Colour *string `json:"colour"`
 	Buffer *int64  `json:"buffer"`
+	// IBAN of a manual account ("" removes it); only to recognise transfers.
+	IBAN *string `json:"iban"`
 }
 
 // UpdateAccount applies a patch for a viewer with edit permission and
@@ -300,10 +311,10 @@ func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPa
 	}
 	defer tx.Rollback()
 
-	var accountType, permission string
+	var accountType, source, permission string
 	err = tx.QueryRowContext(ctx, `
-		SELECT a.type, me.permission FROM account_access me JOIN accounts a ON a.id = me.account_id
-		WHERE me.user_id = ? AND a.id = ?`, viewer, id).Scan(&accountType, &permission)
+		SELECT a.type, a.source, me.permission FROM account_access me JOIN accounts a ON a.id = me.account_id
+		WHERE me.user_id = ? AND a.id = ?`, viewer, id).Scan(&accountType, &source, &permission)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Account{}, apperr.ErrNotFound
 	}
@@ -314,7 +325,7 @@ func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPa
 		return Account{}, apperr.ErrForbidden
 	}
 
-	if p.Name == nil && p.Colour == nil && p.Buffer == nil {
+	if p.Name == nil && p.Colour == nil && p.Buffer == nil && p.IBAN == nil {
 		return Account{}, apperr.Invalid("Geef een naam, een kleur of een buffer op.")
 	}
 	var name *string
@@ -337,6 +348,19 @@ func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPa
 		UPDATE accounts SET name = COALESCE(?, name), colour = COALESCE(?, colour), buffer = COALESCE(?, buffer)
 		WHERE id = ?`, name, p.Colour, p.Buffer, id); err != nil {
 		return Account{}, err
+	}
+	if p.IBAN != nil {
+		// A bank account's IBAN is its identity at the bank (analysis 6.3).
+		if source != "manual" {
+			return Account{}, apperr.Invalid("Het IBAN van een bankrekening komt van de bank.")
+		}
+		iban, err := manualIBAN(p.IBAN)
+		if err != nil {
+			return Account{}, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET iban = ? WHERE id = ?`, iban, id); err != nil {
+			return Account{}, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return Account{}, err

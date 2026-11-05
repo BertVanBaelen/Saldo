@@ -60,7 +60,8 @@ export interface Account {
   state: AccountState | null;
   bank: string | null;
   lastSync: string | null;
-  syncStatus: 'ok' | 'stale' | 'failed' | null;
+  /** `unlinked`: the bank link was removed with "keep history"; nothing syncs the account any more. */
+  syncStatus: 'ok' | 'stale' | 'failed' | 'unlinked' | null;
   permission: Permission;
   role: MemberRole;
   members: Member[];
@@ -71,6 +72,35 @@ export interface AccountPatch {
   colour?: AccountColour;
   /** Cents, ≥ 0, a multiple of 100, current accounts only. */
   buffer?: number;
+  /** Manual accounts only; `""` removes it. */
+  iban?: string;
+}
+
+/** POST /api/accounts: a manual account. */
+export interface NewAccount {
+  name: string;
+  type: 'current' | 'savings';
+  colour?: AccountColour;
+  /** Cents, current accounts only. */
+  buffer?: number;
+  /** Only to recognise transfers to this account. */
+  iban?: string;
+  /** Cents: today's balance. */
+  balance?: number;
+}
+
+/** A point of GET /api/accounts/{id}/balances. */
+export interface BalancePoint {
+  date: string;
+  /** Cents. */
+  balance: number;
+  origin: 'bank' | 'manual';
+}
+
+/** Answer of DELETE /api/connections/{id}: account ids. */
+export interface RemovedLink {
+  deleted: number[];
+  kept: number[];
 }
 
 /** `c1` … `c6` are the category pastels, `soft` is used for income. */

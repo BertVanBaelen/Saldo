@@ -9,6 +9,7 @@ import type { Me } from './lib/types';
 import { Start } from './pages/Start';
 import { Transacties } from './pages/Transacties';
 import { Rekeningen } from './pages/Rekeningen';
+import { Rekening } from './pages/Rekening';
 import { Meer } from './pages/Meer';
 import { Instellingen } from './pages/Instellingen';
 import { BankKoppelen, Bankkoppelingen, BankTerug } from './pages/Bankkoppelingen';
@@ -23,6 +24,7 @@ export function AppRoutes() {
         <Route index element={<Start />} />
         <Route path="transacties" element={<Transacties />} />
         <Route path="rekeningen" element={<Rekeningen />} />
+        <Route path="rekeningen/:id" element={<Rekening />} />
         <Route path="meer" element={<Meer />} />
         <Route path="overzicht" element={<NotBuilt id="overzicht" />} />
         <Route path="planning" element={<NotBuilt id="planning" />} />

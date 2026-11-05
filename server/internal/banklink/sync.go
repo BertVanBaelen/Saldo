@@ -3,6 +3,7 @@ package banklink
 import (
 	"cmp"
 	"context"
+	"database/sql"
 	"errors"
 	"slices"
 	"strconv"
@@ -101,6 +102,24 @@ func (s *Service) run(ctx context.Context, id int64, now time.Time, join bool) e
 	}
 }
 
+// Exclusive runs fn while no sync of the connection runs: it waits for one
+// that is running, and none starts until fn returns. Removing a link uses it,
+// so a sync never writes into accounts that are being deleted.
+func (s *Service) Exclusive(ctx context.Context, id int64, fn func() error) error {
+	for {
+		release, busy := s.claim(id)
+		if release != nil {
+			defer release()
+			return fn()
+		}
+		select {
+		case <-busy:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 type source struct {
 	account  int64
 	iban     string
@@ -112,7 +131,10 @@ type source struct {
 // the connection is ok only when every account is. A lapsed session stops it.
 // The caller holds the connection's claim.
 func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) error {
-	c, err := scanConnection(s.db.QueryRowContext(ctx, `SELECT `+connectionColumns+` FROM provider_connections WHERE id = ?`, id))
+	c, err := scanConnection(s.db.QueryRowContext(ctx, `SELECT `+connectionColumns+` FROM provider_connections WHERE id = ? AND status <> 'revoked'`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil // removed while this sync waited for its turn
+	}
 	if err != nil {
 		return err
 	}

@@ -12,15 +12,18 @@ import { api, errorMessage } from '../lib/api';
 import { eur, momentLabel, names, parseMoney } from '../lib/format';
 import type { Account, AccountColour, AccountPatch } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { AddAccount } from './AddAccount';
 import './Rekeningen.css';
 
 /** € 50 per − / + press (cents). */
 export const STEP = 5000;
 
-interface Draft {
+export interface Draft {
   name?: string;
   colour?: AccountColour;
   bufInput?: string;
+  /** Manual accounts: a new IBAN, or null to remove it (the API only shows it masked). */
+  iban?: string | null;
 }
 
 interface Values {
@@ -29,12 +32,13 @@ interface Values {
   bufInput: string;
   /** Cents, or NaN when the typed buffer is not an amount. */
   buffer: number;
+  iban: string | null | undefined;
 }
 
 export function values(a: Account, d: Draft): Values {
   const bufInput = d.bufInput ?? String(Math.round(a.buffer / 100));
   const parsed = d.bufInput === undefined ? a.buffer : bufInput.trim() === '' ? 0 : parseMoney(bufInput);
-  return { name: d.name ?? a.name, colour: d.colour ?? a.colour, bufInput, buffer: isNaN(parsed) ? NaN : Math.max(0, parsed) };
+  return { name: d.name ?? a.name, colour: d.colour ?? a.colour, bufInput, buffer: isNaN(parsed) ? NaN : Math.max(0, parsed), iban: d.iban };
 }
 
 /** The changes to send: only what differs; the buffer in whole euros. An empty name keeps the old one. */
@@ -47,6 +51,8 @@ export function patchOf(a: Account, v: Values): AccountPatch {
     const b = Math.round(v.buffer / 100) * 100;
     if (b !== a.buffer) patch.buffer = b;
   }
+  if (v.iban === null) patch.iban = '';
+  else if (v.iban?.trim()) patch.iban = v.iban.trim();
   return patch;
 }
 
@@ -65,7 +71,7 @@ function subline(a: Account, today: string): { text: string; tone: string } {
   return { text: bank + ' · ' + short, tone: s.tone };
 }
 
-function Avatar({ a, size, colour }: { a: Account; size: number; colour?: AccountColour }) {
+export function Avatar({ a, size, colour }: { a: Account; size: number; colour?: AccountColour }) {
   return (
     <span className={'rk-avatar' + (size > 19 ? ' rk-avatar--lg' : '')} style={{ background: accColour(colour || a.colour) }} aria-hidden="true">
       <Icon name={accountIcon(a)} size={size} stroke={2.2} />
@@ -135,6 +141,10 @@ function BufferCard({ list }: { list: Account[] }) {
 
 interface EditorProps {
   a: Account;
+  /** Link to the account's page (Rekeningen; not on that page itself). */
+  detail?: boolean;
+  /** Without the head (the account page has its own). */
+  bare?: boolean;
   draft: Draft;
   setDraft: (d: Draft) => void;
   mode: 'p' | 'd';
@@ -144,7 +154,7 @@ interface EditorProps {
   onClose?: () => void;
 }
 
-function Editor({ a, draft, setDraft, mode, saving, error, onSave, onClose }: EditorProps) {
+export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, onSave, onClose }: EditorProps) {
   const { today, online } = useApp();
   const v = values(a, draft);
   const ro = a.permission === 'read';
@@ -177,20 +187,28 @@ function Editor({ a, draft, setDraft, mode, saving, error, onSave, onClose }: Ed
 
   return (
     <div className="rk-editor">
-      <div className="rk-ed-head">
-        <Avatar a={a} size={22} colour={v.colour} />
-        <div className="rk-ed-title">
-          <span className="rk-ed-name" id={id('title')}>
-            {v.name}
-          </span>
-          <Sub a={a} today={today} className="rk-ed-sub" />
+      {!bare && (
+        <div className="rk-ed-head">
+          <Avatar a={a} size={22} colour={v.colour} />
+          <div className="rk-ed-title">
+            <span className="rk-ed-name" id={id('title')}>
+              {v.name}
+            </span>
+            <Sub a={a} today={today} className="rk-ed-sub" />
+          </div>
+          {inSheet && (
+            <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
+              <Icon name="close" size={18} stroke={2.4} />
+            </button>
+          )}
         </div>
-        {inSheet && (
-          <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
-            <Icon name="close" size={18} stroke={2.4} />
-          </button>
-        )}
-      </div>
+      )}
+      {detail && (
+        <Link className="rk-detail" to={'/rekeningen/' + a.id}>
+          <span>{a.source === 'manual' ? 'Details en saldo bijwerken' : 'Details en synchronisatie'}</span>
+          <Icon name="chevron" size={18} stroke={2.2} />
+        </Link>
+      )}
 
       {ro && (
         <div className="rk-ro">
@@ -288,6 +306,34 @@ function Editor({ a, draft, setDraft, mode, saving, error, onSave, onClose }: Ed
         <p className="rk-note">Spaarrekeningen tellen niet mee als beschikbaar geld in je planning. Daarom hebben ze geen buffer.</p>
       )}
 
+      {a.source === 'manual' && (
+        <div className="rk-field rk-field--tight">
+          <label className="rk-label" htmlFor={id('iban')}>
+            IBAN <span className="rk-opt">(optioneel)</span>
+          </label>
+          <input
+            className="input rk-iban-input"
+            id={id('iban')}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={(v.iban === null ? null : a.iban) || 'BE00 0000 0000 0000'}
+            value={v.iban || ''}
+            disabled={ro}
+            aria-describedby={id('iban-help')}
+            onChange={(e) => setDraft({ ...draft, iban: e.target.value })}
+          />
+          <span className="rk-help" id={id('iban-help')}>
+            Alleen om overschrijvingen naar deze rekening te herkennen. Wordt nooit gebruikt om rekeningen samen te voegen.
+            {a.iban && v.iban !== null && ' Laat leeg om het te houden.'}
+          </span>
+          {a.iban && !ro && v.iban !== null && (
+            <button type="button" className="rk-link-btn" onClick={() => setDraft({ ...draft, iban: null })}>
+              IBAN verwijderen
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="rk-preview">
         <span className="rk-preview-label">Voorbeeld</span>
         <span className="rk-pill">
@@ -341,7 +387,7 @@ function Editor({ a, draft, setDraft, mode, saving, error, onSave, onClose }: Ed
 
 // ---------- States ----------
 
-function Empty() {
+function Empty({ onManual }: { onManual: () => void }) {
   return (
     <section className="card rk-empty anim-in" style={delay(30)} aria-labelledby="rk-empty-title">
       <span className="rk-empty-icon" aria-hidden="true">
@@ -350,14 +396,20 @@ function Empty() {
       <h2 className="rk-empty-title" id="rk-empty-title">
         Nog geen rekeningen
       </h2>
-      <p className="rk-empty-text">Koppel je zichtrekening bij de bank, dan komen saldo en transacties vanzelf binnen.</p>
+      <p className="rk-empty-text">
+        Koppel je zichtrekening bij de bank, dan komen saldo en transacties vanzelf binnen. Spaargeld of een rekening zonder koppeling voeg je met de hand toe.
+      </p>
       <div className="rk-empty-actions">
         <Link className="btn btn--primary" to="/bankkoppelingen">
           <Icon name="bank" size={18} stroke={2.2} />
           Bankrekening koppelen
         </Link>
+        <button type="button" className="btn btn--ghost" aria-haspopup="dialog" onClick={onManual}>
+          <Icon name="edit" size={18} stroke={2.2} />
+          Handmatige rekening
+        </button>
       </div>
-      <p className="rk-empty-note">Spaargeld of een rekening zonder bankkoppeling voeg je met de hand toe vanaf versie 0.3.</p>
+      <p className="rk-empty-note">Een gedeelde rekening voeg je toe door ze te koppelen. Aansluiten bij de koppeling van een mede-houder komt in versie 0.6.</p>
     </section>
   );
 }
@@ -426,6 +478,12 @@ export function Rekeningen() {
     setDraft(d);
     setError(null);
   };
+  const [adding, setAdding] = useState<'kies' | 'handmatig' | null>(null);
+  const created = (a: Account) => {
+    accounts.setData([...(list || []), a]);
+    setAdding(null);
+    choose(a.id);
+  };
 
   const save = () => {
     if (!cur || !list || saving) return;
@@ -460,6 +518,14 @@ export function Rekeningen() {
         <h1>Rekeningen</h1>
         <span className="rk-head-sub only-desktop">Naam, kleur en buffer per rekening</span>
       </div>
+      {!!list?.length && (
+        <div className="only-desktop">
+          <button type="button" className="btn btn--primary rk-add" aria-haspopup="dialog" onClick={() => setAdding('kies')}>
+            <Icon name="plus" size={16} stroke={2.6} />
+            Rekening toevoegen
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -470,7 +536,7 @@ export function Rekeningen() {
     body = (
       <div className="rk-layout rk-layout--empty">
         <div className="rk-col">
-          <Empty />
+          <Empty onManual={() => setAdding('handmatig')} />
         </div>
       </div>
     );
@@ -540,12 +606,16 @@ export function Rekeningen() {
               </section>
             );
           })}
+          <button type="button" className="btn btn--dashed only-phone rk-add-phone anim-in" style={delay(120)} aria-haspopup="dialog" onClick={() => setAdding('kies')}>
+            <Icon name="plus" size={16} stroke={2.6} />
+            Rekening toevoegen
+          </button>
         </div>
         {desktop && (
           <div>
             <section className="rk-panel anim-in" style={delay(60)} aria-label="Rekening instellen" id="rk-panel">
               <div className="anim-fade" key={cur.id}>
-                <Editor a={cur} draft={draft} setDraft={changeDraft} mode="d" saving={saving} error={error} onSave={save} />
+                <Editor a={cur} detail draft={draft} setDraft={changeDraft} mode="d" saving={saving} error={error} onSave={save} />
               </div>
             </section>
           </div>
@@ -560,9 +630,10 @@ export function Rekeningen() {
       {body}
       {!desktop && sheetOpen && cur && (
         <Sheet onClose={closeSheet} label="Rekening instellen" className="rk-sheet rk-edit-sheet" backdropClassName="rk-backdrop">
-          <Editor a={cur} draft={draft} setDraft={changeDraft} mode="p" saving={saving} error={error} onSave={save} onClose={closeSheet} />
+          <Editor a={cur} detail draft={draft} setDraft={changeDraft} mode="p" saving={saving} error={error} onSave={save} onClose={closeSheet} />
         </Sheet>
       )}
+      {adding && <AddAccount step={adding} used={(list || []).map((a) => a.colour)} onClose={() => setAdding(null)} onCreated={created} />}
     </div>
   );
 }

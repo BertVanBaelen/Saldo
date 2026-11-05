@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.3 Bank sync](README.md) |
-| Status | planned |
+| Status | built (5 Nov 2026), to verify on the live add-on |
 | Size | M |
 | Features | ACCT-1 |
 | Concepts | [account](../../analysis/concepts/account.md), [buffer-and-states](../../analysis/concepts/buffer-and-states.md), [bank-connection](../../analysis/concepts/bank-connection.md) |

@@ -597,12 +597,12 @@ func TestRouting(t *testing.T) {
 	expectError(t, do(t, h, "GET", "/api/accounts/", ""), http.StatusNotFound, "not_found")
 	r := do(t, h, "GET", "/api/accounts/1", "")
 	expectError(t, r, http.StatusMethodNotAllowed, "method_not_allowed")
-	if r.header.Get("Allow") != "PATCH" {
+	if r.header.Get("Allow") != "PATCH, DELETE" {
 		t.Errorf("Allow: %q", r.header.Get("Allow"))
 	}
-	r = do(t, h, "POST", "/api/accounts", `{}`)
+	r = do(t, h, "PUT", "/api/accounts", `{}`)
 	expectError(t, r, http.StatusMethodNotAllowed, "method_not_allowed")
-	if r.header.Get("Allow") != "GET, HEAD" {
+	if r.header.Get("Allow") != "GET, POST, HEAD" {
 		t.Errorf("Allow: %q", r.header.Get("Allow"))
 	}
 	r = do(t, h, "DELETE", "/api/sync", "")

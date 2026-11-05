@@ -26,7 +26,8 @@ const DemoViewer int64 = 1
 // SyncCooldown is the minimum time between two "Sync now" calls of a user.
 const SyncCooldown = 15 * time.Minute
 
-// Syncer runs "Sync now" for the viewer's connections.
+// Syncer runs "Sync now" for the viewer's connections. The server calls it
+// in the background and answers the request at once.
 type Syncer interface {
 	Sync(ctx context.Context, viewer int64, now time.Time) error
 }
@@ -68,6 +69,9 @@ type Server struct {
 	limits   limits
 	secure   bool // device cookie only over https
 	mails    sync.WaitGroup
+	syncs    sync.WaitGroup // background syncs, for tests
+	runsMu   sync.Mutex
+	runs     map[int64]syncRun
 	mux      *http.ServeMux
 }
 
@@ -93,6 +97,7 @@ func newServer(o Options) (*Server, http.Handler) {
 		cooldown: ratelimit.NewCooldown(SyncCooldown, o.Now),
 		limits:   newLimits(o.Now),
 		secure:   strings.HasPrefix(o.PublicURL, "https://"),
+		runs:     map[int64]syncRun{},
 		mux:      http.NewServeMux(),
 	}
 	s.routes()
@@ -135,6 +140,7 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/alerts", s.listAlerts)
 	m.HandleFunc("GET /api/connections", s.listConnections)
 	m.HandleFunc("POST /api/sync", s.postSync)
+	m.HandleFunc("GET /api/sync", s.getSync)
 	m.HandleFunc("GET /api/bank/enablebanking", s.getEnableBanking)
 	m.HandleFunc("PUT /api/bank/enablebanking", s.putEnableBanking)
 	m.HandleFunc("POST /api/bank/link", s.postBankLink)

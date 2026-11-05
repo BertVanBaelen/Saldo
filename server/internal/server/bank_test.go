@@ -60,6 +60,8 @@ type testBank struct {
 	checkErr  error
 	createErr error
 	fetchErr  error
+	failOnly  string        // the IBAN fetchErr is for; empty: every account
+	block     chan struct{} // fetches wait until it closes
 	session   string
 	accounts  []bank.Account
 	txs       map[string][]bank.Transaction // by IBAN, so new provider ids still find them
@@ -146,10 +148,16 @@ func (b *testBank) ibanOf(id string) string {
 
 func (b *testBank) FetchTransactions(_ context.Context, s bank.Session, id, from, _ string) ([]bank.Transaction, error) {
 	b.mu.Lock()
+	block := b.block
+	b.mu.Unlock()
+	if block != nil {
+		<-block
+	}
+	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.froms = append(b.froms, from)
 	b.fetched = append(b.fetched, s.ID+"/"+id)
-	if b.fetchErr != nil {
+	if b.fetchErr != nil && (b.failOnly == "" || b.failOnly == b.ibanOf(id)) {
 		return nil, b.fetchErr
 	}
 	return slices.Clone(b.txs[b.ibanOf(id)]), nil
@@ -208,9 +216,12 @@ func newBankEnv(t *testing.T) *bankEnv {
 	return be
 }
 
+// as calls the API as user and waits for the background syncs it started.
 func (e *bankEnv) as(user int64, method, path, body string) response {
 	e.t.Helper()
-	return e.do(call{method: method, path: path, body: body, header: map[string]string{"X-Test-User": strconv.FormatInt(user, 10)}})
+	r := e.do(call{method: method, path: path, body: body, header: map[string]string{"X-Test-User": strconv.FormatInt(user, 10)}})
+	e.s.syncs.Wait()
+	return r
 }
 
 func (e *bankEnv) saveCredentials(user int64) {
@@ -340,8 +351,32 @@ func TestBankLinkAndSync(t *testing.T) {
 	if e.bank.redirects[0] != "https://saldo.example.com/bankkoppelingen/terug" {
 		t.Errorf("redirect URL %q", e.bank.redirects[0])
 	}
+	// The answer is the link before its first sync, which runs in the background.
 	b := jsonBody(got)
 	equalJSON(t, b, `{
+		"connection": {"id": 1, "bank": "Argenta", "since": "2026-11-18", "validUntil": "2027-05-17", "daysLeft": 180,
+			"lastSync": null, "status": "stale", "accounts": [1, 2]},
+		"accounts": [
+			{"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
+				"iban": "BE68 •••• •••• 7034", "colour": "green", "buffer": 0, "balance": 0,
+				"balanceDate": null, "state": "ok", "bank": "Argenta", "lastSync": null,
+				"syncStatus": "stale", "permission": "edit", "role": "manager", "members": []},
+			{"id": 2, "name": "Gezinsrekening", "type": "current", "source": "bank", "kind": "personal",
+				"iban": "BE71 •••• •••• 6769", "colour": "green", "buffer": 0, "balance": 0,
+				"balanceDate": null, "state": "ok", "bank": "Argenta", "lastSync": null,
+				"syncStatus": "stale", "permission": "edit", "role": "manager", "members": []}
+		],
+		"skipped": []
+	}`)
+	equalJSON(t, e.as(e.bert, "GET", "/api/sync", "").body, `{"running": false,
+		"startedAt": "2026-11-18T20:00:00+01:00", "finishedAt": "2026-11-18T20:00:00+01:00",
+		"connections": [{"id": 1, "status": "ok", "lastSync": "2026-11-18T20:00:00+01:00", "error": null}]}`)
+	synced := jsonBody(map[string]any{
+		"connection": decode[[]ledger.Connection](t, e.as(e.bert, "GET", "/api/connections", "").body)[0],
+		"accounts":   decode[[]ledger.Account](t, e.as(e.bert, "GET", "/api/accounts", "").body),
+		"skipped":    []string{},
+	})
+	equalJSON(t, synced, `{
 		"connection": {"id": 1, "bank": "Argenta", "since": "2026-11-18", "validUntil": "2027-05-17", "daysLeft": 180,
 			"lastSync": "2026-11-18T20:00:00+01:00", "status": "ok", "accounts": [1, 2]},
 		"accounts": [
@@ -495,8 +530,11 @@ func TestBankLinkSkipsAnotherUsersIBAN(t *testing.T) {
 		t.Errorf("Partner's link: %+v", got)
 	}
 	equalJSON(t, jsonBody(got.Skipped), `[{"iban": "BE71 •••• •••• 6769", "reason": "exists"}]`)
-	if got.Accounts[0].Role != "manager" || got.Accounts[0].Balance != 143215 {
+	if got.Accounts[0].Role != "manager" {
 		t.Errorf("Partner's account: %+v", got.Accounts[0])
+	}
+	if a := decode[[]ledger.Account](t, e.as(e.partner, "GET", "/api/accounts", "").body); a[0].Balance != 143215 {
+		t.Errorf("Partner's account after the first sync: %+v", a[0])
 	}
 
 	// The shared IBAN stays Bert's alone, and nobody sees the other's account.
@@ -520,9 +558,15 @@ func TestBankSyncFailures(t *testing.T) {
 	// A first sync that fails keeps the link and shows "failed".
 	e.bank.set(func(b *testBank) { b.fetchErr = errors.New("secret-marker " + ibanPersonal) })
 	got := e.link(e.bert, "")
-	if got.Connection.Status != "failed" || len(got.Accounts) != 2 {
-		t.Fatalf("failed first sync: %+v", got.Connection)
+	if len(got.Accounts) != 2 {
+		t.Fatalf("failed first sync: %+v", got)
 	}
+	if c := decode[[]ledger.Connection](t, e.as(e.bert, "GET", "/api/connections", "").body); c[0].Status != "failed" {
+		t.Fatalf("failed first sync: %+v", c[0])
+	}
+	equalJSON(t, e.as(e.bert, "GET", "/api/sync", "").body, `{"running": false,
+		"startedAt": "2026-11-18T20:00:00+01:00", "finishedAt": "2026-11-18T20:00:00+01:00",
+		"connections": [{"id": 1, "status": "failed", "lastSync": null, "error": "provider_error"}]}`)
 	var code string
 	e.db.QueryRow(`SELECT last_error FROM provider_connections WHERE id = 1`).Scan(&code)
 	if code != "provider_error" {
@@ -670,20 +714,145 @@ func TestBankDemoWizard(t *testing.T) {
 				t.Fatalf("callback: %d %s", r.status, r.body)
 			}
 			got := decode[callbackBody](t, r.body)
-			if !slices.Equal(accountIDs(got.Accounts), tc.accounts) || len(got.Skipped) != 0 ||
-				got.Connection.Status != "ok" || *got.Connection.LastSync != "2026-11-18T20:00:00+01:00" || *got.Connection.ValidUntil != "2027-05-17" {
+			if !slices.Equal(accountIDs(got.Accounts), tc.accounts) || len(got.Skipped) != 0 || *got.Connection.ValidUntil != "2027-05-17" {
 				t.Errorf("demo callback: %s", r.body)
+			}
+			// The first sync runs in the background with the real code.
+			polled := waitSync(t, h)
+			i := slices.IndexFunc(polled.Connections, func(c syncConnection) bool { return c.ID == got.Connection.ID })
+			if i < 0 || polled.Connections[i].Status != "ok" || *polled.Connections[i].LastSync != "2026-11-18T20:00:00+01:00" {
+				t.Errorf("demo sync: %+v", polled)
 			}
 			var after, accounts, afterSnapshots int
 			d.QueryRow(`SELECT COUNT(*) FROM transactions`).Scan(&after)
 			d.QueryRow(`SELECT COUNT(*) FROM accounts`).Scan(&accounts)
 			d.QueryRow(`SELECT COUNT(*) FROM balance_snapshots`).Scan(&afterSnapshots)
-			if after != rows || accounts != 5 || afterSnapshots != snapshots+2 {
+			// The bank balance of the same day updates the seeded one.
+			if after != rows || accounts != 5 || afterSnapshots != snapshots {
 				t.Errorf("re-matching the demo made duplicates: rows %d → %d, %d accounts, snapshots %d → %d",
 					rows, after, accounts, snapshots, afterSnapshots)
 			}
 		})
 	}
+}
+
+func TestBankPendingBecomesBooked(t *testing.T) {
+	e := newBankEnv(t)
+	e.saveCredentials(e.bert)
+	e.link(e.bert, "")
+	rows := func() string {
+		return e.query(`SELECT status, booking_date, amount, counterparty_name FROM transactions WHERE account_id = 1 ORDER BY booking_date, id`)
+	}
+	before := rows()
+
+	// The bank books the coffee a day later, with a reference.
+	e.bank.set(func(b *testBank) {
+		b.txs[ibanPersonal][0] = bank.Transaction{EntryReference: "ref-3", BookingDate: "2026-11-18", ValueDate: "2026-11-17",
+			Amount: -450, CounterpartyName: "Koffiebar", Status: bank.StatusBooked}
+	})
+	e.now = e.now.Add(16 * time.Minute)
+	if r := e.as(e.bert, "POST", "/api/sync", ""); r.status != http.StatusAccepted {
+		t.Fatalf("sync: %d %s", r.status, r.body)
+	}
+	want := strings.Replace(before, "pending 2026-11-17 -450 Koffiebar", "booked 2026-11-18 -450 Koffiebar", 1)
+	if got := rows(); got != want || got == before {
+		t.Errorf("rows\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestBankSyncPartialFailure(t *testing.T) {
+	e := newBankEnv(t)
+	e.saveCredentials(e.bert)
+	e.link(e.bert, "")
+	shared := e.query(`SELECT id, amount FROM transactions WHERE account_id = 2`)
+
+	// The shared account fails; the personal one still syncs (its pending row is gone).
+	e.bank.set(func(b *testBank) {
+		b.fetchErr, b.failOnly = &enablebanking.APIError{Op: "fetch transactions", Status: 500}, ibanShared
+		b.txs[ibanPersonal] = b.txs[ibanPersonal][1:]
+	})
+	e.now = e.now.Add(16 * time.Minute)
+	e.as(e.bert, "POST", "/api/sync", "")
+	accounts := decode[[]ledger.Account](t, e.as(e.bert, "GET", "/api/accounts", "").body)
+	if *accounts[0].SyncStatus != "ok" || *accounts[1].SyncStatus != "failed" {
+		t.Errorf("per account: %s, %s", *accounts[0].SyncStatus, *accounts[1].SyncStatus)
+	}
+	equalJSON(t, e.as(e.bert, "GET", "/api/sync", "").body, `{"running": false,
+		"startedAt": "2026-11-18T20:00:00+01:00", "finishedAt": "2026-11-18T20:00:00+01:00",
+		"connections": [{"id": 1, "status": "failed", "lastSync": "2026-11-18T20:00:00+01:00", "error": "http_500"}]}`)
+	if n := e.count(`SELECT COUNT(*) FROM transactions WHERE account_id = 1 AND status = 'pending'`); n != 0 {
+		t.Errorf("%d pending rows left on the account that synced", n)
+	}
+	if got := e.query(`SELECT id, amount FROM transactions WHERE account_id = 2`); got != shared {
+		t.Errorf("the failed account changed: %s → %s", shared, got)
+	}
+}
+
+func TestSyncStatusRunsInTheBackground(t *testing.T) {
+	e := newBankEnv(t)
+	e.saveCredentials(e.bert)
+	e.link(e.bert, "")
+	e.saveCredentials(e.partner)
+	hdr := func(user int64) map[string]string {
+		return map[string]string{"X-Test-User": strconv.FormatInt(user, 10)}
+	}
+	get := func(user int64) syncBody {
+		return decode[syncBody](t, e.do(call{method: "GET", path: "/api/sync", header: hdr(user)}).body)
+	}
+
+	// Privacy: Partner sees only Partner's own connection.
+	equalJSON(t, jsonBody(get(e.partner)), `{"running": false, "startedAt": null, "finishedAt": null,
+		"connections": [{"id": 2, "status": "pending", "lastSync": null, "error": null}]}`)
+
+	block := make(chan struct{})
+	e.bank.set(func(b *testBank) { b.block = block })
+	e.now = e.now.Add(16 * time.Minute)
+	r := e.do(call{method: "POST", path: "/api/sync", header: hdr(e.bert)})
+	if r.status != http.StatusAccepted {
+		t.Fatalf("sync: %d %s", r.status, r.body)
+	}
+	equalJSON(t, r.body, `{"started": true}`)
+	if s := get(e.bert); !s.Running || s.FinishedAt != nil {
+		t.Errorf("while syncing: %+v", s)
+	}
+	if get(e.partner).Running {
+		t.Error("Partner sees Bert's sync")
+	}
+	// A sync that is running answers without using the cooldown.
+	r = e.do(call{method: "POST", path: "/api/sync", header: hdr(e.bert)})
+	equalJSON(t, r.body, `{"started": false, "running": true}`)
+	if r.status != http.StatusAccepted {
+		t.Errorf("second sync: %d", r.status)
+	}
+	close(block)
+	e.s.syncs.Wait()
+	if s := get(e.bert); s.Running || s.FinishedAt == nil || s.Connections[0].Status != "ok" {
+		t.Errorf("after the sync: %+v", s)
+	}
+	expectError(t, e.as(e.bert, "POST", "/api/sync", ""), http.StatusTooManyRequests, "rate_limited")
+}
+
+func (e *bankEnv) query(q string) string {
+	e.t.Helper()
+	rows, err := e.db.Query(q)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	defer rows.Close()
+	cols, _ := rows.Columns()
+	var out []string
+	for rows.Next() {
+		vals := make([]any, len(cols))
+		ptrs := make([]any, len(cols))
+		for i := range vals {
+			ptrs[i] = &vals[i]
+		}
+		if err := rows.Scan(ptrs...); err != nil {
+			e.t.Fatal(err)
+		}
+		out = append(out, strings.TrimSuffix(fmt.Sprintln(vals...), "\n"))
+	}
+	return strings.Join(out, "\n")
 }
 
 func accountIDs(list []ledger.Account) []int64 {

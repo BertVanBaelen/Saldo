@@ -15,9 +15,15 @@ import (
 const contentSecurityPolicy = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; " +
 	"font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
-func securityHeaders(next http.Handler) http.Handler {
+// securityHeaders sets the headers of every answer; hsts only when Saldo is
+// opened over https (public_url), so a plain-http test setup is not locked out.
+func securityHeaders(next http.Handler, hsts bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
+		if hsts {
+			// No includeSubDomains: other services on the domain are not Saldo's to decide.
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		h.Set("Content-Security-Policy", contentSecurityPolicy)
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "same-origin")
@@ -32,6 +38,20 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 func isAPI(path string) bool { return path == "/api" || strings.HasPrefix(path, "/api/") }
+
+// tokenPaths end in a one-time token (setup, invitation, password reset).
+var tokenPaths = []string{"/api/auth/token/", "/setup/", "/uitnodiging/", "/nieuw-wachtwoord/"}
+
+// logPath is the path as it may be logged: a token in it is left out, since
+// anyone who can read the add-on log could otherwise redeem the link.
+func logPath(path string) string {
+	for _, p := range tokenPaths {
+		if strings.HasPrefix(path, p) && len(path) > len(p) {
+			return p + "…"
+		}
+	}
+	return path
+}
 
 // session is the signed-in viewer and their device (0 in demo mode and with
 // Options.Viewer).
@@ -101,13 +121,13 @@ func (s *Server) resolve(w http.ResponseWriter, r *http.Request) (session, error
 	}
 	dev, renewed, err := s.auth.Resolve(r.Context(), c.Value)
 	if errors.Is(err, apperr.ErrNotFound) {
-		s.clearDeviceCookie(w)
+		s.clearDeviceCookie(w, r)
 	}
 	if err != nil {
 		return session{}, err
 	}
 	if renewed {
-		s.setDeviceCookie(w, c.Value)
+		s.setDeviceCookie(w, r, c.Value)
 	}
 	return session{user: dev.UserID, device: dev.DeviceID}, nil
 }
@@ -124,7 +144,7 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 			if v == http.ErrAbortHandler {
 				panic(v)
 			}
-			s.log.ErrorContext(r.Context(), "panic", "method", r.Method, "path", r.URL.Path, "panic", v, "stack", string(debug.Stack()))
+			s.log.ErrorContext(r.Context(), "panic", "method", r.Method, "path", logPath(r.URL.Path), "panic", v, "stack", string(debug.Stack()))
 			if !rec.wrote {
 				writeError(rec, http.StatusInternalServerError, "internal", "Er ging iets mis. Probeer het later opnieuw.")
 			}
@@ -148,7 +168,7 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		if r.URL.Path == "/healthz" || r.URL.Path == "/api/health" {
 			level = s.log.Debug
 		}
-		level("request", "method", r.Method, "path", r.URL.Path, "status", status,
+		level("request", "method", r.Method, "path", logPath(r.URL.Path), "status", status,
 			"bytes", rec.bytes, "duration_ms", time.Since(start).Milliseconds())
 	})
 }

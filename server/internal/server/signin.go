@@ -48,20 +48,44 @@ func newLimits(now func() time.Time) limits {
 // clientIP is the remote address, or CF-Connecting-IP when the connection
 // comes from a private or loopback address (the Cloudflared add-on).
 func clientIP(r *http.Request) string {
+	addr, ok := peer(r)
+	if !ok {
+		return r.RemoteAddr
+	}
+	if trustedPeer(addr) {
+		if cf, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("CF-Connecting-IP"))); err == nil {
+			return cf.Unmap().String()
+		}
+	}
+	return addr.String()
+}
+
+func peer(r *http.Request) (netip.Addr, bool) {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
 	}
-	if addr, err := netip.ParseAddr(host); err == nil {
-		addr = addr.Unmap()
-		if addr.IsPrivate() || addr.IsLoopback() {
-			if cf, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("CF-Connecting-IP"))); err == nil {
-				return cf.Unmap().String()
-			}
-		}
-		return addr.String()
+	addr, err := netip.ParseAddr(host)
+	return addr.Unmap(), err == nil
+}
+
+// trustedPeer is a proxy on Home Assistant's own network (the Cloudflared
+// add-on), whose forwarding headers are believed.
+func trustedPeer(addr netip.Addr) bool { return addr.IsPrivate() || addr.IsLoopback() }
+
+// overHTTPS reports whether the browser reached Saldo over https. Behind the
+// Cloudflared add-on the request arrives over plain http, so without an https
+// public_url the cookie would otherwise lose its Secure flag; the edge's
+// scheme is taken from a trusted peer only.
+func (s *Server) overHTTPS(r *http.Request) bool {
+	if s.secure || r.TLS != nil {
+		return true
 	}
-	return host
+	if addr, ok := peer(r); !ok || !trustedPeer(addr) {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https") ||
+		strings.Contains(strings.ReplaceAll(r.Header.Get("CF-Visitor"), " ", ""), `"scheme":"https"`)
 }
 
 // limited counts an attempt for key and answers 429 when its window is used
@@ -97,14 +121,14 @@ func (s *Server) audit(r *http.Request, event string, user int64, detail string)
 	}
 }
 
-func (s *Server) setDeviceCookie(w http.ResponseWriter, token string) {
+func (s *Server) setDeviceCookie(w http.ResponseWriter, r *http.Request, token string) {
 	http.SetCookie(w, &http.Cookie{Name: deviceCookie, Value: token, Path: "/", MaxAge: int(auth.DeviceIdle.Seconds()),
-		HttpOnly: true, Secure: s.secure, SameSite: http.SameSiteStrictMode})
+		HttpOnly: true, Secure: s.overHTTPS(r), SameSite: http.SameSiteStrictMode})
 }
 
-func (s *Server) clearDeviceCookie(w http.ResponseWriter) {
+func (s *Server) clearDeviceCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: deviceCookie, Value: "", Path: "/", MaxAge: -1,
-		HttpOnly: true, Secure: s.secure, SameSite: http.SameSiteStrictMode})
+		HttpOnly: true, Secure: s.overHTTPS(r), SameSite: http.SameSiteStrictMode})
 }
 
 // sendLater sends a mail in the background. The login code goes this way so
@@ -193,7 +217,7 @@ func (s *Server) postVerify(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err, msgNotFound)
 		return
 	}
-	s.setDeviceCookie(w, sess.Token)
+	s.setDeviceCookie(w, r, sess.Token)
 	if s.opts.Mailer != nil {
 		devicesURL := ""
 		if s.opts.PublicURL != "" {
@@ -215,7 +239,7 @@ func (s *Server) postLogout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.clearDeviceCookie(w)
+	s.clearDeviceCookie(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 

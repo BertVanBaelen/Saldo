@@ -79,7 +79,7 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error, notFoun
 	case errors.Is(err, errTooLarge):
 		writeError(w, http.StatusRequestEntityTooLarge, "too_large", "De aanvraag is te groot.")
 	default:
-		s.log.ErrorContext(r.Context(), "request failed", "method", r.Method, "path", r.URL.Path, "error", err)
+		s.log.ErrorContext(r.Context(), "request failed", "method", r.Method, "path", logPath(r.URL.Path), "error", err)
 		writeError(w, http.StatusInternalServerError, "internal", "Er ging iets mis. Probeer het later opnieuw.")
 	}
 }

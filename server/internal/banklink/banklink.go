@@ -125,7 +125,8 @@ func (s *Service) client(c connection) (Client, error) {
 	if c.keyEnc != nil {
 		var err error
 		if key, err = s.box.Open(c.keyEnc); err != nil {
-			return nil, fmt.Errorf("banklink: unseal the key of connection %d: %w", c.id, err)
+			// A lost or replaced secret.key: only storing the key again helps.
+			return nil, fmt.Errorf("banklink: unseal the key of connection %d: %v: %w", c.id, err, ErrNotConfigured)
 		}
 	}
 	return s.open(c.user, c.appID, key)
@@ -343,10 +344,16 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 func match(ctx context.Context, tx *sql.Tx, c connection, iban string, a bank.Account) (id int64, ok bool, err error) {
 	err = tx.QueryRowContext(ctx, `SELECT id FROM accounts WHERE source = 'bank' AND iban = ?`, iban).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
+		// Another user linking the same new IBAN at the same moment is the
+		// "exists" skip, not a unique-index error.
 		res, err := tx.ExecContext(ctx, `INSERT INTO accounts (type, source, iban, name, currency, bank_name, created_by)
-			VALUES ('current', 'bank', ?, ?, ?, ?, ?)`, iban, accountName(a.Name), cmp.Or(a.Currency, "EUR"), cmp.Or(a.Bank, c.aspsp), c.user)
+			VALUES ('current', 'bank', ?, ?, ?, ?, ?) ON CONFLICT (iban) WHERE source = 'bank' DO NOTHING`,
+			iban, accountName(a.Name), cmp.Or(a.Currency, "EUR"), cmp.Or(a.Bank, c.aspsp), c.user)
 		if err != nil {
 			return 0, false, err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return 0, false, nil
 		}
 		if id, err = res.LastInsertId(); err != nil {
 			return 0, false, err

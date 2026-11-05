@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { api, ApiError, browser } from '../lib/api';
+import { nextPath } from './Inloggen';
 import { ME, renderAt, renderRoot, stubApi } from '../test/helpers';
 
 const where = () => screen.getByTestId('location').textContent;
@@ -22,6 +23,11 @@ function signedOut() {
 }
 
 describe('Inloggen', () => {
+  it('only goes back to a path inside Saldo', () => {
+    expect(nextPath('/transacties?q=x')).toBe('/transacties?q=x');
+    for (const v of [null, '', 'https://example.com', '//example.com', '/\\example.com', '/inloggen']) expect(nextPath(v)).toBe('/');
+  });
+
   it('sends a signed-out visitor to sign-in, and after password and code back to the page they wanted', async () => {
     stubApi();
     const auth = signedOut();

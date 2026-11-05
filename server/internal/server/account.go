@@ -95,7 +95,7 @@ func (s *Server) deleteDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if id == deviceOf(r) {
-		s.clearDeviceCookie(w)
+		s.clearDeviceCookie(w, r)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

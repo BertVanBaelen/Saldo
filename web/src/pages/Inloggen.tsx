@@ -27,7 +27,8 @@ const DONE_NOTE: Record<TokenKind, string> = {
 
 /** Where to go after signing in: the page you wanted (`?terug=`), else Start. Only paths inside Saldo. */
 export function nextPath(v: string | null): string {
-  return v && v.startsWith('/') && !v.startsWith('//') && !v.startsWith('/inloggen') ? v : '/';
+  // A backslash counts as a slash in a URL, so "/\host" would leave Saldo.
+  return v && v.startsWith('/') && !v.startsWith('//') && !v.includes('\\') && !v.startsWith('/inloggen') ? v : '/';
 }
 
 /** `aria-describedby` from the ids that are present. */

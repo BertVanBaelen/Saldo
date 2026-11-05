@@ -106,7 +106,7 @@ func newServer(o Options) (*Server, http.Handler) {
 	csrf.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "forbidden", "Deze aanvraag komt niet van Saldo zelf en is geweigerd.")
 	}))
-	return s, s.logRequests(s.recoverPanics(securityHeaders(csrf.Handler(s.requireViewer(s.mux)))))
+	return s, s.logRequests(s.recoverPanics(securityHeaders(csrf.Handler(s.requireViewer(s.mux)), s.secure)))
 }
 
 func (s *Server) routes() {

@@ -15,6 +15,10 @@ import (
 // connection counts as stale.
 const StaleAfter = 36 * time.Hour
 
+// StoppedAfter is how long a linked connection may go without a successful
+// sync before it counts as stopped (decision of 5 Nov 2026: three days).
+const StoppedAfter = 72 * time.Hour
+
 // ConsentWarnDays is how many days before expiry a consent raises an alert.
 const ConsentWarnDays = 14
 

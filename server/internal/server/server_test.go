@@ -154,6 +154,7 @@ func TestOutsideDemoModeEverythingButHealthIs401(t *testing.T) {
 		{"GET", "/api/alerts", ""},
 		{"GET", "/api/connections", ""},
 		{"POST", "/api/sync", ""},
+		{"GET", "/api/sync", ""},
 		{"GET", "/api/bank/enablebanking", ""},
 		{"PUT", "/api/bank/enablebanking", `{"applicationId":"x","privateKey":"y"}`},
 		{"POST", "/api/bank/link", ""},
@@ -408,6 +409,7 @@ func TestSyncRateLimit(t *testing.T) {
 		t.Fatalf("first sync: %d %s", r.status, r.body)
 	}
 	equalJSON(t, r.body, `{"started": true}`)
+	waitSync(t, h)
 	r = do(t, h, "GET", "/api/connections", "")
 	if c := decode[[]ledger.Connection](t, r.body); *c[0].LastSync != "2026-11-18T21:15:00+01:00" {
 		t.Errorf("last sync after Sync now: %s", *c[0].LastSync)
@@ -430,6 +432,22 @@ func TestSyncRateLimit(t *testing.T) {
 
 	h2, _ := demoServer(t, func(o *Options) { o.Syncer = nil })
 	expectError(t, do(t, h2, "POST", "/api/sync", ""), http.StatusServiceUnavailable, "unavailable")
+}
+
+// waitSync polls GET /api/sync, as the web app does, until no sync runs.
+func waitSync(t *testing.T, h http.Handler) syncBody {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		b := decode[syncBody](t, do(t, h, "GET", "/api/sync", "").body)
+		if !b.Running {
+			return b
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the sync does not end")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 var fullIBAN = regexp.MustCompile(`[A-Z]{2}\d{2}[A-Z0-9]{8,30}`)
@@ -568,9 +586,9 @@ func TestRouting(t *testing.T) {
 	if r.header.Get("Allow") != "GET, HEAD" {
 		t.Errorf("Allow: %q", r.header.Get("Allow"))
 	}
-	r = do(t, h, "GET", "/api/sync", "")
+	r = do(t, h, "DELETE", "/api/sync", "")
 	expectError(t, r, http.StatusMethodNotAllowed, "method_not_allowed")
-	if r.header.Get("Allow") != "POST" {
+	if r.header.Get("Allow") != "GET, POST, HEAD" {
 		t.Errorf("Allow: %q", r.header.Get("Allow"))
 	}
 	if r := do(t, h, "HEAD", "/healthz", ""); r.status != 200 {

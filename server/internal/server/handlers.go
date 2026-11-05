@@ -149,25 +149,6 @@ func (s *Server) listConnections(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, conns)
 }
 
-func (s *Server) postSync(w http.ResponseWriter, r *http.Request) {
-	if s.opts.Syncer == nil {
-		writeError(w, http.StatusServiceUnavailable, "unavailable", "Synchroniseren is nog niet beschikbaar.")
-		return
-	}
-	viewer := viewerOf(r)
-	if ok, wait := s.cooldown.Allow(viewer); !ok {
-		rateLimited(w, wait, "Je hebt net gesynchroniseerd. Probeer het over %d %s opnieuw.")
-		return
-	}
-	ctx, cancel := bankContext(w, r)
-	defer cancel()
-	if err := s.opts.Syncer.Sync(ctx, viewer, s.now()); err != nil {
-		s.fail(w, r, err, msgNotFound)
-		return
-	}
-	writeJSON(w, http.StatusAccepted, map[string]bool{"started": true})
-}
-
 var methods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
 
 // apiFallback answers unknown API paths with 404 and known paths with the

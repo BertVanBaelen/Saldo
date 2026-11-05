@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -89,6 +90,9 @@ type Service struct {
 	now    func() time.Time
 	log    *slog.Logger
 	states *states
+
+	mu      sync.Mutex
+	syncing map[int64]chan struct{} // connections being synced; closed when done
 }
 
 // New returns the service. now is the real clock of the link states and the
@@ -100,7 +104,7 @@ func New(db *sql.DB, box *secrets.Box, open Opener, now func() time.Time, log *s
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Service{db: db, box: box, open: open, now: now, log: log, states: &states{now: now}}
+	return &Service{db: db, box: box, open: open, now: now, log: log, states: &states{now: now}, syncing: map[int64]chan struct{}{}}
 }
 
 // connection is a provider_connections row with its sealed secrets.
@@ -264,8 +268,9 @@ type Skipped struct {
 }
 
 // Complete finishes the consent the bank redirected back with: it checks the
-// state, creates the session, matches the accounts by IBAN and runs the first
-// sync. A failing first sync keeps the link; the connection shows "failed".
+// state, creates the session and matches the accounts by IBAN. The caller
+// runs the first sync (SyncConnection), in the background: it can take
+// minutes. A failing first sync keeps the link; the connection shows "failed".
 func (s *Service) Complete(ctx context.Context, viewer int64, code, state string, now time.Time) (Linked, error) {
 	id, ok := s.states.take(state, viewer)
 	if !ok || code == "" {
@@ -294,7 +299,7 @@ func (s *Service) Complete(ctx context.Context, viewer int64, code, state string
 		return Linked{}, err
 	}
 	s.log.Info("bank linked", "connection", c.id, "accounts", len(linked.Accounts), "skipped", len(linked.Skipped))
-	return linked, s.syncConnection(ctx, c.id, now)
+	return linked, nil
 }
 
 // storeConsent stores the sealed session and matches the consent's accounts.

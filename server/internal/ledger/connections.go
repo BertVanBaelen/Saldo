@@ -17,8 +17,22 @@ type Connection struct {
 	LastSync   *string `json:"lastSync"`
 	Status     string  `json:"status"`
 	Accounts   []int64 `json:"accounts"`
+	// Error is the last sync's error code, nil after a good sync; only
+	// GET /api/sync shows it.
+	Error *string `json:"-"`
 
 	lastAttempt time.Time
+	lastGood    time.Time // last successful sync, else when the link was made
+}
+
+// LastGood is the last successful sync, or for a connection that never synced
+// the moment it was linked: the start of a failure episode.
+func (c Connection) LastGood() time.Time { return c.lastGood }
+
+// Stopped reports a connection that is linked and not expired but has had no
+// successful sync for more than StoppedAfter: "Synchronisatie gestopt".
+func (c Connection) Stopped(now time.Time) bool {
+	return c.Status != ConnPending && c.Status != ConnExpired && !c.lastGood.IsZero() && now.Sub(c.lastGood) > StoppedAfter
 }
 
 // Connection statuses: ok, stale (no successful sync for 36 hours), failed
@@ -36,7 +50,7 @@ const (
 func (s *Store) Connections(ctx context.Context, viewer int64, now time.Time) ([]Connection, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, aspsp_name, COALESCE(consent_since, ''), COALESCE(valid_until, ''), status, sync_status,
-		       COALESCE(last_sync_at, ''), COALESCE(last_attempt_at, '')
+		       COALESCE(last_sync_at, ''), COALESCE(last_attempt_at, ''), created_at, last_error
 		FROM provider_connections WHERE user_id = ? AND status <> 'revoked' ORDER BY id`, viewer)
 	if err != nil {
 		return nil, err
@@ -46,8 +60,8 @@ func (s *Store) Connections(ctx context.Context, viewer int64, now time.Time) ([
 	today := now.In(clock.Brussels).Format(time.DateOnly)
 	for rows.Next() {
 		var c Connection
-		var since, validUntil, status, syncStatus, lastSync, lastAttempt string
-		if err := rows.Scan(&c.ID, &c.Bank, &since, &validUntil, &status, &syncStatus, &lastSync, &lastAttempt); err != nil {
+		var since, validUntil, status, syncStatus, lastSync, lastAttempt, created string
+		if err := rows.Scan(&c.ID, &c.Bank, &since, &validUntil, &status, &syncStatus, &lastSync, &lastAttempt, &created, &c.Error); err != nil {
 			return nil, err
 		}
 		c.Accounts = []int64{}
@@ -66,6 +80,17 @@ func (s *Store) Connections(ctx context.Context, viewer int64, now time.Time) ([
 		}
 		if _, t, ok := formatTimestamp(lastAttempt); ok {
 			c.lastAttempt = t
+		}
+		c.lastGood = last
+		if last.IsZero() {
+			// Never synced: count from the later of the link (consent_since is
+			// a date) and the row itself.
+			if _, t, ok := formatTimestamp(created); ok {
+				c.lastGood = t
+			}
+			if t, err := time.ParseInLocation(time.DateOnly, since, clock.Brussels); err == nil && t.After(c.lastGood) {
+				c.lastGood = t
+			}
 		}
 		switch {
 		case status == "pending":

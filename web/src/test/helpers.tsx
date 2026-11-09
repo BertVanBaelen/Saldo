@@ -5,7 +5,7 @@ import { vi } from 'vitest';
 import { AppRoutes, Root } from '../App';
 import { AppProvider } from '../app/AppContext';
 import { api } from '../lib/api';
-import type { Account, Alert, Connection, Device, EnableBanking, Me, Transaction, TransactionPage, TransactionQuery, UserList } from '../lib/types';
+import type { Account, Alert, BalancePoint, Connection, Device, EnableBanking, Me, Transaction, TransactionPage, TransactionQuery, UserList } from '../lib/types';
 
 export const ME: Me = {
   user: { id: 1, name: 'Bert', email: 'bert@jouw-domein.be', role: 'admin', initial: 'B' },
@@ -89,6 +89,26 @@ export const CONNECTIONS: Connection[] = [
   { id: 1, bank: 'Argenta', since: '2026-06-03', validUntil: '2026-11-30', daysLeft: 12, lastSync: '2026-11-18T04:02:00+01:00', status: 'ok', accounts: [1, 4] },
 ];
 
+// Real shapes of what the server sends before anything is known (docs/api.md): nulls, not values.
+/** Credentials stored, consent not given: no dates, no accounts. */
+export const PENDING: Connection = { id: 3, bank: 'Argenta', since: null, validUntil: null, daysLeft: null, lastSync: null, status: 'pending', accounts: [] };
+/** A manual account without a balance yet. */
+export const NEW_MANUAL: Account = { ...SPAAR, id: 7, name: 'Vakantiepot', iban: null, balance: 0, balanceDate: null };
+/** A bank account whose link was removed with "keep history". */
+export const UNLINKED: Account = { ...ZICHT, syncStatus: 'unlinked', lastSync: null, balanceDate: '2026-11-17' };
+
+export const BALANCES: Record<number, BalancePoint[]> = {
+  1: [
+    { date: '2026-11-16', balance: 210000, origin: 'bank' },
+    { date: '2026-11-17', balance: 85000, origin: 'bank' },
+    { date: '2026-11-18', balance: 196882, origin: 'bank' },
+  ],
+  2: [
+    { date: '2026-09-02', balance: 1230000, origin: 'manual' },
+    { date: '2026-10-02', balance: 1250000, origin: 'manual' },
+  ],
+};
+
 // Invented devices and users (Instellingen → Toestellen and Gebruikers).
 export const DEVICES: Device[] = [
   { id: 3, name: 'Safari op iPhone', createdAt: '2026-06-03T20:14:00+02:00', lastUsedAt: '2026-11-18T08:12:00+01:00', current: true },
@@ -111,9 +131,11 @@ export const EB_OFF: EnableBanking = { configured: false, applicationId: null, r
 
 interface Stub {
   accounts?: Account[];
-  transactions?: Transaction[] | ((q: TransactionQuery) => TransactionPage);
+  /** A list, or a page per query (`total` defaults to the page's rows). */
+  transactions?: Transaction[] | ((q: TransactionQuery) => Omit<TransactionPage, 'total'> & { total?: number });
   alerts?: Alert[];
   connections?: Connection[];
+  balances?: Record<number, BalancePoint[]>;
   devices?: Device[];
   enableBanking?: EnableBanking;
 }
@@ -121,10 +143,20 @@ interface Stub {
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
 export function stubApi(s: Stub = {}) {
   const list = s.transactions ?? TRANSACTIONS;
+  // The server's shape: `total` counts every matching row, `limit` cuts the page.
   const page = (q: TransactionQuery): TransactionPage => {
-    if (typeof list === 'function') return list(q);
-    const items = list.filter((t) => !q.uncategorised || (!t.category && !t.transfer));
-    return { items, next: null };
+    if (typeof list === 'function') {
+      const p = list(q);
+      return { ...p, total: p.total ?? p.items.length };
+    }
+    const items = list.filter(
+      (t) =>
+        (!q.uncategorised || (!t.category && !t.transfer)) &&
+        (!q.account || t.accountId === q.account) &&
+        (!q.from || t.bookingDate >= q.from) &&
+        (!q.to || t.bookingDate <= q.to),
+    );
+    return { items: items.slice(0, q.limit ?? 50), next: null, total: items.length };
   };
   return {
     accounts: vi.spyOn(api, 'accounts').mockImplementation(async () => structuredClone(s.accounts ?? ACCOUNTS)),
@@ -144,6 +176,21 @@ export function stubApi(s: Stub = {}) {
     devices: vi.spyOn(api, 'devices').mockImplementation(async () => structuredClone(s.devices ?? DEVICES)),
     users: vi.spyOn(api, 'users').mockImplementation(async () => structuredClone(USERS)),
     enableBanking: vi.spyOn(api, 'enableBanking').mockImplementation(async () => structuredClone(s.enableBanking ?? EB_ON)),
+    balances: vi.spyOn(api, 'balances').mockImplementation(async (id) => structuredClone((s.balances ?? BALANCES)[id] ?? [])),
+    createAccount: vi.spyOn(api, 'createAccount').mockImplementation(async (b) => ({
+      ...NEW_MANUAL,
+      id: 9,
+      name: b.name,
+      type: b.type,
+      colour: b.colour ?? 'green',
+      buffer: b.buffer ?? 0,
+      balance: b.balance ?? 0,
+      balanceDate: b.balance === undefined ? null : ME.today,
+      state: b.type === 'current' ? 'ok' : null,
+    })),
+    setBalance: vi.spyOn(api, 'setBalance').mockImplementation(async (id, balance, date) => ({ ...(s.accounts ?? ACCOUNTS).find((a) => a.id === id)!, balance, balanceDate: date ?? ME.today })),
+    deleteAccount: vi.spyOn(api, 'deleteAccount').mockResolvedValue(null),
+    removeConnection: vi.spyOn(api, 'removeConnection').mockImplementation(async (_id, history) => (history === 'delete' ? { deleted: [1], kept: [4] } : { deleted: [], kept: [1, 4] })),
   };
 }
 

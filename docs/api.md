@@ -58,15 +58,27 @@ Every account the viewer can see.
 - `colour`: one of `green`, `violet`, `blue`, `teal`, `orange`, `pink`, `yellow`, `gray`.
 - `buffer`: cents, current accounts only (`0` for savings).
 - `state` (current accounts only, else `null`): `ok` (balance ≥ buffer), `buffer` (0 ≤ balance < buffer), `neg` (balance < 0).
-- `lastSync`, `syncStatus` (`ok` | `stale` | `failed`) and `bank` only for `source: bank`, else `null`; `balanceDate` is the date of the latest balance (for manual accounts the last manual update).
+- `lastSync`, `syncStatus` (`ok` | `stale` | `failed` | `unlinked`) and `bank` only for `source: bank`, else `null`; `balanceDate` is the date of the latest balance (for manual accounts the last manual update; `null` while there is none, with `balance: 0`). `unlinked`: a bank account whose link was removed with "keep history" (no source, nothing syncs it, `lastSync: null`, no bank alerts); linking the IBAN again re-attaches it.
 - `permission`: `read` | `edit`; `role`: `manager` | `member` (the viewer's own).
 - `members` (shared accounts): `[{"name": "Partner", "initial": "P", "role": "member", "permission": "edit", "me": false}]`, including the viewer with `"me": true`; `[]` for personal accounts.
 
 ### `PATCH /api/accounts/{id}`
-Body with any of `name` (1–40 characters), `colour`, `buffer` (cents, ≥ 0, multiple of 100, current accounts only). Needs `permission: edit` (a read-only member gets `403`). Answers the updated account. Validation errors answer `400` with a Dutch message.
+Body with any of `name` (1–40 characters), `colour`, `buffer` (cents, ≥ 0, multiple of 100, current accounts only), `iban` (manual accounts only, `""` removes it; a bank account answers `400`). Needs `permission: edit` (a read-only member gets `403`). Answers the updated account. Validation errors answer `400` with a Dutch message.
+
+### `POST /api/accounts` (0.3-4)
+Creates a **manual account**: a savings account or a current account without a bank link. Body `{"name": "Spaarpot", "type": "savings" | "current", "colour": "orange", "buffer": 50000, "iban": "BE83 3630 1234 5615", "balance": 1250000}`; only `name` and `type` are required (`colour` defaults to `green`, `buffer` to 0 and is for `current` only, a multiple of 100). `iban` is optional and checked (shape and check digits); it only recognises transfers to this account (the `transfer` flag of transactions), it never matches, groups or joins a bank account, and several users may register the same one. `balance` (cents) is stored as today's manual balance. The account is private to its creator (`role: manager`, `permission: edit`; never shared in v1). Answers `201` with the account as in `GET /api/accounts`, IBAN masked.
+
+### `PUT /api/accounts/{id}/balance` (0.3-4)
+Body `{"balance": 1275000, "date": "2026-11-18"}`; `date` is optional (default today, never in the future). Manual accounts only (a bank account answers `400`); needs `permission: edit` (`403`). One balance per account and day: a second update of the same day replaces it. Answers the account.
+
+### `GET /api/accounts/{id}/balances` (0.3-4)
+The balance history, oldest first, one point per date: `[{"date": "2026-10-02", "balance": 1200000, "origin": "manual"}]` (`origin`: `bank` | `manual`; a manual balance wins over the bank's on the same date). `[]` without history. An account the viewer cannot see answers `404`.
+
+### `DELETE /api/accounts/{id}` (0.3-4)
+Deletes a **manual** account and its balance history; `204`. Only its manager (`403` for a member); a bank account answers `400` (it goes with its link, below). Audit-logged (`account_deleted`).
 
 ### `GET /api/transactions`
-Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, optional, default `alles`), `q` (search in counterparty, communication and amount), `uncategorised=1`, `before` (opaque cursor from `next`), `limit` (default 50, max 200).
+Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, optional, default `alles`), `q` (search in counterparty, communication and amount), `uncategorised=1`, `from` and `to` (booking dates `YYYY-MM-DD`, both inclusive, each optional), `before` (opaque cursor from `next`), `limit` (default 50, max 200).
 ```json
 {
   "items": [
@@ -82,10 +94,11 @@ Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, o
       "transfer": false
     }
   ],
-  "next": null
+  "next": null,
+  "total": 1
 }
 ```
-Newest first (booking date, then id). `status`: `pending` | `booked`. `category`: `{"id": 3, "name": "Boodschappen", "colour": "c2"}` or `null` (`colour` is a category pastel token `c1` … `c6`, or `soft` for income). `transfer`: true for a transfer between the viewer's own accounts (shown in text colour, not as an expense). `next` is a cursor string or `null`. `uncategorised=1` lists the rows without a category that are not a transfer for the viewer (the count of the categorise alert). Invalid parameters answer `400`; a `limit` above 200 is capped at 200.
+Newest first (booking date, then id). `status`: `pending` | `booked`. `category`: `{"id": 3, "name": "Boodschappen", "colour": "c2"}` or `null` (`colour` is a category pastel token `c1` … `c6`, or `soft` for income). `transfer`: true for a transfer between the viewer's own accounts (shown in text colour, not as an expense). `next` is a cursor string or `null`. `total` is the number of rows that match the filters (all pages; the cursor and `limit` do not change it), so `uncategorised=1&limit=1` gives the count for the badge. The amount search reads `12,50`, `12.50`, `€ 12,50` and `-12,5` as € 12,50 (the sign is ignored), whole euros as every amount of that euro (`12` is € 12,00 to € 12,99, never € 120). `uncategorised=1` lists the rows without a category that are not a transfer for the viewer (the count of the categorise alert). Invalid parameters answer `400`; a `limit` above 200 is capped at 200.
 
 ### `GET /api/alerts`
 The alerts for Start, already scoped to the viewer.
@@ -112,6 +125,13 @@ The viewer's own bank connections.
 ]
 ```
 `status`: `ok` | `stale` (no successful sync for 36 hours) | `failed` (the last sync failed) | `expired` (the consent lapsed) | `pending` (linking not finished).
+
+### `DELETE /api/connections/{id}?history=keep|delete` (0.3-4)
+Removes the viewer's own bank link (analysis 4.8); `history` is required (`400` without it), another user's connection answers `404`. It waits for a sync of the link that is running. Always: the connection becomes `revoked` (it leaves `GET /api/connections`, is never synced and sends no reminders), its sealed session and the sealed Enable Banking key and application id on it are wiped (link again: store the key in Instellingen and link; the IBAN match re-attaches the kept accounts, without duplicates), and the accounts it fed lose it as a source.
+- `keep`: every account and all its transactions and balances stay; the accounts show `syncStatus: unlinked`.
+- `delete`: additionally deletes, in one database transaction, the accounts that only this link feeds **and** of which the viewer is the only member, with their transactions, splits, balances and everything else of theirs. An account another member still sees is kept (as with `keep`): leaving a shared account arrives in 0.6.
+
+Answers `200 {"deleted": [1], "kept": [4]}` (account ids). Audit-logged (`bank_link_removed`, with the choice and the counts).
 
 ### `POST /api/sync`
 Starts a sync of the viewer's connections in the background (in demo mode: only records a sync, at once) and answers `202 {"started": true}` immediately; poll `GET /api/sync` for the outcome. The 15-minute cooldown starts when a sync starts: another call within 15 minutes answers `429` with a Dutch message and a `Retry-After` header (seconds). While a sync of the viewer is still running (also the first sync of a link), a call answers `202 {"started": false, "running": true}` and does not use the cooldown.
@@ -174,7 +194,7 @@ Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-
 ### `POST /api/users/{id}/password-reset` (admin)
 `204`; e-mails that user a reset link (1 hour, replacing an earlier unused one) and signs out none of their devices until it is used. An unknown user answers `404`; `503` as for invitations.
 
-Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window). IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
+Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window), a bank link removed, a manual account deleted. IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
 
 ## Bank link (phase 0.2-6)
 
@@ -213,6 +233,5 @@ A sync of a connection (from `POST /api/sync`, the link callback or the nightly 
 **Which balance.** The snapshot is the booked balance, because pending rows stay out of the totals (4.1) and an "available" balance can include a credit line: of `ITBD` (interim booked) and `CLBD` (closing booked) the one with the newer date, `ITBD` on the same date; without a booked balance `XPCD` (expected), else the first one reported (verify in S1 which types Argenta sends).
 
 ## Planned changes
-- A count for `uncategorised=1` (or a `total`), so the sidebar badge does not need a page of rows.
 - Alerts about one account carry its `accountId` (planning alerts, 0.8).
 - Transfers to a savings account are shown as "Gespaard" (analysis 5.2), not only as "Overschrijving" (0.6-3).

@@ -3,19 +3,46 @@
 // Design: finance-mockup/js/screens/transacties.js; spec: analysis/screens/transacties.md.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { COUNT_LIMIT, useApp } from '../app/AppContext';
+import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, ScopeSwitch, useIsDesktop, useTitle } from '../components/ui';
 import { accColour, inScope, isShared, manager } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
-import { dateFull, dayHeading, eur } from '../lib/format';
+import { cap, dateFull, dateShort, dayHeading, eur, MONTHS, toDate } from '../lib/format';
 import type { Account, Transaction, TransactionPage } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import './Transacties.css';
 
 const PAGE = 50;
 export const UNCAT_FILTER = 'niet-gecategoriseerd';
+
+/** `?periode=` values; without one the list shows every period. */
+export type PeriodKey = 'deze' | 'vorige' | '3-maanden' | 'dit-jaar';
+const PERIOD_KEYS: PeriodKey[] = ['deze', 'vorige', '3-maanden', 'dit-jaar'];
+
+const iso = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+/** The booking dates of a period, relative to the server's `today`, with its chip and option texts. */
+export function period(key: PeriodKey, today: string): { from: string; to: string; label: string; chip: string; sub: string } {
+  const t = toDate(today);
+  const first = (monthsBack: number) => new Date(t.getFullYear(), t.getMonth() - monthsBack, 1, 12);
+  const month = (d: Date) => cap(MONTHS[d.getMonth()]) + ' ' + d.getFullYear();
+  switch (key) {
+    case 'vorige': {
+      const f = first(1);
+      return { from: iso(f), to: iso(new Date(t.getFullYear(), t.getMonth(), 0, 12)), label: 'Vorige maand', chip: cap(MONTHS[f.getMonth()]), sub: month(f) };
+    }
+    case '3-maanden': {
+      const f = first(2);
+      return { from: iso(f), to: today, label: 'Laatste 3 maanden', chip: 'Laatste 3 maanden', sub: dateShort(f) + ' – ' + dateShort(t) };
+    }
+    case 'dit-jaar':
+      return { from: t.getFullYear() + '-01-01', to: today, label: 'Dit jaar', chip: String(t.getFullYear()), sub: '1 jan – ' + dateShort(t) };
+    default:
+      return { from: iso(first(0)), to: today, label: 'Deze maand', chip: cap(MONTHS[t.getMonth()]), sub: month(t) };
+  }
+}
 
 /** Rows grouped by booking date, newest first, keeping the server's order within a day. */
 export function groupByDay(items: Transaction[]): { date: string; items: Transaction[] }[] {
@@ -265,51 +292,90 @@ function Detail({ t, acc, mode, onClose }: { t: Transaction; acc: Account | unde
   );
 }
 
-// ---------- Account filter: popover on desktop, bottom sheet on phone ----------
+// ---------- Filter dropdowns (Rekening, Periode, Categorie): popover on desktop, bottom sheet on phone ----------
 
-function AccountOptions({ accounts, value, onPick }: { accounts: Account[]; value: number | undefined; onPick: (id: number | undefined) => void }) {
+type DropKind = 'rekening' | 'periode' | 'categorie';
+const DROP_TITLE: Record<DropKind, string> = { rekening: 'Rekening', periode: 'Periode', categorie: 'Categorie' };
+
+interface Option {
+  key: string;
+  lead?: React.ReactNode;
+  name: string;
+  sub?: string;
+  end?: React.ReactNode;
+}
+
+const optIcon = (name: 'grid' | 'calendar' | 'tag') => (
+  <span className="tx-opt-icon">
+    <Icon name={name} size={15} stroke={2.2} />
+  </span>
+);
+
+function Options({ items, value, onPick }: { items: Option[]; value: string; onPick: (key: string) => void }) {
+  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+    if (!step) return;
+    const list = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('.tx-opt'));
+    const i = list.indexOf(document.activeElement as HTMLButtonElement);
+    e.preventDefault();
+    list[(i + step + list.length) % list.length]?.focus();
+  };
+  return (
+    <div className="tx-opts" onKeyDown={onKey}>
+      {items.map((o) => {
+        const on = o.key === value;
+        return (
+          <button key={o.key} type="button" className="tx-opt" aria-pressed={on} onClick={() => onPick(o.key)} data-autofocus={on || undefined}>
+            <span className="tx-opt-lead">{o.lead}</span>
+            <span className="tx-opt-main">
+              <span className="tx-opt-name">{o.name}</span>
+              {o.sub && <span className="tx-opt-sub">{o.sub}</span>}
+            </span>
+            {o.end}
+            <span className="tx-opt-check">{on && <Icon name="check" size={18} stroke={2.6} />}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function accountOptions(accounts: Account[]): Option[] {
   const sub = (a: Account) =>
     (isShared(a) ? 'Gedeeld' : 'Persoonlijk') +
     ' · ' +
     (a.source === 'manual' ? 'handmatig saldo' : a.iban || a.bank || '') +
     (a.permission === 'read' ? ' · alleen lezen' : '');
-  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-    if (!step) return;
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('.tx-opt'));
-    const i = items.indexOf(document.activeElement as HTMLButtonElement);
-    e.preventDefault();
-    items[(i + step + items.length) % items.length]?.focus();
-  };
-  const opt = (id: number | undefined, lead: React.ReactNode, name: string, subText: string) => {
-    const on = value === id;
-    return (
-      <button key={id ?? 'all'} type="button" className="tx-opt" aria-pressed={on} onClick={() => onPick(id)} data-autofocus={on || undefined}>
-        <span className="tx-opt-lead">{lead}</span>
-        <span className="tx-opt-main">
-          <span className="tx-opt-name">{name}</span>
-          <span className="tx-opt-sub">{subText}</span>
-        </span>
-        <span className="tx-opt-check">{on && <Icon name="check" size={18} stroke={2.6} />}</span>
-      </button>
-    );
-  };
-  return (
-    <div className="tx-opts" onKeyDown={onKey}>
-      {opt(
-        undefined,
-        <span className="tx-opt-icon">
-          <Icon name="grid" size={15} stroke={2.2} />
-        </span>,
-        'Alle rekeningen',
-        accounts.length + (accounts.length === 1 ? ' rekening' : ' rekeningen'),
-      )}
-      {accounts.map((a) => opt(a.id, <i className="tx-dot" style={{ background: accColour(a.colour) }} aria-hidden="true" />, a.name, sub(a)))}
-    </div>
-  );
+  return [
+    { key: '', lead: optIcon('grid'), name: 'Alle rekeningen', sub: accounts.length + (accounts.length === 1 ? ' rekening' : ' rekeningen') },
+    ...accounts.map((a) => ({ key: String(a.id), lead: <i className="tx-dot" style={{ background: accColour(a.colour) }} aria-hidden="true" />, name: a.name, sub: sub(a) })),
+  ];
 }
 
-function Popover({ anchor, onClose, children }: { anchor: HTMLElement | null; onClose: () => void; children: React.ReactNode }) {
+function periodOptions(today: string): Option[] {
+  return [
+    { key: '', lead: optIcon('calendar'), name: 'Alle periodes' },
+    ...PERIOD_KEYS.map((k) => {
+      const p = period(k, today);
+      return { key: k, name: p.label, sub: p.sub };
+    }),
+  ];
+}
+
+// Categories arrive in version 0.4: until then only "Niet gecategoriseerd" filters.
+function categoryOptions(countText: string): Option[] {
+  return [
+    { key: '', lead: optIcon('tag'), name: 'Alle categorieën' },
+    {
+      key: UNCAT_FILTER,
+      lead: <i className="tx-dot tx-dot--uncat" aria-hidden="true" />,
+      name: 'Niet gecategoriseerd',
+      end: countText ? <span className="tx-count">{countText}</span> : undefined,
+    },
+  ];
+}
+
+function Popover({ anchor, label, onClose, children }: { anchor: HTMLElement | null; label: string; onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -349,7 +415,7 @@ function Popover({ anchor, onClose, children }: { anchor: HTMLElement | null; on
   }, [anchor]);
 
   return (
-    <div ref={ref} className="tx-pop" role="dialog" aria-label="Rekening kiezen">
+    <div ref={ref} className="tx-pop" role="dialog" aria-label={label}>
       <div className="tx-dd-body">{children}</div>
     </div>
   );
@@ -428,6 +494,10 @@ export function Transacties() {
   const [params, setParams] = useSearchParams();
   const uncat = params.get('filter') === UNCAT_FILTER;
   const accountParam = Number(params.get('rekening')) || undefined;
+  const periodKey = PERIOD_KEYS.find((k) => k === params.get('periode'));
+  const range = periodKey ? period(periodKey, me.today) : undefined;
+  const from = range?.from;
+  const to = range?.to;
   const [query, setQuery] = useState('');
   const q = useDebounced(query.trim(), 250);
 
@@ -437,8 +507,9 @@ export function Transacties() {
   const account = accountParam !== undefined && (!accounts.data || inView.some((a) => a.id === accountParam)) ? accountParam : undefined;
   const filterAccount = account !== undefined ? byId.get(account) : undefined;
 
-  const first = useAsync((signal) => api.transactions({ scope, q, uncategorised: uncat, account, limit: PAGE }, signal), [scope, q, uncat, account, dataVersion]);
-  const count = useAsync((signal) => api.transactions({ scope, uncategorised: true, limit: COUNT_LIMIT }, signal), [scope, dataVersion]);
+  const filter = { scope, q, uncategorised: uncat, account, from, to, limit: PAGE };
+  const first = useAsync((signal) => api.transactions(filter, signal), [scope, q, uncat, account, from, to, dataVersion]);
+  const count = useAsync((signal) => api.transactions({ scope, uncategorised: true, limit: 1 }, signal), [scope, dataVersion]);
 
   // Older pages, loaded with the cursor. They belong to one first page (`base`) and are ignored as soon as
   // the first page changes, so a new filter never shows rows of the old one.
@@ -460,7 +531,7 @@ export function Transacties() {
     if (!next || !base) return;
     const gen = generation.current;
     setLoadingMore(true);
-    api.transactions({ scope, q, uncategorised: uncat, account, limit: PAGE, before: next }).then(
+    api.transactions({ scope, q, uncategorised: uncat, account, from, to, limit: PAGE, before: next }).then(
       (p) => {
         if (gen !== generation.current) return;
         setOlder((o) => ({ base, items: [...(o && o.base === base ? o.items : []), ...p.items], next: p.next }));
@@ -472,7 +543,7 @@ export function Transacties() {
         toast(errorMessage(e));
       },
     );
-  }, [first.data, next, scope, q, uncat, account, toast]);
+  }, [first.data, next, scope, q, uncat, account, from, to, toast]);
 
   // Selection: the desktop panel always shows one row; the phone opens a sheet.
   const [sel, setSel] = useState<number | null>(null);
@@ -498,7 +569,8 @@ export function Transacties() {
     [desktop],
   );
 
-  // Filters live in the URL: ?filter=niet-gecategoriseerd (from the Start alert) and ?rekening=<id>.
+  // Filters live in the URL: ?filter=niet-gecategoriseerd (from the Start alert), ?rekening=<id> (from an
+  // account's page) and ?periode=deze|vorige|3-maanden|dit-jaar.
   const setParam = (key: string, value: string | null) =>
     setParams(
       (p) => {
@@ -509,7 +581,7 @@ export function Transacties() {
       },
       { replace: true },
     );
-  const filtersSet = uncat || account !== undefined;
+  const filtersSet = uncat || account !== undefined || periodKey !== undefined;
 
   // An account filter outside the chosen scope is dropped (as in the mockup).
   useEffect(() => {
@@ -522,21 +594,44 @@ export function Transacties() {
         const n = new URLSearchParams(p);
         n.delete('filter');
         n.delete('rekening');
+        n.delete('periode');
         return n;
       },
       { replace: true },
     );
 
-  const [ddOpen, setDdOpen] = useState(false);
-  const chipRef = useRef<HTMLButtonElement>(null);
-  const pickAccount = (id: number | undefined) => {
-    setParam('rekening', id === undefined ? null : String(id));
-    setDdOpen(false);
-    chipRef.current?.focus();
+  const [ddOpen, setDdOpen] = useState<DropKind | null>(null);
+  const chipRefs = useRef<Partial<Record<DropKind, HTMLButtonElement | null>>>({});
+  const closeDd = () => setDdOpen(null);
+  const pick = (kind: DropKind, key: string) => {
+    const param = kind === 'rekening' ? 'rekening' : kind === 'periode' ? 'periode' : 'filter';
+    setParam(param, key || null);
+    setDdOpen(null);
+    chipRefs.current[kind]?.focus();
   };
 
   const noAccounts = accounts.data !== undefined && accounts.data.length === 0;
-  const countText = count.data ? String(count.data.items.length) + (count.data.next ? '+' : '') : '';
+  const countText = count.data?.total ? String(count.data.total) : '';
+
+  const chip = (kind: DropKind, text: string, set: boolean, lead?: React.ReactNode, desktopExtra?: string) => (
+    <button
+      ref={(el) => {
+        chipRefs.current[kind] = el;
+      }}
+      type="button"
+      className={'filter-chip tx-chip tx-dd' + (set ? ' tx-chip--set' : '')}
+      aria-haspopup="dialog"
+      aria-expanded={ddOpen === kind}
+      aria-label={DROP_TITLE[kind] + ': ' + text + (desktopExtra ?? '')}
+      onClick={() => setDdOpen((o) => (o === kind ? null : kind))}
+    >
+      {lead}
+      {text}
+      {desktopExtra && <span className="only-desktop">{desktopExtra}</span>}
+      <Icon name="chevronDown" size={14} stroke={2.4} />
+    </button>
+  );
+  const periodYear = periodKey === 'deze' || periodKey === 'vorige' ? ' ' + toDate(range!.from).getFullYear() : undefined;
 
   const header = noAccounts ? (
     <div className="tx-head tx-head--empty">
@@ -577,19 +672,14 @@ export function Transacties() {
               </span>
             )}
           </button>
-          <button
-            ref={chipRef}
-            type="button"
-            className={'filter-chip tx-chip tx-dd' + (filterAccount ? ' tx-chip--set' : '')}
-            aria-haspopup="dialog"
-            aria-expanded={ddOpen}
-            aria-label={'Rekening: ' + (filterAccount ? filterAccount.name : 'Alle rekeningen')}
-            onClick={() => setDdOpen((o) => !o)}
-          >
-            {filterAccount && <i className="tx-dot" style={{ background: accColour(filterAccount.colour) }} aria-hidden="true" />}
-            {filterAccount ? filterAccount.name : 'Alle rekeningen'}
-            <Icon name="chevronDown" size={14} stroke={2.4} />
-          </button>
+          {chip(
+            'rekening',
+            filterAccount ? filterAccount.name : 'Alle rekeningen',
+            !!filterAccount,
+            filterAccount && <i className="tx-dot" style={{ background: accColour(filterAccount.colour) }} aria-hidden="true" />,
+          )}
+          {chip('periode', range ? range.chip : 'Periode', !!range, undefined, periodYear)}
+          {chip('categorie', uncat ? 'Niet gecategoriseerd' : 'Categorie', uncat, uncat && <i className="tx-dot tx-dot--uncat" aria-hidden="true" />)}
           {filtersSet && (
             <button type="button" className="tx-clear" onClick={clearFilters}>
               Wis filters
@@ -616,6 +706,8 @@ export function Transacties() {
     } else if (uncat) {
       title = 'Niets meer te categoriseren';
       note = 'Alle transacties in deze lijst hebben een categorie.';
+    } else if (range && !account) {
+      note = 'Niets in ' + range.label.toLowerCase() + ' (' + range.sub + ').';
     } else if (filtersSet) {
       note = 'Niets dat past bij deze filters.';
     }
@@ -659,6 +751,11 @@ export function Transacties() {
     );
   }
 
+  let dropBody: React.ReactNode = null;
+  if (ddOpen === 'rekening') dropBody = <Options items={accountOptions(inView)} value={account === undefined ? '' : String(account)} onPick={(k) => pick('rekening', k)} />;
+  else if (ddOpen === 'periode') dropBody = <Options items={periodOptions(me.today)} value={periodKey ?? ''} onPick={(k) => pick('periode', k)} />;
+  else if (ddOpen === 'categorie') dropBody = <Options items={categoryOptions(countText)} value={uncat ? UNCAT_FILTER : ''} onPick={(k) => pick('categorie', k)} />;
+
   return (
     <div className="page tx-page">
       {header}
@@ -685,20 +782,18 @@ export function Transacties() {
       )}
       {ddOpen &&
         (desktop ? (
-          <Popover anchor={chipRef.current} onClose={() => setDdOpen(false)}>
-            <AccountOptions accounts={inView} value={account} onPick={pickAccount} />
+          <Popover anchor={chipRefs.current[ddOpen] ?? null} label={DROP_TITLE[ddOpen] + ' kiezen'} onClose={closeDd}>
+            {dropBody}
           </Popover>
         ) : (
-          <Sheet onClose={() => setDdOpen(false)} labelledBy="tx-dd-title" className="tx-sheet tx-ddsheet" backdropClassName="tx-backdrop">
+          <Sheet onClose={closeDd} labelledBy="tx-dd-title" className="tx-sheet tx-ddsheet" backdropClassName="tx-backdrop">
             <div className="tx-dd-head">
-              <h2 id="tx-dd-title">Rekening</h2>
-              <button type="button" className="tx-close" aria-label="Sluiten" onClick={() => setDdOpen(false)}>
+              <h2 id="tx-dd-title">{DROP_TITLE[ddOpen]}</h2>
+              <button type="button" className="tx-close" aria-label="Sluiten" onClick={closeDd}>
                 <Icon name="close" size={18} stroke={2.4} />
               </button>
             </div>
-            <div className="tx-dd-body">
-              <AccountOptions accounts={inView} value={account} onPick={pickAccount} />
-            </div>
+            <div className="tx-dd-body">{dropBody}</div>
           </Sheet>
         ))}
     </div>

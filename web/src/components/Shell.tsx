@@ -19,7 +19,7 @@ function connectionDot(alerts: ReturnType<typeof useApp>['alerts']): '' | 'warn'
 function Sidebar({ active }: { active: ScreenId | null }) {
   const { me, alerts, uncategorised } = useApp();
   const dot = connectionDot(alerts);
-  const badge = uncategorised && uncategorised.count > 0 ? String(uncategorised.count) + (uncategorised.more ? '+' : '') : '';
+  const badge = uncategorised ? String(uncategorised) : '';
 
   const link = (n: NavItem) => {
     const extra =

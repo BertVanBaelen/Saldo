@@ -87,5 +87,6 @@ describe('api client', () => {
     expect(transactionsPath({ scope: 'alles', q: '  ' })).toBe('/api/transactions');
     expect(transactionsPath({ scope: 'gedeeld', q: 'colruyt', uncategorised: true, limit: 50 })).toBe('/api/transactions?scope=gedeeld&q=colruyt&uncategorised=1&limit=50');
     expect(transactionsPath({ account: 4, before: 'abc==' })).toBe('/api/transactions?account=4&before=abc%3D%3D');
+    expect(transactionsPath({ from: '2026-10-01', to: '2026-10-31' })).toBe('/api/transactions?from=2026-10-01&to=2026-10-31');
   });
 });

@@ -53,6 +53,8 @@ const (
 	EventResetSent          = "reset_sent"
 	EventSetupDone          = "setup_done"
 	EventRateLimited        = "rate_limited"
+	EventBankLinkRemoved    = "bank_link_removed"
+	EventAccountDeleted     = "account_deleted"
 )
 
 // Store runs sign-in on the database.

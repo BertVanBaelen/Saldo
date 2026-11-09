@@ -98,7 +98,7 @@ func (s *Server) patchAccount(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) listTransactions(w http.ResponseWriter, r *http.Request) {
 	v := r.URL.Query()
-	q := ledger.TxQuery{Scope: v.Get("scope"), Q: v.Get("q"), Before: v.Get("before")}
+	q := ledger.TxQuery{Scope: v.Get("scope"), Q: v.Get("q"), Before: v.Get("before"), From: v.Get("from"), To: v.Get("to")}
 	if raw := v.Get("account"); raw != "" {
 		id, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil || id <= 0 {

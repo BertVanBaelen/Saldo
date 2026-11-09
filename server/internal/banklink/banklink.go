@@ -379,8 +379,24 @@ func match(ctx context.Context, tx *sql.Tx, c connection, iban string, a bank.Ac
 	if err != nil {
 		return 0, false, err
 	}
-	n, _ := res.RowsAffected()
-	return id, n > 0, nil
+	if n, _ := res.RowsAffected(); n > 0 {
+		return id, true, nil
+	}
+	// An account the viewer manages whose link was removed with "keep
+	// history" has no source at all: the new link feeds it again, and its
+	// pending rows follow this connection from now on.
+	res, err = tx.ExecContext(ctx, `INSERT INTO account_sources (account_id, connection_id, priority, external_account_id)
+		SELECT ?, ?, 'primary', ? WHERE NOT EXISTS (SELECT 1 FROM account_sources WHERE account_id = ?)
+		  AND EXISTS (SELECT 1 FROM account_access WHERE account_id = ? AND user_id = ? AND role = 'manager')`,
+		id, c.id, a.ID, id, id, c.user)
+	if err != nil {
+		return 0, false, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return 0, false, nil
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE transactions SET source_connection_id = ? WHERE account_id = ? AND status = 'pending'`, c.id, id)
+	return id, err == nil, err
 }
 
 // accountName is the bank's product name, cut to what an account name may be.

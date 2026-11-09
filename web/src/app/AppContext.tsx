@@ -9,12 +9,6 @@ export interface Toast {
   text: string;
 }
 
-export interface UncategorisedCount {
-  count: number;
-  /** True when there are more than the counted page holds. */
-  more: boolean;
-}
-
 export interface AppContextValue {
   me: Me;
   /** Show a changed profile (name) everywhere at once. */
@@ -30,7 +24,8 @@ export interface AppContextValue {
   /** When the figures on screen were last loaded from the server. */
   loadedAt: Date;
   alerts: Alert[] | null;
-  uncategorised: UncategorisedCount | null;
+  /** Transactions still to categorise (the sidebar badge). */
+  uncategorised: number | null;
   refreshShell: () => void;
   syncing: boolean;
   startSync: () => void;
@@ -48,8 +43,6 @@ export function useApp(): AppContextValue {
   return v;
 }
 
-/** Page size used to count uncategorised transactions for the badge and the chip. */
-export const COUNT_LIMIT = 200;
 export const SYNC_POLL_MS = 2000;
 /** After this the app stops polling; the sync goes on on the server and its data shows on the next load. */
 export const SYNC_MAX_MS = 4 * 60_000;
@@ -97,7 +90,7 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
   const [theme, setThemeState] = useState<Theme>(me.preferences.theme);
   const [current, setCurrent] = useState<Toast | null>(null);
   const [alerts, setAlerts] = useState<Alert[] | null>(null);
-  const [uncategorised, setUncategorised] = useState<UncategorisedCount | null>(null);
+  const [uncategorised, setUncategorised] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
   const [loadedAt, setLoadedAt] = useState(() => new Date());
@@ -154,8 +147,8 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
       },
       () => setAlerts((a) => a ?? []),
     );
-    api.transactions({ uncategorised: true, limit: COUNT_LIMIT }).then(
-      (p) => setUncategorised({ count: p.items.length, more: p.next !== null }),
+    api.transactions({ uncategorised: true, limit: 1 }).then(
+      (p) => setUncategorised(p.total),
       () => undefined,
     );
   }, []);

@@ -16,6 +16,7 @@ import (
 type NewTransaction struct {
 	AccountID    int64
 	ConnectionID int64 // 0 when it does not come from a bank connection
+	ImportBatch  int64 // the CSV import that brought it, 0 otherwise
 	DedupeKey    string
 	Occurrence   int
 	bank.Transaction
@@ -70,12 +71,12 @@ func InsertTransactions(ctx context.Context, db execer, rows []NewTransaction) (
 		res, err := db.ExecContext(ctx, `
 			INSERT INTO transactions (account_id, amount, currency, booking_date, value_date,
 			    counterparty_name, counterparty_iban, communication, status, external_id,
-			    dedupe_key, occurrence, source_connection_id, raw_payload)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			    dedupe_key, occurrence, source_connection_id, import_batch_id, raw_payload)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (account_id, dedupe_key, occurrence) DO NOTHING`,
 			r.AccountID, r.Amount, currencyOr(r.Currency), r.BookingDate, nullIfEmpty(r.ValueDate),
 			r.CounterpartyName, nullIfEmpty(r.CounterpartyIBAN), r.Communication, r.Status,
-			nullIfEmpty(r.EntryReference), r.DedupeKey, r.Occurrence, nullIfZero(r.ConnectionID), nullIfEmpty(string(r.Raw)))
+			nullIfEmpty(r.EntryReference), r.DedupeKey, r.Occurrence, nullIfZero(r.ConnectionID), nullIfZero(r.ImportBatch), nullIfEmpty(string(r.Raw)))
 		if err != nil {
 			return inserted, err
 		}
@@ -164,21 +165,95 @@ func StoreFetch(ctx context.Context, tx *sql.Tx, accountID, connectionID int64, 
 		}
 	}
 
+	allowed, err := importAllowance(ctx, tx, accountID, rows)
+	if err != nil {
+		return 0, err
+	}
 	keep := make([]NewTransaction, 0, len(rows))
 	for _, r := range rows {
-		if r.Status != bank.StatusBooked || r.EntryReference == "" {
-			keep = append(keep, r)
-			continue
+		if r.Status == bank.StatusBooked && r.EntryReference != "" {
+			skip, err := checkReference(ctx, tx, &r, refs)
+			if err != nil {
+				return 0, err
+			}
+			if skip {
+				continue
+			}
 		}
-		skip, err := checkReference(ctx, tx, &r, refs)
-		if err != nil {
-			return 0, err
+		if r.Status == bank.StatusBooked && allowed != nil {
+			skip, err := checkImported(ctx, tx, &r, allowed)
+			if err != nil {
+				return 0, err
+			}
+			if skip {
+				continue
+			}
 		}
-		if !skip {
-			keep = append(keep, r)
-		}
+		keep = append(keep, r)
 	}
 	return InsertTransactions(ctx, tx, keep)
+}
+
+// importAllowance is the sync's side of the CSV import (0.3-6): a bank row
+// that a CSV import already brought in under another key is not stored
+// again. Per content group (ContentHash) of the fetch's booked rows that has
+// imported rows in the account, it returns how many rows that are new by
+// key may still go in: the group's count in this fetch minus the stored
+// booked rows of that content (synced and imported). Repeating the fetch
+// then finds as many stored as reported and adds nothing; a fetch with one
+// more than stored adds exactly that one. It returns nil for an account
+// without imported rows, which therefore syncs exactly as before; that test
+// reads the small import_batches table, not the account's transactions.
+func importAllowance(ctx context.Context, tx *sql.Tx, accountID int64, rows []NewTransaction) (map[string]int, error) {
+	var imports bool
+	// A batch's rows live as long as the batch (ON DELETE CASCADE).
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM import_batches
+		WHERE account_id = ? AND rows_imported > 0 AND undone_at IS NULL)`, accountID).Scan(&imports); err != nil || !imports {
+		return nil, err
+	}
+	var booked []NewTransaction
+	fetched := map[string]int{}
+	for _, r := range rows {
+		if r.Status == bank.StatusBooked {
+			booked = append(booked, r)
+			fetched[ContentHash(r.Transaction)]++
+		}
+	}
+	if len(booked) == 0 {
+		return nil, nil
+	}
+	stored, imported, err := storedContent(ctx, tx, accountID, booked)
+	if err != nil {
+		return nil, err
+	}
+	allowed := map[string]int{}
+	for h, f := range fetched {
+		if imported[h] > 0 {
+			allowed[h] = max(0, f-stored[h])
+		}
+	}
+	return allowed, nil
+}
+
+// checkImported skips a booked row of a group in allowed whose key is new
+// once the group's allowance is used up; a row whose key is stored passes
+// (the insert is a no-op).
+func checkImported(ctx context.Context, tx *sql.Tx, r *NewTransaction, allowed map[string]int) (skip bool, err error) {
+	h := ContentHash(r.Transaction)
+	n, ok := allowed[h]
+	if !ok {
+		return false, nil
+	}
+	var exists bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM transactions
+		WHERE account_id = ? AND dedupe_key = ? AND occurrence = ?)`, r.AccountID, r.DedupeKey, r.Occurrence).Scan(&exists); err != nil || exists {
+		return false, err
+	}
+	if n == 0 {
+		return true, nil
+	}
+	allowed[h] = n - 1
+	return false, nil
 }
 
 // checkReference guards a booked row's entry reference against a bank that

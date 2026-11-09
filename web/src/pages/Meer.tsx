@@ -103,7 +103,7 @@ export function Meer() {
     { to: '/rekeningen', icon: 'card', tile: 'var(--soft)', ink: 'var(--greenText)', name: 'Rekeningen', sub: accountsSub(accounts.data) },
     { to: '/bankkoppelingen', icon: 'link', tile: 'var(--c1)', name: 'Bankkoppelingen', sub: bank.sub, tone: bank.tone },
     { to: '/categorieen', icon: 'tag', tile: 'var(--c3)', name: 'Categorieën en regels', sub: 'Categorieën, regels en suggesties' },
-    { to: '/importeren', icon: 'upload', tile: 'var(--c4)', name: 'Importeren', sub: 'CSV-bestand, bv. de export uit Bilance' },
+    { to: '/importeren', icon: 'upload', tile: 'var(--c4)', name: 'Importeren', sub: 'CSV-bestand, bv. de export uit Argenta' },
   ];
   const app: Item[] = [
     { to: '/instellingen', icon: 'sliders', tile: 'var(--c6)', ink: 'var(--text)', name: 'Instellingen', sub: 'Profiel, toestellen, Enable Banking, gebruikers' },

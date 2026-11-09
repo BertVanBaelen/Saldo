@@ -64,6 +64,7 @@ export function syncLine(a: Account, today: string): { text: string; tone: Tone;
     return { text: 'Handmatig · bijgewerkt ' + (a.balanceDate ? dateShort(a.balanceDate) : 'nog niet'), tone: '', manual: true };
   }
   const bank = a.bank || 'Bank';
+  if (a.syncStatus === 'unlinked') return { text: bank + ' · niet meer gekoppeld', tone: 'warn', manual: false };
   if (a.syncStatus === 'failed') return { text: bank + ' · synchronisatie mislukt', tone: 'neg', manual: false };
   if (!a.lastSync) return { text: bank + ' · nog niet gesynchroniseerd', tone: '', manual: false };
   const when = momentLabel(a.lastSync, today);
@@ -73,7 +74,7 @@ export function syncLine(a: Account, today: string): { text: string; tone: Tone;
 
 /** "Stand van zondag 04:02" for a balance whose sync is stale or failed; null when it is current. */
 export function staleNote(a: Account, today: string): string | null {
-  if (a.source !== 'bank' || (a.syncStatus !== 'stale' && a.syncStatus !== 'failed')) return null;
+  if (a.source !== 'bank' || a.syncStatus === 'ok' || a.syncStatus === null) return null;
   if (a.lastSync) return 'Stand van ' + momentLabel(a.lastSync, today);
   return a.balanceDate ? 'Stand van ' + dateShort(a.balanceDate) : null;
 }

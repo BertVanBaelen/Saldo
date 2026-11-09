@@ -1,0 +1,5 @@
+Rekening;Boekdatum;Valutadatum;Referentie;Beschrijving;Bedrag;Munt;Verrichtingsdatum;Rekening tegenpartij;Naam tegenpartij;Mededeling
+BE68 5390 0754 7034;02/06/2026;03/06/2026;TEST-REF-0001;Betaling Bancontact;-64,12;EUR;01/06/2026;BE71 0961 2345 6769;Voorbeeldwinkel Noord;Aankoop fictief
+BE68 5390 0754 7034;01/06/2026;01/06/2026;TEST-REF-0002;Overschrijving;1.250,00;EUR;01/06/2026;;Werkgever Fictief NV;Loon mei
+
+BE68 5390 0754 7034;31/05/2026;31/05/2026;TEST-REF-0003;Betaling Bancontact;-14,60;EUR;30/05/2026;BE00 0000 0000 0000;Cafe Verzonnen;"Drankje; met vrienden"

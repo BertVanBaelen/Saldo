@@ -12,6 +12,7 @@ import { api, browser, errorMessage } from '../lib/api';
 import { dateYear, eur, momentLabel, names } from '../lib/format';
 import type { Account, BankLinkResult, Connection, SyncStatus } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { RemoveLink } from './Rekening';
 import './Bankkoppelingen.css';
 
 /** The consent warns from 14 days before it lapses, like the reminders (analysis/concepts/bank-connection.md). */
@@ -116,7 +117,7 @@ function headChip(c: Connection): { tone: 'ok' | 'warn' | 'neg'; text: string } 
   return { tone: 'ok', text: 'Actief' };
 }
 
-function ConnectionCard({ c, accounts, index }: { c: Connection; accounts: Account[]; index: number }) {
+function ConnectionCard({ c, accounts, index, onRemove }: { c: Connection; accounts: Account[]; index: number; onRemove: () => void }) {
   const { today, syncing, startSync, online } = useApp();
   const expired = c.status === 'expired';
   const pending = c.status === 'pending';
@@ -229,6 +230,10 @@ function ConnectionCard({ c, accounts, index }: { c: Connection; accounts: Accou
           <Icon name="shield" size={18} stroke={2.4} />
           Opnieuw autoriseren
         </Link>
+        <button type="button" className="bk-btn bk-btn--negline" aria-haspopup="dialog" onClick={onRemove}>
+          <Icon name="trash" size={18} stroke={2.2} />
+          Koppeling verwijderen
+        </button>
       </div>
     </article>
   );
@@ -300,6 +305,7 @@ export function Bankkoppelingen() {
   const { dataVersion } = useApp();
   const page = useAsync((signal) => Promise.all([api.connections(signal), api.accounts(signal), api.enableBanking(signal)]), [dataVersion]);
   const [conns, accounts, eb] = page.data ?? [];
+  const [removing, setRemoving] = useState<Connection | null>(null);
 
   let body: ReactNode;
   if (!page.data) body = page.error ? <ErrorState message={page.error} onRetry={page.reload} /> : <SkelList rows={3} label="Bankkoppelingen laden" />;
@@ -313,7 +319,7 @@ export function Bankkoppelingen() {
           </h2>
         </div>
         {conns!.map((c, i) => (
-          <ConnectionCard key={c.id} c={c} accounts={accounts!} index={i} />
+          <ConnectionCard key={c.id} c={c} accounts={accounts!} index={i} onRemove={() => setRemoving(c)} />
         ))}
         <Link className="bk-btn bk-btn--dashed bk-add-phone only-phone" to={linkPath()}>
           <Icon name="plus" size={18} stroke={2.4} />
@@ -346,6 +352,17 @@ export function Bankkoppelingen() {
           <Icon name="eye" size={18} stroke={2.2} />
           <span>Saldo leest alleen: het kan nooit betalen of geld verplaatsen. Banken vragen elke 180 dagen opnieuw toestemming.</span>
         </p>
+      )}
+      {removing && (
+        <RemoveLink
+          conn={removing}
+          accounts={accounts || []}
+          onClose={() => setRemoving(null)}
+          onDone={() => {
+            setRemoving(null);
+            page.reload();
+          }}
+        />
       )}
     </div>
   );

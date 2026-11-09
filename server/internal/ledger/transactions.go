@@ -33,10 +33,12 @@ type Category struct {
 	Colour string `json:"colour"`
 }
 
-// Page is one page of transactions; Next is the cursor of the next page.
+// Page is one page of transactions; Next is the cursor of the next page and
+// Total the number of rows that match the filters, on every page.
 type Page struct {
 	Items []Transaction `json:"items"`
 	Next  *string       `json:"next"`
+	Total int           `json:"total"`
 }
 
 // Paging limits for GET /api/transactions.
@@ -52,6 +54,7 @@ type TxQuery struct {
 	Scope         string // "", "alles", "persoonlijk" or "gedeeld"
 	Q             string // search in counterparty, communication and amount
 	Uncategorised bool
+	From, To      string // booking dates YYYY-MM-DD, inclusive; "" = open
 	Before        string // cursor from Page.Next
 	Limit         int    // 0 = DefaultLimit
 }
@@ -124,6 +127,11 @@ func (s *Store) Transactions(ctx context.Context, viewer int64, q TxQuery) (Page
 	if err != nil {
 		return Page{}, err
 	}
+	page := Page{Items: []Transaction{}}
+	if err := s.db.QueryRowContext(ctx, visibleTx+` SELECT COUNT(*) FROM tx WHERE `+strings.Join(where, " AND "),
+		append([]any{viewer, viewer}, args...)...).Scan(&page.Total); err != nil {
+		return Page{}, err
+	}
 	if q.Before != "" {
 		c, err := decodeCursor(q.Before)
 		if err != nil {
@@ -147,7 +155,6 @@ func (s *Store) Transactions(ctx context.Context, viewer int64, q TxQuery) (Page
 		return Page{}, err
 	}
 	defer rows.Close()
-	page := Page{Items: []Transaction{}}
 	for rows.Next() {
 		var t Transaction
 		var catID sql.NullInt64
@@ -225,6 +232,21 @@ func (s *Store) filters(ctx context.Context, viewer int64, q TxQuery) ([]string,
 	if q.Uncategorised {
 		where = append(where, uncategorisedCond)
 	}
+	for _, d := range []struct {
+		value, cond string
+	}{{q.From, "tx.booking_date >= ?"}, {q.To, "tx.booking_date <= ?"}} {
+		if d.value == "" {
+			continue
+		}
+		if _, err := time.Parse(time.DateOnly, d.value); err != nil {
+			return nil, nil, apperr.Invalid("Kies een datum als 2026-11-18.")
+		}
+		where = append(where, d.cond)
+		args = append(args, d.value)
+	}
+	if q.From != "" && q.To != "" && q.From > q.To {
+		return nil, nil, apperr.Invalid("De begindatum ligt na de einddatum.")
+	}
 	return where, args, nil
 }
 
@@ -232,10 +254,16 @@ func escapeLike(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }
 
-var amountPattern = regexp.MustCompile(`^\d+(,\d{0,2})?$`)
+var (
+	amountPattern    = regexp.MustCompile(`^\d+(,\d{0,2})?$`)
+	thousandsPattern = regexp.MustCompile(`^\d{1,3}(\.\d{3})+(,\d{0,2})?$`)
+)
 
 // amountQuery turns a search like "24,99", "€ 24.99", "-1.005,00" or "1005"
-// into the "1005,00" form used to match amounts by prefix.
+// into the "1005,00" form used to match amounts by prefix: whole euros match
+// every amount of that euro ("12" is 12,00 to 12,99, never 120), one decimal
+// is tenths ("12,5" is 12,50). Text that is not one clear amount ("1.50.0",
+// "12..5") is not guessed at: ok is false.
 func amountQuery(q string) (string, bool) {
 	s := strings.NewReplacer("€", "", " ", "", "\u00a0", "").Replace(q)
 	for _, sign := range []string{"+", "-", "−"} {
@@ -245,15 +273,20 @@ func amountQuery(q string) (string, bool) {
 		}
 	}
 	switch {
-	case strings.Contains(s, ","):
+	case thousandsPattern.MatchString(s): // "1.005", "1.234,56": dots are consistent thousand separators
 		s = strings.ReplaceAll(s, ".", "")
-	case strings.Count(s, ".") == 1 && len(s)-strings.Index(s, ".") <= 3:
+	case strings.Count(s, ".") == 1 && !strings.Contains(s, ","): // "12.50": a decimal point
 		s = strings.Replace(s, ".", ",", 1)
-	default:
-		s = strings.ReplaceAll(s, ".", "")
 	}
 	if !amountPattern.MatchString(s) {
 		return "", false
+	}
+	euros, cents, comma := strings.Cut(s, ",")
+	switch {
+	case !comma || cents == "":
+		return euros + ",", true
+	case len(cents) == 1:
+		return s + "0", true
 	}
 	return s, true
 }

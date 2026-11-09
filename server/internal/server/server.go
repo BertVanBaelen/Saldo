@@ -67,6 +67,7 @@ type Server struct {
 	log      *slog.Logger
 	cooldown *ratelimit.Cooldown
 	limits   limits
+	imports  importLimits
 	secure   bool // device cookie only over https
 	mails    sync.WaitGroup
 	syncs    sync.WaitGroup // background syncs, for tests
@@ -96,6 +97,7 @@ func newServer(o Options) (*Server, http.Handler) {
 		log:      o.Logger,
 		cooldown: ratelimit.NewCooldown(SyncCooldown, o.Now),
 		limits:   newLimits(o.Now),
+		imports:  importLimits{preview: ratelimit.NewLimiter(60, time.Hour, o.Now), run: ratelimit.NewLimiter(20, time.Hour, o.Now)},
 		secure:   strings.HasPrefix(o.PublicURL, "https://"),
 		runs:     map[int64]syncRun{},
 		mux:      http.NewServeMux(),
@@ -135,16 +137,24 @@ func (s *Server) routes() {
 	m.HandleFunc("DELETE /api/users/invitations/{id}", s.deleteInvitation)
 	m.HandleFunc("POST /api/users/{id}/password-reset", s.postPasswordReset)
 	m.HandleFunc("GET /api/accounts", s.listAccounts)
+	m.HandleFunc("POST /api/accounts", s.postAccount)
 	m.HandleFunc("PATCH /api/accounts/{id}", s.patchAccount)
+	m.HandleFunc("DELETE /api/accounts/{id}", s.deleteAccount)
+	m.HandleFunc("PUT /api/accounts/{id}/balance", s.putBalance)
+	m.HandleFunc("GET /api/accounts/{id}/balances", s.listBalances)
 	m.HandleFunc("GET /api/transactions", s.listTransactions)
 	m.HandleFunc("GET /api/alerts", s.listAlerts)
 	m.HandleFunc("GET /api/connections", s.listConnections)
+	m.HandleFunc("DELETE /api/connections/{id}", s.deleteConnection)
 	m.HandleFunc("POST /api/sync", s.postSync)
 	m.HandleFunc("GET /api/sync", s.getSync)
 	m.HandleFunc("GET /api/bank/enablebanking", s.getEnableBanking)
 	m.HandleFunc("PUT /api/bank/enablebanking", s.putEnableBanking)
 	m.HandleFunc("POST /api/bank/link", s.postBankLink)
 	m.HandleFunc("POST /api/bank/callback", s.postBankCallback)
+	m.HandleFunc("POST /api/imports/preview", s.postImportPreview)
+	m.HandleFunc("POST /api/imports", s.postImport)
+	m.HandleFunc("GET /api/imports", s.listImports)
 	m.HandleFunc("/api/", s.apiFallback)
 	m.HandleFunc("/api", s.apiFallback)
 	m.HandleFunc("/", s.serveWeb)

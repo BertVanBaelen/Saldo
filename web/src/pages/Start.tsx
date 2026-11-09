@@ -23,7 +23,7 @@ import {
 } from '../lib/accounts';
 import { api } from '../lib/api';
 import { dateLong, eur, eur0, names } from '../lib/format';
-import type { Account, Alert, Scope } from '../lib/types';
+import type { Account, Alert, Connection, EnableBanking, Scope } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import './Start.css';
 
@@ -103,11 +103,13 @@ function AlertRow({ a }: { a: Alert }) {
   );
 }
 
-function Alerts({ alerts }: { alerts: Alert[] }) {
-  if (!alerts.length) return null;
+function Alerts({ alerts, inView }: { alerts: Alert[]; inView: Account[] }) {
+  // An alert about one account shows only when that account is in the scope; the others always show.
+  const shown = alerts.filter((a) => a.accountId === undefined || inView.some((acc) => acc.id === a.accountId));
+  if (!shown.length) return null;
   return (
     <div className="alerts anim-in" style={delay(30)}>
-      {alerts.map((a, i) => (
+      {shown.map((a, i) => (
         <AlertRow key={a.type + i} a={a} />
       ))}
     </div>
@@ -238,6 +240,7 @@ function ForecastSoon() {
 // ---------- Accounts ----------
 
 function SyncSub({ a, today }: { a: Account; today: string }) {
+  const { syncing } = useApp();
   const s = syncLine(a, today);
   if (s.manual) {
     const date = s.text.replace('Handmatig · bijgewerkt ', '');
@@ -248,6 +251,8 @@ function SyncSub({ a, today }: { a: Account; today: string }) {
       </span>
     );
   }
+  // An unlinked account has no source, so a sync does not touch it.
+  if (syncing && a.syncStatus !== 'unlinked') return <span className="row-sub">Synchroniseren…</span>;
   return <span className={'row-sub' + (s.tone ? ' start-sub--' + s.tone : '')}>{s.text}</span>;
 }
 
@@ -350,17 +355,17 @@ function Shared({ list, today }: { list: Account[]; today: string }) {
   );
 }
 
-/** A scope without accounts of its kind (for example no shared account yet). */
-function NoAccounts({ scope }: { scope: Scope }) {
+/** A scope without accounts of its kind (for example no shared account yet), or with savings accounts only. */
+function NoAccounts({ scope, savingsOnly = false }: { scope: Scope; savingsOnly?: boolean }) {
   const shared = scope === 'gedeeld';
   return (
     <div className="card start-none anim-in" style={delay(40)}>
       <span className={'group-head-icon group-head-icon--' + (shared ? 'ged' : 'pers')} aria-hidden="true">
-        <Icon name={shared ? 'people' : 'person'} size={17} stroke={2.2} />
+        <Icon name={savingsOnly ? 'card' : shared ? 'people' : 'person'} size={17} stroke={2.2} />
       </span>
       <span className="start-none-text">
-        <strong>Nog geen {shared ? 'gedeelde' : 'persoonlijke'} rekening</strong>
-        <span>Koppel je bank om ze hier te zien.</span>
+        <strong>{savingsOnly ? 'Nog geen zichtrekening' : 'Nog geen ' + (shared ? 'gedeelde' : 'persoonlijke') + ' rekening'}</strong>
+        <span>{savingsOnly ? 'Koppel je bank om hier je saldo tegen je buffer te zien.' : 'Koppel je bank om ze hier te zien.'}</span>
       </span>
       <Link className="btn btn--secondary" to="/bankkoppelingen">
         Bank koppelen
@@ -371,17 +376,28 @@ function NoAccounts({ scope }: { scope: Scope }) {
 
 // ---------- No accounts yet: welcome and first steps ----------
 
-function Welcome() {
+/**
+ * Step 1 is done once the Enable Banking key is stored. Steps 2 and 3 need an account and this screen only
+ * shows without one, so they are never done here. A link that was started but not finished continues at its page.
+ */
+function Welcome({ eb, connections }: { eb: EnableBanking | null; connections: Connection[] }) {
+  const pending = connections.find((c) => c.status === 'pending');
   const promises: [IconName, string][] = [
     ['card', 'Saldo nu en je buffer, per rekening'],
     ['calendar', 'Komende maanden: kom je toe?'],
     ['chart', 'Waar je geld naartoe gaat'],
   ];
   const steps = [
-    { to: '/instellingen/enable-banking', title: 'Enable Banking instellen', sub: 'Je eigen application id en sleutel · eenmalig' },
-    { to: '/bankkoppelingen', title: 'Bank koppelen', sub: 'Kies je bank en geef toestemming in je bankapp' },
-    { to: '/importeren', title: 'Geschiedenis importeren', sub: 'Optioneel · een CSV-bestand, bv. de export uit Bilance' },
+    { to: '/instellingen/enable-banking', title: 'Enable Banking instellen', sub: 'Je eigen application id en sleutel · eenmalig', done: !!eb?.configured },
+    {
+      to: pending ? '/bankkoppelingen/koppelen?koppeling=' + pending.id : '/bankkoppelingen',
+      title: 'Bank koppelen',
+      sub: 'Kies je bank en geef toestemming in je bankapp',
+      done: false,
+    },
+    { to: '/importeren', title: 'Geschiedenis importeren', sub: 'Optioneel · een CSV-bestand, bv. de export uit Argenta', done: false },
   ];
+  const next = steps.findIndex((s) => !s.done);
   return (
     <div className="start-welcome">
       <section className="hero start-hello anim-in" style={delay(30)} aria-labelledby="start-hello-title">
@@ -409,19 +425,20 @@ function Welcome() {
             <h2 className="section-title" id="start-steps-title">
               Aan de slag in drie stappen
             </h2>
-            <span className="start-steps-count">0 van 3 klaar</span>
+            <span className="start-steps-count">{steps.filter((s) => s.done).length} van 3 klaar</span>
           </div>
           <ol className="list start-steps">
             {steps.map((s, i) => (
               <li key={s.to}>
                 <Link className="row start-step" to={s.to}>
-                  <span className={'start-step-num' + (i === 0 ? ' start-step-num--next' : '')} aria-hidden="true">
-                    {i + 1}
+                  <span className={'start-step-num' + (i === next ? ' start-step-num--next' : '')} aria-hidden="true">
+                    {s.done ? <Icon name="check" size={16} stroke={2.6} /> : i + 1}
                   </span>
                   <span className="row-main">
                     <span className="row-name">
                       {s.title}
-                      {i === 0 && <span className="visually-hidden"> (volgende stap)</span>}
+                      {s.done && <span className="visually-hidden"> (klaar)</span>}
+                      {i === next && <span className="visually-hidden"> (volgende stap)</span>}
                     </span>
                     <span className="row-sub">{s.sub}</span>
                   </span>
@@ -477,12 +494,17 @@ export function Start() {
   const accounts = useAsync((signal) => api.accounts(signal), [dataVersion]);
   const all = accounts.data;
   const empty = !!all && all.length === 0;
+  // Only without accounts: what the first steps need. A request that fails counts as "nothing done yet".
+  const first = useAsync<[EnableBanking | null, Connection[]] | null>(
+    (signal) => (empty ? Promise.all([api.enableBanking(signal).catch(() => null), api.connections(signal).catch(() => [])]) : Promise.resolve(null)),
+    [empty, dataVersion],
+  );
 
   let body;
   if (!all) {
     body = accounts.error ? <ErrorState message={accounts.error} onRetry={accounts.reload} /> : <StartSkeleton />;
   } else if (empty) {
-    body = <Welcome />;
+    body = first.data ? <Welcome eb={first.data[0]} connections={first.data[1]} /> : <StartSkeleton />;
   } else {
     const inView = all.filter((a) => inScope(a, scope));
     const current = inView.filter(isCurrent);
@@ -495,20 +517,14 @@ export function Start() {
     // Keyed by scope, so switching re-runs the entry animation as in the mockup.
     body = (
       <Fragment key={scope}>
-        <Alerts alerts={alerts || []} />
-        {inView.length === 0 ? (
-          <NoAccounts scope={scope} />
+        <Alerts alerts={alerts || []} inView={inView} />
+        {current.length === 0 ? (
+          <NoAccounts scope={scope} savingsOnly={inView.length > 0} />
         ) : (
-          current.length > 0 && (
-            <div className="start-top">
-              {current.length === 1 ? (
-                <SingleHero a={current[0]} today={today} />
-              ) : (
-                <MultiHero scope={scope} list={current} withSavings={savings > 0} />
-              )}
-              <ForecastSoon />
-            </div>
-          )
+          <div className="start-top">
+            {current.length === 1 ? <SingleHero a={current[0]} today={today} /> : <MultiHero scope={scope} list={current} withSavings={savings > 0} />}
+            <ForecastSoon />
+          </div>
         )}
         <div className={'start-bottom' + (sections < 2 ? ' start-bottom--one' : '')}>
           {showPersonal && <Personal list={personal} today={today} />}

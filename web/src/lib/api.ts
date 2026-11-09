@@ -4,6 +4,7 @@ import type {
   Account,
   AccountPatch,
   Alert,
+  BalancePoint,
   ApiErrorBody,
   BankLinkResult,
   Connection,
@@ -13,8 +14,10 @@ import type {
   Invitation,
   LoginChallenge,
   Me,
+  NewAccount,
   Preferences,
   Redeem,
+  RemovedLink,
   SyncStatus,
   TokenInfo,
   TransactionPage,
@@ -22,6 +25,7 @@ import type {
   User,
   UserList,
 } from './types';
+import { importForm, type ImportBatch, type ImportMapping, type ImportPreview, type ImportResult } from './imports';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -50,6 +54,8 @@ function fallbackMessage(status: number): string {
 
 interface RequestOptions {
   body?: unknown;
+  /** Multipart instead of JSON (the CSV upload): the browser sets the Content-Type with its boundary. */
+  form?: FormData;
   signal?: AbortSignal;
 }
 
@@ -74,7 +80,7 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
     res = await fetch(path, {
       method,
       headers,
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      body: opts.form ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
       signal: opts.signal,
       credentials: 'same-origin',
       cache: 'no-store',
@@ -111,6 +117,8 @@ export function transactionsPath(q: TransactionQuery = {}): string {
   if (q.scope && q.scope !== 'alles') p.set('scope', q.scope);
   if (q.q && q.q.trim()) p.set('q', q.q.trim());
   if (q.uncategorised) p.set('uncategorised', '1');
+  if (q.from) p.set('from', q.from);
+  if (q.to) p.set('to', q.to);
   if (q.before) p.set('before', q.before);
   if (q.limit !== undefined) p.set('limit', String(q.limit));
   const s = p.toString();
@@ -123,12 +131,28 @@ export const api = {
   savePreferences: (prefs: Partial<Preferences>) => request<Preferences>('PUT', '/api/me/preferences', { body: prefs }),
   accounts: (signal?: AbortSignal) => request<Account[]>('GET', '/api/accounts', { signal }),
   updateAccount: (id: number, patch: AccountPatch) => request<Account>('PATCH', '/api/accounts/' + id, { body: patch }),
+  createAccount: (body: NewAccount) => request<Account>('POST', '/api/accounts', { body }),
+  /** Manual accounts: the balance on `date` (default today). */
+  setBalance: (id: number, balance: number, date?: string) => request<Account>('PUT', '/api/accounts/' + id + '/balance', { body: date ? { balance, date } : { balance } }),
+  balances: (id: number, signal?: AbortSignal) => request<BalancePoint[]>('GET', '/api/accounts/' + id + '/balances', { signal }),
+  /** Manual accounts only. */
+  deleteAccount: (id: number) => request<null>('DELETE', '/api/accounts/' + id),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
   alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),
+  /** Removes the viewer's bank link; `delete` also deletes the accounts only it feeds and only the viewer holds. */
+  removeConnection: (id: number, history: 'keep' | 'delete') => request<RemovedLink>('DELETE', '/api/connections/' + id + '?history=' + history),
   /** Starts a sync in the background; `started: false` when one is running already. Poll `syncStatus`. */
   sync: () => request<{ started: boolean; running?: boolean }>('POST', '/api/sync'),
   syncStatus: (signal?: AbortSignal) => request<SyncStatus>('GET', '/api/sync', { signal }),
+
+  // CSV import (multipart): the preview has counts only when both accountId and mapping are sent.
+  previewImport: (file: File, opts: { accountId?: number; mapping?: ImportMapping } = {}, signal?: AbortSignal) =>
+    request<ImportPreview>('POST', '/api/imports/preview', { form: importForm(file, opts.accountId, opts.mapping), signal }),
+  importFile: (file: File, accountId: number, mapping: ImportMapping, signal?: AbortSignal) =>
+    request<ImportResult>('POST', '/api/imports', { form: importForm(file, accountId, mapping), signal }),
+  /** Batches of the accounts the viewer holds, newest first. */
+  imports: (signal?: AbortSignal) => request<ImportBatch[]>('GET', '/api/imports', { signal }),
 
   // Bank link: the viewer's Enable Banking app, the consent at the bank and the way back from it.
   enableBanking: (signal?: AbortSignal) => request<EnableBanking>('GET', '/api/bank/enablebanking', { signal }),

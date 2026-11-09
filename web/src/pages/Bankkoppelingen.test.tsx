@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { api, ApiError, browser } from '../lib/api';
 import type { BankLinkResult, Connection } from '../lib/types';
 import { connectionsSub } from './Meer';
-import { CONNECTIONS, EB_OFF, GEDEELD, ME, renderAt, renderRoot, stubApi, ZICHT } from '../test/helpers';
+import { CONNECTIONS, EB_OFF, GEDEELD, ME, PENDING, renderAt, renderRoot, stubApi, ZICHT } from '../test/helpers';
 
 const where = () => screen.getByTestId('location').textContent;
 const toast = () => document.querySelector('.toast')?.textContent;
@@ -223,6 +223,19 @@ describe('Back from the bank', () => {
 });
 
 describe('Meer · bankkoppelingen summary', () => {
+  it('removes a link that is not finished; there is no history to delete', async () => {
+    const api = stubApi({ connections: [PENDING], accounts: [] });
+    renderAt('/bankkoppelingen');
+    fireEvent.click(await screen.findByRole('button', { name: /Koppeling verwijderen/ }));
+    const dialog = await screen.findByRole('dialog');
+    const del = within(dialog).getByRole('radio', { name: /Geschiedenis verwijderen/ }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    expect(within(dialog).getByText('Deze koppeling heeft nog geen rekeningen of geschiedenis.')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Koppeling verwijderen' }));
+    await waitFor(() => expect(api.removeConnection).toHaveBeenCalledWith(3, 'keep'));
+    await waitFor(() => expect(api.connections).toHaveBeenCalledTimes(2));
+  });
+
   it('calls a link that is not finished unfinished, not expired', () => {
     const pending = conn({ status: 'pending', accounts: [], lastSync: null, since: null, validUntil: null, daysLeft: null });
     expect(connectionsSub([pending])).toEqual({ sub: 'Argenta · koppelen niet afgerond', tone: 'warn' });

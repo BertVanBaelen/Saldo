@@ -11,6 +11,8 @@ Analysis: 4.1 (CSV fallback), 4.6, risks 1, 10, 11 · Data: `import_batch`, `cat
 
 ## Rules
 - Every import is a **batch** that can be undone as a whole. Re-importing the same file creates no duplicates (dedupe key, file hash).
+- 0.3 duplicate rule: a row equal in booking date, amount, counterparty and communication to a booked row the account already holds (any source) is not stored again, counted per occurrence. The same exact match applies in the sync to a bank row that equals an imported row. Fuzzy matching and the import cutoff come in 0.5-4.
+- The rows of a batch can be removed as a whole by deleting the batch (`import_batch_id` cascades). The undo UI comes in 0.5-5.
 - Mappings are saved per source and reused; changing a mapping can be re-applied to that import.
 - Mapped imported categories feed the learning ([categorisation-rule](categorisation-rule.md)).
 - Bilance CSV layout is unverified **[verify]** (spike S2, the first phase of the Bilance import version).

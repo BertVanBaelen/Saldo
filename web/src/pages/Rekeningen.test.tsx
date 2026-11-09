@@ -32,6 +32,8 @@ describe('Rekeningen · add an account', () => {
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByText('Vakantiepot', { selector: '.rk-row-name' })).toBeTruthy();
+    // With an IBAN, payments to it become transfers: the badge and the Start alert load again.
+    expect(api.alerts).toHaveBeenCalledTimes(2);
   });
 
   it('adds a current account without a bank link, with its buffer', async () => {
@@ -47,6 +49,25 @@ describe('Rekeningen · add an account', () => {
     await waitFor(() => expect(api.createAccount).toHaveBeenCalledWith(expect.objectContaining({ name: 'Contant', type: 'current', buffer: 25000, balance: undefined })));
   });
 
+  it('picks the colour with the arrow keys', async () => {
+    const api = stubApi();
+    renderAt('/rekeningen');
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Rekening toevoegen' }))[0]);
+    const sheet = await screen.findByRole('dialog');
+    fireEvent.click(within(sheet).getByRole('button', { name: /Handmatige rekening/ }));
+    fireEvent.change(await within(sheet).findByLabelText('Naam'), { target: { value: 'Pot' } });
+    // Blue is preselected (the next free colour); ArrowRight moves to Petrol, ArrowLeft twice to Violet.
+    fireEvent.keyDown(within(sheet).getByRole('radio', { name: 'Blauw' }), { key: 'ArrowRight' });
+    expect(within(sheet).getByRole('radio', { name: 'Petrol' }).getAttribute('aria-checked')).toBe('true');
+    expect(document.activeElement).toBe(within(sheet).getByRole('radio', { name: 'Petrol' }));
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(within(sheet).getByRole('radio', { name: 'Violet' }));
+    expect(within(sheet).getByRole('radio', { name: 'Violet' }).getAttribute('tabindex')).toBe('0');
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Toevoegen' }));
+    await waitFor(() => expect(api.createAccount).toHaveBeenCalledWith(expect.objectContaining({ name: 'Pot', colour: 'violet' })));
+  });
+
   it('offers both ways in the empty state of a user without accounts ([])', async () => {
     stubApi({ accounts: [] });
     renderAt('/rekeningen');
@@ -54,6 +75,17 @@ describe('Rekeningen · add an account', () => {
     fireEvent.click(screen.getByRole('button', { name: /Handmatige rekening/ }));
     const sheet = await screen.findByRole('dialog');
     expect(within(sheet).getByRole('heading', { name: 'Handmatige rekening' })).toBeTruthy();
+  });
+
+  it('refreshes the badge and alerts after setting an IBAN', async () => {
+    const api = stubApi();
+    renderAt('/rekeningen');
+    fireEvent.click((await screen.findByText('Spaarrekening', { selector: '.rk-row-name' })).closest('button')!);
+    const sheet = await screen.findByRole('dialog');
+    fireEvent.change(within(sheet).getByLabelText(/IBAN/), { target: { value: 'BE83 3630 1234 5615' } });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.updateAccount).toHaveBeenCalledWith(2, { iban: 'BE83 3630 1234 5615' }));
+    await waitFor(() => expect(api.alerts).toHaveBeenCalledTimes(2));
   });
 
   it('links each account to its page', async () => {

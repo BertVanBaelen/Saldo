@@ -309,11 +309,18 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 		return Linked{}, err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `UPDATE provider_connections
-		SET session_id_enc = ?, consent_since = ?, valid_until = ?, status = 'active', last_error = NULL WHERE id = ?`,
+	res, err := tx.ExecContext(ctx, `UPDATE provider_connections
+		SET session_id_enc = ?, consent_since = ?, valid_until = ?, status = 'active', last_error = NULL WHERE id = ? AND status <> 'revoked'`,
 		s.box.Seal([]byte(info.ID)), now.In(clock.Brussels).Format(time.DateOnly),
-		info.ValidUntil.UTC().Format(time.RFC3339), c.id); err != nil {
+		info.ValidUntil.UTC().Format(time.RFC3339), c.id)
+	if err != nil {
 		return Linked{}, err
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return Linked{}, err
+	} else if n == 0 {
+		// Removed (in another tab) while the bank confirmed: it stays removed.
+		return Linked{}, apperr.Invalid(msgBadState)
 	}
 	// Account ids change per session: forget the old ones, so an account the
 	// new consent leaves out is not fetched with a session that lacks it.

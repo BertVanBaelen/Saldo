@@ -32,6 +32,26 @@ describe('Rekening · a bank account', () => {
     expect(screen.queryByRole('heading', { name: 'Rekening verwijderen' })).toBeNull();
   });
 
+  it('counts calendar days under the buffer, not balance points, when the history has gaps', async () => {
+    // Buffer € 900. One point per sync day, with gaps: under from 4 to 8 Nov (4 days), 12 to 14 Nov (2 days)
+    // and from 16 Nov through today, 18 Nov (3 days). Three points are under the buffer, nine days.
+    const balances = {
+      1: [
+        { date: '2026-11-01', balance: 200000, origin: 'bank' as const },
+        { date: '2026-11-04', balance: 50000, origin: 'bank' as const },
+        { date: '2026-11-08', balance: 200000, origin: 'bank' as const },
+        { date: '2026-11-12', balance: 10000, origin: 'bank' as const },
+        { date: '2026-11-14', balance: 150000, origin: 'bank' as const },
+        { date: '2026-11-16', balance: 40000, origin: 'bank' as const },
+      ],
+    };
+    stubApi({ balances });
+    renderAt('/rekeningen/1');
+    const hist = await screen.findByRole('heading', { name: 'Saldoverloop' }).then((h) => h.closest('section') as HTMLElement);
+    await within(hist).findByText('Onder de buffer');
+    expect(within(hist).getByText('9 dagen')).toBeTruthy();
+  });
+
   it('removes the link and keeps the history', async () => {
     const api = stubApi();
     renderAt('/rekeningen/1');
@@ -63,6 +83,23 @@ describe('Rekening · a bank account', () => {
     await waitFor(() => expect(api.removeConnection).toHaveBeenCalledWith(1, 'delete'));
     // The account itself is gone: back to Rekeningen.
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/rekeningen'));
+  });
+
+  it('offers "Nu opnieuw proberen" when the sync failed, and not when it works', async () => {
+    const api = stubApi({ accounts: [{ ...ZICHT, syncStatus: 'failed' }, SPAAR, GEDEELD] });
+    const { unmount } = renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    const retry = await within(card('Synchronisatie')).findByRole('button', { name: 'Nu opnieuw proberen' });
+    expect(retry.className).toBe('btn btn--primary btn--block');
+    fireEvent.click(retry);
+    await waitFor(() => expect(api.sync).toHaveBeenCalledTimes(1));
+    unmount();
+
+    stubApi();
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    await within(card('Synchronisatie')).findByRole('button', { name: /Koppeling verwijderen/ });
+    expect(within(card('Synchronisatie')).queryByRole('button', { name: 'Nu opnieuw proberen' })).toBeNull();
   });
 
   it('shows an account whose link was removed as not linked, with the way back', async () => {
@@ -134,6 +171,26 @@ describe('Rekening · a manual account', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Rekening verwijderen' }));
     await waitFor(() => expect(api.deleteAccount).toHaveBeenCalledWith(2));
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/rekeningen'));
+    // The sidebar badge and the Start alert load again: its transfers no longer count.
+    expect(api.alerts).toHaveBeenCalledTimes(2);
+    expect(api.transactions).toHaveBeenCalledWith({ uncategorised: true, limit: 1 });
+  });
+
+  it('refreshes the badge and alerts after a new IBAN, not after a rename', async () => {
+    const api = stubApi();
+    renderAt('/rekeningen/2');
+    await screen.findByRole('heading', { level: 1, name: 'Spaarrekening' });
+    const set = card('Instellen');
+    fireEvent.change(within(set).getByLabelText('Naam'), { target: { value: 'Spaarpot' } });
+    fireEvent.click(within(set).getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.updateAccount).toHaveBeenCalledTimes(1));
+    await screen.findByText('Spaarpot opgeslagen');
+    expect(api.alerts).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(within(set).getByLabelText(/IBAN/), { target: { value: 'BE83 3630 1234 5615' } });
+    fireEvent.click(within(set).getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.updateAccount).toHaveBeenLastCalledWith(2, { iban: 'BE83 3630 1234 5615' }));
+    await waitFor(() => expect(api.alerts).toHaveBeenCalledTimes(2));
   });
 });
 

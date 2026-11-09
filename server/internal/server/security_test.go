@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync"
@@ -177,6 +178,7 @@ func TestPrivacySweep(t *testing.T) {
 		t.Fatalf("Bert's manual account: %d %s", r.status, r.body)
 	}
 	manual := id(decode[ledger.Account](t, r.body).ID)
+	bertImport := e.importOK(e.bert, bert.Accounts[0].ID, csvHeader+csvCoffee).Batch
 	cases := []struct {
 		method, path, body string
 		status             int // 200 = must answer, without Bert's data
@@ -192,6 +194,7 @@ func TestPrivacySweep(t *testing.T) {
 		{"GET", "/api/connections", "", 200},
 		{"GET", "/api/devices", "", 200},
 		{"GET", "/api/bank/enablebanking", "", 200},
+		{"GET", "/api/imports", "", 200},
 		{"POST", "/api/sync", "", 202},
 		{"GET", "/api/sync", "", 200},
 		{"GET", "/api/transactions?account=" + acc1, "", 404},
@@ -228,6 +231,26 @@ func TestPrivacySweep(t *testing.T) {
 			}
 		}
 	}
+	// The import routes, with Bert's accounts: hidden, and nothing of his file.
+	for _, account := range []int64{bert.Accounts[0].ID, bert.Accounts[1].ID, bertImport.AccountID} {
+		for _, path := range []string{"/api/imports", "/api/imports/preview"} {
+			r := e.upload(e.partner, path, importForm(csvHeader+csvBread, account, csvMapping)...)
+			if r.status != http.StatusNotFound {
+				t.Errorf("POST %s into Bert's account %d: %d %s", path, account, r.status, r.body)
+			}
+			for _, s := range append(secrets, "Koffiehuis", "export.csv") {
+				if strings.Contains(r.body, s) {
+					t.Errorf("POST %s shows Bert's %q: %s", path, s, r.body)
+				}
+			}
+		}
+	}
+	if r := e.as(e.partner, "GET", "/api/imports", ""); strings.Contains(r.body, "export.csv") || r.body != "[]\n" {
+		t.Errorf("Partner sees Bert's imports: %s", r.body)
+	}
+	if e.count(`SELECT COUNT(*) FROM transactions WHERE counterparty_name = 'Bakker Test'`) != 0 {
+		t.Error("Partner imported into Bert's account")
+	}
 	// Bert's objects are untouched, and Partner's transfer to him is just a
 	// payment for her (his account is not hers to pair with).
 	if e.count(`SELECT COUNT(*) FROM devices WHERE id = ? AND revoked_at IS NULL`, bertDevice) != 1 {
@@ -262,5 +285,29 @@ func TestPrivacySweep(t *testing.T) {
 	}
 	if n := len(decode[[]ledger.Account](t, e.as(e.bert, "GET", "/api/accounts", "").body)); n != 3 {
 		t.Errorf("Bert sees %d accounts after Partner registered his IBANs", n)
+	}
+}
+
+// The import routes need a viewer like every other route but health; the
+// list of the other routes is in TestOutsideDemoModeEverythingButHealthIs401.
+func TestImportRoutesOutsideDemoModeAre401(t *testing.T) {
+	h := New(Options{DB: seededDB(t), Version: "test", Clock: demoClock})
+	body, ct := multipartForm(t, importForm(csvHeader+csvCoffee, 1, csvMapping)...)
+	for _, c := range []struct{ method, path, body, ct string }{
+		{"GET", "/api/imports", "", ""},
+		{"POST", "/api/imports", body, ct},
+		{"POST", "/api/imports/preview", body, ct},
+		{"POST", "/api/imports", `{"x":1}`, "application/json"},
+	} {
+		req := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
+		if c.ct != "" {
+			req.Header.Set("Content-Type", c.ct)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		r := response{status: rec.Code, header: rec.Header(), body: rec.Body.String()}
+		if msg := expectError(t, r, http.StatusUnauthorized, "unauthorized"); msg != "Log in om verder te gaan." {
+			t.Errorf("%s %s: message %q", c.method, c.path, msg)
+		}
 	}
 }

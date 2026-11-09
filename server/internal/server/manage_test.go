@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/bank"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
@@ -172,6 +174,42 @@ func TestRemoveLinkKeepsHistory(t *testing.T) {
 		if a.SyncStatus == nil || *a.SyncStatus != "ok" {
 			t.Errorf("re-linked account: %+v", a)
 		}
+	}
+}
+
+func TestRemoveLinkWhileSyncing(t *testing.T) {
+	e := newBankEnv(t)
+	e.saveCredentials(e.bert)
+	linked := e.link(e.bert, "")
+	id := linked.Connection.ID
+	defer func(d time.Duration) { removeWait = d }(removeWait)
+	removeWait = 50 * time.Millisecond
+
+	// A sync of the link holds it.
+	held, release, done := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = e.s.opts.Bank.Exclusive(context.Background(), id, func() error { close(held); <-release; return nil })
+	}()
+	<-held
+	txBefore := e.count(`SELECT COUNT(*) FROM transactions`)
+
+	r := e.as(e.bert, "DELETE", "/api/connections/"+strconv.FormatInt(id, 10)+"?history=delete", "")
+	expectError(t, r, http.StatusServiceUnavailable, "unavailable")
+	if !strings.Contains(r.body, "Er loopt nog een synchronisatie") {
+		t.Errorf("message: %s", r.body)
+	}
+	if e.count(`SELECT COUNT(*) FROM provider_connections WHERE id = ? AND status = 'active' AND session_id_enc IS NOT NULL`, id) != 1 {
+		t.Error("the connection changed although the removal answered 503")
+	}
+	if n := e.count(`SELECT COUNT(*) FROM transactions`); n != txBefore || len(e.accountsOf(e.bert)) != 2 {
+		t.Errorf("data removed: transactions %d of %d, accounts %d", n, txBefore, len(e.accountsOf(e.bert)))
+	}
+
+	close(release)
+	<-done
+	if r := e.as(e.bert, "DELETE", "/api/connections/"+strconv.FormatInt(id, 10)+"?history=delete", ""); r.status != http.StatusOK {
+		t.Fatalf("remove after the sync: %d %s", r.status, r.body)
 	}
 }
 

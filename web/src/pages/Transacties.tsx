@@ -27,6 +27,8 @@ const iso = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padSta
 export function period(key: PeriodKey, today: string): { from: string; to: string; label: string; chip: string; sub: string } {
   const t = toDate(today);
   const first = (monthsBack: number) => new Date(t.getFullYear(), t.getMonth() - monthsBack, 1, 12);
+  // A period that includes the current month runs to its end, so rows dated later (pending, value date) show.
+  const end = new Date(t.getFullYear(), t.getMonth() + 1, 0, 12);
   const month = (d: Date) => cap(MONTHS[d.getMonth()]) + ' ' + d.getFullYear();
   switch (key) {
     case 'vorige': {
@@ -35,12 +37,12 @@ export function period(key: PeriodKey, today: string): { from: string; to: strin
     }
     case '3-maanden': {
       const f = first(2);
-      return { from: iso(f), to: today, label: 'Laatste 3 maanden', chip: 'Laatste 3 maanden', sub: dateShort(f) + ' – ' + dateShort(t) };
+      return { from: iso(f), to: iso(end), label: 'Laatste 3 maanden', chip: 'Laatste 3 maanden', sub: dateShort(f) + ' – ' + dateShort(end) };
     }
     case 'dit-jaar':
-      return { from: t.getFullYear() + '-01-01', to: today, label: 'Dit jaar', chip: String(t.getFullYear()), sub: '1 jan – ' + dateShort(t) };
+      return { from: t.getFullYear() + '-01-01', to: t.getFullYear() + '-12-31', label: 'Dit jaar', chip: String(t.getFullYear()), sub: '1 jan – 31 dec' };
     default:
-      return { from: iso(first(0)), to: today, label: 'Deze maand', chip: cap(MONTHS[t.getMonth()]), sub: month(t) };
+      return { from: iso(first(0)), to: iso(end), label: 'Deze maand', chip: cap(MONTHS[t.getMonth()]), sub: month(t) };
   }
 }
 
@@ -470,7 +472,7 @@ function Blank() {
         <Icon name="list" size={26} stroke={2.2} />
       </span>
       <h2 id="tx-blank-title">Nog geen transacties</h2>
-      <p>Koppel je bank om je transacties elke nacht op te halen, of importeer een CSV-bestand, bijvoorbeeld je export uit Bilance.</p>
+      <p>Koppel je bank om je transacties elke nacht op te halen, of importeer een CSV-bestand, bijvoorbeeld je export uit Argenta.</p>
       <div className="tx-blank-actions">
         <Link className="btn btn--primary" to="/bankkoppelingen">
           <Icon name="bank" size={18} stroke={2.2} />
@@ -522,7 +524,8 @@ export function Transacties() {
   }, [first.data]);
   const older = olderState && olderState.base === first.data ? olderState : null;
 
-  const items = useMemo(() => [...(first.data?.items || []), ...(older?.items || [])], [first.data, older]);
+  // A failed reload keeps the old page in `first.data`; its rows belong to the previous filter, so show none.
+  const items = useMemo(() => (first.error ? [] : [...(first.data?.items || []), ...(older?.items || [])]), [first.error, first.data, older]);
   const next = older ? older.next : (first.data?.next ?? null);
   const days = useMemo(() => groupByDay(items), [items]);
 
@@ -657,6 +660,7 @@ export function Transacties() {
           className="tx-search-input"
           aria-label="Zoeken in transacties"
           placeholder="Zoek op naam, bedrag of mededeling"
+          maxLength={100}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -692,9 +696,9 @@ export function Transacties() {
 
   let list;
   if (noAccounts) list = <Blank />;
-  else if (!first.data) {
-    list = first.error ? <ErrorState message={first.error} onRetry={first.reload} /> : <ListSkeleton />;
-  } else if (!items.length) {
+  else if (first.error) list = <ErrorState message={first.error} onRetry={first.reload} />;
+  else if (!first.data) list = <ListSkeleton />;
+  else if (!items.length) {
     let title = 'Geen transacties';
     let note = 'Er zijn nog geen transacties voor deze rekeningen.';
     if (q) {
@@ -742,7 +746,7 @@ export function Transacties() {
           );
         })}
         {loadingMore && <SkeletonRows label="Oudere transacties laden" />}
-        {next && !loadingMore && (
+        {next && !loadingMore && !first.loading && (
           <button type="button" className="tx-more" onClick={loadMore}>
             Oudere transacties laden
           </button>

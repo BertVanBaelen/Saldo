@@ -116,3 +116,33 @@ func TestAccountName(t *testing.T) {
 		}
 	}
 }
+
+// A link removed (in another tab) while the bank confirmed a re-authorisation
+// stays removed: no session, no accounts attached or created.
+func TestStoreConsentKeepsARemovedLinkRemoved(t *testing.T) {
+	e := newSyncEnv(t)
+	for _, q := range []string{
+		`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (1, 1, 'manager', 'edit')`,
+		// What removing the link with "keep history" does (ledger.RemoveConnection).
+		`DELETE FROM account_sources WHERE connection_id = 1`,
+		`UPDATE provider_connections SET status = 'revoked', session_id_enc = NULL, private_key_enc = NULL, application_id = NULL WHERE id = 1`,
+	} {
+		if _, err := e.db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	info := bank.SessionInfo{ID: "new-sess", ValidUntil: at(18, 10, 0).AddDate(0, 0, 90), Accounts: []bank.Account{
+		{ID: "b1", IBAN: "BE68539007547034", Name: "Zicht"},  // the account the user just unlinked
+		{ID: "b3", IBAN: "BE83363012345615", Name: "Nieuwe"}, // a new one
+	}}
+	_, err := e.svc.storeConsent(context.Background(), connection{id: 1, user: 1, aspsp: "Argenta"}, info, at(18, 10, 0))
+	if err == nil || !strings.Contains(err.Error(), "verlopen of ongeldig") {
+		t.Fatalf("err = %v, want the invalid-state error", err)
+	}
+	if got := e.query(`SELECT status, session_id_enc IS NULL, private_key_enc IS NULL FROM provider_connections WHERE id = 1`); got != "revoked 1 1" {
+		t.Errorf("connection: %s", got)
+	}
+	if got := e.query(`SELECT COUNT(*) FROM account_sources`) + " " + e.query(`SELECT COUNT(*) FROM accounts`); got != "0 2" {
+		t.Errorf("sources and accounts: %s, want 0 2", got)
+	}
+}

@@ -25,6 +25,7 @@ import type {
   User,
   UserList,
 } from './types';
+import { importForm, type ImportBatch, type ImportMapping, type ImportPreview, type ImportResult } from './imports';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -53,6 +54,8 @@ function fallbackMessage(status: number): string {
 
 interface RequestOptions {
   body?: unknown;
+  /** Multipart instead of JSON (the CSV upload): the browser sets the Content-Type with its boundary. */
+  form?: FormData;
   signal?: AbortSignal;
 }
 
@@ -77,7 +80,7 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
     res = await fetch(path, {
       method,
       headers,
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      body: opts.form ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
       signal: opts.signal,
       credentials: 'same-origin',
       cache: 'no-store',
@@ -142,6 +145,14 @@ export const api = {
   /** Starts a sync in the background; `started: false` when one is running already. Poll `syncStatus`. */
   sync: () => request<{ started: boolean; running?: boolean }>('POST', '/api/sync'),
   syncStatus: (signal?: AbortSignal) => request<SyncStatus>('GET', '/api/sync', { signal }),
+
+  // CSV import (multipart): the preview has counts only when both accountId and mapping are sent.
+  previewImport: (file: File, opts: { accountId?: number; mapping?: ImportMapping } = {}, signal?: AbortSignal) =>
+    request<ImportPreview>('POST', '/api/imports/preview', { form: importForm(file, opts.accountId, opts.mapping), signal }),
+  importFile: (file: File, accountId: number, mapping: ImportMapping, signal?: AbortSignal) =>
+    request<ImportResult>('POST', '/api/imports', { form: importForm(file, accountId, mapping), signal }),
+  /** Batches of the accounts the viewer holds, newest first. */
+  imports: (signal?: AbortSignal) => request<ImportBatch[]>('GET', '/api/imports', { signal }),
 
   // Bank link: the viewer's Enable Banking app, the consent at the bank and the way back from it.
   enableBanking: (signal?: AbortSignal) => request<EnableBanking>('GET', '/api/bank/enablebanking', { signal }),

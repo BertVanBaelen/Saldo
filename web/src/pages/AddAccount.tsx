@@ -23,7 +23,7 @@ interface Props {
 }
 
 export function AddAccount({ step: first, used, onClose, onCreated }: Props) {
-  const { today, online, toast } = useApp();
+  const { today, online, toast, refreshShell } = useApp();
   const [step, setStep] = useState(first);
   const [name, setName] = useState('');
   const [type, setType] = useState<'savings' | 'current'>('savings');
@@ -61,6 +61,8 @@ export function AddAccount({ step: first, used, onClose, onCreated }: Props) {
     api.createAccount({ name: name.trim(), type, colour, buffer, iban: iban.trim() || undefined, balance }).then(
       (a) => {
         toast(a.name + ' toegevoegd');
+        // An IBAN makes payments to it transfers: the uncategorised count changes.
+        if (iban.trim()) refreshShell();
         onCreated(a);
       },
       (x) => {
@@ -243,6 +245,15 @@ export function AddAccount({ step: first, used, onClose, onCreated }: Props) {
                     tabIndex={c.key === colour ? 0 : -1}
                     style={{ background: accColour(c.key) }}
                     onClick={() => setColour(c.key)}
+                    onKeyDown={(e) => {
+                      // Roving tabindex: the arrows pick and focus the next colour (as in Rekeningen).
+                      const step = ({ ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 } as Record<string, number>)[e.key];
+                      if (!step) return;
+                      e.preventDefault();
+                      const i = (COLOURS.findIndex((x) => x.key === colour) + step + COLOURS.length) % COLOURS.length;
+                      setColour(COLOURS[i].key);
+                      (e.currentTarget.parentElement!.children[i] as HTMLElement).focus();
+                    }}
                   >
                     {c.key === colour && <Icon name="check" size={16} stroke={3} />}
                   </button>

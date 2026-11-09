@@ -67,6 +67,7 @@ type Server struct {
 	log      *slog.Logger
 	cooldown *ratelimit.Cooldown
 	limits   limits
+	imports  importLimits
 	secure   bool // device cookie only over https
 	mails    sync.WaitGroup
 	syncs    sync.WaitGroup // background syncs, for tests
@@ -96,6 +97,7 @@ func newServer(o Options) (*Server, http.Handler) {
 		log:      o.Logger,
 		cooldown: ratelimit.NewCooldown(SyncCooldown, o.Now),
 		limits:   newLimits(o.Now),
+		imports:  importLimits{preview: ratelimit.NewLimiter(60, time.Hour, o.Now), run: ratelimit.NewLimiter(20, time.Hour, o.Now)},
 		secure:   strings.HasPrefix(o.PublicURL, "https://"),
 		runs:     map[int64]syncRun{},
 		mux:      http.NewServeMux(),
@@ -150,6 +152,9 @@ func (s *Server) routes() {
 	m.HandleFunc("PUT /api/bank/enablebanking", s.putEnableBanking)
 	m.HandleFunc("POST /api/bank/link", s.postBankLink)
 	m.HandleFunc("POST /api/bank/callback", s.postBankCallback)
+	m.HandleFunc("POST /api/imports/preview", s.postImportPreview)
+	m.HandleFunc("POST /api/imports", s.postImport)
+	m.HandleFunc("GET /api/imports", s.listImports)
 	m.HandleFunc("/api/", s.apiFallback)
 	m.HandleFunc("/api", s.apiFallback)
 	m.HandleFunc("/", s.serveWeb)

@@ -444,7 +444,7 @@ function RekeningenSkeleton() {
 
 export function Rekeningen() {
   useTitle('Rekeningen');
-  const { today, toast, dataVersion } = useApp();
+  const { today, toast, dataVersion, refreshShell } = useApp();
   const desktop = useIsDesktop();
   const accounts = useAsync((signal) => api.accounts(signal), [dataVersion]);
   const [sel, setSel] = useState<number | null>(null);
@@ -503,7 +503,11 @@ export function Rekeningen() {
     }
     setSaving(true);
     setError(null);
-    api.updateAccount(cur.id, patch).then(done, (e) => {
+    api.updateAccount(cur.id, patch).then((a) => {
+      // A new IBAN changes which transactions are transfers, and so the uncategorised count.
+      if ('iban' in patch) refreshShell();
+      done(a);
+    }, (e) => {
       setSaving(false);
       setError(errorMessage(e));
     });

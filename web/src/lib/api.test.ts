@@ -31,6 +31,26 @@ describe('api client', () => {
     await expect(api.sync()).rejects.toMatchObject({ status: 429, code: 'rate_limited', retryAfter: 900, message: 'Je hebt net gesynchroniseerd. Probeer het over 15 minuten opnieuw.' });
   });
 
+  it('uploads a CSV as multipart: no Content-Type of its own, the mapping as a JSON field', async () => {
+    const fetch = respond(200, { fileName: 'export.csv' });
+    vi.stubGlobal('fetch', fetch);
+    const file = new File(['a;b\n1;2\n'], 'export.csv', { type: 'text/csv' });
+    const mapping = { date: 0, valueDate: null, amount: 1, counterparty: null, counterpartyIban: null, communication: null, account: 2, currency: 3 };
+    await api.previewImport(file, { accountId: 4, mapping });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toBe('/api/imports/preview');
+    expect(init.method).toBe('POST');
+    expect(init.headers['Content-Type']).toBeUndefined();
+    const body = init.body as FormData;
+    expect(body.get('file')).toBeInstanceOf(File);
+    expect(body.get('accountId')).toBe('4');
+    expect(JSON.parse(body.get('mapping') as string)).toEqual(mapping);
+
+    await api.previewImport(file);
+    const first = fetch.mock.calls[1][1].body as FormData;
+    expect([...first.keys()]).toEqual(['file']);
+  });
+
   it('sends no Content-Type without a body', async () => {
     const fetch = respond(202, { started: true });
     vi.stubGlobal('fetch', fetch);

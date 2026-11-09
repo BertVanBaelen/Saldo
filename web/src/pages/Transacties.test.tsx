@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderAt, stubApi, TRANSACTIONS } from '../test/helpers';
+import { ApiError } from '../lib/api';
 import type { Transaction } from '../lib/types';
 import { amountClass, catView, groupByDay, period } from './Transacties';
 
@@ -83,6 +84,29 @@ describe('Transacties · grouping by day', () => {
     expect(screen.queryByText('CM Ziekenfonds', { selector: '.tx-name' })).toBeNull();
   });
 
+  it('shows the error, not the previous rows, when a new search fails', async () => {
+    const api = stubApi();
+    renderAt('/transacties');
+    await screen.findByText('Bol.com', { selector: '.tx-name' });
+    api.transactions.mockImplementation(async (q = {}) => {
+      if (q.q) throw new ApiError(400, 'invalid', 'De zoekterm is te lang.');
+      return { items: TRANSACTIONS, next: null, total: TRANSACTIONS.length };
+    });
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'bol' } });
+    expect(await screen.findByText('De zoekterm is te lang.')).toBeTruthy();
+    expect(screen.queryByText('Bol.com', { selector: '.tx-name' })).toBeNull();
+    expect(screen.getByRole('searchbox').getAttribute('maxlength')).toBe('100');
+  });
+
+  it('hides "Oudere transacties laden" while a new filter loads, so the old cursor is never sent with it', async () => {
+    const api = stubApi({ transactions: (q) => (q.uncategorised ? { items: [], next: null } : { items: TRANSACTIONS.slice(0, 2), next: 'c2' }) });
+    renderAt('/transacties');
+    await screen.findByRole('button', { name: 'Oudere transacties laden' });
+    api.transactions.mockImplementation(() => new Promise(() => {}));
+    fireEvent.click(screen.getByRole('button', { name: /^Niet gecategoriseerd/ }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Oudere transacties laden' })).toBeNull());
+  });
+
   it('opens a read-only detail sheet on the phone', async () => {
     stubApi();
     renderAt('/transacties');
@@ -96,12 +120,29 @@ describe('Transacties · grouping by day', () => {
   });
 
   it('computes the periods from the server date', () => {
-    expect(period('deze', '2026-11-18')).toMatchObject({ from: '2026-11-01', to: '2026-11-18', chip: 'November' });
+    // A period that includes the current month runs to the end of it (or of the year), not to today.
+    expect(period('deze', '2026-11-18')).toMatchObject({ from: '2026-11-01', to: '2026-11-30', chip: 'November', sub: 'November 2026' });
+    expect(period('deze', '2028-02-10')).toMatchObject({ from: '2028-02-01', to: '2028-02-29' });
+    expect(period('deze', '2026-12-31')).toMatchObject({ from: '2026-12-01', to: '2026-12-31' });
     expect(period('vorige', '2026-11-18')).toMatchObject({ from: '2026-10-01', to: '2026-10-31', chip: 'Oktober', sub: 'Oktober 2026' });
     expect(period('vorige', '2026-01-05')).toMatchObject({ from: '2025-12-01', to: '2025-12-31' });
     expect(period('vorige', '2026-03-31')).toMatchObject({ from: '2026-02-01', to: '2026-02-28' });
-    expect(period('3-maanden', '2026-11-18')).toMatchObject({ from: '2026-09-01', to: '2026-11-18', sub: '1 sep – 18 nov' });
-    expect(period('dit-jaar', '2026-11-18')).toMatchObject({ from: '2026-01-01', to: '2026-11-18', chip: '2026' });
+    expect(period('3-maanden', '2026-11-18')).toMatchObject({ from: '2026-09-01', to: '2026-11-30', sub: '1 sep – 30 nov' });
+    expect(period('dit-jaar', '2026-11-18')).toMatchObject({ from: '2026-01-01', to: '2026-12-31', chip: '2026', sub: '1 jan – 31 dec' });
+  });
+
+  it('keeps a pending row dated later in the period (this month, the last 3 months, this year)', async () => {
+    const later = { ...TRANSACTIONS[0], id: 130, bookingDate: '2026-11-25', counterparty: 'Vooruit', status: 'pending' } as Transaction;
+    const nextMonth = { ...later, id: 131, bookingDate: '2026-12-02', counterparty: 'Volgende maand' } as Transaction;
+    for (const key of ['deze', '3-maanden', 'dit-jaar']) {
+      stubApi({ transactions: [later, nextMonth, ...TRANSACTIONS] });
+      const { unmount } = renderAt('/transacties?periode=' + key);
+      expect(await screen.findByText('Vooruit', { selector: '.tx-name' })).toBeTruthy();
+      expect(screen.queryByText('Bol.com', { selector: '.tx-name' })).toBeTruthy();
+      // Only "Dit jaar" reaches December.
+      expect(!!screen.queryByText('Volgende maand', { selector: '.tx-name' })).toBe(key === 'dit-jaar');
+      unmount();
+    }
   });
 
   it('filters on a period from the dropdown and keeps it in the URL', async () => {
@@ -145,6 +186,7 @@ describe('Transacties · grouping by day', () => {
     stubApi({ accounts: [], transactions: [] });
     renderAt('/transacties');
     expect(await screen.findByText('Nog geen transacties')).toBeTruthy();
+    expect(screen.getByText(/bijvoorbeeld je export uit Argenta\.$/)).toBeTruthy();
     expect(screen.queryByRole('searchbox')).toBeNull();
   });
 

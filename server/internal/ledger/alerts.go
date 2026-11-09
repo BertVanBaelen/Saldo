@@ -8,11 +8,12 @@ import (
 
 // Alert is one alert on Start (docs/api.md).
 type Alert struct {
-	Kind  string `json:"kind"` // neg, warn or ok
-	Type  string `json:"type"` // consent, sync or categorise
-	Title string `json:"title"`
-	Note  string `json:"note"`
-	Href  string `json:"href"`
+	Kind      string `json:"kind"` // neg, warn or ok
+	Type      string `json:"type"` // consent, sync or categorise
+	Title     string `json:"title"`
+	Note      string `json:"note"`
+	Href      string `json:"href"`
+	AccountID int64  `json:"accountId,omitempty"` // only the alerts about one account (type sync)
 }
 
 const (
@@ -20,9 +21,9 @@ const (
 	hrefUncategorised = "/transacties?filter=niet-gecategoriseerd"
 )
 
-// Alerts returns the viewer's alerts, errors first, then warnings, then
-// information. They only cover the viewer's own connections and the accounts
-// the viewer can see.
+// Alerts returns the viewer's alerts, errors first, then warnings (stale
+// accounts before the consent that is ending), then information. They only
+// cover the viewer's own connections and the accounts the viewer can see.
 func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Alert, error) {
 	conns, err := s.Connections(ctx, viewer, now)
 	if err != nil {
@@ -37,7 +38,7 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 		return nil, err
 	}
 
-	var neg, warn, ok []Alert
+	var neg, stale, consent, ok []Alert
 	broken := map[int64]bool{} // the viewer's connections that already raise an error
 	for _, c := range conns {
 		switch c.Status {
@@ -75,7 +76,7 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 			if *c.DaysLeft == 0 {
 				title = "Toestemming verloopt vandaag"
 			}
-			warn = append(warn, Alert{Kind: "warn", Type: "consent", Title: title,
+			consent = append(consent, Alert{Kind: "warn", Type: "consent", Title: title,
 				Note: c.Bank + " · opnieuw autoriseren", Href: hrefConnections})
 		}
 	}
@@ -98,7 +99,7 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 				note = "Laatst bijgewerkt " + whenDutch(t, now) + " · bekijk de koppeling"
 			}
 			neg = append(neg, Alert{Kind: "neg", Type: "sync",
-				Title: a.Name + " wordt niet meer gesynchroniseerd", Note: note, Href: hrefConnections})
+				Title: a.Name + " wordt niet meer gesynchroniseerd", Note: note, Href: hrefConnections, AccountID: a.ID})
 		case "stale":
 			if coveredBy(a.sources, broken) {
 				continue
@@ -107,8 +108,8 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 			if t, ok := parseAPITime(a.LastSync); ok {
 				title = a.Name + " niet bijgewerkt sinds " + whenDutch(t, now)
 			}
-			warn = append(warn, Alert{Kind: "warn", Type: "sync", Title: title,
-				Note: bankName + " stuurde geen nieuwe gegevens · bekijk de koppeling", Href: hrefConnections})
+			stale = append(stale, Alert{Kind: "warn", Type: "sync", Title: title,
+				Note: bankName + " stuurde geen nieuwe gegevens · bekijk de koppeling", Href: hrefConnections, AccountID: a.ID})
 		}
 	}
 
@@ -117,7 +118,7 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 			Title: fmt.Sprintf("%d %s te categoriseren", uncategorised, plural(uncategorised, "transactie", "transacties")),
 			Href:  hrefUncategorised})
 	}
-	out := append(append(neg, warn...), ok...)
+	out := append(append(append(neg, stale...), consent...), ok...)
 	if out == nil {
 		out = []Alert{}
 	}

@@ -254,12 +254,16 @@ func escapeLike(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }
 
-var amountPattern = regexp.MustCompile(`^\d+(,\d{0,2})?$`)
+var (
+	amountPattern    = regexp.MustCompile(`^\d+(,\d{0,2})?$`)
+	thousandsPattern = regexp.MustCompile(`^\d{1,3}(\.\d{3})+(,\d{0,2})?$`)
+)
 
 // amountQuery turns a search like "24,99", "€ 24.99", "-1.005,00" or "1005"
 // into the "1005,00" form used to match amounts by prefix: whole euros match
 // every amount of that euro ("12" is 12,00 to 12,99, never 120), one decimal
-// is tenths ("12,5" is 12,50).
+// is tenths ("12,5" is 12,50). Text that is not one clear amount ("1.50.0",
+// "12..5") is not guessed at: ok is false.
 func amountQuery(q string) (string, bool) {
 	s := strings.NewReplacer("€", "", " ", "", "\u00a0", "").Replace(q)
 	for _, sign := range []string{"+", "-", "−"} {
@@ -269,12 +273,10 @@ func amountQuery(q string) (string, bool) {
 		}
 	}
 	switch {
-	case strings.Contains(s, ","):
+	case thousandsPattern.MatchString(s): // "1.005", "1.234,56": dots are consistent thousand separators
 		s = strings.ReplaceAll(s, ".", "")
-	case strings.Count(s, ".") == 1 && len(s)-strings.Index(s, ".") <= 3:
+	case strings.Count(s, ".") == 1 && !strings.Contains(s, ","): // "12.50": a decimal point
 		s = strings.Replace(s, ".", ",", 1)
-	default:
-		s = strings.ReplaceAll(s, ".", "")
 	}
 	if !amountPattern.MatchString(s) {
 		return "", false

@@ -151,6 +151,8 @@ export interface Alert {
   title: string;
   note: string;
   href: string;
+  /** Only the alerts about one account (type sync); it shows only when that account is in the scope. */
+  accountId?: number;
 }
 
 export interface Connection {

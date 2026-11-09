@@ -1,15 +1,20 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/auth"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 )
 
 // Manual accounts, their balances, and removing a bank link (phase 0.3-4).
+
+// removeWait bounds how long removing a link waits for a running sync of it; a var for the tests.
+var removeWait = 30 * time.Second
 
 func (s *Server) postAccount(w http.ResponseWriter, r *http.Request) {
 	var body ledger.NewAccount
@@ -91,15 +96,24 @@ func (s *Server) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	viewer := viewerOf(r)
 	var removed ledger.Removed
+	ran := false
 	remove := func() error {
+		ran = true
 		var err error
 		removed, err = s.store.RemoveConnection(r.Context(), viewer, id, history == "delete")
 		return err
 	}
 	var err error
 	if s.opts.Bank != nil {
-		// No sync of this link may write while its accounts go.
-		err = s.opts.Bank.Exclusive(r.Context(), id, remove)
+		// No sync of this link may write while its accounts go. The wait is bounded so the answer
+		// arrives well before the write deadline and the proxy's timeout; remove keeps r.Context().
+		wait, cancel := context.WithTimeout(r.Context(), removeWait)
+		defer cancel()
+		err = s.opts.Bank.Exclusive(wait, id, remove)
+		if err != nil && !ran {
+			writeError(w, http.StatusServiceUnavailable, "unavailable", "Er loopt nog een synchronisatie. Probeer het over een minuut opnieuw.")
+			return
+		}
 	} else {
 		err = remove()
 	}

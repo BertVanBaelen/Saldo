@@ -492,14 +492,28 @@ func TestConnectionsAndAlerts(t *testing.T) {
 	for _, a := range alerts {
 		titles = append(titles, a.Kind+": "+a.Title)
 	}
+	// Spec order: the stale accounts come before the consent that is ending.
 	wantTitles := []string{
-		"warn: Toestemming verloopt over 10 dagen",
 		"warn: Zichtrekening niet bijgewerkt sinds woensdag 04:02",
 		"warn: Gedeelde rekening niet bijgewerkt sinds woensdag 04:02",
+		"warn: Toestemming verloopt over 10 dagen",
 		"ok: 4 transacties te categoriseren",
 	}
 	if !slices.Equal(titles, wantTitles) {
 		t.Errorf("stale alerts:\n got %v\nwant %v", titles, wantTitles)
+	}
+	// Only an alert about one account names it; the consent and categorise alerts do not.
+	named := ids(alerts, func(a ledger.Alert) int64 { return a.AccountID })
+	if !slices.Equal(named, []int64{1, 4, 0, 0}) {
+		t.Errorf("alert account ids: %v", named)
+	}
+	for i, hasKey := range []bool{true, true, false, false} {
+		var m map[string]any
+		b, _ := json.Marshal(alerts[i])
+		json.Unmarshal(b, &m)
+		if _, ok := m["accountId"]; ok != hasKey {
+			t.Errorf("alert %d JSON %s: accountId present = %v, want %v", i, b, ok, hasKey)
+		}
 	}
 	if conns, _ := s.Connections(ctx, bert, later); conns[0].Status != "stale" || conns[0].Stopped(later) {
 		t.Errorf("connection after 2 days: %s", conns[0].Status)
@@ -546,6 +560,63 @@ func TestConnectionsAndAlerts(t *testing.T) {
 	alerts, _ = s.Alerts(ctx, bert, expired)
 	if alerts[0].Kind != "neg" || alerts[0].Type != "consent" {
 		t.Errorf("expired consent alert: %+v", alerts)
+	}
+}
+
+// An account whose own source fails, on a connection that is itself fine,
+// raises the red per-account alert, and it names the account.
+func TestAccountSyncFailedAlertNamesTheAccount(t *testing.T) {
+	d, s := seeded(t)
+	if _, err := d.Exec(`UPDATE account_sources SET status = 'failed' WHERE account_id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := s.Alerts(context.Background(), bert, demoNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(alerts) == 0 || alerts[0].Kind != "neg" || alerts[0].Type != "sync" ||
+		alerts[0].Title != "Zichtrekening wordt niet meer gesynchroniseerd" || alerts[0].AccountID != 1 {
+		t.Errorf("alerts: %+v", alerts)
+	}
+}
+
+// The amount search never guesses: text that is not one clear amount adds no
+// amount match ("1.50.0" used to read as 1500), while the counterparty and the
+// communication are still searched.
+func TestAmountSearchDoesNotGuess(t *testing.T) {
+	ctx := context.Background()
+	d, s := seeded(t)
+	for i, cents := range []int{150000, 12500, 12340, 98765} {
+		if _, err := d.Exec(`INSERT INTO transactions (account_id, amount, booking_date, counterparty_name, status, dedupe_key)
+			VALUES (1, ?, '2026-11-17', 'Zoektest', 'booked', ?)`, -cents, "amount-search-"+string(rune('a'+i))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	search := func(q string) ledger.Page {
+		t.Helper()
+		page, err := s.Transactions(ctx, bert, ledger.TxQuery{Q: q, Limit: 200})
+		if err != nil {
+			t.Fatalf("%q: %v", q, err)
+		}
+		return page
+	}
+	for _, q := range []string{"1.50.0", "1,2,3", "12..5", "1.2.3,4", "--5"} {
+		if page := search(q); page.Total != 0 {
+			t.Errorf("%q matched %d rows, e.g. %+v", q, page.Total, page.Items[0])
+		}
+	}
+	// Clear forms keep working: thousand separators, a decimal point, whole euros.
+	for q, want := range map[string]int64{"1.500": -150000, "1.500,00": -150000, "125,00": -12500, "123,4": -12340, "€ 987": -98765} {
+		found := false
+		for _, tx := range search(q).Items {
+			found = found || (tx.Counterparty == "Zoektest" && tx.Amount == want)
+		}
+		if !found {
+			t.Errorf("%q did not find the row of %d cents", q, want)
+		}
+	}
+	if search("Zoektest").Total != 4 {
+		t.Error("the text search on the counterparty still works")
 	}
 }
 

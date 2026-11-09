@@ -144,6 +144,15 @@ export function historyPoints(a: Account, points: BalancePoint[], today: string)
   return points.filter((p) => dayNo(p.date) >= from);
 }
 
+/** Calendar days under the buffer: a balance holds until the date of the next point, the last one through today. */
+function daysUnder(list: BalancePoint[], buffer: number, today: string): number {
+  let days = 0;
+  list.forEach((p, i) => {
+    if (p.balance < buffer) days += (i + 1 < list.length ? dayNo(list[i + 1].date) : dayNo(today) + 1) - dayNo(p.date);
+  });
+  return days;
+}
+
 function Chart({ a, points, today }: { a: Account; points: BalancePoint[]; today: string }) {
   const W = 600;
   const H = 150;
@@ -211,7 +220,7 @@ function HistoryCard({ a, points, error, onRetry, today }: { a: Account; points:
     } else {
       const low = list.reduce((m, p) => (p.balance < m.balance ? p : m));
       const high = list.reduce((m, p) => (p.balance > m.balance ? p : m));
-      const under = isCurrent(a) ? list.filter((p) => p.balance < a.buffer).length : 0;
+      const under = isCurrent(a) ? daysUnder(list, a.buffer, today) : 0;
       stats = [
         { label: 'Laagste · ' + dateShort(low.date), value: eur(low.balance), color: low.balance < 0 ? 'var(--neg)' : undefined },
         { label: 'Hoogste · ' + dateShort(high.date), value: eur(high.balance) },
@@ -570,6 +579,12 @@ function SyncCard({ a, conn, onRemove }: { a: Account; conn: Connection | undefi
           </ul>
           <p className="rkd-help">Alleen jouw koppeling houdt deze rekening bij. Banken vragen elke 180 dagen opnieuw toestemming.</p>
           <div className="rkd-actions">
+            {tone !== 'ok' && (
+              <button type="button" className="btn btn--primary btn--block" aria-disabled={!online || syncing || undefined} onClick={startSync}>
+                <Icon name="sync" size={18} stroke={2.2} />
+                Nu opnieuw proberen
+              </button>
+            )}
             <Link className={'btn btn--block ' + ((daysLeft !== null && daysLeft <= 14) || conn.status === 'expired' ? 'btn--primary' : 'btn--ghost')} to={'/bankkoppelingen/koppelen?koppeling=' + conn.id}>
               <Icon name="shield" size={18} stroke={2.2} />
               Opnieuw autoriseren
@@ -747,7 +762,7 @@ export function RemoveLink({ conn, accounts, onClose, onDone }: { conn: Connecti
 }
 
 function DeleteManual({ a, updates, onClose, onDone }: { a: Account; updates: number; onClose: () => void; onDone: () => void }) {
-  const { online, toast } = useApp();
+  const { online, toast, refreshShell } = useApp();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const remove = () => {
@@ -755,6 +770,8 @@ function DeleteManual({ a, updates, onClose, onDone }: { a: Account; updates: nu
     api.deleteAccount(a.id).then(
       () => {
         toast(a.name + ' is verwijderd');
+        // Its transactions and transfers go: the uncategorised count changes.
+        refreshShell();
         onDone();
       },
       (e) => {
@@ -811,7 +828,7 @@ function Back() {
 export function Rekening() {
   const { id: raw } = useParams();
   const id = Number(raw) || 0;
-  const { today, toast, dataVersion } = useApp();
+  const { today, toast, dataVersion, refreshShell } = useApp();
   const navigate = useNavigate();
   const accounts = useAsync((signal) => api.accounts(signal), [dataVersion]);
   const a = accounts.data?.find((x) => x.id === id);
@@ -876,6 +893,7 @@ export function Rekening() {
         setDraft({});
         setSaving(false);
         toast(x.name + ' opgeslagen');
+        if ('iban' in patch) refreshShell();
       },
       (e) => {
         setSaving(false);

@@ -14,7 +14,6 @@ export const SOON: Partial<Record<ScreenId, Soon>> = {
   overzicht: { version: '0.7', text: 'Je inkomsten, uitgaven en wat je spaarde, per maand, per rekening en per categorie.' },
   planning: { version: '0.8', text: 'Per rekening zien hoe de komende maanden aflopen tegen de eigen buffer, met terugkerende en eenmalige posten en wat je nog vrij kan besteden.' },
   categorieen: { version: '0.4', text: 'Je categorieën en regels beheren en suggesties bevestigen, zodat transacties vanzelf een categorie krijgen.' },
-  importeren: { version: '0.3 en 0.5', text: 'Transacties uit een CSV-bestand importeren: eerst de export van je bank (0.3), daarna je volledige geschiedenis uit Bilance (0.5).' },
   meldingen: { version: '0.9', text: 'Pushmeldingen en e-mails per soort aan- of uitzetten, met een vooruitblik en stille uren.' },
 };
 

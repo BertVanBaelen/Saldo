@@ -173,11 +173,19 @@ func (s *Server) postBankCallback(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := bankContext(w, r)
 	defer cancel()
 	viewer := viewerOf(r)
-	linked, err := s.opts.Bank.Complete(ctx, viewer, body.Code, body.State, s.now())
+	now := s.now()
+	linked, err := s.opts.Bank.Complete(ctx, viewer, body.Code, body.State, now)
 	if err != nil {
 		s.bankFail(w, r, err, msgConnectionNotFound)
 		return
 	}
+	// The first sync fetches the whole history: it runs in the background,
+	// also next to a "Sync now" that is running, and shows in GET /api/sync.
+	// It starts after the answer is built, so the answer is always the link
+	// before that sync.
+	defer s.startSync(viewer, false, func(ctx context.Context) error {
+		return s.opts.Bank.SyncConnection(ctx, linked.Connection, now)
+	})
 	conns, err := s.store.Connections(ctx, viewer, s.now())
 	if err != nil {
 		s.fail(w, r, err, msgConnectionNotFound)

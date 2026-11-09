@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.3 Bank sync](README.md) |
-| Status | planned |
+| Status | built (2026-11-05), to verify on the live add-on: two weeks of nightly syncs |
 | Size | L |
 | Features | BANK-3 |
 | Concepts | [transaction](../../analysis/concepts/transaction.md), [account](../../analysis/concepts/account.md), [bank-connection](../../analysis/concepts/bank-connection.md) |

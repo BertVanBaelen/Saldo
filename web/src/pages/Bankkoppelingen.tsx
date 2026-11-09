@@ -10,7 +10,7 @@ import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
 import { accColour, accountIcon } from '../lib/accounts';
 import { api, browser, errorMessage } from '../lib/api';
 import { dateYear, eur, momentLabel, names } from '../lib/format';
-import type { Account, BankLinkResult, Connection } from '../lib/types';
+import type { Account, BankLinkResult, Connection, SyncStatus } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import './Bankkoppelingen.css';
 
@@ -555,8 +555,12 @@ export function BankKoppelen() {
 
 type Outcome = { kind: 'busy' } | { kind: 'done'; result: BankLinkResult } | { kind: 'error'; message: string } | { kind: 'cancelled' } | { kind: 'missing' };
 
-function Linked({ result }: { result: BankLinkResult }) {
+/** How the first sync after linking went: running, its final state, or `null` when the app stopped waiting. */
+type FirstSync = { done: false } | { done: true; status: SyncStatus | null };
+
+function Linked({ result, first }: { result: BankLinkResult; first: FirstSync }) {
   const { connection: c, accounts, skipped } = result;
+  const after = first.done ? first.status?.connections.find((x) => x.id === c.id) : undefined;
   const n = accounts.length;
   const title = n === 0 ? 'Er is geen rekening gekoppeld' : n === 1 ? 'Klaar. Je rekening is gekoppeld.' : 'Klaar. Je rekeningen zijn gekoppeld.';
   return (
@@ -574,8 +578,13 @@ function Linked({ result }: { result: BankLinkResult }) {
                 <span className="bk-acc-name">{a.name}</span>
                 <span className="bk-acc-sub">
                   {a.iban && <span className="mono">{a.iban}</span>}
-                  {a.iban && ' · '}
-                  saldo <span className="mono">{eur(a.balance)}</span>
+                  {/* A new account has no balance until its first sync is in. */}
+                  {a.balanceDate && (
+                    <>
+                      {a.iban && ' · '}
+                      saldo <span className="mono">{eur(a.balance)}</span>
+                    </>
+                  )}
                 </span>
               </span>
             </li>
@@ -590,10 +599,25 @@ function Linked({ result }: { result: BankLinkResult }) {
           </span>
         </Notice>
       )}
-      {c.status === 'failed' && (
+      {n > 0 && (after?.status === 'failed' || after?.status === 'expired') ? (
         <Notice tone="neg" icon="warning" title="De eerste synchronisatie is mislukt">
           <span>De koppeling is bewaard. Probeer het straks opnieuw bij Bankkoppelingen.</span>
         </Notice>
+      ) : (
+        n > 0 && (
+          <p className="bk-okline" role="status">
+            <span className="bk-okline-dot" aria-hidden="true">
+              <Icon name={first.done ? 'check' : 'download'} size={13} stroke={2.6} />
+            </span>
+            <span>
+              {!first.done
+                ? 'De eerste synchronisatie loopt op de achtergrond. Je transacties komen zo binnen; je kunt intussen verder.'
+                : after?.status === 'ok'
+                  ? 'Je transacties en je saldo zijn binnen.'
+                  : 'De eerste synchronisatie duurt langer dan verwacht. Je transacties komen vanzelf binnen.'}
+            </span>
+          </p>
+        )
       )}
       <p className="bk-okline bk-okline--muted">
         <span className="bk-okline-dot" aria-hidden="true">
@@ -613,7 +637,8 @@ function Linked({ result }: { result: BankLinkResult }) {
 export function BankTerug() {
   useTitle('Bank koppelen');
   const navigate = useNavigate();
-  const { refreshShell } = useApp();
+  const { refreshShell, followSync } = useApp();
+  const [first, setFirst] = useState<FirstSync>({ done: false });
   const [params] = useSearchParams();
   // The bank's answer, as the first render saw the address. `error` is how the bank says the user cancelled.
   const [answer] = useState(() => ({ code: params.get('code'), state: params.get('state'), cancelled: params.has('error') }));
@@ -633,6 +658,8 @@ export function BankTerug() {
       (result) => {
         setOutcome({ kind: 'done', result });
         refreshShell();
+        // The server runs the first sync in the background; follow it.
+        followSync().then((status) => setFirst({ done: true, status }));
       },
       (e) => setOutcome({ kind: 'error', message: errorMessage(e) }),
     );
@@ -660,11 +687,11 @@ export function BankTerug() {
           </span>
         </span>
         <h1 className="bk-h1">We koppelen je rekeningen</h1>
-        <p className="bk-lead">Saldo maakt de koppeling en haalt zo veel mogelijk geschiedenis op. Dat kan een minuut duren.</p>
+        <p className="bk-lead">Saldo bevestigt de koppeling bij je bank. Dat duurt maar even.</p>
       </div>
     );
   } else if (outcome.kind === 'done') {
-    content = <Linked result={outcome.result} />;
+    content = <Linked result={outcome.result} first={first} />;
     foot = (
       <>
         <Link className="bk-btn bk-btn--primary" to="/">

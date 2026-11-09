@@ -2,7 +2,7 @@
 
 **After this version you can** rely on Saldo every day: your accounts sync every night or on demand without duplicates, you are warned before a bank consent expires or when a sync fails, you find any transaction, you set the name, colour and buffer of each account, you add your savings accounts by hand, and you import an Argenta CSV file.
 
-Status: planned. Analysis milestone: M1. Roadmap: [../README.md](../README.md).
+Status: in progress (5 Nov 2026): the sync engine (0.3-1) and the consent reminders (0.3-2) are built and wait for two weeks of nightly syncs and a real consent expiry; Transacties, Rekeningen with manual accounts, Start and the CSV import are next. Analysis milestone: M1. Roadmap: [../README.md](../README.md).
 
 ## Features
 | Id | Feature |
@@ -17,8 +17,8 @@ Status: planned. Analysis milestone: M1. Roadmap: [../README.md](../README.md).
 ## Phases
 | Phase | Title | Size | Features | Status |
 |---|---|---|---|---|
-| [0.3-1](01-sync-engine.md) | Sync engine | L | BANK-3 | planned |
-| [0.3-2](02-consent-reminders.md) | Consent status and reminders | M | BANK-4 | planned |
+| [0.3-1](01-sync-engine.md) | Sync engine | L | BANK-3 | built, to verify |
+| [0.3-2](02-consent-reminders.md) | Consent status and reminders | M | BANK-4 | built, to verify |
 | [0.3-3](03-transacties.md) | Transacties | M | TX-2 | planned |
 | [0.3-4](04-rekeningen-and-manual-accounts.md) | Rekeningen, account detail and manual accounts | M | ACCT-1 | planned |
 | [0.3-5](05-start-balances.md) | Start with balances and alerts | S | ACCT-2 | planned |

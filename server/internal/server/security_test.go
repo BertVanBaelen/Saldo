@@ -123,13 +123,14 @@ func TestConcurrentLinkSameIBAN(t *testing.T) {
 	var mu sync.Mutex
 	for u, st := range states {
 		wg.Go(func() {
-			r := e.as(u, "POST", "/api/bank/callback", jsonBody(map[string]string{"code": "code-1", "state": st}))
+			r := e.request(u, "POST", "/api/bank/callback", jsonBody(map[string]string{"code": "code-1", "state": st}))
 			mu.Lock()
 			got[u] = r
 			mu.Unlock()
 		})
 	}
 	wg.Wait()
+	e.s.syncs.Wait() // a WaitGroup may not be waited on while another goroutine adds to it
 	skipped := 0
 	for u, r := range got {
 		if r.status != http.StatusOK {
@@ -187,6 +188,7 @@ func TestPrivacySweep(t *testing.T) {
 		{"GET", "/api/devices", "", 200},
 		{"GET", "/api/bank/enablebanking", "", 200},
 		{"POST", "/api/sync", "", 202},
+		{"GET", "/api/sync", "", 200},
 		{"GET", "/api/transactions?account=" + acc1, "", 404},
 		{"GET", "/api/transactions?account=" + acc2, "", 404},
 		{"PATCH", "/api/accounts/" + acc1, `{"name":"Gezien"}`, 404},

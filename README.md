@@ -2,7 +2,7 @@
 
 Saldo is a self-hosted replacement for Bilance that runs as a Home Assistant add-on. It answers one question: *will I have enough money at the end of each coming month, and how much is left or short?* Two users (Bert and Partner), each seeing only their own accounts, with a shared account they both hold. Every account stands on its own: its own buffer, forecast and warnings; "Alles" shows them side by side, with sums as information only.
 
-Status on 5 Nov 2026: **version 0.2 is built and waits for the real world.** The mockup is frozen as the design reference. The real app: a **Go server** (SQLite, sign-in with e-mail code and trusted devices, invitations, mail, sealed bank credentials, the Enable Banking client and the first sync, privacy tests) and a **React web app** (Vite, TypeScript, PWA) with sign-in, Start, Transacties, Rekeningen, Bankkoppelingen, Instellingen and Meer, packaged as a Home Assistant add-on with CI. Still to do before 0.2.0: spike S1 on the real Argenta account (the bank client is built from the public docs and only tested against a fake server), the checklist in [`saldo/DOCS.md`](saldo/DOCS.md) on the real domain, and the install on Home Assistant. Repository: [github.com/BertVanBaelen/Saldo](https://github.com/BertVanBaelen/Saldo) (public).
+Status on 5 Nov 2026: **version 0.2 is released (0.2.2) and the first real bank link works; version 0.3 is in progress** (the sync engine and the consent reminders are built). The mockup is frozen as the design reference. The real app: a **Go server** (SQLite, sign-in with e-mail code and trusted devices, invitations, mail, sealed bank credentials, the Enable Banking client and the first sync, privacy tests) and a **React web app** (Vite, TypeScript, PWA) with sign-in, Start, Transacties, Rekeningen, Bankkoppelingen, Instellingen and Meer, packaged as a Home Assistant add-on with CI. Still to do before 0.2.0: spike S1 on the real Argenta account (the bank client is built from the public docs and only tested against a fake server), the checklist in [`saldo/DOCS.md`](saldo/DOCS.md) on the real domain, and the install on Home Assistant. Repository: [github.com/BertVanBaelen/Saldo](https://github.com/BertVanBaelen/Saldo) (public).
 
 ## Where everything is
 
@@ -38,7 +38,7 @@ Every concept and screen file starts with a header line: analysis sections, data
 |---|---|---|---|
 | [0.1 Mockup](plan/v0.1-mockup/README.md) | click through every screen and state with demo data, and agree on the design | 7 done · 1 stopped | done |
 | [0.2 Foundation and first bank link](plan/v0.2-foundation/README.md) | sign in on your domain on trusted devices and see your real Argenta accounts and transactions | 1 S · 3 M · 2 L | built, to verify |
-| [0.3 Bank sync](plan/v0.3-bank-sync/README.md) | rely on a nightly sync, consent reminders, Transacties, Rekeningen and manual accounts | 1 S · 4 M · 1 L | planned |
+| [0.3 Bank sync](plan/v0.3-bank-sync/README.md) | rely on a nightly sync, consent reminders, Transacties, Rekeningen and manual accounts | 1 S · 4 M · 1 L | in progress |
 | [0.4 Categorisation](plan/v0.4-categorisation/README.md) | have rules categorise transactions, fix the rest in a tap | 1 S · 3 M | planned |
 | [0.5 Bilance import](plan/v0.5-bilance-import/README.md) | bring in your full Bilance history without duplicates | 2 S · 4 M | planned |
 | [0.6 Shared accounts](plan/v0.6-shared-accounts/README.md) | share the joint account, each seeing only your own accounts | 2 S · 2 M · 1 L | planned |

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.3 Bank sync](README.md) |
-| Status | planned |
+| Status | built (2026-11-05), to verify with the real consent expiry |
 | Size | M |
 | Features | BANK-4 |
 | Concepts | [bank-connection](../../analysis/concepts/bank-connection.md), [notification](../../analysis/concepts/notification.md) |

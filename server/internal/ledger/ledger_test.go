@@ -483,15 +483,15 @@ func TestConnectionsAndAlerts(t *testing.T) {
 		t.Errorf("Partner's alerts: %+v", partnerAlerts)
 	}
 
-	// Three days later without a sync: stale, and the consent nearly ends.
-	later := demoNow.Add(72 * time.Hour)
+	// Two days later without a sync: stale, and the consent nearly ends.
+	later := demoNow.Add(48 * time.Hour)
 	alerts, _ = s.Alerts(ctx, bert, later)
 	var titles []string
 	for _, a := range alerts {
 		titles = append(titles, a.Kind+": "+a.Title)
 	}
 	wantTitles := []string{
-		"warn: Toestemming verloopt over 9 dagen",
+		"warn: Toestemming verloopt over 10 dagen",
 		"warn: Zichtrekening niet bijgewerkt sinds woensdag 04:02",
 		"warn: Gedeelde rekening niet bijgewerkt sinds woensdag 04:02",
 		"ok: 4 transacties te categoriseren",
@@ -499,8 +499,21 @@ func TestConnectionsAndAlerts(t *testing.T) {
 	if !slices.Equal(titles, wantTitles) {
 		t.Errorf("stale alerts:\n got %v\nwant %v", titles, wantTitles)
 	}
-	if conns, _ := s.Connections(ctx, bert, later); conns[0].Status != "stale" {
-		t.Errorf("connection after 3 days: %s", conns[0].Status)
+	if conns, _ := s.Connections(ctx, bert, later); conns[0].Status != "stale" || conns[0].Stopped(later) {
+		t.Errorf("connection after 2 days: %s", conns[0].Status)
+	}
+
+	// More than 72 hours: "Synchronisatie gestopt" replaces the account
+	// warnings it explains.
+	stopped := demoNow.Add(72 * time.Hour)
+	alerts, _ = s.Alerts(ctx, bert, stopped)
+	want = []ledger.Alert{
+		{Kind: "neg", Type: "sync", Title: "Synchronisatie gestopt · Argenta", Note: "Niet bijgewerkt sinds woensdag 04:02 · bekijk de koppeling", Href: "/bankkoppelingen"},
+		{Kind: "warn", Type: "consent", Title: "Toestemming verloopt over 9 dagen", Note: "Argenta · opnieuw autoriseren", Href: "/bankkoppelingen"},
+		{Kind: "ok", Type: "categorise", Title: "4 transacties te categoriseren", Note: "", Href: "/transacties?filter=niet-gecategoriseerd"},
+	}
+	if !slices.Equal(alerts, want) {
+		t.Errorf("stopped alerts:\n got %+v\nwant %+v", alerts, want)
 	}
 
 	// Bert's sync fails: one error for his connection; the shared account falls
@@ -580,5 +593,64 @@ func TestAccountsWithoutAccountsIsAnEmptyList(t *testing.T) {
 	}
 	if b, _ := json.Marshal(list); string(b) != "[]" {
 		t.Fatalf("accounts of a viewer without accounts = %s, want []", b)
+	}
+}
+
+// The shapes a real link goes through: credentials saved (pending, no dates),
+// consent given but the first sync failed (no last sync), then three days of
+// failures, then an expired session.
+func TestAlertsForARealLink(t *testing.T) {
+	ctx := context.Background()
+	d, s := seeded(t)
+	exec := func(q string) {
+		t.Helper()
+		if _, err := d.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec(`INSERT INTO users (id, email, display_name) VALUES (50, 'nieuw@example.com', 'Nieuw')`)
+	exec(`INSERT INTO provider_connections (id, user_id, provider, aspsp_name, status, created_at)
+		VALUES (50, 50, 'enablebanking', 'Argenta', 'pending', '2026-11-01T10:00:00Z')`)
+	titles := func(now time.Time) []string {
+		t.Helper()
+		alerts, err := s.Alerts(ctx, 50, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := []string{}
+		for _, a := range alerts {
+			out = append(out, a.Kind+" "+a.Type+": "+a.Title+" / "+a.Note)
+		}
+		return out
+	}
+	if got := titles(demoNow); len(got) != 0 {
+		t.Errorf("pending link: %v", got)
+	}
+	conns, _ := s.Connections(ctx, 50, demoNow)
+	if conns[0].Status != "pending" || conns[0].DaysLeft != nil || conns[0].Stopped(demoNow.AddDate(0, 1, 0)) {
+		t.Errorf("pending connection: %+v", conns[0])
+	}
+
+	// Linked this morning; the first sync failed.
+	exec(`UPDATE provider_connections SET status = 'active', consent_since = '2026-11-18', valid_until = '2027-05-17T10:00:00Z',
+		sync_status = 'failed', last_attempt_at = '2026-11-18T09:00:00Z' WHERE id = 50`)
+	exec(`INSERT INTO accounts (id, type, source, iban, name, bank_name) VALUES (50, 'current', 'bank', 'BE68539007547034', 'Zichtrekening', 'Argenta')`)
+	exec(`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (50, 50, 'manager', 'edit')`)
+	exec(`INSERT INTO account_sources (account_id, connection_id, priority, status) VALUES (50, 50, 'primary', 'failed')`)
+	want := []string{"neg sync: Synchronisatie mislukt · Argenta / Laatste poging vandaag 10:00 · bekijk de koppeling"}
+	if got := titles(demoNow); !slices.Equal(got, want) {
+		t.Errorf("first sync failed:\n got %v\nwant %v", got, want)
+	}
+	// Three days on, still nothing: counted from the day of the consent.
+	want = []string{"neg sync: Synchronisatie gestopt · Argenta / Nog nooit gesynchroniseerd · bekijk de koppeling"}
+	if got := titles(demoNow.Add(56 * time.Hour)); !slices.Equal(got, want) {
+		t.Errorf("never synced for three days:\n got %v\nwant %v", got, want)
+	}
+
+	// The bank reports the session as expired.
+	exec(`UPDATE provider_connections SET status = 'expired' WHERE id = 50`)
+	want = []string{"neg consent: Toestemming voor Argenta is verlopen / Synchronisatie gestopt · opnieuw autoriseren"}
+	if got := titles(demoNow); !slices.Equal(got, want) {
+		t.Errorf("expired:\n got %v\nwant %v", got, want)
 	}
 }

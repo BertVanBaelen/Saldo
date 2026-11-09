@@ -15,6 +15,7 @@ import type {
   Me,
   Preferences,
   Redeem,
+  SyncStatus,
   TokenInfo,
   TransactionPage,
   TransactionQuery,
@@ -125,7 +126,9 @@ export const api = {
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
   alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),
-  sync: () => request<{ started: boolean }>('POST', '/api/sync'),
+  /** Starts a sync in the background; `started: false` when one is running already. Poll `syncStatus`. */
+  sync: () => request<{ started: boolean; running?: boolean }>('POST', '/api/sync'),
+  syncStatus: (signal?: AbortSignal) => request<SyncStatus>('GET', '/api/sync', { signal }),
 
   // Bank link: the viewer's Enable Banking app, the consent at the bank and the way back from it.
   enableBanking: (signal?: AbortSignal) => request<EnableBanking>('GET', '/api/bank/enablebanking', { signal }),

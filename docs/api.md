@@ -14,7 +14,7 @@ The web app talks to the Go server over JSON under `/api`. This file is the cont
 ## Endpoints
 
 ### `GET /api/health`
-`200 {"status": "ok", "version": "0.2.2", "demo": true}`. Also served as `GET /healthz` for the Home Assistant watchdog.
+`200 {"status": "ok", "version": "0.3.0", "demo": true}`. Also served as `GET /healthz` for the Home Assistant watchdog.
 
 ### `GET /api/me`
 ```json

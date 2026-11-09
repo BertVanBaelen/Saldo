@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased (0.3)
+## 0.3.0
+- Transacties: every synced transaction by day with the account colour and pending rows, search on name, amount and communication, filters for account, period and category, "Oudere transacties laden", and a read-only detail.
+- Rekeningen: name, colour and minimum buffer per account, an account page with balance history, settings, sync status and recent transactions, manual accounts (savings, or a current account without a bank link) with a hand-updated balance and its history, "Rekening toevoegen", and removing your bank link while keeping or deleting the history. Removing a link waits at most 30 seconds for a running sync, then answers that it is busy and removes nothing.
+- Start: the balance per account against its own buffer, Persoonlijk and Gedeeld sections with sync status, the sync button with progress, the alerts for an expiring consent and a stale or failed sync, and welcome steps that follow what you have done so far.
+- CSV import (Importeren in Meer): upload a CSV, check the columns, choose the account, see the counts, import. A preset recognises the Argenta export; the file's own account and currency are checked, rows already in the account are skipped (also when the bank sync brings them later), and importing the same file again adds nothing. Every import is kept as a batch. There is no undo yet. The preset is built from the header only: check the first import against your real export.
+- Fixes: "Onder de buffer" counts calendar days, an ambiguous amount in the search is ignored instead of guessed, "Deze maand" and "Dit jaar" show future-dated pending rows, and a link removed in another tab can no longer come back active.
 - Sync engine: a nightly sync around 04:00 that catches up after a restart or a Home Assistant backup, retries a failed night with backoff, and syncs every account on its own. "Nu synchroniseren" and the first sync after linking run in the background; the web app follows them. A pending transaction is replaced when the bank books it, and a failed sync deletes nothing. The database copy kept before this update protects the one data change: older duplicate balances of the same day are merged.
 - Reminders: e-mails "Koppeling verloopt" at 14 and 3 days and "Synchronisatie gestopt" (consent lapsed, or no good sync for 3 days), each sent once; a red alert on Start for a stopped sync.
 

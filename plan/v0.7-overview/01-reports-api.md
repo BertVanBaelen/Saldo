@@ -21,3 +21,8 @@ Correct totals per period, per viewer, per account and per scope.
 
 ## Done when
 The API returns the Overzicht numbers of the mockup for the demo data.
+
+## Carried over from 0.4 (10 Nov 2026)
+- **Split rows** are summed by their parts (`transaction_split`); the row's own category fields are kept only for undo and are hidden, so never sum a split row under them.
+- **Pending rows** are excluded from the totals.
+- **Transfers** are left out at query time (0.6-3), not by category: a transfer may carry a category and would otherwise count in that category's total.

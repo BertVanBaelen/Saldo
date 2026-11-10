@@ -1,8 +1,28 @@
 # Categorieën en regels
 
-Analysis: 4.2, 12 (screen 8) · Design: to design · Concepts: [category](../concepts/category.md), [categorisation-rule](../concepts/categorisation-rule.md) · Phases: [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.4-1](../../plan/v0.4-categorisation/01-category-tree.md), [0.4-4](../../plan/v0.4-categorisation/04-categories-and-rules-screen.md), [0.5-6](../../plan/v0.5-bilance-import/06-learning-and-backfill.md)
+Analysis: 4.2, 12 (screen 8) · Design: derived from Rekeningen and Planning, no board · Mockup: `finance-mockup/categorieen.html` · Concepts: [category](../concepts/category.md), [categorisation-rule](../concepts/categorisation-rule.md) · Phases: [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.4-1](../../plan/v0.4-categorisation/01-category-tree.md), [0.4-4](../../plan/v0.4-categorisation/04-categories-and-rules-screen.md), [0.5-6](../../plan/v0.5-bilance-import/06-learning-and-backfill.md)
 
-## Content to design
+## Content
 - Category tree (shared by all users), with pastel colour and type.
 - Rules list with priority, owner (account or user) and match conditions.
 - Suggestions to confirm, with confidence.
+
+## Mockup
+Not on the design boards: derived from Rekeningen (phone: sub page of Meer with bottom sheets; desktop: list with a side panel editor) and Planning (tabs). Code: `js/screens/categorieen.js`, `css/screens/categorieen.css`. Deep links such as `#regels`, `#suggesties`, `#categorie-nieuw`, `#regel-<n>`.
+- **Header**: "Categorieën en regels" (phone: back chevron to Meer). Desktop: sub "Eén lijst categorieën voor iedereen, regels voor jouw rekeningen" and a primary button "Categorie toevoegen" / "Regel toevoegen" (none on Suggesties); on the phone a dashed button under the list.
+- **Tabs** (`role="tablist"`): Categorieën · Regels · Suggesties, with a count on Regels (muted) and Suggesties (green). Arrow keys, Home and End move between them.
+- **Layout**: desktop (≥ 1024 px) a list column and a sticky side panel (360 px, 400 from 1280) with the editor; with nothing selected the panel shows the card "Zo kiest Saldo een categorie" (jouw keuze, een regel, een suggestie). Phone: one column, the editor opens as a bottom sheet (grip, close button, Esc).
+- **Categorieën**: note "Gedeeld met alle gebruikers · alleen namen, nooit bedragen", counts cover only your own transactions. Groups Uitgaven and Inkomsten: a top category (pastel circle with a tag, name, "N subcategorieën", count including its subcategories) followed by its indented subcategories (dot, name, count). Footnote: transfers between own accounts get no category.
+- **Category editor**: Naam, Plaats (hoofdcategorie bij Uitgaven or Inkomsten, or "Subcategorie van"; disabled with a help text while it has subcategories), Kleur (six pastels as a radio group for an expense top, "Inkomsten zijn altijd groen", subcategories take their parent's), a Voorbeeld strip with "N van jou", "Subcategorie toevoegen", Verwijderen (disabled while it has subcategories) and Opslaan.
+- **Removal editor**: "Waar gaan je N transacties naartoe?" with Naar de hoofdcategorie, Naar een andere categorie (same type) and Niet gecategoriseerd ("Ze komen bij Te categoriseren in Transacties"); a note on the rules that follow and on other users' transactions that move along (their number is never shown); Annuleren · Verwijderen.
+- **Regels**: note on the order (a manual choice wins, then the highest rule, then a suggestion; the order counts only between rules on the same account). Numbered list "Op volgorde van prioriteit": conditions ("Tegenpartij bevat 'Colruyt'", then "en bedrag tussen € 20 en € 200"), → category chip, owner chip (Jij or the account) and "Past op N transacties"; up and down arrows per rule (disabled at the ends, absent on read-only rules). Empty card "Nog geen regels".
+- **Rule editor**: Voorwaarden (Tegenpartij with "bevat" / "is gelijk aan", IBAN tegenpartij, Mededeling with a switch for a regular expression, Bedrag van and tot without sign), Resultaat (Categorie, "Geldt voor": "Al je persoonlijke rekeningen" or an account, read-only accounts disabled, Prioriteit with 1 as highest), the live preview ("Past op N transacties · M krijgen een andere categorie", with an idle and an error variant), the checkbox "Ook toepassen op bestaande transacties" ("handmatige keuzes blijven altijd staan"), Verwijderen · Opslaan. Toast "Regel gemaakt · N bijgewerkt".
+- **Read-only rule** (an account where you only have Lezen): "Regel bekijken" with Voorwaarden, Categorie, Geldt voor, Prioriteit "n van m", Past op, the chip "Alleen lezen" and a note that only Bewerken may change it.
+- **Suggesties**: note "Saldo leert van je keuzes". A card per suggestion: dashed avatar with the initial, counterparty, "11 keer gezien · 1 transactie wacht", Voorstel (category chip), Zekerheid (meter and a chip Hoog from 80, Gemiddeld from 55, Laag below, such as "Hoog · 92 %"; for Laag a line that Saldo applies nothing without confirmation), and Bevestigen · Als regel (opens the rule editor filled in: "is gelijk aan", the category, "Ook toepassen" on) · Negeren. Empty card "Geen suggesties".
+- **States**: empty (no transactions: no counts, rules or suggestions, and a note that counts appear after linking or importing); offline (save, delete, reorder, confirm and ignore disabled, a note "Je bent offline. Opslaan kan weer zodra je verbinding hebt.").
+
+## Built in the app (0.4-4)
+Differences from the mockup:
+- The per-rule line "Past op N transacties" of the list is shown in the editor only.
+- A new rule has no position select; move it afterwards with the arrows.
+- The owner of a rule cannot change when editing (the server refuses: make a new rule).

@@ -2,7 +2,7 @@
 // Design: finance-mockup/js/screens/importeren.js (start view and the wizard); spec: analysis/screens/importeren.md.
 // Built: file, columns and account, a check with counts, the result. Not yet (0.5): category mapping, probable
 // duplicates, import cutoff, undo, the Bilance preset, a new account from the wizard.
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
@@ -272,9 +272,10 @@ export function Importeren() {
   // Leaving the page stops a running upload; its answer is then ignored.
   useEffect(() => () => upload.current?.abort(), []);
 
-  // The heading of the new step (or the page) gets the focus on every step change.
+  // The heading of the new step (or the page) gets the focus on every step change. A layout effect, so focus
+  // moves in the commit that swaps the step: after paint it sat on <body> first (the clicked button is gone).
   const shown = useRef(step);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (shown.current === step) return;
     shown.current = step;
     document.getElementById(step ? 'im-step-h' : 'im-h1')?.focus();

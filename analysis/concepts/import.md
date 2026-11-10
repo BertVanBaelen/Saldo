@@ -5,7 +5,7 @@ Analysis: 4.1 (CSV fallback), 4.6, risks 1, 10, 11 · Data: `import_batch`, `cat
 ## Wizard steps
 1. Pick the file (CSV; Bilance export uses a saved "Bilance" preset).
 2. Map columns: date, amount, counterparty, communication, category, account. Choose the target account.
-3. **Category mapping**: every distinct source category with its transaction count and total. Per category: map to an existing category (name-similarity suggestion), create new, merge several into one, or leave uncategorised. Paths like `Parent > Child` map on the full path by default, "map by parent" maps all children at once.
+3. **Category mapping**: every distinct source category with its transaction count and total. Per category: map to an existing category (name-similarity suggestion), create new, merge several into one, or leave uncategorised. The Bilance export has two columns, `Categorie` and `Subcategorie` (spike S2), so a source category is that pair, stored as two parts and never as one joined string (names contain commas, ampersands and ` / `). It maps on the pair by default, "map by parent" maps all subcategories of one `Categorie` at once.
 4. Preview with **probable duplicates** (booking date ±1 day, same amount, similar counterparty), skipped by default. Suggested **import cutoff** = first synced date of the target account. For a skipped duplicate the source category may be applied to the existing transaction if it is uncategorised.
 5. Result with **undo**.
 
@@ -15,7 +15,7 @@ Analysis: 4.1 (CSV fallback), 4.6, risks 1, 10, 11 · Data: `import_batch`, `cat
 - The rows of a batch can be removed as a whole by deleting the batch (`import_batch_id` cascades). The undo UI comes in 0.5-5.
 - Mappings are saved per source and reused; changing a mapping can be re-applied to that import.
 - Mapped imported categories feed the learning ([categorisation-rule](categorisation-rule.md)).
-- Bilance CSV layout is unverified **[verify]** (spike S2, the first phase of the Bilance import version).
+- Bilance CSV layout: read from one real export in spike S2, the category format included ([0.5-1](../../plan/v0.5-bilance-import/01-spike-bilance-csv.md)). Incomes, amounts of 1 000 or more and transfers between own accounts were not in the sample and stay **[verify]**.
 - The full Bilance import comes **before planning** (decision 3 Nov 2026), so the forecast can find quarterly and yearly items in 12+ months of history.
 
 ## In the design

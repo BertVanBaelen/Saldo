@@ -21,3 +21,10 @@ Use years of categorised Bilance history to categorise new transactions better.
 
 ## Done when
 After the Bilance import, the number of uncategorised transactions drops and every change was confirmed or rule-based.
+
+## Carried over from 0.4 (10 Nov 2026)
+- **Simple suggestions already exist (0.4-4):** `GET /api/suggestions` offers, per counterparty, the category the user chose most often, for the rows that still wait. Offered when seen ≥ 2 (`categorise.MinSeen`), confidence ≥ 40 (`categorise.MinConfidence`) and at least one open row. They are computed on every read; only the decisions (`dismissed`, `confirmed`) are stored in `category_suggestions`, per user, counterparty and category (migration 0006). See [docs/api.md](../../docs/api.md), "Suggestions".
+- **0.5-6 extends rather than restarts:** build on `categorise.Suggest` and the same endpoints and decisions, not on a second model.
+- **A confirmed suggestion does not apply to future rows yet:** confirming categorises the rows that wait then, with origin `suggestion`, never over a rule's or a manual category. Rows that arrive later need a rule, so offer it as a rule ("Als regel") instead of applying it silently.
+- **Training data:** rows of origin `manual` or `import` (categories set by a rule or a suggestion are echoes and do not count). Mapped Bilance categories (origin `import`, 0.5-3) therefore already feed it. Pending rows with a manual category count as training until they are booked (a small, short-lived effect).
+- **The thresholds are generous:** a 1:1 split between two categories is offered at 50 percent. They may be raised once there is real Bilance history.

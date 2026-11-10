@@ -110,3 +110,171 @@ describe('api client', () => {
     expect(transactionsPath({ from: '2026-10-01', to: '2026-10-31' })).toBe('/api/transactions?from=2026-10-01&to=2026-10-31');
   });
 });
+
+describe('categorisation calls', () => {
+  const tx = {
+    id: 101,
+    accountId: 1,
+    bookingDate: '2026-11-18',
+    amount: -8642,
+    counterparty: 'Colruyt Laagste Prijzen',
+    communication: 'Bancontact',
+    status: 'booked',
+    category: { id: 2, name: 'Boodschappen', colour: 'c2' },
+    categoryOrigin: 'manual',
+    ruleId: null,
+    note: 'verjaardagscadeau',
+    splits: null,
+    transfer: false,
+  };
+  const skipped = { manual: 2, import: 0, split: 0, rule: 1 };
+  const sent = (fetch: ReturnType<typeof respond>) => {
+    const [url, init] = fetch.mock.calls[0];
+    return { url, method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) };
+  };
+
+  it('patches the category and the note of a transaction', async () => {
+    const fetch = respond(200, tx);
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.updateTransaction(101, { categoryId: 2, note: null })).resolves.toEqual(tx);
+    expect(sent(fetch)).toEqual({ url: '/api/transactions/101', method: 'PATCH', body: { categoryId: 2, note: null } });
+  });
+
+  it('reads the preview of "apply to similar" without a body', async () => {
+    const preview = { counterparty: 'Colruyt Laagste Prijzen', scope: 'user', count: 14, skipped };
+    const fetch = respond(200, preview);
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.similarPreview(101)).resolves.toEqual(preview);
+    expect(sent(fetch)).toEqual({ url: '/api/transactions/101/similar', method: 'GET', body: undefined });
+  });
+
+  it('applies to similar with an empty JSON body', async () => {
+    const result = { transaction: tx, rule: { id: 3, categoryId: 2 }, ruleCreated: true, updated: 14, skipped };
+    const fetch = respond(200, result);
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.applySimilar(101)).resolves.toEqual(result);
+    expect(sent(fetch)).toEqual({ url: '/api/transactions/101/similar', method: 'POST', body: {} });
+  });
+
+  it('puts the split parts and deletes them again, each answering the transaction', async () => {
+    const parts = [
+      { categoryId: 3, amount: -6492 },
+      { categoryId: 1, amount: -2150 },
+    ];
+    const split = { ...tx, category: null, categoryOrigin: null, splits: [{ category: { id: 3, name: 'Vrije tijd', colour: 'c3' }, amount: -6492 }] };
+    const put = respond(200, split);
+    vi.stubGlobal('fetch', put);
+    await expect(api.splitTransaction(101, parts)).resolves.toEqual(split);
+    expect(sent(put)).toEqual({ url: '/api/transactions/101/split', method: 'PUT', body: { parts } });
+
+    const del = respond(200, tx);
+    vi.stubGlobal('fetch', del);
+    await expect(api.unsplitTransaction(101)).resolves.toEqual(tx);
+    expect(sent(del)).toEqual({ url: '/api/transactions/101/split', method: 'DELETE', body: undefined });
+  });
+
+  it('reads the category tree and the rules', async () => {
+    const tree = [{ id: 1, name: 'Wonen', type: 'expense', colour: 'c1', parentId: null, count: 0 }];
+    const get = respond(200, tree);
+    vi.stubGlobal('fetch', get);
+    await expect(api.categories()).resolves.toEqual(tree);
+    expect(sent(get)).toEqual({ url: '/api/categories', method: 'GET', body: undefined });
+
+    const rules = [{ id: 3, accountId: null, priority: 0, counterparty: 'Colruyt', categoryId: 2, permission: 'edit' }];
+    const list = respond(200, rules);
+    vi.stubGlobal('fetch', list);
+    await expect(api.rules()).resolves.toEqual(rules);
+    expect(sent(list)).toEqual({ url: '/api/rules', method: 'GET', body: undefined });
+  });
+
+  const noContent = () => vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+
+  it('creates, patches and removes categories', async () => {
+    const top = { id: 11, name: 'Huisdieren', type: 'expense', colour: 'c3', parentId: null, count: 0 };
+    const post = respond(201, top);
+    vi.stubGlobal('fetch', post);
+    await expect(api.createCategory({ name: 'Huisdieren', type: 'expense', colour: 'c3' })).resolves.toEqual(top);
+    expect(sent(post)).toEqual({ url: '/api/categories', method: 'POST', body: { name: 'Huisdieren', type: 'expense', colour: 'c3' } });
+
+    const patch = respond(200, top);
+    vi.stubGlobal('fetch', patch);
+    await api.updateCategory(11, { parentId: null, type: 'income' });
+    expect(sent(patch)).toEqual({ url: '/api/categories/11', method: 'PATCH', body: { parentId: null, type: 'income' } });
+
+    for (const moveTo of [2, 'none'] as const) {
+      const del = noContent();
+      vi.stubGlobal('fetch', del);
+      await expect(api.deleteCategory(11, moveTo)).resolves.toBeNull();
+      expect(sent(del)).toEqual({ url: '/api/categories/11?moveTo=' + moveTo, method: 'DELETE', body: undefined });
+    }
+  });
+
+  it('creates, patches, previews, applies, reorders and deletes rules', async () => {
+    const rule = { id: 5, accountId: null, priority: 0, counterparty: 'Colruyt', categoryId: 2, permission: 'edit' };
+    const post = respond(201, rule);
+    vi.stubGlobal('fetch', post);
+    await expect(api.createRule({ counterparty: 'Colruyt', counterpartyExact: false, categoryId: 2 })).resolves.toEqual(rule);
+    expect(sent(post)).toEqual({ url: '/api/rules', method: 'POST', body: { counterparty: 'Colruyt', counterpartyExact: false, categoryId: 2 } });
+
+    const patch = respond(200, rule);
+    vi.stubGlobal('fetch', patch);
+    await api.updateRule(5, { communication: null, amountMin: 2000 });
+    expect(sent(patch)).toEqual({ url: '/api/rules/5', method: 'PATCH', body: { communication: null, amountMin: 2000 } });
+
+    const preview = { matches: 14, changes: 3, skipped };
+    const pre = respond(200, preview);
+    vi.stubGlobal('fetch', pre);
+    await expect(api.previewRule({ counterparty: 'Colruyt', ruleId: 5 })).resolves.toEqual(preview);
+    expect(sent(pre)).toEqual({ url: '/api/rules/preview', method: 'POST', body: { counterparty: 'Colruyt', ruleId: 5 } });
+
+    const apply = respond(200, { updated: 3, skipped });
+    vi.stubGlobal('fetch', apply);
+    await expect(api.applyRule(5)).resolves.toEqual({ updated: 3, skipped });
+    expect(sent(apply)).toEqual({ url: '/api/rules/5/apply', method: 'POST', body: undefined });
+
+    const order = respond(200, [rule]);
+    vi.stubGlobal('fetch', order);
+    await expect(api.reorderRules([5, 3])).resolves.toEqual([rule]);
+    expect(sent(order)).toEqual({ url: '/api/rules/order', method: 'PUT', body: { ids: [5, 3] } });
+
+    const del = noContent();
+    vi.stubGlobal('fetch', del);
+    await expect(api.deleteRule(5)).resolves.toBeNull();
+    expect(sent(del)).toEqual({ url: '/api/rules/5', method: 'DELETE', body: undefined });
+  });
+
+  it('reads, confirms and dismisses suggestions', async () => {
+    const list = [{ counterpartyKey: 'bakkerij de graankorrel', counterparty: 'Bakkerij De Graankorrel', categoryId: 2, confidence: 92, seen: 11, open: 1 }];
+    const get = respond(200, list);
+    vi.stubGlobal('fetch', get);
+    await expect(api.suggestions()).resolves.toEqual(list);
+    expect(sent(get)).toEqual({ url: '/api/suggestions', method: 'GET', body: undefined });
+
+    const confirm = respond(200, { updated: 1 });
+    vi.stubGlobal('fetch', confirm);
+    await expect(api.confirmSuggestion('bakkerij de graankorrel', 2)).resolves.toEqual({ updated: 1 });
+    expect(sent(confirm)).toEqual({ url: '/api/suggestions/confirm', method: 'POST', body: { counterpartyKey: 'bakkerij de graankorrel', categoryId: 2 } });
+
+    const dismiss = noContent();
+    vi.stubGlobal('fetch', dismiss);
+    await expect(api.dismissSuggestion('bakkerij de graankorrel', 2)).resolves.toBeNull();
+    expect(sent(dismiss)).toEqual({ url: '/api/suggestions/dismiss', method: 'POST', body: { counterpartyKey: 'bakkerij de graankorrel', categoryId: 2 } });
+  });
+
+  it('passes on the server’s message when a call is refused', async () => {
+    vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' } }));
+    await expect(api.updateTransaction(101, { categoryId: 2 })).rejects.toMatchObject({ status: 400, message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' });
+
+    vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Kies eerst een categorie.' } }));
+    await expect(api.similarPreview(101)).rejects.toMatchObject({ status: 400, message: 'Kies eerst een categorie.' });
+
+    vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Deze transactie heeft geen tegenpartij om op te vergelijken.' } }));
+    await expect(api.applySimilar(101)).rejects.toMatchObject({ status: 400, message: 'Deze transactie heeft geen tegenpartij om op te vergelijken.' });
+
+    vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'De delen tellen samen niet op tot het bedrag.' } }));
+    await expect(api.splitTransaction(101, [])).rejects.toMatchObject({ status: 400, message: 'De delen tellen samen niet op tot het bedrag.' });
+
+    vi.stubGlobal('fetch', respond(403, { error: { code: 'forbidden', message: 'Je mag deze rekening alleen lezen.' } }));
+    await expect(api.unsplitTransaction(101)).rejects.toMatchObject({ status: 403, message: 'Je mag deze rekening alleen lezen.' });
+  });
+});

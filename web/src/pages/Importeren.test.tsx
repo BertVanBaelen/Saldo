@@ -9,6 +9,28 @@ const csv = (name = 'export-zicht.csv') => new File(['Boekingsdatum;Bedrag\n02/1
 const status = () => document.querySelector('.im-page > [role="status"]')!.textContent;
 const MAPPING = IMPORT_PREVIEW.mapping;
 
+/**
+ * The element, in the microtask right after the commit that adds it. React's scheduler is made to yield after every
+ * task, like a busy machine, so no post-paint effect has run yet: what the test checks next has to hold in that
+ * commit, not a tick later.
+ */
+function shown<T extends HTMLElement>(find: () => T | null) {
+  let now = performance.now();
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => (now += 10));
+  return new Promise<T>((resolve) => {
+    const check = () => {
+      const el = find();
+      if (!el) return;
+      seen.disconnect();
+      clock.mockRestore();
+      resolve(el);
+    };
+    const seen = new MutationObserver(check);
+    seen.observe(document.body, { childList: true, subtree: true });
+    check();
+  });
+}
+
 async function choose(file: File) {
   await screen.findByRole('button', { name: 'Bestand kiezen' });
   fireEvent.change(screen.getByLabelText('CSV-bestand kiezen'), { target: { files: [file] } });
@@ -133,7 +155,7 @@ describe('Importeren · wizard', () => {
     expect(screen.getAllByText('Bezig met uploaden…').length).toBeGreaterThan(0);
 
     // Step 1: what the server read; the heading has the focus.
-    const h1 = await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    const h1 = await shown(() => screen.queryByRole('heading', { name: 'Welk bestand importeer je?' }));
     expect(document.activeElement).toBe(h1);
     expect(api.previewImport).toHaveBeenCalledTimes(1);
     expect(api.previewImport.mock.calls[0][0]).toBe(file);
@@ -180,7 +202,7 @@ describe('Importeren · wizard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
 
     // Step 4: the result, links onward, no undo.
-    const h4 = await screen.findByRole('heading', { name: '29 transacties geïmporteerd' });
+    const h4 = await shown(() => screen.queryByRole('heading', { name: '29 transacties geïmporteerd' }));
     expect(document.activeElement).toBe(h4);
     expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal));
     expect(screen.getByText('In je Spaarrekening. Bewaard als batch 12.')).toBeTruthy();

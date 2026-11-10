@@ -6,7 +6,25 @@ import { AppRoutes, Root } from '../App';
 import { AppProvider } from '../app/AppContext';
 import { api } from '../lib/api';
 import type { ImportBatch, ImportCounts, ImportPreview, ImportResult, RowError } from '../lib/imports';
-import type { Account, Alert, BalancePoint, Connection, Device, EnableBanking, Me, Transaction, TransactionPage, TransactionQuery, UserList } from '../lib/types';
+import type {
+  Account,
+  Alert,
+  BalancePoint,
+  Connection,
+  Device,
+  EnableBanking,
+  Me,
+  Rule,
+  RulePreview,
+  SimilarPreview,
+  SimilarResult,
+  Suggestion,
+  Transaction,
+  TransactionPage,
+  TransactionQuery,
+  TreeCategory,
+  UserList,
+} from '../lib/types';
 
 export const ME: Me = {
   user: { id: 1, name: 'Bert', email: 'bert@jouw-domein.be', role: 'admin', initial: 'B' },
@@ -70,18 +88,61 @@ const tx = (id: number, bookingDate: string, accountId: number, amount: number, 
   communication: 'Bancontact',
   status: 'booked',
   category: null,
+  categoryOrigin: null,
+  ruleId: null,
+  note: null,
+  splits: null,
   transfer: false,
   ...extra,
 });
 
 export const TRANSACTIONS: Transaction[] = [
   tx(116, '2026-11-18', 1, -2499, 'Bol.com', { status: 'pending', communication: 'Bestelling 4471-2210' }),
-  tx(115, '2026-11-18', 4, -8642, 'Colruyt Laagste Prijzen', { category: { id: 2, name: 'Boodschappen', colour: 'c2' } }),
-  tx(114, '2026-11-17', 1, -6210, 'TotalEnergies', { category: { id: 4, name: 'Vervoer', colour: 'c4' } }),
+  tx(115, '2026-11-18', 4, -8642, 'Colruyt Laagste Prijzen', { category: { id: 2, name: 'Boodschappen', colour: 'c2' }, categoryOrigin: 'rule', ruleId: 3 }),
+  tx(114, '2026-11-17', 1, -6210, 'TotalEnergies', { category: { id: 4, name: 'Vervoer', colour: 'c4' }, categoryOrigin: 'manual' }),
   tx(112, '2026-11-17', 1, -840, 'Bakkerij De Graankorrel'),
-  tx(111, '2026-11-16', 1, -20000, 'Naar spaarrekening', { transfer: true, category: { id: 9, name: 'Gespaard', colour: 'soft' } }),
-  tx(110, '2026-11-16', 1, 1850, 'CM Ziekenfonds', { category: { id: 8, name: 'Terugbetaling', colour: 'soft' } }),
+  tx(111, '2026-11-16', 1, -20000, 'Naar spaarrekening', { transfer: true, category: { id: 9, name: 'Gespaard', colour: 'soft' }, categoryOrigin: 'manual' }),
+  tx(110, '2026-11-16', 1, 1850, 'CM Ziekenfonds', { category: { id: 8, name: 'Terugbetaling', colour: 'soft' }, categoryOrigin: 'manual' }),
 ];
+
+// Invented category tree (GET /api/categories): server order, subcategories after their top.
+const cat = (id: number, name: string, colour: TreeCategory['colour'], parentId: number | null = null, type: TreeCategory['type'] = 'expense'): TreeCategory => ({
+  id,
+  name,
+  type,
+  colour,
+  parentId,
+  count: 0,
+});
+export const CATEGORIES: TreeCategory[] = [
+  cat(1, 'Wonen', 'c1'),
+  cat(10, 'Energie', 'c1', 1),
+  cat(2, 'Boodschappen', 'c2'),
+  cat(3, 'Vrije tijd', 'c3'),
+  cat(4, 'Vervoer', 'c4'),
+  cat(5, 'Abonnementen', 'c5'),
+  cat(6, 'Overig', 'c6'),
+  cat(7, 'Loon', 'soft', null, 'income'),
+  cat(8, 'Terugbetaling', 'soft', null, 'income'),
+  cat(9, 'Gespaard', 'soft', null, 'income'),
+];
+export const RULES: Rule[] = [
+  {
+    id: 3,
+    accountId: 4,
+    priority: 0,
+    counterparty: 'Colruyt',
+    counterpartyExact: false,
+    counterpartyIban: null,
+    communication: null,
+    communicationRegex: false,
+    amountMin: null,
+    amountMax: null,
+    categoryId: 2,
+    permission: 'edit',
+  },
+];
+const NO_SKIPS = { manual: 0, import: 0, split: 0, rule: 0 };
 
 export const CONSENT_ALERT: Alert = { kind: 'warn', type: 'consent', title: 'Toestemming verloopt over 12 dagen', note: 'Argenta · opnieuw autoriseren', href: '/bankkoppelingen' };
 export const CATEGORISE_ALERT: Alert = { kind: 'ok', type: 'categorise', title: '2 transacties te categoriseren', note: '', href: '/transacties?filter=niet-gecategoriseerd' };
@@ -167,6 +228,15 @@ interface Stub {
   devices?: Device[];
   enableBanking?: EnableBanking;
   imports?: ImportBatch[];
+  categories?: TreeCategory[];
+  /** GET /api/transactions/{id}/similar; default 14 others, nothing skipped. */
+  similar?: Partial<SimilarPreview>;
+  /** POST /api/transactions/{id}/similar; default a new rule, 14 others updated. */
+  applied?: Partial<Omit<SimilarResult, 'transaction' | 'rule'>>;
+  rules?: Rule[];
+  suggestions?: Suggestion[];
+  /** POST /api/rules/preview; default 14 matches, 3 changes. */
+  preview?: Partial<RulePreview>;
 }
 
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
@@ -187,7 +257,47 @@ export function stubApi(s: Stub = {}) {
     );
     return { items: items.slice(0, q.limit ?? 50), next: null, total: items.length };
   };
+  // Mutations answer like the server: from the fixture row, with the change applied.
+  const rowOf = (id: number) => structuredClone((Array.isArray(list) ? list : TRANSACTIONS).find((t) => t.id === id)!);
+  const categoryOf = (id: number) => {
+    const c = (s.categories ?? CATEGORIES).find((x) => x.id === id)!;
+    return { id: c.id, name: c.name, colour: c.colour };
+  };
   return {
+    categories: vi.spyOn(api, 'categories').mockImplementation(async () => structuredClone(s.categories ?? CATEGORIES)),
+    rules: vi.spyOn(api, 'rules').mockImplementation(async () => structuredClone(s.rules ?? RULES)),
+    updateTransaction: vi.spyOn(api, 'updateTransaction').mockImplementation(async (id, patch) => {
+      const t = rowOf(id);
+      if (patch.categoryId !== undefined) Object.assign(t, { category: categoryOf(patch.categoryId), categoryOrigin: 'manual', ruleId: null });
+      if (patch.note !== undefined) t.note = (patch.note ?? '').replace(/\s+/g, ' ').trim() || null;
+      return t;
+    }),
+    similarPreview: vi.spyOn(api, 'similarPreview').mockImplementation(async (id) => ({
+      counterparty: rowOf(id).counterparty,
+      scope: 'user',
+      count: 14,
+      skipped: NO_SKIPS,
+      ...s.similar,
+    })),
+    applySimilar: vi.spyOn(api, 'applySimilar').mockImplementation(async (id) => {
+      const t = rowOf(id);
+      return {
+        transaction: { ...t, categoryOrigin: 'manual', ruleId: null },
+        rule: { ...RULES[0], id: 12, accountId: null, counterparty: t.counterparty, categoryId: t.category!.id },
+        ruleCreated: true,
+        updated: 14,
+        skipped: NO_SKIPS,
+        ...s.applied,
+      };
+    }),
+    splitTransaction: vi.spyOn(api, 'splitTransaction').mockImplementation(async (id, parts) => ({
+      ...rowOf(id),
+      category: null,
+      categoryOrigin: null,
+      ruleId: null,
+      splits: parts.map((p) => ({ category: categoryOf(p.categoryId), amount: p.amount })),
+    })),
+    unsplitTransaction: vi.spyOn(api, 'unsplitTransaction').mockImplementation(async (id) => ({ ...rowOf(id), splits: null })),
     accounts: vi.spyOn(api, 'accounts').mockImplementation(async () => structuredClone(s.accounts ?? ACCOUNTS)),
     transactions: vi.spyOn(api, 'transactions').mockImplementation(async (q = {}) => page(q)),
     alerts: vi.spyOn(api, 'alerts').mockResolvedValue(s.alerts ?? [CONSENT_ALERT, CATEGORISE_ALERT]),
@@ -228,6 +338,27 @@ export function stubApi(s: Stub = {}) {
     })),
     importFile: vi.spyOn(api, 'importFile').mockImplementation(async (file, accountId) => importResult(file.name, accountId)),
     removeConnection: vi.spyOn(api, 'removeConnection').mockImplementation(async (_id, history) => (history === 'delete' ? { deleted: [1], kept: [4] } : { deleted: [], kept: [1, 4] })),
+    // Categorieën en regels (0.4-4): answers like the server, from the stub's lists.
+    suggestions: vi.spyOn(api, 'suggestions').mockImplementation(async () => structuredClone(s.suggestions ?? [])),
+    confirmSuggestion: vi.spyOn(api, 'confirmSuggestion').mockImplementation(async (key) => ({ updated: (s.suggestions ?? []).find((x) => x.counterpartyKey === key)?.open ?? 0 })),
+    dismissSuggestion: vi.spyOn(api, 'dismissSuggestion').mockResolvedValue(null),
+    createCategory: vi.spyOn(api, 'createCategory').mockImplementation(async (b) => {
+      const parent = b.parentId === undefined ? undefined : (s.categories ?? CATEGORIES).find((c) => c.id === b.parentId);
+      return { id: 40, name: b.name, type: parent?.type ?? b.type ?? 'expense', colour: parent?.colour ?? b.colour ?? (b.type === 'income' ? 'soft' : 'c6'), parentId: b.parentId ?? null, count: 0 };
+    }),
+    updateCategory: vi.spyOn(api, 'updateCategory').mockImplementation(async (id, patch) => ({ ...(s.categories ?? CATEGORIES).find((c) => c.id === id)!, ...patch }) as TreeCategory),
+    deleteCategory: vi.spyOn(api, 'deleteCategory').mockResolvedValue(null),
+    createRule: vi.spyOn(api, 'createRule').mockImplementation(async (b) => ({ ...RULES[0], ...b, id: 30, priority: 0, categoryId: b.categoryId!, accountId: b.accountId ?? null, permission: 'edit' }) as Rule),
+    updateRule: vi.spyOn(api, 'updateRule').mockImplementation(async (id, b) => ({ ...(s.rules ?? RULES).find((r) => r.id === id)!, ...b }) as Rule),
+    deleteRule: vi.spyOn(api, 'deleteRule').mockResolvedValue(null),
+    previewRule: vi.spyOn(api, 'previewRule').mockImplementation(async () => ({ matches: 14, changes: 3, skipped: NO_SKIPS, ...s.preview })),
+    applyRule: vi.spyOn(api, 'applyRule').mockResolvedValue({ updated: 3, skipped: NO_SKIPS }),
+    // The editable rules in the order sent, in the places of the editable rules; read-only ones stay put.
+    reorderRules: vi.spyOn(api, 'reorderRules').mockImplementation(async (ids) => {
+      const list = structuredClone(s.rules ?? RULES);
+      const queue = ids.map((id) => list.find((r) => r.id === id)!);
+      return list.map((r) => (r.permission === 'edit' ? queue.shift()! : r));
+    }),
   };
 }
 

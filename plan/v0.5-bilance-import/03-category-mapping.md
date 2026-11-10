@@ -22,3 +22,9 @@ Bilance categories land in Saldo's own categories.
 
 ## Done when
 A second import of a Bilance file needs no new mapping.
+
+## Carried over from 0.4 (10 Nov 2026)
+- **Targets:** the default set is the mockup tree as built in 0.4-1 (decided 10 Nov 2026), two levels. The mapping puts Bilance's two-level `Categorie` / `Subcategorie` onto it.
+- **Merge** is the existing category removal with `moveTo` ([docs/api.md](../../docs/api.md), "Categories"): transactions of every user, split parts, rules, budgets and mappings move along.
+- **Source path in two parts** (top and sub), never one joined string: a name may contain commas, `&` and ` / `.
+- **Origin `import`:** imported rows carry it. Rules, suggestions and "apply to similar" never overwrite it; only an explicit manual pick on that one row does. Re-applying a changed mapping may rewrite only rows of origin `import` of that batch.

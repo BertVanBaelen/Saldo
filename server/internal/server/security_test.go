@@ -199,8 +199,32 @@ func TestPrivacySweep(t *testing.T) {
 		t.Fatalf("Bert's apply: %s", r.body)
 	}
 	// Partner's own rules may match Bert's rows by name; they must never reach them.
-	rule(e.partner, `{"counterparty":"Werkgever","categoryId":8}`)
-	rule(e.partner, `{"counterparty":"markt","categoryId":2}`)
+	p1 := rule(e.partner, `{"counterparty":"Werkgever","categoryId":8}`)
+	p2 := rule(e.partner, `{"counterparty":"markt","categoryId":2}`)
+	// Bert's note and split (0.4-3) on his booked row.
+	bertTx := id(int64(e.count(`SELECT MIN(id) FROM transactions WHERE account_id = ? AND status = 'booked'`, bert.Accounts[0].ID)))
+	if r := e.as(e.bert, "PATCH", "/api/transactions/"+bertTx, `{"note":"Geheimnotitie"}`); r.status != 200 {
+		t.Fatalf("Bert's note: %d %s", r.status, r.body)
+	}
+	amount := e.count(`SELECT amount FROM transactions WHERE id = ?`, bertTx)
+	if r := e.as(e.bert, "PUT", "/api/transactions/"+bertTx+"/split", `{"parts":[{"categoryId":2,"amount":`+
+		strconv.Itoa(amount-amount/2)+`},{"categoryId":3,"amount":`+strconv.Itoa(amount/2)+`}]}`); r.status != 200 {
+		t.Fatalf("Bert's split: %d %s", r.status, r.body)
+	}
+	// Bert's suggestion (0.4-4): two manual choices and a row that waits.
+	for i, cat := range []any{2, 2, nil} {
+		origin := any("manual")
+		if cat == nil {
+			origin = nil
+		}
+		if _, err := e.db.Exec(`INSERT INTO transactions (account_id, amount, booking_date, counterparty_name, status, dedupe_key, category_id, category_origin)
+			VALUES (?, -4321, '2026-11-05', 'Geheimwinkel Noord', 'booked', ?, ?, ?)`, bert.Accounts[0].ID, "sweep-"+strconv.Itoa(i), cat, origin); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if r := e.as(e.bert, "GET", "/api/suggestions", ""); !strings.Contains(r.body, `"counterpartyKey":"geheimwinkel noord"`) {
+		t.Fatalf("Bert's suggestions: %s", r.body)
+	}
 	bertRows := e.query(`SELECT id, COALESCE(category_id, '-'), COALESCE(category_origin, '-'), COALESCE(rule_id, '-')
 		FROM transactions t WHERE account_id IN (` + acc1 + `, ` + acc2 + `) ORDER BY id`)
 	cases := []struct {
@@ -251,10 +275,34 @@ func TestPrivacySweep(t *testing.T) {
 		{"DELETE", "/api/rules/" + userRule, "", 404},
 		{"DELETE", "/api/rules/" + accRule, "", 404},
 		{"DELETE", "/api/categories/999?moveTo=none", "", 404},
+		{"POST", "/api/rules/preview", `{"accountId":` + acc1 + `,"counterparty":"x"}`, 404},
+		{"POST", "/api/rules/preview", `{"accountId":` + manual + `,"counterparty":"x"}`, 404},
+		{"POST", "/api/rules/preview", `{"ruleId":` + userRule + `,"counterparty":"x"}`, 404},
+		{"POST", "/api/rules/preview", `{"ruleId":` + accRule + `,"accountId":` + acc1 + `,"counterparty":"x"}`, 404},
+		{"POST", "/api/rules/preview", `{"ruleId":999999,"counterparty":"x"}`, 404},
+		{"POST", "/api/rules/preview", `{"counterparty":"Geheimwinkel","categoryId":2}`, 200},
+		{"POST", "/api/rules/" + userRule + "/apply", "", 404},
+		{"POST", "/api/rules/" + accRule + "/apply", "", 404},
+		{"POST", "/api/rules/999999/apply", "", 404},
+		{"PUT", "/api/rules/order", `{"ids":[` + userRule + `,` + accRule + `]}`, 400},
+		{"PUT", "/api/rules/order", `{"ids":[` + p2 + `,` + p1 + `,` + userRule + `]}`, 400},
+		{"PUT", "/api/rules/order", `{"ids":[` + p1 + `,` + p2 + `]}`, 200},
+		{"GET", "/api/suggestions", "", 200},
+		{"POST", "/api/suggestions/confirm", `{"counterpartyKey":"geheimwinkel noord","categoryId":2}`, 404},
+		{"POST", "/api/suggestions/dismiss", `{"counterpartyKey":"geheimwinkel noord","categoryId":2}`, 404},
+		{"PATCH", "/api/transactions/" + bertTx, `{"note":"Gezien"}`, 404},
+		{"PATCH", "/api/transactions/" + bertTx, `{"categoryId":2}`, 404},
+		{"GET", "/api/transactions/" + bertTx + "/similar", "", 404},
+		{"POST", "/api/transactions/" + bertTx + "/similar", "", 404},
+		{"PUT", "/api/transactions/" + bertTx + "/split", `{"parts":[{"categoryId":2,"amount":-1},{"categoryId":3,"amount":-1}]}`, 404},
+		{"DELETE", "/api/transactions/" + bertTx + "/split", "", 404},
+		{"PATCH", "/api/transactions/999999", `{"note":"x"}`, 404},
+		{"GET", "/api/transactions/999999/similar", "", 404},
+		{"DELETE", "/api/transactions/999999/split", "", 404},
 	}
 	secrets := []string{ibanPersonal, ibanShared, "7034", "6769", "Zichtrekening", "Gezinsrekening",
 		"Koffiebar", "Bakkerij", "Werkgever NV", "Loon", "Supermarkt", "196882", "94608", "150000", "1230", "8642",
-		"bert@", "Chrome op Windows", "Spaarpot", "1250000", "5615", "Geheimwinkel", "BE11", "0071"}
+		"bert@", "Chrome op Windows", "Spaarpot", "1250000", "5615", "Geheimwinkel", "BE11", "0071", "Geheimnotitie"}
 	for _, c := range cases {
 		r := e.as(e.partner, c.method, c.path, c.body)
 		if r.status != c.status {
@@ -330,8 +378,21 @@ func TestPrivacySweep(t *testing.T) {
 		FROM transactions t WHERE account_id IN (` + acc1 + `, ` + acc2 + `) ORDER BY id`); got != bertRows {
 		t.Errorf("Partner changed Bert's categories: %s, was %s", got, bertRows)
 	}
+	if e.count(`SELECT COUNT(*) FROM transactions WHERE note = 'Geheimnotitie'`) != 1 || e.count(`SELECT COUNT(*) FROM transaction_splits`) != 2 {
+		t.Error("Partner changed Bert's note or split it")
+	}
 	if e.count(`SELECT COUNT(*) FROM rules WHERE user_id = ? OR account_id = ?`, e.bert, bert.Accounts[0].ID) != 2 {
 		t.Error("Partner changed Bert's rules")
+	}
+	if e.count(`SELECT COUNT(*) FROM rules WHERE (user_id = ? OR account_id = ?) AND priority = 0`, e.bert, bert.Accounts[0].ID) != 2 {
+		t.Error("Partner reordered Bert's rules")
+	}
+	if got := decode[ledger.RulePreview](t, e.as(e.partner, "POST", "/api/rules/preview", `{"counterparty":"Geheimwinkel"}`).body); got.Matches != 0 {
+		t.Errorf("Partner's preview counts Bert's rows: %+v", got)
+	}
+	if !strings.Contains(e.as(e.bert, "GET", "/api/suggestions", "").body, `"geheimwinkel noord"`) ||
+		e.count(`SELECT COUNT(*) FROM category_suggestions`) != 0 {
+		t.Error("Partner decided Bert's suggestion")
 	}
 	for _, v := range decode[[]ledger.RuleView](t, e.as(e.partner, "GET", "/api/rules", "").body) {
 		if v.AccountID != nil || e.count(`SELECT user_id FROM rules WHERE id = ?`, v.ID) != int(e.partner) {

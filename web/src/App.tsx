@@ -15,6 +15,7 @@ import { Instellingen } from './pages/Instellingen';
 import { BankKoppelen, Bankkoppelingen, BankTerug } from './pages/Bankkoppelingen';
 import { NotBuilt } from './pages/NotBuilt';
 import { Importeren } from './pages/Importeren';
+import { Categorieen } from './pages/Categorieen';
 import { LinkPage, SignIn } from './pages/Inloggen';
 
 /** The pages of a signed-in viewer, inside the shell. */
@@ -32,7 +33,7 @@ export function AppRoutes() {
         <Route path="bankkoppelingen" element={<Bankkoppelingen />} />
         <Route path="bankkoppelingen/koppelen" element={<BankKoppelen />} />
         <Route path="bankkoppelingen/terug" element={<BankTerug />} />
-        <Route path="categorieen" element={<NotBuilt id="categorieen" />} />
+        <Route path="categorieen" element={<Categorieen />} />
         <Route path="importeren" element={<Importeren />} />
         <Route path="meldingen" element={<NotBuilt id="meldingen" />} />
         <Route path="instellingen/:section?" element={<Instellingen />} />

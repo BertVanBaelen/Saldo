@@ -38,3 +38,4 @@ Server side; the contract is in [docs/api.md](../../docs/api.md), "Rules".
 5. **No auto-apply** when a rule is created, changed or deleted; deleting keeps the categories it set (`rule_id` becomes NULL). A row that no rule matches any more keeps its category.
 6. **Limits:** 140 characters counterparty, 200 communication, 200 rules per owner. Rules are not audit-logged.
 7. **Pending to booked:** not built here; see 0.4-3, step 7.
+8. **Transfers may carry a category** (user decision, 10 Nov 2026): a rule, "apply to similar" or a manual pick may categorise a transfer between your own accounts; there is no "skip transfers" guard. 0.6-3 must detect transfers at query time and must not rely on categories to find them.

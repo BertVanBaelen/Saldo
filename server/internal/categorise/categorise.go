@@ -1,6 +1,6 @@
-// Package categorise is Saldo's categorisation engine (phases 0.4-1 and
-// 0.4-2): the default category tree, the rule matcher and the one place that
-// writes a category automatically.
+// Package categorise is Saldo's categorisation engine (phases 0.4-1 to
+// 0.4-3): the default category tree, the rule matcher, the one place that
+// writes a category automatically and the one place that writes it by hand.
 //
 // A transaction holds one category for every member of its account
 // (category_id, category_origin, rule_id). Precedence: a manual choice >
@@ -10,9 +10,12 @@
 // can never overwrite a row that was changed meanwhile. Rows of origin
 // 'manual' or 'import' (categories from a Bilance file), rows of unknown
 // origin and split rows are never touched by it. Every automatic writer
-// (rules on demand, "apply to similar" of 0.4-3, suggestions of 0.4-4,
-// learning and backfill of 0.5-6) must go through Assign; new rows are
-// tagged with Match before they are inserted.
+// (rules on demand, "apply to similar" through Plan and Apply, suggestions
+// of 0.4-4, learning and backfill of 0.5-6) must go through Assign; new rows
+// are tagged with Match before they are inserted. A choice by hand goes
+// through SetManual, which refuses a split row. Plan is the one engine that
+// says what a single rule does to stored rows (it writes nothing); Apply
+// writes its changes through Assign.
 //
 // This package must not import ledger: ledger imports it.
 package categorise

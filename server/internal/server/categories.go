@@ -142,3 +142,88 @@ func (s *Server) applyRules(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"updated": n})
 }
+
+// postRulePreview is the live preview of a draft rule; it writes nothing.
+func (s *Server) postRulePreview(w http.ResponseWriter, r *http.Request) {
+	var body ledger.RulePreviewInput
+	if err := decodeJSON(w, r, &body); err != nil {
+		s.fail(w, r, err, msgNotFound)
+		return
+	}
+	v, err := s.store.PreviewRule(r.Context(), viewerOf(r), body)
+	if err != nil {
+		s.fail(w, r, err, msgNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
+// postRuleApply runs one rule; like POST /api/rules/apply it takes no body.
+func (s *Server) postRuleApply(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, msgRuleNotFound)
+	if !ok {
+		return
+	}
+	n, skipped, err := s.store.ApplyRule(r.Context(), viewerOf(r), id)
+	if err != nil {
+		s.fail(w, r, err, msgRuleNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"updated": n, "skipped": skipped})
+}
+
+func (s *Server) putRulesOrder(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		IDs []int64 `json:"ids"`
+	}
+	if err := decodeJSON(w, r, &body); err != nil {
+		s.fail(w, r, err, msgRuleNotFound)
+		return
+	}
+	list, err := s.store.ReorderRules(r.Context(), viewerOf(r), body.IDs)
+	if err != nil {
+		s.fail(w, r, err, msgRuleNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+// Suggestions (phase 0.4-4).
+
+const msgSuggestionGone = "Deze suggestie bestaat niet meer."
+
+func (s *Server) listSuggestions(w http.ResponseWriter, r *http.Request) {
+	list, err := s.store.Suggestions(r.Context(), viewerOf(r))
+	if err != nil {
+		s.fail(w, r, err, msgSuggestionGone)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (s *Server) postSuggestionConfirm(w http.ResponseWriter, r *http.Request) {
+	n, ok := s.decideSuggestion(w, r, "confirmed")
+	if ok {
+		writeJSON(w, http.StatusOK, map[string]int{"updated": n})
+	}
+}
+
+func (s *Server) postSuggestionDismiss(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.decideSuggestion(w, r, "dismissed"); ok {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (s *Server) decideSuggestion(w http.ResponseWriter, r *http.Request, state string) (int, bool) {
+	var body ledger.SuggestionInput
+	if err := decodeJSON(w, r, &body); err != nil {
+		s.fail(w, r, err, msgSuggestionGone)
+		return 0, false
+	}
+	n, err := s.store.DecideSuggestion(r.Context(), viewerOf(r), body, state)
+	if err != nil {
+		s.fail(w, r, err, msgSuggestionGone)
+		return 0, false
+	}
+	return n, true
+}

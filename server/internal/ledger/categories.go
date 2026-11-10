@@ -59,12 +59,17 @@ var expenseColours = []string{"c1", "c2", "c3", "c4", "c5", "c6"}
 
 // Categories lists the tree in tree order: the expense tops, each followed by
 // its subcategories, then the income tops likewise. Count is the number of
-// the viewer's own transactions directly in a category (split parts not
-// counted).
+// the viewer's own transactions directly in a category: a split row counts
+// once under each category it has a part in, not under its own (hidden)
+// category.
 func (s *Store) Categories(ctx context.Context, viewer int64) ([]TreeCategory, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT c.id, c.name, c.type, c.colour, c.parent_id, c.sort_order,
-		       (SELECT COUNT(*) FROM transactions t JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?
-		        WHERE t.category_id = c.id)
+		       (SELECT COUNT(*) FROM transactions t JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?1
+		        WHERE t.category_id = c.id AND NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id))
+		     + (SELECT COUNT(DISTINCT s.transaction_id) FROM transaction_splits s
+		        JOIN transactions t ON t.id = s.transaction_id
+		        JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?1
+		        WHERE s.category_id = c.id)
 		FROM categories c`, viewer)
 	if err != nil {
 		return nil, err

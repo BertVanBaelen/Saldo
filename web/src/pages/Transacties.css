@@ -632,8 +632,7 @@
   .tx-list-skel .tx-skel--head { margin-left: 12px; }
 }
 
-/* Read-only detail until version 0.4: the edit actions show, dimmed, with a note */
-.tx-soon { display: flex; flex-direction: column; gap: 10px; }
-.tx-soon .tx-action[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
-.tx-soon-note { display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 1.45; color: var(--muted); }
-.tx-soon-note svg { flex: none; }
+/* Detail (0.4-3): category list failed to load, the preview line while it loads */
+.tx-cats-err { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tx-cats-err .tx-src-btn { flex: none; }
+.tx-skel--line { display: inline-block; width: 80%; height: 12px; vertical-align: middle; }

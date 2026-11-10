@@ -80,14 +80,22 @@ func TestCategoriesList(t *testing.T) {
 	if c := list[21]; c.Name != "Salaris" || c.Type != "income" || c.Colour != "soft" || c.ParentID != nil {
 		t.Errorf("Salaris: %+v", c)
 	}
-	// count: the viewer's own transactions only.
+	// count: the viewer's own transactions only; a split row counts under
+	// its parts' categories (0.4-3), not its own.
+	shared := p.count(`SELECT MIN(id) FROM transactions WHERE account_id = 4 AND status = 'booked' AND category_id = 2`)
+	amount := p.count(`SELECT amount FROM transactions WHERE id = ?`, shared)
+	p.exec(`INSERT INTO transaction_splits (transaction_id, category_id, amount) VALUES (?, 5, ?), (?, 5, ?), (?, 6, ?)`,
+		shared, amount/2, shared, amount/4, shared, amount-amount/2-amount/4)
 	for _, who := range []struct {
 		h    func(string, string, string) response
 		user int64
 	}{{p.bert, demo.Bert}, {p.partner, demo.Partner}} {
 		for _, c := range decode[[]ledger.TreeCategory](t, who.h("GET", "/api/categories", "").body) {
-			want := p.count(`SELECT COUNT(*) FROM transactions t JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?
-				WHERE t.category_id = ?`, who.user, c.ID)
+			want := p.count(`SELECT COUNT(*) FROM transactions t JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?1
+				WHERE t.category_id = ?2 AND t.id <> ?3`, who.user, c.ID, shared)
+			if c.ID == 5 || c.ID == 6 {
+				want++
+			}
 			if c.Count != want {
 				t.Errorf("user %d, %s: count %d, want %d", who.user, c.Name, c.Count, want)
 			}
@@ -579,6 +587,11 @@ func TestCategoryAndRuleWritesRefuseCrossOrigin(t *testing.T) {
 		{"DELETE", "/api/categories/11?moveTo=none", ""},
 		{"POST", "/api/rules", `{"counterparty":"x","categoryId":1}`},
 		{"POST", "/api/rules/apply", ""},
+		{"POST", "/api/rules/preview", `{"counterparty":"x"}`},
+		{"POST", "/api/rules/1/apply", ""},
+		{"PUT", "/api/rules/order", `{"ids":[]}`},
+		{"POST", "/api/suggestions/confirm", `{"counterpartyKey":"x","categoryId":1}`},
+		{"POST", "/api/suggestions/dismiss", `{"counterpartyKey":"x","categoryId":1}`},
 	} {
 		r := e.do(call{method: c.method, path: c.path, body: c.body, header: map[string]string{
 			"X-Test-User": strconv.FormatInt(e.bert, 10), "Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example.org"}})

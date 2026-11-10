@@ -347,3 +347,86 @@ func TestMigration0005KeepsEveryRow(t *testing.T) {
 		t.Errorf("want one backup before 0005, found %v", files)
 	}
 }
+
+// Migration 0006 merges duplicate decisions on suggestions (keeping the
+// lowest id) and makes them unique per user, key and category: on a
+// populated database at version 5 every other row stays, account-owned
+// suggestions are untouched, a second run changes nothing, and the backup
+// is written first.
+func TestMigration0006MergesDuplicateSuggestions(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	full := Migrations()
+	old := fstest.MapFS{}
+	for _, name := range []string{"0001_init.sql", "0002_login_challenge.sql", "0003_sync_engine.sql",
+		"0004_notification_connection.sql", "0005_rules_engine.sql"} {
+		b, err := fs.ReadFile(full, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		old[name] = &fstest.MapFile{Data: b}
+	}
+	backups := filepath.Join(t.TempDir(), "backups")
+	if _, err := Migrate(ctx, db, old, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO users (id, email, display_name) VALUES (1, 'a@example.com', 'A'), (2, 'b@example.com', 'B')`,
+		`INSERT INTO accounts (id, type, source, name) VALUES (1, 'current', 'manual', 'Rekening')`,
+		`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (1, 1, 'manager', 'edit')`,
+		`INSERT INTO categories (id, name, type, colour) VALUES (1, 'Eten & Drinken', 'expense', 'c1'), (2, 'Energie, nutsvoorzieningen', 'expense', 'c2')`,
+		`INSERT INTO rules (id, user_id, priority, counterparty_match, category_id) VALUES (1, 1, 3, 'Winkel', 1)`,
+		`INSERT INTO transactions (id, account_id, amount, booking_date, counterparty_name, status, dedupe_key, category_id, category_origin)
+		 VALUES (1, 1, -1250, '2026-11-02', 'Winkel Test', 'booked', 'x1', 1, 'manual'), (2, 1, -999, '2026-11-03', 'Kraam', 'pending', 'x2', NULL, NULL)`,
+		`INSERT INTO category_suggestions (id, user_id, account_id, counterparty_key, category_id, confidence, times_seen, state) VALUES
+		    (10, 1, NULL, 'winkel test', 1, 80, 5, 'dismissed'),
+		    (11, 1, NULL, 'winkel test', 1, 90, 6, 'confirmed'),
+		    (12, 1, NULL, 'winkel test', 1, 70, 2, 'open'),
+		    (13, 1, NULL, 'winkel test', 2, 60, 3, 'confirmed'),
+		    (14, 2, NULL, 'winkel test', 1, 50, 2, 'dismissed'),
+		    (15, NULL, 1, 'kraam', 1, 40, 2, 'open'),
+		    (16, NULL, 1, 'kraam', 1, 40, 2, 'open')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dump := func(q string) string {
+		t.Helper()
+		var s string
+		if err := db.QueryRow(q).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	const others = `SELECT (SELECT group_concat(id || '|' || amount || '|' || counterparty_name || '|' || COALESCE(category_id, '-') || '|' || COALESCE(category_origin, '-'), ';') FROM transactions)
+		|| '#' || (SELECT group_concat(id || '|' || name, ';') FROM categories) || '#' || (SELECT group_concat(id || '|' || priority || '|' || counterparty_match, ';') FROM rules)`
+	const suggestions = `SELECT group_concat(id || '|' || COALESCE(user_id, '-') || '|' || COALESCE(account_id, '-') || '|' || counterparty_key || '|' ||
+		category_id || '|' || confidence || '|' || times_seen || '|' || state, ';') FROM (SELECT * FROM category_suggestions ORDER BY id)`
+	before := dump(others)
+	applied, err := Migrate(ctx, db, full, backups, nil)
+	if err != nil || !slices.Contains(applied, 6) {
+		t.Fatalf("applied %v, %v", applied, err)
+	}
+	if after := dump(others); after != before {
+		t.Errorf("rows changed by the migration:\nbefore %s\nafter  %s", before, after)
+	}
+	want := "10|1|-|winkel test|1|80|5|dismissed;13|1|-|winkel test|2|60|3|confirmed;14|2|-|winkel test|1|50|2|dismissed;" +
+		"15|-|1|kraam|1|40|2|open;16|-|1|kraam|1|40|2|open"
+	if got := dump(suggestions); got != want {
+		t.Errorf("suggestions after the migration:\n%s\nwant\n%s", got, want)
+	}
+	if _, err := db.Exec(`INSERT INTO category_suggestions (user_id, counterparty_key, category_id, confidence) VALUES (1, 'winkel test', 1, 10)`); err == nil {
+		t.Error("a duplicate decision was accepted")
+	}
+	if again, err := Migrate(ctx, db, full, backups, nil); err != nil || len(again) != 0 || dump(suggestions) != want {
+		t.Errorf("second run applied %v, %v", again, err)
+	}
+	if files, _ := filepath.Glob(filepath.Join(backups, "*before-0006*")); len(files) != 1 {
+		t.Errorf("want one backup before 0006, found %v", files)
+	}
+}

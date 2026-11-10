@@ -2,7 +2,7 @@
 
 **After this version you can** have your transactions categorised automatically by rules, change a category in a tap and turn that into a rule for similar transactions, split a transaction, and manage categories and rules.
 
-Status: in progress (10 Nov 2026): the category tree (0.4-1) and the rules engine (0.4-2) are built on the server and wait for verification; Categorise in Transacties (0.4-3) and the Categorieën en regels screen (0.4-4) are planned. Analysis milestone: M2. Roadmap: [../README.md](../README.md).
+Status: in progress (10 Nov 2026): the category tree (0.4-1), the rules engine (0.4-2), Categorise in Transacties (0.4-3) and the Categorieën en regels screen (0.4-4) are built and wait for verification. Analysis milestone: M2. Roadmap: [../README.md](../README.md).
 
 ## Features
 | Id | Feature |
@@ -18,8 +18,8 @@ Status: in progress (10 Nov 2026): the category tree (0.4-1) and the rules engin
 |---|---|---|---|---|
 | [0.4-1](01-category-tree.md) | Category tree | S | CAT-1 | built, to verify |
 | [0.4-2](02-rules-engine.md) | Rules engine | M | CAT-2 | built, to verify |
-| [0.4-3](03-categorise-in-transacties.md) | Categorise in Transacties | M | CAT-3, CAT-4 | planned |
-| [0.4-4](04-categories-and-rules-screen.md) | Categorieën en regels screen | M | CAT-5 | planned |
+| [0.4-3](03-categorise-in-transacties.md) | Categorise in Transacties | M | CAT-3, CAT-4 | built, to verify |
+| [0.4-4](04-categories-and-rules-screen.md) | Categorieën en regels screen | M | CAT-5 | built, to verify |
 
 ## Concepts
 category, categorisation-rule, transaction.

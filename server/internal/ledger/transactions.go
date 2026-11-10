@@ -23,7 +23,20 @@ type Transaction struct {
 	Communication string    `json:"communication"`
 	Status        string    `json:"status"`
 	Category      *Category `json:"category"`
-	Transfer      bool      `json:"transfer"`
+	// CategoryOrigin is manual, rule, suggestion or import; nil without a
+	// category. RuleID is the rule that set it, only when the viewer can see
+	// that rule. A split row shows neither, nor its own category: Splits.
+	CategoryOrigin *string `json:"categoryOrigin"`
+	RuleID         *int64  `json:"ruleId"`
+	Note           *string `json:"note"`
+	Splits         []Split `json:"splits"`
+	Transfer       bool    `json:"transfer"`
+}
+
+// Split is one part of a split transaction, signed like its amount.
+type Split struct {
+	Category Category `json:"category"`
+	Amount   int64    `json:"amount"`
 }
 
 // Category is the short category reference on a transaction.
@@ -140,37 +153,11 @@ func (s *Store) Transactions(ctx context.Context, viewer int64, q TxQuery) (Page
 		where = append(where, `(tx.booking_date < ? OR (tx.booking_date = ? AND tx.id < ?))`)
 		args = append(args, c.date, c.date, c.id)
 	}
-	query := visibleTx + `
-		SELECT tx.id, tx.account_id, tx.booking_date, tx.amount, tx.counterparty_name, tx.communication,
-		       tx.status, c.id, c.name, c.colour, tx.is_transfer
-		FROM tx LEFT JOIN categories c ON c.id = tx.category_id
-		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY tx.booking_date DESC, tx.id DESC
-		LIMIT ?`
-	args = append([]any{viewer, viewer}, args...)
-	args = append(args, limit+1)
-
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	items, err := s.items(ctx, viewer, where, args, limit+1)
 	if err != nil {
 		return Page{}, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var t Transaction
-		var catID sql.NullInt64
-		var catName, catColour sql.NullString
-		if err := rows.Scan(&t.ID, &t.AccountID, &t.BookingDate, &t.Amount, &t.Counterparty, &t.Communication,
-			&t.Status, &catID, &catName, &catColour, &t.Transfer); err != nil {
-			return Page{}, err
-		}
-		if catID.Valid {
-			t.Category = &Category{ID: catID.Int64, Name: catName.String, Colour: catColour.String}
-		}
-		page.Items = append(page.Items, t)
-	}
-	if err := rows.Err(); err != nil {
-		return Page{}, err
-	}
+	page.Items = items
 	if len(page.Items) > limit {
 		page.Items = page.Items[:limit]
 		last := page.Items[limit-1]
@@ -178,6 +165,96 @@ func (s *Store) Transactions(ctx context.Context, viewer int64, q TxQuery) (Page
 		page.Next = &next
 	}
 	return page, nil
+}
+
+// visibleRule is the rule of tx when the viewer can see it (the viewer's own
+// user rule, or a rule of an account the viewer holds), else NULL. Its two
+// parameters are the viewer's id.
+const visibleRule = `(SELECT r.id FROM rules r WHERE r.id = tx.rule_id
+    AND (r.user_id = ? OR EXISTS (SELECT 1 FROM account_access a WHERE a.account_id = r.account_id AND a.user_id = ?)))`
+
+// items reads at most limit of the viewer's transactions that match where,
+// newest first, with their split parts (one query for the whole page).
+func (s *Store) items(ctx context.Context, viewer int64, where []string, args []any, limit int) ([]Transaction, error) {
+	query := visibleTx + `
+		SELECT tx.id, tx.account_id, tx.booking_date, tx.amount, tx.counterparty_name, tx.communication,
+		       tx.status, c.id, c.name, c.colour, tx.category_origin, ` + visibleRule + `, tx.note, tx.is_transfer
+		FROM tx LEFT JOIN categories c ON c.id = tx.category_id
+		WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY tx.booking_date DESC, tx.id DESC
+		LIMIT ?`
+	all := append([]any{viewer, viewer, viewer, viewer}, args...)
+	rows, err := s.db.QueryContext(ctx, query, append(all, limit)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Transaction{}
+	for rows.Next() {
+		var t Transaction
+		var catID sql.NullInt64
+		var catName, catColour sql.NullString
+		if err := rows.Scan(&t.ID, &t.AccountID, &t.BookingDate, &t.Amount, &t.Counterparty, &t.Communication,
+			&t.Status, &catID, &catName, &catColour, &t.CategoryOrigin, &t.RuleID, &t.Note, &t.Transfer); err != nil {
+			return nil, err
+		}
+		if catID.Valid {
+			t.Category = &Category{ID: catID.Int64, Name: catName.String, Colour: catColour.String}
+		} else {
+			t.CategoryOrigin, t.RuleID = nil, nil
+		}
+		items = append(items, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	return items, s.splits(ctx, items)
+}
+
+// splits fills the split parts of items, in stored order, and hides the
+// row's own category of a split row.
+func (s *Store) splits(ctx context.Context, items []Transaction) error {
+	if len(items) == 0 {
+		return nil
+	}
+	at := map[int64]int{}
+	ids := make([]any, len(items))
+	for i, t := range items {
+		at[t.ID] = i
+		ids[i] = t.ID
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT s.transaction_id, c.id, c.name, c.colour, s.amount
+		FROM transaction_splits s JOIN categories c ON c.id = s.category_id
+		WHERE s.transaction_id IN (?`+strings.Repeat(", ?", len(ids)-1)+`) ORDER BY s.id`, ids...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var p Split
+		if err := rows.Scan(&id, &p.Category.ID, &p.Category.Name, &p.Category.Colour, &p.Amount); err != nil {
+			return err
+		}
+		t := &items[at[id]]
+		t.Splits = append(t.Splits, p)
+		t.Category, t.CategoryOrigin, t.RuleID = nil, nil, nil
+	}
+	return rows.Err()
+}
+
+// transaction reads one of the viewer's transactions as GET
+// /api/transactions shows it.
+func (s *Store) transaction(ctx context.Context, viewer, id int64) (Transaction, error) {
+	items, err := s.items(ctx, viewer, []string{"tx.id = ?"}, []any{id}, 1)
+	if err != nil {
+		return Transaction{}, err
+	}
+	if len(items) == 0 {
+		return Transaction{}, apperr.ErrNotFound
+	}
+	return items[0], nil
 }
 
 // UncategorisedCount counts the viewer's transactions that still need a

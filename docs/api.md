@@ -91,6 +91,10 @@ Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, o
       "communication": "Bestelling 4471-2210",
       "status": "pending",
       "category": null,
+      "categoryOrigin": null,
+      "ruleId": null,
+      "note": null,
+      "splits": null,
       "transfer": false
     }
   ],
@@ -98,7 +102,7 @@ Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, o
   "total": 1
 }
 ```
-Newest first (booking date, then id). `status`: `pending` | `booked`. `category`: `{"id": 3, "name": "Boodschappen", "colour": "c2"}` or `null` (`colour` is a category pastel token `c1` … `c6`, or `soft` for income). `transfer`: true for a transfer between the viewer's own accounts (shown in text colour, not as an expense). `next` is a cursor string or `null`. `total` is the number of rows that match the filters (all pages; the cursor and `limit` do not change it), so `uncategorised=1&limit=1` gives the count for the badge. The amount search reads `12,50`, `12.50`, `€ 12,50` and `-12,5` as € 12,50 (the sign is ignored), whole euros as every amount of that euro (`12` is € 12,00 to € 12,99, never € 120). A search that does not parse as one clear amount (for example `1.50.0`) adds no amount match; the text still searches counterparty and communication. `uncategorised=1` lists the rows without a category that are not a transfer for the viewer (the count of the categorise alert). Invalid parameters answer `400`; a `limit` above 200 is capped at 200.
+Newest first (booking date, then id). `status`: `pending` | `booked`. `category`: `{"id": 3, "name": "Boodschappen", "colour": "c2"}` or `null` (`colour` is a category pastel token `c1` … `c6`, or `soft` for income). `categoryOrigin` (0.4-3): `manual` | `rule` | `suggestion` | `import`, `null` without a category. `ruleId`: the rule that set the category, only when the viewer can see that rule (the viewer's own user rule, or a rule of an account the viewer holds); otherwise `null`, also when the origin is `rule` (a user rule of another member, or a deleted rule): another user's rule id is never shown. `note`: text or `null`, seen by every member of the account (read-only ones too). `splits`: `null`, or the parts of a split transaction in stored order, `[{"category": {"id": 3, "name": "Vrije tijd", "colour": "c3"}, "amount": -6492}]`, signed cents like `amount`; a split row shows `category`, `categoryOrigin` and `ruleId` as `null` (see "Categorise a transaction"). `transfer`: true for a transfer between the viewer's own accounts (shown in text colour, not as an expense). `next` is a cursor string or `null`. `total` is the number of rows that match the filters (all pages; the cursor and `limit` do not change it), so `uncategorised=1&limit=1` gives the count for the badge. The amount search reads `12,50`, `12.50`, `€ 12,50` and `-12,5` as € 12,50 (the sign is ignored), whole euros as every amount of that euro (`12` is € 12,00 to € 12,99, never € 120). A search that does not parse as one clear amount (for example `1.50.0`) adds no amount match; the text still searches counterparty and communication. `uncategorised=1` lists the rows without a category and without split parts that are not a transfer for the viewer (the count of the categorise alert). The search does not look in notes. Invalid parameters answer `400`; a `limit` above 200 is capped at 200.
 
 ### `GET /api/alerts`
 The alerts for Start, already scoped to the viewer.
@@ -197,7 +201,7 @@ Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-
 ### `POST /api/users/{id}/password-reset` (admin)
 `204`; e-mails that user a reset link (1 hour, replacing an earlier unused one) and signs out none of their devices until it is used. An unknown user answers `404`; `503` as for invitations.
 
-Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window), a bank link removed, a manual account deleted, a CSV import done (`import_done`: account, batch and counts, never file content), a category removed (`category_removed`: the category's id and `moveTo`, never counts). Rules are not audit-logged. IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
+Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window), a bank link removed, a manual account deleted, a CSV import done (`import_done`: account, batch and counts, never file content), a category removed (`category_removed`: the category's id and `moveTo`, never counts). Rules, categories set by hand, notes and splits are not audit-logged. IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
 
 ## Bank link (phase 0.2-6)
 
@@ -327,7 +331,7 @@ The whole tree, flat, in tree order: the expense tops by `sort_order`, each foll
   { "id": 11, "name": "Huur", "type": "expense", "colour": "c1", "parentId": 1, "count": 12 }
 ]
 ```
-`type`: `expense` | `income`. `count` is the number of the **viewer's own** transactions (on accounts the viewer holds) whose category is this one, not including its subcategories nor split parts; another user's transactions never count.
+`type`: `expense` | `income`. `count` is the number of the **viewer's own** transactions (on accounts the viewer holds) in this category, not including its subcategories; another user's transactions never count. Since 0.4-3 a split transaction counts once under each category it has a part in (two parts in one category count once) and no longer under its own hidden category.
 
 ### `POST /api/categories` (0.4-1)
 A top category `{"name": "Huisdieren", "type": "expense", "colour": "c3"}` (`colour` optional: `c6` for expense, `soft` for income) or a subcategory `{"name": "Dierenarts", "parentId": 3}` (`type` or `colour` with `parentId` answers `400`). Answers `201` with the category as in the list (`count` 0). It goes last among its siblings; there is no reorder API.
@@ -364,7 +368,7 @@ A rule gives transactions a category without the user doing anything (analysis 4
 
 **When rules run**
 - On every **new** transaction, before it is stored: in a sync (the nightly job, "Sync now", the link callback, also pending rows) and in a CSV import (also in the preview, which stores nothing). Stored transactions are not re-evaluated by a sync or an import.
-- On demand: `POST /api/rules/apply`.
+- On demand: `POST /api/rules/apply` (all rules), one rule with `POST /api/rules/{id}/apply` (0.4-4), and one rule through "apply to similar" (`POST /api/transactions/{id}/similar`, 0.4-3).
 - Creating, changing or deleting a rule does not run it. Deleting a rule keeps the categories it set (origin stays `rule`, `rule_id` becomes `null`).
 
 ### `GET /api/rules` (0.4-2)
@@ -390,10 +394,110 @@ Any of the fields; a field left out stays, `null` (or `""` for a text) clears th
 ### `POST /api/rules/apply` (0.4-2)
 No body. Runs the rules over the stored transactions of every account the viewer holds with `permission: edit` and answers `200 {"updated": 3}`: the number of the viewer's transactions whose category changed. A transaction no rule matches keeps what it has (it is never cleared). Running it again answers `{"updated": 0}`.
 
+### `POST /api/rules/preview` (0.4-4)
+The live preview of the rule editor ("Past op N transacties"); it writes nothing. Body: a draft as for `POST /api/rules`, plus an optional `ruleId` (the rule being edited). `categoryId` may be left out (or `null`): then nothing changes and `changes` is 0.
+```json
+{ "matches": 14, "changes": 3, "skipped": { "manual": 0, "import": 0, "split": 0, "rule": 0 } }
+```
+- The scope is the draft's owner, as for a stored rule: an account rule covers its account, a user rule every account where the viewer is the only member and has edit. Only those rows of the viewer count (pending rows too); another user's rows, and a shared account's rows for a user rule, never do.
+- `matches`: the rows that match the conditions, whatever their category, split or not. `changes`: the rows whose category applying the rule would change. `skipped`: as for "apply to similar" (`manual`, `import`, `split`, `rule`: open to rules but another rule outranks the draft); a row that already has the draft's category counts in none of them.
+- The draft competes with the owner's other rules as if it were stored: without `ruleId` it wins priority ties (like a rule created now); with `ruleId` it takes that rule's place (that rule leaves the competition, the draft keeps its id).
+- Checks as `POST /api/rules` (`400` for a missing condition, a pattern that does not compile, an unknown category and so on), except that the category may be missing. `accountId` of an account the viewer cannot see answers `404`, of a read-only one `403`. `ruleId` must be a rule the viewer can see (`404`) and edit (`403`) with the draft's owner (`400` "De eigenaar van een regel verandert niet. Maak een nieuwe regel.").
+- The preview runs the same engine as "apply to similar" and `POST /api/rules/{id}/apply` (`categorise.Plan`), so applying the stored rule afterwards changes exactly `changes` rows when nothing changed meanwhile.
+
+### `POST /api/rules/{id}/apply` (0.4-4)
+No body. Runs only this rule over its scope (see the preview) in one database transaction, through `categorise.Assign`: manual, imported and split rows are never changed, and a row where another rule outranks this one keeps what it has. Answers `200 {"updated": 3, "skipped": {"manual": 0, "import": 1, "split": 0, "rule": 0}}`; `updated` counts the rows whose category changed, `skipped` as in the preview. Running it again answers `updated: 0`. `404` and `403` as for `PATCH`.
+
+### `PUT /api/rules/order` (0.4-4)
+Body `{"ids": [5, 3, 9]}`: every rule the viewer can **edit**, top first (the order of `GET /api/rules` without the read-only rules). Answers `200` with the full `GET /api/rules` list, in which the editable rules now stand in this order.
+- Exactly that set: a rule missing, added, unknown, someone else's, read-only or listed twice answers `400` "De lijst met regels is veranderd. Laad ze opnieuw." and changes nothing (the list changed meanwhile: load it again).
+- New priorities: the current priorities of those rules sorted from high to low, v0 ≥ v1 ≥ … (n rules), become p0 = max(v0, n−1) and p_i = max(n−1−i, min(v_i, p_(i−1) − 1)). So distinct priorities stay the same set of values (a pure permutation), ties (such as the default 0) are broken, down to 0 at the bottom, and nothing goes below 0 or above 1000 (more than 1001 editable rules answers `400`).
+- Rules the viewer cannot edit (a read-only account's) keep their priority, so they may end up in another place among the reordered ones; another user's rules are never touched.
+- One database transaction; the same order again changes nothing.
+
 **Errors** (`400 invalid`, Dutch): no condition, a text or pattern too long or with control characters, a pattern that does not compile, an IBAN that is not 8–34 letters and digits starting with two letters, a negative amount or `amountMin > amountMax`, a priority outside 0–1000, a missing or unknown category, the 201st rule of an owner, an unknown field.
+
+## Categorise a transaction (phase 0.4-3)
+
+A category by hand, "apply to similar and create a rule", a note and a split, per transaction. Every route needs `permission: edit` on the transaction's account: a transaction the viewer cannot see (another user's, an unknown or a malformed id) answers `404 not_found` ("Transactie niet gevonden."), one of a read-only account `403 forbidden`. Each change is one database transaction and answers the transaction as in `GET /api/transactions`. Error messages never repeat a note, a counterparty or an amount, and none of them is logged.
+
+**One write path each.** A category by hand goes through `categorise.SetManual` (category set, origin `manual`, `rule_id` NULL; it refuses a split row); every automatic change goes through `categorise.Assign`, which only changes a row without split parts that has no category or one of origin `rule` or `suggestion`, and repeats that guard in its SQL. So a manual category, an imported one (`import`) and a split are never changed by rules, "apply to similar", a sync, a CSV import or the pending-to-booked carry-over; only an explicit pick on that single row replaces them.
+
+### `PATCH /api/transactions/{id}` (0.4-3)
+Body `{"categoryId": 2}` and/or `{"note": "verjaardagscadeau"}`, at least one field (`400` otherwise).
+- `categoryId`: an existing category (`400` "Die categorie bestaat niet."; `null` answers `400`: a category is changed, not removed). Pending rows may be categorised. The row becomes origin `manual` without a rule; a category set by a rule, a suggestion or an import that is picked again by hand becomes `manual` too, and the same manual category again changes nothing. A split row answers `400` ("Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.").
+- `note`: trimmed, runs of white space (line breaks too) collapsed into one space, no control characters, at most 200 characters (`400` "De notitie heeft hoogstens 200 tekens."); `""` or `null` clears it. A note is plain data, visible to every member of the account and not searched.
+
+### `GET /api/transactions/{id}/similar` (0.4-3)
+The preview of "Toepassen op vergelijkbare en regel maken" for the row's **current** category; it writes nothing.
+```json
+{ "counterparty": "Colruyt Laagste Prijzen", "scope": "user", "count": 14,
+  "skipped": { "manual": 2, "import": 0, "split": 0, "rule": 1 } }
+```
+- `counterparty`: the rule's text, the row's counterparty name cleaned as rule input (control characters dropped, white space collapsed, at most 140 characters). `""` when the row has no counterparty name: there is no basis, `count` and every `skipped` are 0 (the web app hides the checkbox).
+- `scope`: `user` when the row's account has exactly one member: the rule is a user rule of the viewer and covers every account where the viewer is the only member and has edit. `account` otherwise: an account rule of the row's account, covering that account only.
+- `count`: the stored rows **other than this one** (pending rows too) whose category the rule would change. `skipped`: the other rows that match the rule but stay as they are: `manual` (a manual category), `import` (an imported category, or one of unknown origin), `split` (split parts), `rule` (open to rules, but another rule outranks this one). A row that already has the category counts in none of them.
+- `400` "Kies eerst een categorie." for a row without a category; `400` for a split row. Needs edit permission like the `POST` (a read-only member gets `403`).
+
+### `POST /api/transactions/{id}/similar` (0.4-3)
+No body (`{}` is allowed). In one database transaction: the checks of the preview (no counterparty name: `400` "Deze transactie heeft geen tegenpartij om op te vergelijken."), the row's current category made manual (`SetManual`), the rule created or reused, and that rule applied with the same engine as the preview (`categorise.Plan`, written through `categorise.Assign`). Answers `200`:
+```json
+{ "transaction": { "id": 101, "categoryOrigin": "manual" },
+  "rule": { "id": 9, "accountId": null, "priority": 0, "counterparty": "Colruyt Laagste Prijzen", "counterpartyExact": false,
+            "counterpartyIban": null, "communication": null, "communicationRegex": false,
+            "amountMin": null, "amountMax": null, "categoryId": 2, "permission": "edit" },
+  "ruleCreated": true, "updated": 14,
+  "skipped": { "manual": 2, "import": 0, "split": 0, "rule": 1 } }
+```
+(`transaction` in full as in `GET /api/transactions`, shortened here.)
+- The rule: `counterparty` as in the preview, "contains", no other condition, priority 0, the row's category; owner per `scope` (a user rule of the viewer, or an account rule of the row's account).
+- **Reuse.** When the owner already has a rule whose only condition is this counterparty ("contains", equal after normalising: case, diacritics and white space do not matter), that rule gets the row's category and `ruleCreated` is `false`; no second rule is made. This is the repair after a wrong pick and the undo of a bulk apply: pick the right category with the checkbox on again, the same rule is reused and the rows it set follow. There is no history of rows to restore.
+- `updated`: the rows other than the clicked one whose category changed; it equals the preview's `count`, and `skipped` the preview's `skipped`. Idempotent: a second call answers `updated: 0` and `ruleCreated: false`.
+- The 201st rule of an owner answers `400` and changes nothing (reuse is not capped).
+
+### `PUT /api/transactions/{id}/split` (0.4-3)
+Body `{"parts": [{"categoryId": 3, "amount": -6492}, {"categoryId": 1, "amount": -2150}]}`. Booked rows only (a pending row's amount may still change: `400` "Splitsen kan pas als de bank de transactie boekt."); 2 to 10 parts; every part has the sign of the transaction's amount and is not 0; the parts add up to the amount exactly (`400` "De delen tellen samen niet op tot het bedrag."); every category exists. It replaces earlier parts. The row's own category, origin and rule stay stored but hidden, to come back on undo. Answers the transaction (`category` `null`, `splits` set).
+
+### `DELETE /api/transactions/{id}/split` (0.4-3)
+Removes the parts and answers the transaction with its earlier category back (or none). A row without parts answers `200` too.
+
+**A split row** is never changed by a rule or a suggestion, cannot get a category by hand (`PATCH` answers `400`), is not "uncategorised", and counts under its parts' categories in `GET /api/categories`. A category a split part uses cannot be removed with `moveTo=none` (see "Categories").
+
+### Pending to booked (0.4-3)
+When a sync deletes a pending row that the bank books now (see "Sync with a real connection"), a booked row of the same fetch that is being **stored now** (never one that was stored before) inherits from it: its note, and its category with origin `manual` when the pending row's category was manual. Nothing else is carried: a rule's category comes back through the rules on the new row, there is no rule link and no split (pending rows cannot be split). Pairs: same account, same signed amount, the same counterparty after normalising (case, diacritics and white space do not matter), booking dates at most 7 days apart; one to one, the closest dates first (then the lower pending id, then the earlier booked row). The same fetch again changes nothing.
+
+### Decisions (0.4-3)
+- Splits only on booked rows; the row's own category is kept under a split for undo.
+- Notes: at most 200 characters, visible to all members of the account, changed with edit permission, not searched.
+- An imported category is protected from automatic writers and from "apply to similar"; only a pick by hand on that single row replaces it.
+- "Apply to similar" changes only rows without a category or with a rule's or a suggestion's; never a manual or imported category or a split.
+- Transfers between own accounts may carry a category: nothing skips them.
+
+## Suggestions (phase 0.4-4)
+
+A suggestion (CAT-5) proposes, for a counterparty the viewer has categorised before, the category they chose most often, for the rows of that counterparty that still wait for a category. It is computed on every read from the viewer's own data; nothing of another user is used and `GET` writes nothing. Full learning (new rows, backfill) follows in 0.5-6.
+
+**Model** (`categorise.Suggest`):
+- Training rows: the transactions on accounts the viewer holds (read-only too) without split parts, with a category of origin `manual` or `import` (human decisions; categories set by a rule or a suggestion are echoes and do not count) and a counterparty name. They are grouped per counterparty key: the name normalised like rule text (lower case, diacritics folded, white space collapsed), so `Bakkerij De Graankorrel` and `BAKKERIJ  DE GRAANKORREL` are one key.
+- Per key: `seen` = its training rows; the category with most rows wins (a tie: the category of the newest row, by booking date then id); `confidence` = round(100 × the winner's rows / `seen`).
+- Offered when `seen` ≥ 2 (`categorise.MinSeen`), `confidence` ≥ 40 (`categorise.MinConfidence`), `open` ≥ 1, the category exists, and the viewer has not confirmed or dismissed that key and category before. `open` = the rows of the key without a category and without split parts (pending rows and transfers too) on accounts the viewer may **edit**. Only the winning category is offered: a dismissed winner does not make way for the second.
+- Every suggestion waits for confirmation; nothing is applied automatically.
+
+### `GET /api/suggestions` (0.4-4)
+```json
+[ { "counterpartyKey": "bakkerij de graankorrel", "counterparty": "Bakkerij De Graankorrel",
+    "categoryId": 2, "confidence": 92, "seen": 11, "open": 1 } ]
+```
+`counterparty` is the spelling of the newest open row. Order: `confidence` desc, `open` desc, `counterpartyKey`. "N suggesties om te bevestigen" in Meer is the length of this list.
+
+### `POST /api/suggestions/confirm` (0.4-4)
+Body `{"counterpartyKey": "bakkerij de graankorrel", "categoryId": 2}`. In one database transaction: the suggestion is derived again; every open row of the key on the accounts the viewer may edit gets the category through `categorise.Assign` with origin `suggestion` and no rule (a row with any category, and a split row, stays as it is, so a manual, imported or rule category is never replaced); the decision `confirmed` is stored. Answers `200 {"updated": 3}`. A suggestion that is not offered answers `404` "Deze suggestie bestaat niet meer."; one the viewer confirmed already answers `200 {"updated": 0}` (a repeated request). A confirmed suggestion never comes back for that key and category: it categorised the rows that waited then. Rows that arrive later are a rule's job ("Als regel") or, later, learning's (0.5-6).
+
+### `POST /api/suggestions/dismiss` (0.4-4)
+Same body. Stores `dismissed` and answers `204`; the suggestion never comes back for that key and category. Not offered: `404` as for confirm; dismissed already: `204` again (a repeated request).
+
+**Stored** in `category_suggestions` with `user_id` = the viewer: one row per user, key and category, with the decision (`confirmed` | `dismissed`; `open` is never written: open suggestions are computed) and the confidence and `seen` at that moment. Migration 0006 merges duplicates (keeping the lowest id) and adds a unique index on (`user_id`, `counterparty_key`, `category_id`) for user rows. Removing a category with `moveTo` moves the decisions along (on a clash the target's stays), with `moveTo=none` they are deleted. Errors never repeat a key or a counterparty, and none is logged.
 
 ## Planned changes
 - The planning alerts about one account (0.8) carry its `accountId` too, as the account-level sync alerts do since 0.3-5.
 - Transfers to a savings account are shown as "Gespaard" (analysis 5.2), not only as "Overschrijving" (0.6-3).
-- 0.4-3: changing a transaction's category by hand (origin `manual`), "apply to similar and create a rule", notes and splits; `GET /api/transactions` then shows the rule that set a category. A manual category set on a pending row is carried to its booked row.
-- 0.4-4: reordering rules (a permutation of the `priority` values among the viewer's visible rules), the live preview of a rule ("Past op N transacties") and suggestions to confirm.

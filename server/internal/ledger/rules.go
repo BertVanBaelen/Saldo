@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -92,7 +93,11 @@ func (s scanTail) Scan(dest ...any) error { return s.row.Scan(append(dest, s.tai
 // Rules lists the rules the viewer can see, in evaluation order (priority
 // DESC, then the newest first).
 func (s *Store) Rules(ctx context.Context, viewer int64) ([]RuleView, error) {
-	rows, err := s.db.QueryContext(ctx, visibleRules+` ORDER BY rules.priority DESC, rules.id DESC`, viewer)
+	return rulesOf(ctx, s.db, viewer)
+}
+
+func rulesOf(ctx context.Context, q categorise.DB, viewer int64) ([]RuleView, error) {
+	rows, err := q.QueryContext(ctx, visibleRules+` ORDER BY rules.priority DESC, rules.id DESC`, viewer)
 	if err != nil {
 		return nil, err
 	}
@@ -133,40 +138,58 @@ func (s *Store) CreateRule(ctx context.Context, viewer int64, in RuleInput) (Rul
 		return RuleView{}, err
 	}
 	defer tx.Rollback()
-	r := categorise.Rule{UserID: viewer}
-	if in.AccountID.Set && !in.AccountID.Null {
-		a, err := accessOf(ctx, tx, viewer, in.AccountID.V)
-		if err != nil {
-			return RuleView{}, err
-		}
-		if a.permission != "edit" {
-			return RuleView{}, apperr.ErrForbidden
-		}
-		r = categorise.Rule{AccountID: in.AccountID.V}
-	}
-	if err := applyInput(ctx, tx, &r, in); err != nil {
-		return RuleView{}, err
-	}
-	var n int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM rules WHERE account_id IS ? AND user_id IS ?`,
-		nullIfZero(r.AccountID), nullIfZero(r.UserID)).Scan(&n); err != nil {
-		return RuleView{}, err
-	}
-	if n >= categorise.MaxRulesPerOwner {
-		return RuleView{}, apperr.Invalid("Er zijn al 200 regels voor deze eigenaar. Verwijder er eerst een.")
-	}
-	cpText, comm, regex := ruleTexts(r)
-	if err := tx.QueryRowContext(ctx, `INSERT INTO rules (account_id, user_id, priority, counterparty_match, counterparty_exact,
-		    counterparty_iban, communication_contains, communication_regex, amount_min, amount_max, category_id, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-		nullIfZero(r.AccountID), nullIfZero(r.UserID), r.Priority, cpText, r.CounterpartyExact, nullIfEmpty(r.CounterpartyIBAN),
-		comm, regex, r.AmountMin, r.AmountMax, r.CategoryID, viewer).Scan(&r.ID); err != nil {
+	r, err := createRule(ctx, tx, viewer, in)
+	if err != nil {
 		return RuleView{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return RuleView{}, err
 	}
 	return s.ruleView(ctx, viewer, r.ID)
+}
+
+// createRule checks and stores a new rule inside the caller's transaction
+// (CreateRule, "apply to similar").
+func createRule(ctx context.Context, tx *sql.Tx, viewer int64, in RuleInput) (categorise.Rule, error) {
+	r, err := ruleOwner(ctx, tx, viewer, in)
+	if err != nil {
+		return r, err
+	}
+	if err := applyInput(ctx, tx, &r, in); err != nil {
+		return r, err
+	}
+	var n int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM rules WHERE account_id IS ? AND user_id IS ?`,
+		nullIfZero(r.AccountID), nullIfZero(r.UserID)).Scan(&n); err != nil {
+		return r, err
+	}
+	if n >= categorise.MaxRulesPerOwner {
+		return r, apperr.Invalid("Er zijn al 200 regels voor deze eigenaar. Verwijder er eerst een.")
+	}
+	cpText, comm, regex := ruleTexts(r)
+	err = tx.QueryRowContext(ctx, `INSERT INTO rules (account_id, user_id, priority, counterparty_match, counterparty_exact,
+		    counterparty_iban, communication_contains, communication_regex, amount_min, amount_max, category_id, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		nullIfZero(r.AccountID), nullIfZero(r.UserID), r.Priority, cpText, r.CounterpartyExact, nullIfEmpty(r.CounterpartyIBAN),
+		comm, regex, r.AmountMin, r.AmountMax, r.CategoryID, viewer).Scan(&r.ID)
+	return r, err
+}
+
+// ruleOwner is the owner of a new rule: an account the viewer may edit
+// (hidden: apperr.ErrNotFound, read-only: apperr.ErrForbidden) or, without
+// accountId, the viewer.
+func ruleOwner(ctx context.Context, q categorise.DB, viewer int64, in RuleInput) (categorise.Rule, error) {
+	if !in.AccountID.Set || in.AccountID.Null {
+		return categorise.Rule{UserID: viewer}, nil
+	}
+	a, err := accessOf(ctx, q, viewer, in.AccountID.V)
+	if err != nil {
+		return categorise.Rule{}, err
+	}
+	if a.permission != "edit" {
+		return categorise.Rule{}, apperr.ErrForbidden
+	}
+	return categorise.Rule{AccountID: in.AccountID.V}, nil
 }
 
 // UpdateRule changes a visible rule the viewer may edit; its owner stays.
@@ -231,21 +254,8 @@ func (s *Store) ApplyRules(ctx context.Context, viewer int64) (int, error) {
 		return 0, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, `SELECT account_id FROM account_access WHERE user_id = ? AND permission = 'edit'`, viewer)
+	accounts, err := editableAccounts(ctx, tx, viewer)
 	if err != nil {
-		return 0, err
-	}
-	var accounts []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		accounts = append(accounts, id)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
 		return 0, err
 	}
 	total := 0
@@ -259,6 +269,24 @@ func (s *Store) ApplyRules(ctx context.Context, viewer int64) (int, error) {
 	return total, tx.Commit()
 }
 
+// editableAccounts are the accounts the viewer holds with edit permission.
+func editableAccounts(ctx context.Context, q categorise.DB, viewer int64) ([]int64, error) {
+	rows, err := q.QueryContext(ctx, `SELECT account_id FROM account_access WHERE user_id = ? AND permission = 'edit' ORDER BY account_id`, viewer)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var accounts []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, id)
+	}
+	return accounts, rows.Err()
+}
+
 // ruleTexts are the stored counterparty and communication columns.
 func ruleTexts(r categorise.Rule) (cp, contains, regex any) {
 	cp = nullIfEmpty(r.Counterparty)
@@ -269,7 +297,25 @@ func ruleTexts(r categorise.Rule) (cp, contains, regex any) {
 }
 
 // applyInput merges a body into a rule and checks the result.
-func applyInput(ctx context.Context, tx *sql.Tx, r *categorise.Rule, in RuleInput) error {
+func applyInput(ctx context.Context, q categorise.DB, r *categorise.Rule, in RuleInput) error {
+	if err := applyConditions(r, in); err != nil {
+		return err
+	}
+	if in.CategoryID.Set {
+		if in.CategoryID.Null {
+			return apperr.Invalid("Kies een categorie.")
+		}
+		r.CategoryID = in.CategoryID.V
+	}
+	if r.CategoryID == 0 {
+		return apperr.Invalid("Kies een categorie.")
+	}
+	return categoryExists(ctx, q, r.CategoryID)
+}
+
+// applyConditions merges a body's conditions and priority into a rule and
+// checks them.
+func applyConditions(r *categorise.Rule, in RuleInput) error {
 	text := func(o Opt[string], max int, what string, dst *string) error {
 		if !o.Set {
 			return nil
@@ -346,21 +392,141 @@ func applyInput(ctx context.Context, tx *sql.Tx, r *categorise.Rule, in RuleInpu
 		}
 		r.Priority = in.Priority.V
 	}
-	if in.CategoryID.Set {
-		if in.CategoryID.Null {
-			return apperr.Invalid("Kies een categorie.")
+	return nil
+}
+
+// RulePreviewInput is the body of POST /api/rules/preview: a draft as in
+// POST /api/rules (the category may be left out) and the rule it edits.
+type RulePreviewInput struct {
+	RuleInput
+	RuleID Opt[int64] `json:"ruleId"`
+}
+
+// RulePreview is what a draft rule would do (phase 0.4-4).
+type RulePreview struct {
+	Matches int                `json:"matches"`
+	Changes int                `json:"changes"`
+	Skipped categorise.Skipped `json:"skipped"`
+}
+
+// PreviewRule answers what a draft would do to the stored rows of its
+// scope (categorise.Plan), writing nothing. The draft is checked like a new
+// rule, except that it may lack a category; ruleId names the stored rule it
+// edits (it must be the viewer's to edit and have the draft's owner), which
+// then leaves the competition.
+func (s *Store) PreviewRule(ctx context.Context, viewer int64, in RulePreviewInput) (RulePreview, error) {
+	r, err := ruleOwner(ctx, s.db, viewer, in.RuleInput)
+	if err != nil {
+		return RulePreview{}, err
+	}
+	r.ID = categorise.PreviewID
+	if in.RuleID.Set && !in.RuleID.Null {
+		stored, perm, err := rule(ctx, s.db, viewer, in.RuleID.V)
+		if err != nil {
+			return RulePreview{}, err
+		}
+		if perm != "edit" {
+			return RulePreview{}, apperr.ErrForbidden
+		}
+		if stored.AccountID != r.AccountID || stored.UserID != r.UserID {
+			return RulePreview{}, apperr.Invalid("De eigenaar van een regel verandert niet. Maak een nieuwe regel.")
+		}
+		r.ID = stored.ID
+	}
+	if err := applyConditions(&r, in.RuleInput); err != nil {
+		return RulePreview{}, err
+	}
+	if in.CategoryID.Set && !in.CategoryID.Null {
+		if err := categoryExists(ctx, s.db, in.CategoryID.V); err != nil {
+			return RulePreview{}, err
 		}
 		r.CategoryID = in.CategoryID.V
 	}
-	if r.CategoryID == 0 {
-		return apperr.Invalid("Kies een categorie.")
+	res, err := categorise.Plan(ctx, s.db, r, 0)
+	if err != nil {
+		return RulePreview{}, err
 	}
-	var exists bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM categories WHERE id = ?)`, r.CategoryID).Scan(&exists); err != nil {
-		return err
+	return RulePreview{Matches: res.Matches, Changes: len(res.Changes), Skipped: res.Skipped}, nil
+}
+
+// ApplyRule runs one rule the viewer may edit over its scope (Plan, then
+// Apply) in one database transaction and returns how many rows changed.
+func (s *Store) ApplyRule(ctx context.Context, viewer, id int64) (int, categorise.Skipped, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, categorise.Skipped{}, err
 	}
-	if !exists {
-		return apperr.Invalid("Die categorie bestaat niet.")
+	defer tx.Rollback()
+	r, perm, err := rule(ctx, tx, viewer, id)
+	if err != nil {
+		return 0, categorise.Skipped{}, err
 	}
-	return nil
+	if perm != "edit" {
+		return 0, categorise.Skipped{}, apperr.ErrForbidden
+	}
+	res, err := categorise.Plan(ctx, tx, r, 0)
+	if err != nil {
+		return 0, categorise.Skipped{}, err
+	}
+	n, err := categorise.Apply(ctx, tx, res)
+	if err != nil {
+		return 0, categorise.Skipped{}, err
+	}
+	return n, res.Skipped, tx.Commit()
+}
+
+// ReorderRules gives the rules the viewer may edit new priorities in the
+// order of ids (top first), which must be exactly those rules. The current
+// priorities sorted descending, v0 >= v1 >= ..., become strictly decreasing
+// values p_i = max(n-1-i, min(v_i, p_(i-1) - 1)): distinct values keep
+// their place, ties are broken, and none drops below 0 or rises above 1000.
+// Rules the viewer cannot edit keep their priority. It answers the list of
+// GET /api/rules.
+func (s *Store) ReorderRules(ctx context.Context, viewer int64, ids []int64) ([]RuleView, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	list, err := rulesOf(ctx, tx, viewer)
+	if err != nil {
+		return nil, err
+	}
+	current := map[int64]int{}
+	var values []int // priority DESC: the list's order
+	for _, v := range list {
+		if v.Permission == "edit" {
+			current[v.ID] = v.Priority
+			values = append(values, v.Priority)
+		}
+	}
+	stale := apperr.Invalid("De lijst met regels is veranderd. Laad ze opnieuw.")
+	if len(ids) != len(values) {
+		return nil, stale
+	}
+	seen := map[int64]bool{}
+	for _, id := range ids {
+		if _, ok := current[id]; !ok || seen[id] {
+			return nil, stale
+		}
+		seen[id] = true
+	}
+	n := len(ids)
+	if n > 1001 {
+		return nil, apperr.Invalid("Er zijn te veel regels om te ordenen.")
+	}
+	p := math.MaxInt
+	for i, id := range ids {
+		p = max(n-1-i, min(values[i], p-1))
+		if p == current[id] {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE rules SET priority = ? WHERE id = ?`, p, id); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return s.Rules(ctx, viewer)
 }

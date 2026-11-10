@@ -7,6 +7,7 @@ import type {
   BalancePoint,
   ApiErrorBody,
   BankLinkResult,
+  CategoryPatch,
   Connection,
   Device,
   EnableBanking,
@@ -15,13 +16,25 @@ import type {
   LoginChallenge,
   Me,
   NewAccount,
+  NewCategory,
   Preferences,
   Redeem,
   RemovedLink,
+  Rule,
+  RuleApplyResult,
+  RuleInput,
+  RulePreview,
+  SimilarPreview,
+  SimilarResult,
+  SplitPartInput,
+  Suggestion,
   SyncStatus,
   TokenInfo,
+  Transaction,
   TransactionPage,
+  TransactionPatch,
   TransactionQuery,
+  TreeCategory,
   User,
   UserList,
 } from './types';
@@ -138,6 +151,34 @@ export const api = {
   /** Manual accounts only. */
   deleteAccount: (id: number) => request<null>('DELETE', '/api/accounts/' + id),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
+  updateTransaction: (id: number, patch: TransactionPatch) => request<Transaction>('PATCH', '/api/transactions/' + id, { body: patch }),
+  /** What "apply to similar" would do for the row's current category; writes nothing. */
+  similarPreview: (id: number, signal?: AbortSignal) => request<SimilarPreview>('GET', '/api/transactions/' + id + '/similar', { signal }),
+  /** Keeps the row's category, creates (or reuses) the rule for its counterparty and applies it. */
+  applySimilar: (id: number) => request<SimilarResult>('POST', '/api/transactions/' + id + '/similar', { body: {} }),
+  /** 2 to 10 parts that add up to the amount; replaces earlier parts. */
+  splitTransaction: (id: number, parts: SplitPartInput[]) => request<Transaction>('PUT', '/api/transactions/' + id + '/split', { body: { parts } }),
+  /** Removes the parts; the row gets its earlier category back. */
+  unsplitTransaction: (id: number) => request<Transaction>('DELETE', '/api/transactions/' + id + '/split'),
+  categories: (signal?: AbortSignal) => request<TreeCategory[]>('GET', '/api/categories', { signal }),
+  createCategory: (body: NewCategory) => request<TreeCategory>('POST', '/api/categories', { body }),
+  updateCategory: (id: number, patch: CategoryPatch) => request<TreeCategory>('PATCH', '/api/categories/' + id, { body: patch }),
+  /** Removes it for everyone; its transactions, rules and suggestions go to `moveTo` (same type) or are cleared. */
+  deleteCategory: (id: number, moveTo: number | 'none') => request<null>('DELETE', '/api/categories/' + id + '?moveTo=' + moveTo),
+  /** The rules the viewer can see, in evaluation order (names the rule behind a category). */
+  rules: (signal?: AbortSignal) => request<Rule[]>('GET', '/api/rules', { signal }),
+  createRule: (body: RuleInput) => request<Rule>('POST', '/api/rules', { body }),
+  updateRule: (id: number, patch: RuleInput) => request<Rule>('PATCH', '/api/rules/' + id, { body: patch }),
+  deleteRule: (id: number) => request<null>('DELETE', '/api/rules/' + id),
+  /** The live preview of a draft; `ruleId` is the rule being edited. Writes nothing. */
+  previewRule: (body: RuleInput & { ruleId?: number }, signal?: AbortSignal) => request<RulePreview>('POST', '/api/rules/preview', { body, signal }),
+  applyRule: (id: number) => request<RuleApplyResult>('POST', '/api/rules/' + id + '/apply'),
+  /** Every rule the viewer can edit, top first; answers the full list of GET /api/rules. */
+  reorderRules: (ids: number[]) => request<Rule[]>('PUT', '/api/rules/order', { body: { ids } }),
+  suggestions: (signal?: AbortSignal) => request<Suggestion[]>('GET', '/api/suggestions', { signal }),
+  confirmSuggestion: (counterpartyKey: string, categoryId: number) =>
+    request<{ updated: number }>('POST', '/api/suggestions/confirm', { body: { counterpartyKey, categoryId } }),
+  dismissSuggestion: (counterpartyKey: string, categoryId: number) => request<null>('POST', '/api/suggestions/dismiss', { body: { counterpartyKey, categoryId } }),
   alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),
   /** Removes the viewer's bank link; `delete` also deletes the accounts only it feeds and only the viewer holds. */

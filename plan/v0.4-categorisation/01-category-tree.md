@@ -35,5 +35,5 @@ Server side; the contract is in [docs/api.md](../../docs/api.md), "Categories". 
 4. **Removal** re-points everything in one database transaction instead of relying on the foreign keys (which would delete rules, splits and budgets and lift children to the top): transactions of every user keep their origin and rule, splits, rules, budgets (`UPDATE OR IGNORE`), mappings and suggestions follow. `none` uncategorises, deletes the category's rules, budgets and suggestions and turns mappings into "leave uncategorised"; refused while a split part uses it. This is the merge 0.5-3 needs. Audit-logged as `category_removed` with ids only.
 5. **No reorder API:** a new category goes last among its siblings.
 
-## Open
-- The default set: the design's names, or the names of the real Bilance export (two levels such as `Wonen / Energie, nutsvoorzieningen`, `Eten & Drinken / Boodschappen`), so 0.5-3 maps mostly by equal name. Asked on 10 Nov 2026; the seed runs once, so decide before the live add-on runs 0.4.
+## Decided (10 Nov 2026)
+- The default set stays the mockup tree, as built. The 0.5 import maps Bilance's two-level categories onto it ([0.5-3](../v0.5-bilance-import/03-category-mapping.md)); merging is the category removal with `moveTo`.

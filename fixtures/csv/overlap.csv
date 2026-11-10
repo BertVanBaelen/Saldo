@@ -1,0 +1,11 @@
+Rekening;Boekdatum;Valutadatum;Referentie;Beschrijving;Bedrag;Munt;Verrichtingsdatum;Rekening tegenpartij;Naam tegenpartij;Mededeling
+;2026-10-01;2026-10-01;20261001-0001;Doorlopende opdracht;-1005,00;EUR;2026-10-01;BE71 0961 2345 6769;Immo Verhaeghe;Huur oktober 2026
+;2026-10-02;2026-10-02;20261002-0001;Inkomende overschrijving;2850,00;EUR;2026-10-02;BE62 5100 0754 7061;Werkgever NV;Loon oktober
+;2026-10-05;2026-10-06;20261005-0001;Betaling met bankkaart;-41,20;EUR;2026-10-04;;Lidl;Bancontact · Lidl Gent
+;2026-10-09;2026-10-10;20261009-0001;Betaling met bankkaart;-12,50;EUR;2026-10-08;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;2026-10-10;2026-10-10;20261010-0001;Inkomende overschrijving;50,00;EUR;2026-10-10;;CM Ziekenfonds;Terugbetaling raadpleging
+;2026-10-12;2026-10-12;20261012-0001;Europese domiciliëring;-13,99;EUR;2026-10-12;;Netflix;Netflix.com
+;2026-10-14;2026-10-15;20261014-0001;Betaling met bankkaart;-19,60;EUR;2026-10-13;;NMBS;Treinticket Gent – Brussel
+;2026-10-15;2026-10-16;20261015-0001;Betaling met bankkaart;-39,80;EUR;2026-10-14;;Delhaize;Bancontact · Delhaize Gent
+;2026-10-17;2026-10-17;20261017-0001;Europese domiciliëring;-11,99;EUR;2026-10-17;;Spotify;Spotify Premium
+;2026-10-21;2026-10-22;20261021-0001;Betaling met bankkaart;-68,75;EUR;2026-10-20;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort

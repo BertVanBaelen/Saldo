@@ -171,6 +171,15 @@ func TestOutsideDemoModeEverythingButHealthIs401(t *testing.T) {
 		{"DELETE", "/api/users/invitations/1", ""},
 		{"POST", "/api/users/1/password-reset", ""},
 		{"GET", "/api/auth/token/../../me", ""},
+		{"GET", "/api/categories", ""},
+		{"POST", "/api/categories", `{"name":"x","type":"expense"}`},
+		{"PATCH", "/api/categories/1", `{"name":"x"}`},
+		{"DELETE", "/api/categories/1?moveTo=none", ""},
+		{"GET", "/api/rules", ""},
+		{"POST", "/api/rules", `{"counterparty":"x","categoryId":1}`},
+		{"POST", "/api/rules/apply", ""},
+		{"PATCH", "/api/rules/1", `{"priority":1}`},
+		{"DELETE", "/api/rules/1", ""},
 	}
 	for _, c := range calls {
 		r := do(t, h, c.method, c.path, c.body)

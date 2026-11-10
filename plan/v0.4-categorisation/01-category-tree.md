@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.4 Categorisation](README.md) |
-| Status | planned |
+| Status | built (10 Nov 2026), to verify: server only, the screen is 0.4-4 |
 | Size | S |
 | Features | CAT-1 |
 | Concepts | [category](../../analysis/concepts/category.md) |
@@ -21,3 +21,19 @@ One category tree that all users share, with names, types and colours but no amo
 
 ## Done when
 The default tree is there after install and can be edited.
+
+## Built (10 Nov 2026)
+Server side; the contract is in [docs/api.md](../../docs/api.md), "Categories". No web change in this phase.
+- **Table:** the existing `categories` table (no migration for the tree). Default set seeded in Go, `categorise.SeedDefaults` (`server/internal/categorise`), from main after the migrations and from the demo seed: once, only on an empty table, marked with `app_settings.categories_seeded`. The set is one Go slice, `categorise.Defaults`, the design's TREE: expense tops 1–6 (Wonen, Boodschappen, Vrije tijd, Vervoer, Abonnementen, Overig), income tops 7–10 (Salaris, Terugbetaling, Bijdrage, Overig inkomen, `soft`), then the subcategories. The demo uses the same tree; its history stays on the top categories, so its numbers did not change.
+- **Endpoints:** `GET /api/categories` (flat, tree order, `count` = the viewer's own transactions directly in the category), `POST`, `PATCH /api/categories/{id}`, `DELETE /api/categories/{id}?moveTo=<id>|none`.
+- **Tests:** seeding (ids, idempotent, no resurrection, marker only on an existing tree), the tree API (validation, inheritance, recolour cascade, moves, names with commas and `&`), removal across both users with every dependent table, atomic removal, counts per viewer, `401` and CSRF.
+
+## Decisions (10 Nov 2026)
+1. **Two levels**, a subcategory has its parent's type and colour (stored on the sub row too and kept equal). Expense tops take `c1`–`c6`, income is `soft`. A category with subcategories cannot move under another one or be removed. The analysis states no depth; the design ("Saldo heeft twee niveaus") and Bilance have two. No conflict found.
+2. **Names:** trimmed, white space collapsed, 1–60 characters, no control characters; punctuation is data. Unique per parent, case-insensitive (the existing index; so an income top and an expense top cannot share a name, where the design compared per type too).
+3. **Who:** anyone signed in adds, renames, moves, recolours and removes, for everyone ("Iedereen ziet dezelfde categorieën"). Nothing in a response, error or the audit log tells a user about another user's transactions.
+4. **Removal** re-points everything in one database transaction instead of relying on the foreign keys (which would delete rules, splits and budgets and lift children to the top): transactions of every user keep their origin and rule, splits, rules, budgets (`UPDATE OR IGNORE`), mappings and suggestions follow. `none` uncategorises, deletes the category's rules, budgets and suggestions and turns mappings into "leave uncategorised"; refused while a split part uses it. This is the merge 0.5-3 needs. Audit-logged as `category_removed` with ids only.
+5. **No reorder API:** a new category goes last among its siblings.
+
+## Open
+- The default set: the design's names, or the names of the real Bilance export (two levels such as `Wonen / Energie, nutsvoorzieningen`, `Eten & Drinken / Boodschappen`), so 0.5-3 maps mostly by equal name. Asked on 10 Nov 2026; the seed runs once, so decide before the live add-on runs 0.4.

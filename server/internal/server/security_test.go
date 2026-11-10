@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/bank"
+	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 )
 
@@ -179,6 +181,28 @@ func TestPrivacySweep(t *testing.T) {
 	}
 	manual := id(decode[ledger.Account](t, r.body).ID)
 	bertImport := e.importOK(e.bert, bert.Accounts[0].ID, csvHeader+csvCoffee).Batch
+	// Bert's rules (0.4-2): a user rule and a rule on his account, applied.
+	if err := categorise.SeedDefaults(context.Background(), e.db); err != nil {
+		t.Fatal(err)
+	}
+	rule := func(user int64, body string) string {
+		t.Helper()
+		r := e.as(user, "POST", "/api/rules", body)
+		if r.status != http.StatusCreated {
+			t.Fatalf("rule: %d %s", r.status, r.body)
+		}
+		return id(decode[ledger.RuleView](t, r.body).ID)
+	}
+	userRule := rule(e.bert, `{"counterparty":"Geheimwinkel","counterpartyIban":"BE11000000000071","categoryId":2}`)
+	accRule := rule(e.bert, `{"accountId":`+acc1+`,"counterparty":"Werkgever","categoryId":7}`)
+	if r := e.as(e.bert, "POST", "/api/rules/apply", ""); !strings.Contains(r.body, `{"updated":1}`) {
+		t.Fatalf("Bert's apply: %s", r.body)
+	}
+	// Partner's own rules may match Bert's rows by name; they must never reach them.
+	rule(e.partner, `{"counterparty":"Werkgever","categoryId":8}`)
+	rule(e.partner, `{"counterparty":"markt","categoryId":2}`)
+	bertRows := e.query(`SELECT id, COALESCE(category_id, '-'), COALESCE(category_origin, '-'), COALESCE(rule_id, '-')
+		FROM transactions t WHERE account_id IN (` + acc1 + `, ` + acc2 + `) ORDER BY id`)
 	cases := []struct {
 		method, path, body string
 		status             int // 200 = must answer, without Bert's data
@@ -216,16 +240,30 @@ func TestPrivacySweep(t *testing.T) {
 		{"DELETE", "/api/users/invitations/1", "", 403},
 		{"POST", "/api/users/" + id(e.bert) + "/password-reset", "", 403},
 		{"POST", "/api/bank/callback", jsonBody(map[string]string{"code": "code-1", "state": e.bank.states[0]}), 400},
+		{"GET", "/api/categories", "", 200},
+		{"GET", "/api/rules", "", 200},
+		{"POST", "/api/rules/apply", "", 200},
+		{"POST", "/api/rules", `{"accountId":` + acc1 + `,"counterparty":"x","categoryId":2}`, 404},
+		{"POST", "/api/rules", `{"accountId":` + acc2 + `,"counterparty":"x","categoryId":2}`, 404},
+		{"POST", "/api/rules", `{"accountId":` + manual + `,"counterparty":"x","categoryId":2}`, 404},
+		{"PATCH", "/api/rules/" + userRule, `{"priority":1}`, 404},
+		{"PATCH", "/api/rules/" + accRule, `{"counterparty":"Gezien"}`, 404},
+		{"DELETE", "/api/rules/" + userRule, "", 404},
+		{"DELETE", "/api/rules/" + accRule, "", 404},
+		{"DELETE", "/api/categories/999?moveTo=none", "", 404},
 	}
 	secrets := []string{ibanPersonal, ibanShared, "7034", "6769", "Zichtrekening", "Gezinsrekening",
 		"Koffiebar", "Bakkerij", "Werkgever NV", "Loon", "Supermarkt", "196882", "94608", "150000", "1230", "8642",
-		"bert@", "Chrome op Windows", "Spaarpot", "1250000", "5615"}
+		"bert@", "Chrome op Windows", "Spaarpot", "1250000", "5615", "Geheimwinkel", "BE11", "0071"}
 	for _, c := range cases {
 		r := e.as(e.partner, c.method, c.path, c.body)
 		if r.status != c.status {
 			t.Errorf("%s %s: %d, want %d (%s)", c.method, c.path, r.status, c.status, r.body)
 		}
 		for _, s := range secrets {
+			if s == "Supermarkt" && c.path == "/api/categories" {
+				continue // also a name of the shared default tree, which everyone sees
+			}
 			if strings.Contains(r.body, s) {
 				t.Errorf("%s %s shows Bert's %q: %s", c.method, c.path, s, r.body)
 			}
@@ -285,6 +323,28 @@ func TestPrivacySweep(t *testing.T) {
 	}
 	if n := len(decode[[]ledger.Account](t, e.as(e.bert, "GET", "/api/accounts", "").body)); n != 3 {
 		t.Errorf("Bert sees %d accounts after Partner registered his IBANs", n)
+	}
+	// Rules and categories: Bert's rules and rows are untouched, Partner's
+	// list holds only her rules, and her counts only her rows.
+	if got := e.query(`SELECT id, COALESCE(category_id, '-'), COALESCE(category_origin, '-'), COALESCE(rule_id, '-')
+		FROM transactions t WHERE account_id IN (` + acc1 + `, ` + acc2 + `) ORDER BY id`); got != bertRows {
+		t.Errorf("Partner changed Bert's categories: %s, was %s", got, bertRows)
+	}
+	if e.count(`SELECT COUNT(*) FROM rules WHERE user_id = ? OR account_id = ?`, e.bert, bert.Accounts[0].ID) != 2 {
+		t.Error("Partner changed Bert's rules")
+	}
+	for _, v := range decode[[]ledger.RuleView](t, e.as(e.partner, "GET", "/api/rules", "").body) {
+		if v.AccountID != nil || e.count(`SELECT user_id FROM rules WHERE id = ?`, v.ID) != int(e.partner) {
+			t.Errorf("Partner sees rule %d", v.ID)
+		}
+	}
+	own := 0
+	for _, c := range decode[[]ledger.TreeCategory](t, e.as(e.partner, "GET", "/api/categories", "").body) {
+		own += c.Count
+	}
+	if want := e.count(`SELECT COUNT(*) FROM transactions t JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?
+		WHERE t.category_id IS NOT NULL`, e.partner); own != want || e.count(`SELECT COUNT(*) FROM transactions WHERE category_id IS NOT NULL`) == want {
+		t.Errorf("Partner's counts add up to %d, her own categorised rows are %d", own, want)
 	}
 }
 

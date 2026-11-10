@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/bank"
+	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
 )
 
 // NewTransaction is a bank transaction ready to be stored on an account.
@@ -19,6 +20,12 @@ type NewTransaction struct {
 	ImportBatch  int64 // the CSV import that brought it, 0 otherwise
 	DedupeKey    string
 	Occurrence   int
+	// The category it is stored with; 0 and "" for none. tagByRules
+	// leaves a row that already has one alone (a future import with
+	// CategoryOrigin "import").
+	CategoryID     int64
+	CategoryOrigin string
+	RuleID         int64
 	bank.Transaction
 }
 
@@ -71,12 +78,14 @@ func InsertTransactions(ctx context.Context, db execer, rows []NewTransaction) (
 		res, err := db.ExecContext(ctx, `
 			INSERT INTO transactions (account_id, amount, currency, booking_date, value_date,
 			    counterparty_name, counterparty_iban, communication, status, external_id,
-			    dedupe_key, occurrence, source_connection_id, import_batch_id, raw_payload)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			    dedupe_key, occurrence, source_connection_id, import_batch_id, raw_payload,
+			    category_id, category_origin, rule_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (account_id, dedupe_key, occurrence) DO NOTHING`,
 			r.AccountID, r.Amount, currencyOr(r.Currency), r.BookingDate, nullIfEmpty(r.ValueDate),
 			r.CounterpartyName, nullIfEmpty(r.CounterpartyIBAN), r.Communication, r.Status,
-			nullIfEmpty(r.EntryReference), r.DedupeKey, r.Occurrence, nullIfZero(r.ConnectionID), nullIfZero(r.ImportBatch), nullIfEmpty(string(r.Raw)))
+			nullIfEmpty(r.EntryReference), r.DedupeKey, r.Occurrence, nullIfZero(r.ConnectionID), nullIfZero(r.ImportBatch), nullIfEmpty(string(r.Raw)),
+			nullIfZero(r.CategoryID), nullIfEmpty(r.CategoryOrigin), nullIfZero(r.RuleID))
 		if err != nil {
 			return inserted, err
 		}
@@ -119,7 +128,9 @@ func nullIfZero(n int64) any {
 // fetch succeeded: a failed or partial fetch must change nothing.
 //
 // A category or note set on a deleted pending row goes with it; none can be
-// set today. Carrying it over to the booked row is for 0.4 to decide.
+// set by hand before 0.4-3, which must carry a manual one over to the booked
+// row (plan 0.4-3). New rows get the category of the first matching rule of
+// the account (tagByRules); stored rows are never re-evaluated here.
 func StoreFetch(ctx context.Context, tx *sql.Tx, accountID, connectionID int64, from string, rows []NewTransaction) (int, error) {
 	type slot struct {
 		key string
@@ -191,7 +202,30 @@ func StoreFetch(ctx context.Context, tx *sql.Tx, accountID, connectionID int64, 
 		}
 		keep = append(keep, r)
 	}
+	if err := tagByRules(ctx, tx, accountID, keep); err != nil {
+		return 0, err
+	}
 	return InsertTransactions(ctx, tx, keep)
+}
+
+// tagByRules gives each new row of an account without a category the
+// category of the first rule that matches it (origin "rule"), pending rows
+// too. It runs before the insert, inside the caller's transaction.
+func tagByRules(ctx context.Context, tx *sql.Tx, accountID int64, rows []NewTransaction) error {
+	rules, err := categorise.RulesFor(ctx, tx, accountID)
+	if err != nil || len(rules) == 0 {
+		return err
+	}
+	for i, r := range rows {
+		if r.CategoryID != 0 {
+			continue
+		}
+		if m := categorise.Match(rules, categorise.Candidate{Counterparty: r.CounterpartyName,
+			CounterpartyIBAN: r.CounterpartyIBAN, Communication: r.Communication, Amount: r.Amount}); m != nil {
+			rows[i].CategoryID, rows[i].CategoryOrigin, rows[i].RuleID = m.CategoryID, "rule", m.ID
+		}
+	}
+	return nil
 }
 
 // importAllowance is the sync's side of the CSV import (0.3-6): a bank row

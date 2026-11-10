@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (0.4)
+- Categories (server only, no screen yet): one category tree for everyone, two levels, with the Dutch default set added once on the first start of this version (Wonen, Boodschappen, Vrije tijd, Vervoer, Abonnementen, Overig with their subcategories; Salaris, Terugbetaling, Bijdrage, Overig inkomen). Add, rename, move, recolour and remove; removing asks where its transactions go (another category, which is also how two categories are merged, or uncategorised).
+- Rules (server only): categorise by counterparty (contains or equals), counterparty IBAN, communication (contains or a regular expression) and amount range, per account or for your own personal accounts, with a priority. New synced and imported transactions get the category of the first matching rule; "apply" runs the rules over what is stored. A category you chose yourself or one from an import is never overwritten. The update adds two columns to the rules table and changes no existing data.
+
 ## 0.3.0
 - Transacties: every synced transaction by day with the account colour and pending rows, search on name, amount and communication, filters for account, period and category, "Oudere transacties laden", and a read-only detail.
 - Rekeningen: name, colour and minimum buffer per account, an account page with balance history, settings, sync status and recent transactions, manual accounts (savings, or a current account without a bank link) with a hand-updated balance and its history, "Rekening toevoegen", and removing your bank link while keeping or deleting the history. Removing a link waits at most 30 seconds for a running sync, then answers that it is busy and removes nothing.

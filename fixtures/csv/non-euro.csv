@@ -1,0 +1,11 @@
+Rekening;Boekdatum;Valutadatum;Referentie;Beschrijving;Bedrag;Munt;Verrichtingsdatum;Rekening tegenpartij;Naam tegenpartij;Mededeling
+;01.08.2025;01.08.2025;20250801-0001;Doorlopende opdracht;-1.005,00;EUR;01.08.2025;BE71 0961 2345 6769;Immo Verhaeghe;Huur augustus 2025
+;04.08.2025;05.08.2025;20250804-0001;Betaling met bankkaart;-66,18;EUR;03.08.2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;06.08.2025;07.08.2025;20250806-0001;Betaling met bankkaart;-145,00;USD;05.08.2025;;Booking.com;Hotel Lisboa 3 nachten
+;08.08.2025;09.08.2025;20250808-0001;Betaling met bankkaart;-52,40;EUR;07.08.2025;;Delhaize;Bancontact · Delhaize Gent
+;11.08.2025;12.08.2025;20250811-0001;Betaling met bankkaart;-31,75;EUR;10.08.2025;;Lidl;Bancontact · Lidl Gent
+;14.08.2025;15.08.2025;20250814-0001;Betaling met bankkaart;-23,99;GBP;13.08.2025;;Amazon UK;Order 114-5521
+;18.08.2025;19.08.2025;20250818-0001;Betaling met bankkaart;-19,60;EUR;17.08.2025;;NMBS;Treinticket Gent – Brussel
+;21.08.2025;22.08.2025;20250821-0001;Betaling met bankkaart;-24,00;EUR;20.08.2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;25.08.2025;26.08.2025;20250825-0001;Betaling met bankkaart;-8,95;EUR;24.08.2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;29.08.2025;29.08.2025;20250829-0001;Europese domiciliëring;-145,00;EUR;29.08.2025;;Luminus;Voorschot energie augustus 2025

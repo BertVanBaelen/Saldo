@@ -197,7 +197,7 @@ Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-
 ### `POST /api/users/{id}/password-reset` (admin)
 `204`; e-mails that user a reset link (1 hour, replacing an earlier unused one) and signs out none of their devices until it is used. An unknown user answers `404`; `503` as for invitations.
 
-Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window), a bank link removed, a manual account deleted, a CSV import done (`import_done`: account, batch and counts, never file content). IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
+Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window), a bank link removed, a manual account deleted, a CSV import done (`import_done`: account, batch and counts, never file content), a category removed (`category_removed`: the category's id and `moveTo`, never counts). Rules are not audit-logged. IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
 
 ## Bank link (phase 0.2-6)
 
@@ -311,6 +311,89 @@ Imported rows are stored as booked rows through the sync's key path, with the ba
 - **At import**, a row counts as `present` and is not stored when the account already holds a booked row of the same content: booking date, amount, counterparty and communication all equal (the texts compared without regard to case or spacing), from any source, the sync or an earlier import. It is count-aware: k equal rows in the file against m stored rows make the first min(k, m) present and import the rest, so a second purchase of the same amount on one day is not lost. Pending rows are not compared: a pending row of the same content does not block the booked one, which is stored next to it; the sync removes the pending row once the bank no longer reports it as pending. Fuzzy matching (a day apart, similar names) and an import cutoff are not part of 0.3 (0.5-4).
 - **In the sync**, for an account that has an import batch which brought rows, a booked bank row with the same content as a stored row is not stored again, also when its entry reference is new. Per content group of a fetch, only as many rows with a new key go in as the fetch holds more than the account stores of that content: repeating a fetch adds nothing, and a fetch with one more stores exactly that one. Accounts without imports, and pending rows, sync as before.
 
+## Categories (phase 0.4-1)
+
+One category tree shared by every user (analysis 4.2): names, types and colours, never amounts. Anyone signed in may add, rename, move, recolour and remove a category, for everyone. Counts only ever cover the viewer's own transactions.
+
+**Default tree.** On the first start of a database without categories the server adds the Dutch default set of the design (`categorise.Defaults`): expense tops Wonen (`c1`: Huur, Energie, Internet en tv, Verzekeringen), Boodschappen (`c2`: Supermarkt, Bakker), Vrije tijd (`c3`: Uitgaan, Sport, Cultuur, Vakantie), Vervoer (`c4`: Brandstof, Openbaar vervoer, Onderhoud), Abonnementen (`c5`: Streaming, Telefoon), Overig (`c6`); income tops Salaris, Terugbetaling, Bijdrage, Overig inkomen (`soft`). Ids: the expense tops 1–6, the income tops 7–10, then the subcategories in that order. It happens once (`app_settings.categories_seeded`): a database that already has categories only gets the marker, and removing every category never brings the defaults back. Demo mode uses the same tree.
+
+**Shape.** Two levels: a top category and its subcategories. A subcategory has the `type` and `colour` of its parent. Expense tops take one of `c1` … `c6` (a colour may repeat), income is always `soft`.
+
+### `GET /api/categories` (0.4-1)
+The whole tree, flat, in tree order: the expense tops by `sort_order`, each followed by its subcategories, then the income tops likewise.
+```json
+[
+  { "id": 1, "name": "Wonen", "type": "expense", "colour": "c1", "parentId": null, "count": 0 },
+  { "id": 11, "name": "Huur", "type": "expense", "colour": "c1", "parentId": 1, "count": 12 }
+]
+```
+`type`: `expense` | `income`. `count` is the number of the **viewer's own** transactions (on accounts the viewer holds) whose category is this one, not including its subcategories nor split parts; another user's transactions never count.
+
+### `POST /api/categories` (0.4-1)
+A top category `{"name": "Huisdieren", "type": "expense", "colour": "c3"}` (`colour` optional: `c6` for expense, `soft` for income) or a subcategory `{"name": "Dierenarts", "parentId": 3}` (`type` or `colour` with `parentId` answers `400`). Answers `201` with the category as in the list (`count` 0). It goes last among its siblings; there is no reorder API.
+
+### `PATCH /api/categories/{id}` (0.4-1)
+Any of `name`, `parentId` (a top category's id, or `null` to become a top category), `type` (only for a category that is, or with `parentId: null` becomes, a top category without subcategories; a new type takes its default colour unless `colour` is sent too) and `colour` (top expense categories only). Moving under a parent adopts its type and colour (a moved subcategory may change type, as the design's "Plaats" select allows). Recolouring a top category recolours its subcategories. Answers the category; an unknown id `404`.
+
+**Names** are trimmed with runs of white space collapsed, 1–60 characters, no control characters. Commas, ampersands, slashes, quotes and any other punctuation are plain data (Bilance's names look like `Energie, nutsvoorzieningen` and `Eten & Drinken`): never split, stripped or refused. A name is unique per parent, case-insensitively (two top categories share the parent "none", whatever their type).
+
+**Errors** (`400 invalid`, Dutch): an empty, too long or control-character name; a name its parent already has; a parent that does not exist, is itself a subcategory or is the category itself; moving a category that has subcategories under another one ("Verplaats eerst de subcategorieën. Saldo heeft twee niveaus."); a type change of a subcategory or of a top with subcategories; a colour for a subcategory, a non-`soft` colour for income or an unknown one; an unknown field.
+
+### `DELETE /api/categories/{id}?moveTo=<categoryId>|none` (0.4-1)
+Removes a category for everyone and says where everything that used it goes; `moveTo` is required (`400` without it, like `history=` of a bank link). One database transaction, then `204`; audit-logged (`category_removed`, ids only). A category with subcategories answers `400` ("Verwijderen kan pas als er geen subcategorieën meer onder hangen."); an unknown one `404`.
+- `moveTo=<id>`: a category that exists, differs and has the same type (`400` otherwise). The transactions of **every user** move to it, keeping their origin (a manual choice stays manual, a rule's stays the rule's with its `rule_id`); split parts, rules, budgets (one per account, category and month: on a clash the target's budget stays and the other is dropped), Bilance category mappings and suggestions move with them. The viewer is never told how many transactions of others moved.
+- `moveTo=none`: the transactions become uncategorised (category, origin and rule cleared), the category's rules, budgets and suggestions are deleted and its mappings become "leave uncategorised". Refused (`400`) while a split part uses the category: a split part cannot be uncategorised.
+
+This is also the **merge** of two categories (phase 0.5-3 maps Bilance categories onto app categories with it).
+
+## Rules (phase 0.4-2)
+
+A rule gives transactions a category without the user doing anything (analysis 4.2). Conditions, all optional and ANDed, at least one required:
+- `counterparty` (at most 140 characters): `counterpartyExact: false` means "contains", `true` "equals". Compared on normalised text: lower case, Latin diacritics folded (`é` is `e`), runs of white space collapsed and trimmed, so `Winkel Voorbeeld   Antwerpen` contains `winkel voorbeeld`.
+- `counterpartyIban`: equal to the transaction's counterparty IBAN. Stored normalised (upper case, letters and digits); any value of 8–34 letters and digits starting with two letters is accepted, without a check-digit test. Shown masked like every IBAN (`"••••"` for a value shorter than an IBAN).
+- `communication` (at most 200 characters): with `communicationRegex: false` "contains" (normalised as the counterparty), with `true` a Go RE2 regular expression, matched case-insensitively against the communication with its white space collapsed (not diacritic-folded). A pattern that does not compile answers `400` ("Deze reguliere expressie klopt niet."). RE2 runs in time linear in the input (no catastrophic backtracking); a rule reads at most the first 1 000 characters of a communication.
+- `amountMin` / `amountMax`: cents, compared with the **absolute** amount (as the design: amounts without sign), inclusive, both ≥ 0 and `amountMin ≤ amountMax`.
+
+**Owner.** `accountId`: an account rule, seen by every member of the account and changed by those with `permission: edit`; `accountId: null` (or left out): a user rule of the viewer, seen and changed only by the viewer. At most 200 rules per owner.
+
+**Which rules apply to a transaction**: the rules of its account, plus the user rules of the account's member when the account has exactly one member (a personal account). A user rule never applies to an account with more than one member, and the rules of another user never apply to, nor show in, the viewer's data.
+
+**Priority** `priority`: an integer 0–1000, default 0. A **higher** priority wins; on a tie the newest rule (highest id). The evaluation order is `priority` DESC, `id` DESC everywhere.
+
+**Precedence** (analysis 4.2): a manual choice > the highest-priority matching rule > a learned suggestion. A transaction holds one category, the same for every member of its account, with its origin (`manual` | `rule` | `suggestion` | `import`) and the rule that set it. Rules only ever change a transaction without split parts that has no category or one set by a rule or a suggestion: a manual choice, a category from a Bilance import (`import`) and a split are never touched.
+
+**When rules run**
+- On every **new** transaction, before it is stored: in a sync (the nightly job, "Sync now", the link callback, also pending rows) and in a CSV import (also in the preview, which stores nothing). Stored transactions are not re-evaluated by a sync or an import.
+- On demand: `POST /api/rules/apply`.
+- Creating, changing or deleting a rule does not run it. Deleting a rule keeps the categories it set (origin stays `rule`, `rule_id` becomes `null`).
+
+### `GET /api/rules` (0.4-2)
+The rules the viewer can see, in evaluation order:
+```json
+[
+  { "id": 3, "accountId": 4, "priority": 5, "counterparty": "Colruyt", "counterpartyExact": false,
+    "counterpartyIban": null, "communication": null, "communicationRegex": false,
+    "amountMin": 2000, "amountMax": 20000, "categoryId": 2, "permission": "edit" }
+]
+```
+`permission` is the viewer's on the account (`read` for a read-only member, who sees the rule but cannot change it); a user rule is always `edit`.
+
+### `POST /api/rules` (0.4-2)
+Body with the fields above (except `id` and `permission`); `categoryId` is required and must exist. Answers `201` with the rule. Another user's account (or an unknown one) answers `404`, a read-only account `403`.
+
+### `PATCH /api/rules/{id}` (0.4-2)
+Any of the fields; a field left out stays, `null` (or `""` for a text) clears that condition, and at least one condition must remain. The owner (`accountId`) cannot change (`400`). A rule the viewer cannot see answers `404`, one of a read-only account `403`. Answers the rule.
+
+### `DELETE /api/rules/{id}` (0.4-2)
+`204`; `404` and `403` as for `PATCH`.
+
+### `POST /api/rules/apply` (0.4-2)
+No body. Runs the rules over the stored transactions of every account the viewer holds with `permission: edit` and answers `200 {"updated": 3}`: the number of the viewer's transactions whose category changed. A transaction no rule matches keeps what it has (it is never cleared). Running it again answers `{"updated": 0}`.
+
+**Errors** (`400 invalid`, Dutch): no condition, a text or pattern too long or with control characters, a pattern that does not compile, an IBAN that is not 8–34 letters and digits starting with two letters, a negative amount or `amountMin > amountMax`, a priority outside 0–1000, a missing or unknown category, the 201st rule of an owner, an unknown field.
+
 ## Planned changes
 - The planning alerts about one account (0.8) carry its `accountId` too, as the account-level sync alerts do since 0.3-5.
 - Transfers to a savings account are shown as "Gespaard" (analysis 5.2), not only as "Overschrijving" (0.6-3).
+- 0.4-3: changing a transaction's category by hand (origin `manual`), "apply to similar and create a rule", notes and splits; `GET /api/transactions` then shows the rule that set a category. A manual category set on a pending row is carried to its booked row.
+- 0.4-4: reordering rules (a permutation of the `priority` values among the viewer's visible rules), the live preview of a rule ("Past op N transacties") and suggestions to confirm.

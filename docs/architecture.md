@@ -19,7 +19,7 @@ saldo (one Go binary, Home Assistant add-on)
 ## Repository
 | Folder | What |
 |---|---|
-| `server/` | Go module `github.com/BertVanBaelen/Saldo/server`: `cmd/saldo` (serve, healthcheck, version) and `internal/` packages (`config`, `db`, `bank`, `demo`, `ledger`, `server`; later `auth`, `mail`, `categorise`, `importers`, `reports`, `planning`, `notify`) |
+| `server/` | Go module `github.com/BertVanBaelen/Saldo/server`: `cmd/saldo` (serve, healthcheck, version) and `internal/` packages (`config`, `db`, `bank`, `banklink`, `demo`, `ledger`, `categorise`, `users`, `auth`, `mail`, `importers`, `notify`, `jobs`, `ratelimit`, `secrets`, `clock`, `apperr`, `server`; later `reports`, `planning`) |
 | `web/` | React 19 + Vite + TypeScript. `src/lib` (api client, types, formatting), `src/components` (shell, icons, shared UI), `src/pages` (one file per screen), global styles ported from the mockup |
 | `saldo/` | The Home Assistant add-on: `config.yaml`, `DOCS.md`, `CHANGELOG.md`, translations |
 | `Dockerfile`, `repository.yaml` | Multi-arch image (amd64, aarch64) and the add-on store entry |
@@ -38,6 +38,6 @@ saldo (one Go binary, Home Assistant add-on)
 ```powershell
 pwsh -File scripts/dev.ps1
 ```
-starts the Go server in demo mode on http://localhost:8080 and the web app with hot reload on http://localhost:5180 (the frozen mockup keeps http://localhost:5173). Demo mode (`SALDO_DEMO=1`) seeds the demo story of analysis 12 and acts as Bert without signing in. Without demo mode the API answers `401` until you sign in; the first-admin setup link is written to the server log (set `SALDO_MAIL_LOG=1` to read the e-mail codes there too).
+starts the Go server in demo mode on http://localhost:8080 and the web app with hot reload on http://localhost:5180 (the frozen mockup keeps http://localhost:5173). Demo mode (`SALDO_DEMO=1`) seeds the demo story of analysis 12 and acts as Bert without signing in. Its state lives in `server/data-demo/`; `-Fresh` resets it and `-Stop` stops a leftover run. How to start, reset and stop, what to click through in ten minutes and the CSV files to import: [local-testing.md](local-testing.md). Without demo mode the API answers `401` until you sign in; the first-admin setup link is written to the server log (set `SALDO_MAIL_LOG=1` to read the e-mail codes there too).
 
 Tests: `cd server; go test ./...` and `cd web; npm test`.

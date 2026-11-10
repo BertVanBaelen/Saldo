@@ -1,0 +1,21 @@
+Rekening;Boekdatum;Valutadatum;Referentie;Beschrijving;Bedrag;Munt;Verrichtingsdatum;Rekening tegenpartij;Naam tegenpartij;Mededeling
+;01/10/2025;01/10/2025;20251001-0001;Doorlopende opdracht;-1.005,00;EUR;01/10/2025;BE71 0961 2345 6769;Immo Verhaeghe;Huur oktober 2025
+;02/10/2025;02/10/2025;20251002-0001;Inkomende overschrijving;2.850,00;EUR;02/10/2025;BE62 5100 0754 7061;Werkgever NV;Loon oktober 2025
+;03/10/2025;03/10/2025;20251003-0001;Europese domiciliëring;-145,00;EUR;03/10/2025;;Luminus;Voorschot energie oktober 2025
+;04/10/2025;05/10/2025;20251004-0001;Betaling met bankkaart;-76,32;EUR;03/10/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;06/10/2025;07/10/2025;20251006-0001;Betaling met bankkaart;-54,18;EUR;05/10/2025;;Delhaize;Bancontact · Delhaize Gent
+;07/10/2025;08/10/2025;20251007-0001;Betaling met bankkaart;-38,64;EUR;06/10/2025;;Lidl;Bancontact · Lidl Gent
+;09/10/2025;09/10/2025;20251009-0001;Europese domiciliëring;-42,98;EUR;09/10/2025;;Proximus;Internet en tv oktober 2025
+;10/10/2025;10/10/2025;20251010-0001;Europese domiciliëring;-13,99;EUR;10/10/2025;;Netflix;Netflix.com
+;11/10/2025;12/10/2025;20251011-0001;Betaling met bankkaart;-18,35;EUR;10/10/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;12/10/2025;13/10/2025;20251012-0001;Betaling met bankkaart;-19,60;EUR;11/10/2025;;NMBS;Treinticket Gent – Brussel
+;14/10/2025;15/10/2025;20251014-0001;Betaling met bankkaart;-91,07;EUR;13/10/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;15/10/2025;16/10/2025;20251015-0001;Betaling met bankkaart;-24,00;EUR;14/10/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;17/10/2025;17/10/2025;20251017-0001;Europese domiciliëring;-11,99;EUR;17/10/2025;;Spotify;Spotify Premium
+;18/10/2025;18/10/2025;20251018-0001;Inkomende overschrijving;35,00;EUR;18/10/2025;;Sofie Maes;Terugbetaling etentje
+;20/10/2025;21/10/2025;20251020-0001;Betaling met bankkaart;-61,45;EUR;19/10/2025;;Delhaize;Bancontact · Delhaize Gent
+;22/10/2025;23/10/2025;20251022-0001;Betaling met bankkaart;-9,70;EUR;21/10/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;24/10/2025;25/10/2025;20251024-0001;Betaling met bankkaart;-27,13;EUR;23/10/2025;;Lidl;Bancontact · Lidl Gent
+;26/10/2025;27/10/2025;20251026-0001;Betaling met bankkaart;-48,60;EUR;25/10/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;28/10/2025;28/10/2025;20251028-0001;Betaling via Bancontact online;-24,99;EUR;28/10/2025;;Bol.com;Bestelling 3100-1200
+;30/10/2025;31/10/2025;20251030-0001;Betaling met bankkaart;-42,90;EUR;29/10/2025;;Decathlon;Bancontact · Decathlon Gent

@@ -1,0 +1,1501 @@
+Rekening;Boekdatum;Valutadatum;Referentie;Beschrijving;Bedrag;Munt;Verrichtingsdatum;Rekening tegenpartij;Naam tegenpartij;Mededeling
+;01/01/2023;02/01/2023;20230101-0001;Doorlopende opdracht;-1.005,00;EUR;01/01/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur januari 2023
+;01/01/2023;02/01/2023;20230101-0002;Betaling met bankkaart;-16,95;EUR;01/01/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;02/01/2023;03/01/2023;20230102-0003;Inkomende overschrijving;2.850,00;EUR;02/01/2023;BE62 5100 0754 7061;Werkgever NV;Loon januari 2023
+;03/01/2023;04/01/2023;20230103-0004;Europese domiciliëring;-145,00;EUR;03/01/2023;;Luminus;Voorschot energie januari 2023
+;04/01/2023;05/01/2023;20230104-0005;Betaling via Bancontact online;-20,80;EUR;04/01/2023;;Bol.com;Bestelling 3206-1728
+;04/01/2023;05/01/2023;20230104-0006;Betaling met bankkaart;-67,55;EUR;04/01/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;06/01/2023;07/01/2023;20230106-0007;Betaling met bankkaart;-28,45;EUR;06/01/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;07/01/2023;08/01/2023;20230107-0008;Betaling met bankkaart;-19,60;EUR;07/01/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;07/01/2023;08/01/2023;20230107-0009;Betaling met bankkaart;-19,60;EUR;07/01/2023;;NMBS;Treinticket Gent – Brussel
+;07/01/2023;08/01/2023;20230107-0010;Betaling met bankkaart;-10,00;EUR;07/01/2023;;Bakkerij De Graankorrel;Bancontact
+;07/01/2023;08/01/2023;20230107-0011;Betaling met bankkaart;-83,75;EUR;07/01/2023;;Decathlon;Bancontact · Decathlon Gent
+;08/01/2023;09/01/2023;20230108-0012;Betaling met bankkaart;-52,20;EUR;08/01/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;09/01/2023;10/01/2023;20230109-0013;Europese domiciliëring;-42,98;EUR;09/01/2023;;Proximus;Internet en tv januari 2023
+;09/01/2023;10/01/2023;20230109-0014;Betaling met bankkaart;-27,15;EUR;09/01/2023;;Lidl;Bancontact · Lidl Gent
+;10/01/2023;11/01/2023;20230110-0015;Europese domiciliëring;-13,99;EUR;10/01/2023;;Netflix;Netflix.com
+;11/01/2023;12/01/2023;20230111-0016;Betaling met bankkaart;-19,60;EUR;11/01/2023;;NMBS;Treinticket Gent – Brussel
+;12/01/2023;13/01/2023;20230112-0017;Betaling met bankkaart;-24,80;EUR;12/01/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;12/01/2023;13/01/2023;20230112-0018;Betaling met bankkaart;-8,40;EUR;12/01/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;12/01/2023;13/01/2023;20230112-0019;Betaling met bankkaart;-36,60;EUR;12/01/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;14/01/2023;15/01/2023;20230114-0020;Betaling met bankkaart;-50,50;EUR;14/01/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;14/01/2023;15/01/2023;20230114-0021;Betaling met bankkaart;-72,20;EUR;14/01/2023;;Delhaize;Bancontact · Delhaize Gent
+;16/01/2023;17/01/2023;20230116-0022;Betaling met bankkaart;-23,35;EUR;16/01/2023;;Lidl;Bancontact · Lidl Gent
+;16/01/2023;17/01/2023;20230116-0023;Betaling met bankkaart;-19,60;EUR;16/01/2023;;NMBS;Treinticket Gent – Brussel
+;16/01/2023;17/01/2023;20230116-0024;Betaling met bankkaart;-17,70;EUR;16/01/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;17/01/2023;18/01/2023;20230117-0025;Europese domiciliëring;-11,99;EUR;17/01/2023;;Spotify;Spotify Premium
+;20/01/2023;21/01/2023;20230120-0026;Betaling met bankkaart;-54,35;EUR;20/01/2023;;Delhaize;Bancontact · Delhaize Gent
+;20/01/2023;21/01/2023;20230120-0027;Betaling met bankkaart;-24,00;EUR;20/01/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;21/01/2023;22/01/2023;20230121-0028;Betaling met bankkaart;-58,15;EUR;21/01/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/01/2023;25/01/2023;20230124-0029;Betaling met bankkaart;-60,50;EUR;24/01/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;24/01/2023;25/01/2023;20230124-0030;Betaling met bankkaart;-19,60;EUR;24/01/2023;;NMBS;Treinticket Gent – Brussel
+;24/01/2023;25/01/2023;20230124-0031;Betaling met bankkaart;-30,95;EUR;24/01/2023;;Lidl;Bancontact · Lidl Gent
+;24/01/2023;25/01/2023;20230124-0032;Betaling met bankkaart;-65,05;EUR;24/01/2023;;Delhaize;Bancontact · Delhaize Gent
+;25/01/2023;26/01/2023;20230125-0033;Betaling met bankkaart;-71,25;EUR;25/01/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;25/01/2023;26/01/2023;20230125-0034;Betaling met bankkaart;-25,40;EUR;25/01/2023;;Lidl;Bancontact · Lidl Gent
+;25/01/2023;26/01/2023;20230125-0035;Betaling met bankkaart;-31,45;EUR;25/01/2023;;Lidl;Bancontact · Lidl Gent
+;25/01/2023;26/01/2023;20230125-0036;Betaling met bankkaart;-51,55;EUR;25/01/2023;;Delhaize;Bancontact · Delhaize Gent
+;25/01/2023;26/01/2023;20230125-0037;Betaling met bankkaart;-87,20;EUR;25/01/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;26/01/2023;27/01/2023;20230126-0038;Betaling met bankkaart;-11,70;EUR;26/01/2023;;Bakkerij De Graankorrel;Bancontact
+;26/01/2023;27/01/2023;20230126-0039;Betaling met bankkaart;-66,20;EUR;26/01/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;26/01/2023;27/01/2023;20230126-0040;Betaling met bankkaart;-64,70;EUR;26/01/2023;;Delhaize;Bancontact · Delhaize Gent
+;27/01/2023;28/01/2023;20230127-0041;Betaling met bankkaart;-44,35;EUR;27/01/2023;;Delhaize;Bancontact · Delhaize Gent
+;27/01/2023;28/01/2023;20230127-0042;Betaling met bankkaart;-7,40;EUR;27/01/2023;;Bakkerij De Graankorrel;Bancontact
+;27/01/2023;28/01/2023;20230127-0043;Betaling met bankkaart;-32,00;EUR;27/01/2023;;Lidl;Bancontact · Lidl Gent
+;28/01/2023;29/01/2023;20230128-0044;Betaling met bankkaart;-27,55;EUR;28/01/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;29/01/2023;30/01/2023;20230129-0045;Betaling met bankkaart;-47,85;EUR;29/01/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;30/01/2023;31/01/2023;20230130-0046;Betaling met bankkaart;-22,75;EUR;30/01/2023;;Delhaize;Bancontact · Delhaize Gent
+;30/01/2023;31/01/2023;20230130-0047;Betaling met bankkaart;-19,70;EUR;30/01/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;01/02/2023;02/02/2023;20230201-0048;Doorlopende opdracht;-1.005,00;EUR;01/02/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur februari 2023
+;01/02/2023;02/02/2023;20230201-0049;Betaling met bankkaart;-36,00;EUR;01/02/2023;;Lidl;Bancontact · Lidl Gent
+;01/02/2023;02/02/2023;20230201-0050;Betaling via Payconiq;-11,65;EUR;01/02/2023;;Frituur 't Pleintje;Payconiq
+;02/02/2023;03/02/2023;20230202-0051;Inkomende overschrijving;2.850,00;EUR;02/02/2023;BE62 5100 0754 7061;Werkgever NV;Loon februari 2023
+;03/02/2023;04/02/2023;20230203-0052;Europese domiciliëring;-145,00;EUR;03/02/2023;;Luminus;Voorschot energie februari 2023
+;03/02/2023;04/02/2023;20230203-0053;Betaling met bankkaart;-19,95;EUR;03/02/2023;;Lidl;Bancontact · Lidl Gent
+;04/02/2023;05/02/2023;20230204-0054;Betaling met bankkaart;-20,75;EUR;04/02/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;04/02/2023;05/02/2023;20230204-0055;Betaling met bankkaart;-69,90;EUR;04/02/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;05/02/2023;06/02/2023;20230205-0056;Betaling met bankkaart;-10,00;EUR;05/02/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;06/02/2023;07/02/2023;20230206-0057;Betaling met bankkaart;-12,40;EUR;06/02/2023;;Bakkerij De Graankorrel;Bancontact
+;07/02/2023;08/02/2023;20230207-0058;Betaling met bankkaart;-29,30;EUR;07/02/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;07/02/2023;08/02/2023;20230207-0059;Betaling met bankkaart;-43,00;EUR;07/02/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;08/02/2023;09/02/2023;20230208-0060;Betaling met bankkaart;-6,50;EUR;08/02/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;09/02/2023;10/02/2023;20230209-0061;Europese domiciliëring;-42,98;EUR;09/02/2023;;Proximus;Internet en tv februari 2023
+;09/02/2023;10/02/2023;20230209-0062;Betaling met bankkaart;-41,25;EUR;09/02/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;10/02/2023;11/02/2023;20230210-0063;Europese domiciliëring;-13,99;EUR;10/02/2023;;Netflix;Netflix.com
+;10/02/2023;11/02/2023;20230210-0064;Betaling met bankkaart;-77,95;EUR;10/02/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;10/02/2023;11/02/2023;20230210-0065;Betaling via Payconiq;-14,70;EUR;10/02/2023;;Frituur 't Pleintje;Payconiq
+;10/02/2023;11/02/2023;20230210-0066;Betaling met bankkaart;-67,10;EUR;10/02/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;11/02/2023;12/02/2023;20230211-0067;Betaling met bankkaart;-9,15;EUR;11/02/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;11/02/2023;12/02/2023;20230211-0068;Betaling met bankkaart;-49,40;EUR;11/02/2023;;Lidl;Bancontact · Lidl Gent
+;13/02/2023;14/02/2023;20230213-0069;Betaling met bankkaart;-50,85;EUR;13/02/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;13/02/2023;14/02/2023;20230213-0070;Betaling met bankkaart;-77,95;EUR;13/02/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;14/02/2023;15/02/2023;20230214-0071;Betaling met bankkaart;-39,95;EUR;14/02/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;15/02/2023;16/02/2023;20230215-0072;Betaling met bankkaart;-40,00;EUR;15/02/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;15/02/2023;16/02/2023;20230215-0073;Betaling met bankkaart;-4,35;EUR;15/02/2023;;Bakkerij De Graankorrel;Bancontact
+;17/02/2023;18/02/2023;20230217-0074;Europese domiciliëring;-11,99;EUR;17/02/2023;;Spotify;Spotify Premium
+;17/02/2023;18/02/2023;20230217-0075;Betaling met bankkaart;-36,90;EUR;17/02/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;19/02/2023;20/02/2023;20230219-0076;Betaling met bankkaart;-15,25;EUR;19/02/2023;;Lidl;Bancontact · Lidl Gent
+;21/02/2023;22/02/2023;20230221-0077;Betaling met bankkaart;-39,15;EUR;21/02/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;21/02/2023;22/02/2023;20230221-0078;Betaling met bankkaart;-19,60;EUR;21/02/2023;;NMBS;Treinticket Gent – Brussel
+;23/02/2023;24/02/2023;20230223-0079;Betaling met bankkaart;-24,35;EUR;23/02/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;24/02/2023;25/02/2023;20230224-0080;Betaling met bankkaart;-10,00;EUR;24/02/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;25/02/2023;26/02/2023;20230225-0081;Betaling met bankkaart;-23,65;EUR;25/02/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;26/02/2023;27/02/2023;20230226-0082;Betaling met bankkaart;-60,55;EUR;26/02/2023;;Zara;Bancontact · Zara Gent
+;27/02/2023;28/02/2023;20230227-0083;Betaling met bankkaart;-14,15;EUR;27/02/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;28/02/2023;01/03/2023;20230228-0084;Betaling met bankkaart;-41,70;EUR;28/02/2023;;Lidl;Bancontact · Lidl Gent
+;01/03/2023;02/03/2023;20230301-0085;Doorlopende opdracht;-1.005,00;EUR;01/03/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur maart 2023
+;01/03/2023;02/03/2023;20230301-0086;Betaling via Bancontact online;-69,65;EUR;01/03/2023;;Bol.com;Bestelling 3884-1184
+;02/03/2023;03/03/2023;20230302-0087;Inkomende overschrijving;2.850,00;EUR;02/03/2023;BE62 5100 0754 7061;Werkgever NV;Loon maart 2023
+;02/03/2023;03/03/2023;20230302-0088;Betaling met bankkaart;-39,25;EUR;02/03/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;02/03/2023;03/03/2023;20230302-0089;Betaling met bankkaart;-61,30;EUR;02/03/2023;;Delhaize;Bancontact · Delhaize Gent
+;03/03/2023;04/03/2023;20230303-0090;Europese domiciliëring;-145,00;EUR;03/03/2023;;Luminus;Voorschot energie maart 2023
+;06/03/2023;07/03/2023;20230306-0091;Betaling met bankkaart;-29,10;EUR;06/03/2023;;Delhaize;Bancontact · Delhaize Gent
+;07/03/2023;08/03/2023;20230307-0092;Betaling met bankkaart;-62,55;EUR;07/03/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;07/03/2023;08/03/2023;20230307-0093;Betaling met bankkaart;-19,60;EUR;07/03/2023;;NMBS;Treinticket Gent – Brussel
+;09/03/2023;10/03/2023;20230309-0094;Europese domiciliëring;-42,98;EUR;09/03/2023;;Proximus;Internet en tv maart 2023
+;09/03/2023;10/03/2023;20230309-0095;Betaling met bankkaart;-30,60;EUR;09/03/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;10/03/2023;11/03/2023;20230310-0096;Europese domiciliëring;-13,99;EUR;10/03/2023;;Netflix;Netflix.com
+;10/03/2023;11/03/2023;20230310-0097;Betaling met bankkaart;-29,15;EUR;10/03/2023;;Lidl;Bancontact · Lidl Gent
+;10/03/2023;11/03/2023;20230310-0098;Betaling met bankkaart;-40,85;EUR;10/03/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;11/03/2023;12/03/2023;20230311-0099;Betaling met bankkaart;-36,85;EUR;11/03/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;14/03/2023;15/03/2023;20230314-0100;Betaling met bankkaart;-46,65;EUR;14/03/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;15/03/2023;16/03/2023;20230315-0101;Betaling via Bancontact online;-59,10;EUR;15/03/2023;;Bol.com;Bestelling 3162-1241
+;17/03/2023;18/03/2023;20230317-0102;Europese domiciliëring;-11,99;EUR;17/03/2023;;Spotify;Spotify Premium
+;17/03/2023;18/03/2023;20230317-0103;Betaling met bankkaart;-70,35;EUR;17/03/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;17/03/2023;18/03/2023;20230317-0104;Betaling via Bancontact online;-66,20;EUR;17/03/2023;;Bol.com;Bestelling 3747-1381
+;17/03/2023;18/03/2023;20230317-0105;Betaling met bankkaart;-25,85;EUR;17/03/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;19/03/2023;20/03/2023;20230319-0106;Betaling via Bancontact online;-65,55;EUR;19/03/2023;;Bol.com;Bestelling 3123-1146
+;19/03/2023;20/03/2023;20230319-0107;Betaling met bankkaart;-71,05;EUR;19/03/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;19/03/2023;20/03/2023;20230319-0108;Betaling met bankkaart;-75,10;EUR;19/03/2023;;Zara;Bancontact · Zara Gent
+;20/03/2023;21/03/2023;20230320-0109;Betaling met bankkaart;-41,90;EUR;20/03/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/03/2023;21/03/2023;20230320-0110;Betaling met bankkaart;-45,30;EUR;20/03/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/03/2023;21/03/2023;20230320-0111;Betaling met bankkaart;-21,75;EUR;20/03/2023;;Delhaize;Bancontact · Delhaize Gent
+;20/03/2023;21/03/2023;20230320-0112;Betaling met bankkaart;-47,40;EUR;20/03/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;21/03/2023;22/03/2023;20230321-0113;Betaling met bankkaart;-29,55;EUR;21/03/2023;;Delhaize;Bancontact · Delhaize Gent
+;21/03/2023;22/03/2023;20230321-0114;Betaling met bankkaart;-42,75;EUR;21/03/2023;;Lidl;Bancontact · Lidl Gent
+;22/03/2023;23/03/2023;20230322-0115;Betaling met bankkaart;-11,00;EUR;22/03/2023;;Bakkerij De Graankorrel;Bancontact
+;22/03/2023;23/03/2023;20230322-0116;Betaling met bankkaart;-22,40;EUR;22/03/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;24/03/2023;25/03/2023;20230324-0117;Betaling met bankkaart;-35,30;EUR;24/03/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;24/03/2023;25/03/2023;20230324-0118;Betaling met bankkaart;-19,60;EUR;24/03/2023;;NMBS;Treinticket Gent – Brussel
+;24/03/2023;25/03/2023;20230324-0119;Betaling met bankkaart;-40,05;EUR;24/03/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;25/03/2023;26/03/2023;20230325-0120;Betaling met bankkaart;-24,00;EUR;25/03/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;25/03/2023;26/03/2023;20230325-0121;Betaling met bankkaart;-24,35;EUR;25/03/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;27/03/2023;28/03/2023;20230327-0122;Betaling met bankkaart;-9,95;EUR;27/03/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;28/03/2023;29/03/2023;20230328-0123;Betaling met bankkaart;-7,80;EUR;28/03/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;28/03/2023;29/03/2023;20230328-0124;Betaling met bankkaart;-68,60;EUR;28/03/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;28/03/2023;29/03/2023;20230328-0125;Betaling met bankkaart;-42,60;EUR;28/03/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;28/03/2023;29/03/2023;20230328-0126;Betaling met bankkaart;-78,70;EUR;28/03/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;28/03/2023;29/03/2023;20230328-0127;Betaling met bankkaart;-61,30;EUR;28/03/2023;;Lidl;Bancontact · Lidl Gent
+;29/03/2023;30/03/2023;20230329-0128;Betaling met bankkaart;-29,50;EUR;29/03/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;30/03/2023;31/03/2023;20230330-0129;Betaling met bankkaart;-72,25;EUR;30/03/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/04/2023;02/04/2023;20230401-0130;Doorlopende opdracht;-1.005,00;EUR;01/04/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur april 2023
+;01/04/2023;02/04/2023;20230401-0131;Betaling met bankkaart;-31,95;EUR;01/04/2023;;Lidl;Bancontact · Lidl Gent
+;02/04/2023;03/04/2023;20230402-0132;Inkomende overschrijving;2.850,00;EUR;02/04/2023;BE62 5100 0754 7061;Werkgever NV;Loon april 2023
+;03/04/2023;04/04/2023;20230403-0133;Europese domiciliëring;-145,00;EUR;03/04/2023;;Luminus;Voorschot energie april 2023
+;03/04/2023;04/04/2023;20230403-0134;Betaling met bankkaart;-11,45;EUR;03/04/2023;;Bakkerij De Graankorrel;Bancontact
+;04/04/2023;05/04/2023;20230404-0135;Betaling met bankkaart;-31,40;EUR;04/04/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;05/04/2023;06/04/2023;20230405-0136;Betaling met bankkaart;-55,20;EUR;05/04/2023;;Lidl;Bancontact · Lidl Gent
+;06/04/2023;07/04/2023;20230406-0137;Betaling via Bancontact online;-32,10;EUR;06/04/2023;;Bol.com;Bestelling 3426-1768
+;07/04/2023;08/04/2023;20230407-0138;Betaling met bankkaart;-18,45;EUR;07/04/2023;;Delhaize;Bancontact · Delhaize Gent
+;07/04/2023;08/04/2023;20230407-0139;Betaling met bankkaart;-74,70;EUR;07/04/2023;;Delhaize;Bancontact · Delhaize Gent
+;08/04/2023;09/04/2023;20230408-0140;Betaling met bankkaart;-40,75;EUR;08/04/2023;;Lidl;Bancontact · Lidl Gent
+;09/04/2023;10/04/2023;20230409-0141;Europese domiciliëring;-42,98;EUR;09/04/2023;;Proximus;Internet en tv april 2023
+;09/04/2023;10/04/2023;20230409-0142;Betaling met bankkaart;-105,35;EUR;09/04/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/04/2023;10/04/2023;20230409-0143;Betaling met bankkaart;-89,75;EUR;09/04/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/04/2023;11/04/2023;20230410-0144;Europese domiciliëring;-13,99;EUR;10/04/2023;;Netflix;Netflix.com
+;10/04/2023;11/04/2023;20230410-0145;Betaling met bankkaart;-35,90;EUR;10/04/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;10/04/2023;11/04/2023;20230410-0146;Betaling met bankkaart;-40,85;EUR;10/04/2023;;Delhaize;Bancontact · Delhaize Gent
+;13/04/2023;14/04/2023;20230413-0147;Betaling met bankkaart;-58,10;EUR;13/04/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;13/04/2023;14/04/2023;20230413-0148;Betaling met bankkaart;-30,30;EUR;13/04/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;13/04/2023;14/04/2023;20230413-0149;Betaling met bankkaart;-12,40;EUR;13/04/2023;;Bakkerij De Graankorrel;Bancontact
+;14/04/2023;15/04/2023;20230414-0150;Betaling met bankkaart;-81,60;EUR;14/04/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/04/2023;17/04/2023;20230416-0151;Betaling met bankkaart;-58,55;EUR;16/04/2023;;Lidl;Bancontact · Lidl Gent
+;16/04/2023;17/04/2023;20230416-0152;Betaling met bankkaart;-24,75;EUR;16/04/2023;;Lidl;Bancontact · Lidl Gent
+;17/04/2023;18/04/2023;20230417-0153;Europese domiciliëring;-11,99;EUR;17/04/2023;;Spotify;Spotify Premium
+;18/04/2023;19/04/2023;20230418-0154;Betaling met bankkaart;-17,35;EUR;18/04/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;18/04/2023;19/04/2023;20230418-0155;Betaling met bankkaart;-27,40;EUR;18/04/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;18/04/2023;19/04/2023;20230418-0156;Betaling met bankkaart;-15,30;EUR;18/04/2023;;Lidl;Bancontact · Lidl Gent
+;20/04/2023;21/04/2023;20230420-0157;Betaling met bankkaart;-18,90;EUR;20/04/2023;;Lidl;Bancontact · Lidl Gent
+;20/04/2023;21/04/2023;20230420-0158;Betaling met bankkaart;-22,20;EUR;20/04/2023;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;21/04/2023;22/04/2023;20230421-0159;Betaling met bankkaart;-100,80;EUR;21/04/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;21/04/2023;22/04/2023;20230421-0160;Betaling met bankkaart;-39,35;EUR;21/04/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;21/04/2023;22/04/2023;20230421-0161;Betaling met bankkaart;-31,05;EUR;21/04/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;21/04/2023;22/04/2023;20230421-0162;Betaling via Payconiq;-11,80;EUR;21/04/2023;;Frituur 't Pleintje;Payconiq
+;22/04/2023;23/04/2023;20230422-0163;Betaling met bankkaart;-32,50;EUR;22/04/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;22/04/2023;23/04/2023;20230422-0164;Betaling met bankkaart;-15,20;EUR;22/04/2023;;Lidl;Bancontact · Lidl Gent
+;22/04/2023;23/04/2023;20230422-0165;Betaling met bankkaart;-38,00;EUR;22/04/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;23/04/2023;24/04/2023;20230423-0166;Betaling met bankkaart;-9,75;EUR;23/04/2023;;Bakkerij De Graankorrel;Bancontact
+;23/04/2023;24/04/2023;20230423-0167;Betaling met bankkaart;-35,05;EUR;23/04/2023;;Decathlon;Bancontact · Decathlon Gent
+;24/04/2023;25/04/2023;20230424-0168;Betaling met bankkaart;-46,80;EUR;24/04/2023;;Lidl;Bancontact · Lidl Gent
+;25/04/2023;26/04/2023;20230425-0169;Betaling met bankkaart;-30,80;EUR;25/04/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;25/04/2023;26/04/2023;20230425-0170;Betaling met bankkaart;-18,35;EUR;25/04/2023;;Delhaize;Bancontact · Delhaize Gent
+;26/04/2023;27/04/2023;20230426-0171;Betaling met bankkaart;-19,60;EUR;26/04/2023;;NMBS;Treinticket Gent – Brussel
+;26/04/2023;27/04/2023;20230426-0172;Betaling met bankkaart;-58,35;EUR;26/04/2023;;Delhaize;Bancontact · Delhaize Gent
+;27/04/2023;28/04/2023;20230427-0173;Betaling met bankkaart;-46,80;EUR;27/04/2023;;Lidl;Bancontact · Lidl Gent
+;27/04/2023;28/04/2023;20230427-0174;Betaling met bankkaart;-54,80;EUR;27/04/2023;;Delhaize;Bancontact · Delhaize Gent
+;27/04/2023;28/04/2023;20230427-0175;Betaling met bankkaart;-8,10;EUR;27/04/2023;;Bakkerij De Graankorrel;Bancontact
+;28/04/2023;29/04/2023;20230428-0176;Betaling met bankkaart;-6,50;EUR;28/04/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;28/04/2023;29/04/2023;20230428-0177;Betaling met bankkaart;-45,45;EUR;28/04/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;29/04/2023;30/04/2023;20230429-0178;Betaling met bankkaart;-14,90;EUR;29/04/2023;;Bakkerij De Graankorrel;Bancontact
+;30/04/2023;01/05/2023;20230430-0179;Betaling via Bancontact online;-15,35;EUR;30/04/2023;;Bol.com;Bestelling 3240-1806
+;01/05/2023;02/05/2023;20230501-0180;Doorlopende opdracht;-1.005,00;EUR;01/05/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur mei 2023
+;01/05/2023;02/05/2023;20230501-0181;Betaling met bankkaart;-31,30;EUR;01/05/2023;;Lidl;Bancontact · Lidl Gent
+;02/05/2023;03/05/2023;20230502-0182;Inkomende overschrijving;2.850,00;EUR;02/05/2023;BE62 5100 0754 7061;Werkgever NV;Loon mei 2023
+;02/05/2023;03/05/2023;20230502-0183;Betaling met bankkaart;-19,60;EUR;02/05/2023;;NMBS;Treinticket Gent – Brussel
+;03/05/2023;04/05/2023;20230503-0184;Europese domiciliëring;-145,00;EUR;03/05/2023;;Luminus;Voorschot energie mei 2023
+;03/05/2023;04/05/2023;20230503-0185;Betaling met bankkaart;-39,30;EUR;03/05/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;03/05/2023;04/05/2023;20230503-0186;Betaling met bankkaart;-24,00;EUR;03/05/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;05/05/2023;06/05/2023;20230505-0187;Betaling via Payconiq;-11,10;EUR;05/05/2023;;Frituur 't Pleintje;Payconiq
+;07/05/2023;08/05/2023;20230507-0188;Betaling met bankkaart;-41,05;EUR;07/05/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;08/05/2023;09/05/2023;20230508-0189;Betaling met bankkaart;-24,00;EUR;08/05/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;08/05/2023;09/05/2023;20230508-0190;Betaling via Bancontact online;-14,05;EUR;08/05/2023;;Bol.com;Bestelling 3667-1154
+;09/05/2023;10/05/2023;20230509-0191;Europese domiciliëring;-42,98;EUR;09/05/2023;;Proximus;Internet en tv mei 2023
+;09/05/2023;10/05/2023;20230509-0192;Betaling met bankkaart;-99,40;EUR;09/05/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/05/2023;10/05/2023;20230509-0193;Betaling met bankkaart;-54,55;EUR;09/05/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;09/05/2023;10/05/2023;20230509-0194;Betaling met bankkaart;-60,70;EUR;09/05/2023;;Lidl;Bancontact · Lidl Gent
+;10/05/2023;11/05/2023;20230510-0195;Europese domiciliëring;-13,99;EUR;10/05/2023;;Netflix;Netflix.com
+;12/05/2023;13/05/2023;20230512-0196;Betaling met bankkaart;-75,15;EUR;12/05/2023;;Delhaize;Bancontact · Delhaize Gent
+;12/05/2023;13/05/2023;20230512-0197;Betaling met bankkaart;-50,75;EUR;12/05/2023;;Delhaize;Bancontact · Delhaize Gent
+;13/05/2023;14/05/2023;20230513-0198;Betaling met bankkaart;-12,45;EUR;13/05/2023;;Bakkerij De Graankorrel;Bancontact
+;13/05/2023;14/05/2023;20230513-0199;Betaling met bankkaart;-59,10;EUR;13/05/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;14/05/2023;15/05/2023;20230514-0200;Betaling met bankkaart;-25,80;EUR;14/05/2023;;Delhaize;Bancontact · Delhaize Gent
+;15/05/2023;16/05/2023;20230515-0201;Betaling via Payconiq;-13,65;EUR;15/05/2023;;Frituur 't Pleintje;Payconiq
+;15/05/2023;16/05/2023;20230515-0202;Betaling met bankkaart;-31,30;EUR;15/05/2023;;Delhaize;Bancontact · Delhaize Gent
+;15/05/2023;16/05/2023;20230515-0203;Betaling met bankkaart;-54,10;EUR;15/05/2023;;Zara;Bancontact · Zara Gent
+;16/05/2023;17/05/2023;20230516-0204;Betaling met bankkaart;-54,85;EUR;16/05/2023;;Delhaize;Bancontact · Delhaize Gent
+;16/05/2023;17/05/2023;20230516-0205;Betaling via Payconiq;-11,30;EUR;16/05/2023;;Frituur 't Pleintje;Payconiq
+;17/05/2023;18/05/2023;20230517-0206;Europese domiciliëring;-11,99;EUR;17/05/2023;;Spotify;Spotify Premium
+;19/05/2023;20/05/2023;20230519-0207;Betaling via Payconiq;-18,65;EUR;19/05/2023;;Frituur 't Pleintje;Payconiq
+;19/05/2023;20/05/2023;20230519-0208;Betaling met bankkaart;-6,65;EUR;19/05/2023;;Bakkerij De Graankorrel;Bancontact
+;20/05/2023;21/05/2023;20230520-0209;Betaling met bankkaart;-15,65;EUR;20/05/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;22/05/2023;23/05/2023;20230522-0210;Betaling met bankkaart;-46,65;EUR;22/05/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;25/05/2023;26/05/2023;20230525-0211;Betaling met bankkaart;-77,95;EUR;25/05/2023;;Delhaize;Bancontact · Delhaize Gent
+;25/05/2023;26/05/2023;20230525-0212;Betaling met bankkaart;-36,20;EUR;25/05/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;25/05/2023;26/05/2023;20230525-0213;Betaling met bankkaart;-41,55;EUR;25/05/2023;;Delhaize;Bancontact · Delhaize Gent
+;26/05/2023;27/05/2023;20230526-0214;Betaling met bankkaart;-24,00;EUR;26/05/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;26/05/2023;27/05/2023;20230526-0215;Betaling met bankkaart;-38,00;EUR;26/05/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;26/05/2023;27/05/2023;20230526-0216;Betaling met bankkaart;-59,10;EUR;26/05/2023;;Lidl;Bancontact · Lidl Gent
+;27/05/2023;28/05/2023;20230527-0217;Betaling met bankkaart;-23,85;EUR;27/05/2023;;Decathlon;Bancontact · Decathlon Gent
+;27/05/2023;28/05/2023;20230527-0218;Betaling met bankkaart;-64,10;EUR;27/05/2023;;Decathlon;Bancontact · Decathlon Gent
+;29/05/2023;30/05/2023;20230529-0219;Betaling met bankkaart;-65,55;EUR;29/05/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;29/05/2023;30/05/2023;20230529-0220;Betaling met bankkaart;-27,90;EUR;29/05/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;29/05/2023;30/05/2023;20230529-0221;Betaling met bankkaart;-19,60;EUR;29/05/2023;;NMBS;Treinticket Gent – Brussel
+;30/05/2023;31/05/2023;20230530-0222;Betaling met bankkaart;-57,70;EUR;30/05/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;30/05/2023;31/05/2023;20230530-0223;Betaling met bankkaart;-19,60;EUR;30/05/2023;;NMBS;Treinticket Gent – Brussel
+;31/05/2023;01/06/2023;20230531-0224;Betaling met bankkaart;-104,75;EUR;31/05/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;01/06/2023;02/06/2023;20230601-0225;Doorlopende opdracht;-1.005,00;EUR;01/06/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur juni 2023
+;01/06/2023;02/06/2023;20230601-0226;Betaling met bankkaart;-38,60;EUR;01/06/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;02/06/2023;03/06/2023;20230602-0227;Inkomende overschrijving;2.850,00;EUR;02/06/2023;BE62 5100 0754 7061;Werkgever NV;Loon juni 2023
+;03/06/2023;04/06/2023;20230603-0228;Europese domiciliëring;-145,00;EUR;03/06/2023;;Luminus;Voorschot energie juni 2023
+;03/06/2023;04/06/2023;20230603-0229;Betaling met bankkaart;-39,65;EUR;03/06/2023;;Delhaize;Bancontact · Delhaize Gent
+;04/06/2023;05/06/2023;20230604-0230;Betaling via Bancontact online;-24,60;EUR;04/06/2023;;Bol.com;Bestelling 3854-1458
+;05/06/2023;06/06/2023;20230605-0231;Betaling met bankkaart;-56,10;EUR;05/06/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;05/06/2023;06/06/2023;20230605-0232;Betaling via Bancontact online;-20,65;EUR;05/06/2023;;Bol.com;Bestelling 3006-1865
+;05/06/2023;06/06/2023;20230605-0233;Betaling met bankkaart;-48,55;EUR;05/06/2023;;Lidl;Bancontact · Lidl Gent
+;06/06/2023;07/06/2023;20230606-0234;Betaling met bankkaart;-8,45;EUR;06/06/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;06/06/2023;07/06/2023;20230606-0235;Betaling met bankkaart;-19,40;EUR;06/06/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;07/06/2023;08/06/2023;20230607-0236;Betaling met bankkaart;-4,65;EUR;07/06/2023;;Bakkerij De Graankorrel;Bancontact
+;07/06/2023;08/06/2023;20230607-0237;Betaling met bankkaart;-12,40;EUR;07/06/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;07/06/2023;08/06/2023;20230607-0238;Betaling met bankkaart;-22,30;EUR;07/06/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;07/06/2023;08/06/2023;20230607-0239;Betaling met bankkaart;-40,70;EUR;07/06/2023;;Lidl;Bancontact · Lidl Gent
+;07/06/2023;08/06/2023;20230607-0240;Betaling met bankkaart;-62,15;EUR;07/06/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;07/06/2023;08/06/2023;20230607-0241;Betaling met bankkaart;-55,95;EUR;07/06/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;08/06/2023;09/06/2023;20230608-0242;Betaling via Bancontact online;-50,00;EUR;08/06/2023;;Bol.com;Bestelling 3594-1863
+;09/06/2023;10/06/2023;20230609-0243;Europese domiciliëring;-42,98;EUR;09/06/2023;;Proximus;Internet en tv juni 2023
+;09/06/2023;10/06/2023;20230609-0244;Betaling met bankkaart;-19,60;EUR;09/06/2023;;NMBS;Treinticket Gent – Brussel
+;09/06/2023;10/06/2023;20230609-0245;Betaling met bankkaart;-68,20;EUR;09/06/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;10/06/2023;11/06/2023;20230610-0246;Europese domiciliëring;-13,99;EUR;10/06/2023;;Netflix;Netflix.com
+;11/06/2023;12/06/2023;20230611-0247;Betaling met bankkaart;-26,55;EUR;11/06/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;11/06/2023;12/06/2023;20230611-0248;Betaling met bankkaart;-63,10;EUR;11/06/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;12/06/2023;13/06/2023;20230612-0249;Betaling met bankkaart;-26,70;EUR;12/06/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;12/06/2023;13/06/2023;20230612-0250;Betaling met bankkaart;-37,90;EUR;12/06/2023;;Decathlon;Bancontact · Decathlon Gent
+;13/06/2023;14/06/2023;20230613-0251;Betaling met bankkaart;-42,65;EUR;13/06/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;14/06/2023;15/06/2023;20230614-0252;Betaling met bankkaart;-24,00;EUR;14/06/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;14/06/2023;15/06/2023;20230614-0253;Betaling met bankkaart;-24,00;EUR;14/06/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;15/06/2023;16/06/2023;20230615-0254;Betaling met bankkaart;-11,55;EUR;15/06/2023;;Bakkerij De Graankorrel;Bancontact
+;16/06/2023;17/06/2023;20230616-0255;Betaling met bankkaart;-59,55;EUR;16/06/2023;;Zara;Bancontact · Zara Gent
+;17/06/2023;18/06/2023;20230617-0256;Europese domiciliëring;-11,99;EUR;17/06/2023;;Spotify;Spotify Premium
+;18/06/2023;19/06/2023;20230618-0257;Betaling met bankkaart;-59,25;EUR;18/06/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;18/06/2023;19/06/2023;20230618-0258;Betaling met bankkaart;-35,95;EUR;18/06/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;19/06/2023;20/06/2023;20230619-0259;Betaling met bankkaart;-45,15;EUR;19/06/2023;;Lidl;Bancontact · Lidl Gent
+;19/06/2023;20/06/2023;20230619-0260;Betaling met bankkaart;-28,85;EUR;19/06/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;19/06/2023;20/06/2023;20230619-0261;Betaling met bankkaart;-38,60;EUR;19/06/2023;;Lidl;Bancontact · Lidl Gent
+;19/06/2023;20/06/2023;20230619-0262;Betaling met bankkaart;-24,00;EUR;19/06/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;19/06/2023;20/06/2023;20230619-0263;Betaling met bankkaart;-19,60;EUR;19/06/2023;;NMBS;Treinticket Gent – Brussel
+;21/06/2023;22/06/2023;20230621-0264;Betaling met bankkaart;-46,75;EUR;21/06/2023;;Lidl;Bancontact · Lidl Gent
+;22/06/2023;23/06/2023;20230622-0265;Betaling met bankkaart;-31,55;EUR;22/06/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;22/06/2023;23/06/2023;20230622-0266;Betaling met bankkaart;-19,60;EUR;22/06/2023;;NMBS;Treinticket Gent – Brussel
+;23/06/2023;24/06/2023;20230623-0267;Betaling met bankkaart;-58,30;EUR;23/06/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/06/2023;25/06/2023;20230624-0268;Betaling met bankkaart;-19,60;EUR;24/06/2023;;NMBS;Treinticket Gent – Brussel
+;26/06/2023;27/06/2023;20230626-0269;Betaling met bankkaart;-29,40;EUR;26/06/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;27/06/2023;28/06/2023;20230627-0270;Betaling met bankkaart;-16,05;EUR;27/06/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;27/06/2023;28/06/2023;20230627-0271;Betaling met bankkaart;-42,10;EUR;27/06/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;27/06/2023;28/06/2023;20230627-0272;Betaling met bankkaart;-63,00;EUR;27/06/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;28/06/2023;29/06/2023;20230628-0273;Betaling met bankkaart;-40,55;EUR;28/06/2023;;Lidl;Bancontact · Lidl Gent
+;28/06/2023;29/06/2023;20230628-0274;Betaling met bankkaart;-52,05;EUR;28/06/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;29/06/2023;30/06/2023;20230629-0275;Betaling met bankkaart;-79,80;EUR;29/06/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;30/06/2023;01/07/2023;20230630-0276;Betaling met bankkaart;-79,40;EUR;30/06/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/07/2023;02/07/2023;20230701-0277;Doorlopende opdracht;-1.005,00;EUR;01/07/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur juli 2023
+;01/07/2023;02/07/2023;20230701-0278;Betaling met bankkaart;-6,00;EUR;01/07/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;01/07/2023;02/07/2023;20230701-0279;Betaling met bankkaart;-86,05;EUR;01/07/2023;;Decathlon;Bancontact · Decathlon Gent
+;02/07/2023;03/07/2023;20230702-0280;Inkomende overschrijving;2.850,00;EUR;02/07/2023;BE62 5100 0754 7061;Werkgever NV;Loon juli 2023
+;02/07/2023;03/07/2023;20230702-0281;Betaling met bankkaart;-17,40;EUR;02/07/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;03/07/2023;04/07/2023;20230703-0282;Europese domiciliëring;-145,00;EUR;03/07/2023;;Luminus;Voorschot energie juli 2023
+;03/07/2023;04/07/2023;20230703-0283;Betaling via Payconiq;-23,35;EUR;03/07/2023;;Frituur 't Pleintje;Payconiq
+;03/07/2023;04/07/2023;20230703-0284;Betaling via Payconiq;-13,95;EUR;03/07/2023;;Frituur 't Pleintje;Payconiq
+;04/07/2023;05/07/2023;20230704-0285;Betaling met bankkaart;-19,60;EUR;04/07/2023;;NMBS;Treinticket Gent – Brussel
+;04/07/2023;05/07/2023;20230704-0286;Betaling met bankkaart;-47,30;EUR;04/07/2023;;Zara;Bancontact · Zara Gent
+;04/07/2023;05/07/2023;20230704-0287;Betaling met bankkaart;-37,20;EUR;04/07/2023;;Lidl;Bancontact · Lidl Gent
+;05/07/2023;06/07/2023;20230705-0288;Betaling met bankkaart;-52,95;EUR;05/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;05/07/2023;06/07/2023;20230705-0289;Betaling met bankkaart;-28,85;EUR;05/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;05/07/2023;06/07/2023;20230705-0290;Betaling via Bancontact online;-45,15;EUR;05/07/2023;;Bol.com;Bestelling 3652-1229
+;06/07/2023;07/07/2023;20230706-0291;Betaling met bankkaart;-46,80;EUR;06/07/2023;;Lidl;Bancontact · Lidl Gent
+;06/07/2023;07/07/2023;20230706-0292;Betaling met bankkaart;-59,25;EUR;06/07/2023;;Lidl;Bancontact · Lidl Gent
+;09/07/2023;10/07/2023;20230709-0293;Europese domiciliëring;-42,98;EUR;09/07/2023;;Proximus;Internet en tv juli 2023
+;09/07/2023;10/07/2023;20230709-0294;Betaling met bankkaart;-19,60;EUR;09/07/2023;;NMBS;Treinticket Gent – Brussel
+;09/07/2023;10/07/2023;20230709-0295;Betaling met bankkaart;-24,15;EUR;09/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;10/07/2023;11/07/2023;20230710-0296;Europese domiciliëring;-13,99;EUR;10/07/2023;;Netflix;Netflix.com
+;14/07/2023;15/07/2023;20230714-0297;Betaling via Payconiq;-9,60;EUR;14/07/2023;;Frituur 't Pleintje;Payconiq
+;14/07/2023;15/07/2023;20230714-0298;Betaling via Payconiq;-12,30;EUR;14/07/2023;;Frituur 't Pleintje;Payconiq
+;14/07/2023;15/07/2023;20230714-0299;Betaling met bankkaart;-24,00;EUR;14/07/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;15/07/2023;16/07/2023;20230715-0300;Betaling met bankkaart;-62,90;EUR;15/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;16/07/2023;17/07/2023;20230716-0301;Betaling met bankkaart;-42,25;EUR;16/07/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;16/07/2023;17/07/2023;20230716-0302;Betaling met bankkaart;-74,10;EUR;16/07/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;17/07/2023;18/07/2023;20230717-0303;Europese domiciliëring;-11,99;EUR;17/07/2023;;Spotify;Spotify Premium
+;17/07/2023;18/07/2023;20230717-0304;Betaling met bankkaart;-30,80;EUR;17/07/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;17/07/2023;18/07/2023;20230717-0305;Betaling met bankkaart;-41,50;EUR;17/07/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;18/07/2023;19/07/2023;20230718-0306;Betaling met bankkaart;-71,50;EUR;18/07/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;19/07/2023;20/07/2023;20230719-0307;Betaling met bankkaart;-31,75;EUR;19/07/2023;;Decathlon;Bancontact · Decathlon Gent
+;19/07/2023;20/07/2023;20230719-0308;Betaling met bankkaart;-52,40;EUR;19/07/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/07/2023;21/07/2023;20230720-0309;Betaling met bankkaart;-84,60;EUR;20/07/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;22/07/2023;23/07/2023;20230722-0310;Betaling met bankkaart;-47,05;EUR;22/07/2023;;Lidl;Bancontact · Lidl Gent
+;24/07/2023;25/07/2023;20230724-0311;Betaling met bankkaart;-10,25;EUR;24/07/2023;;Bakkerij De Graankorrel;Bancontact
+;24/07/2023;25/07/2023;20230724-0312;Betaling met bankkaart;-19,90;EUR;24/07/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;24/07/2023;25/07/2023;20230724-0313;Betaling via Payconiq;-20,40;EUR;24/07/2023;;Frituur 't Pleintje;Payconiq
+;24/07/2023;25/07/2023;20230724-0314;Betaling met bankkaart;-26,15;EUR;24/07/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;25/07/2023;26/07/2023;20230725-0315;Betaling met bankkaart;-9,90;EUR;25/07/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;25/07/2023;26/07/2023;20230725-0316;Betaling met bankkaart;-75,75;EUR;25/07/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;26/07/2023;27/07/2023;20230726-0317;Betaling met bankkaart;-48,30;EUR;26/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;26/07/2023;27/07/2023;20230726-0318;Betaling met bankkaart;-30,60;EUR;26/07/2023;;Decathlon;Bancontact · Decathlon Gent
+;28/07/2023;29/07/2023;20230728-0319;Betaling met bankkaart;-21,35;EUR;28/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;28/07/2023;29/07/2023;20230728-0320;Betaling met bankkaart;-48,90;EUR;28/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;28/07/2023;29/07/2023;20230728-0321;Betaling met bankkaart;-57,85;EUR;28/07/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;28/07/2023;29/07/2023;20230728-0322;Betaling met bankkaart;-23,50;EUR;28/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;28/07/2023;29/07/2023;20230728-0323;Betaling met bankkaart;-44,85;EUR;28/07/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;29/07/2023;30/07/2023;20230729-0324;Betaling met bankkaart;-30,15;EUR;29/07/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;29/07/2023;30/07/2023;20230729-0325;Betaling met bankkaart;-19,60;EUR;29/07/2023;;NMBS;Treinticket Gent – Brussel
+;30/07/2023;31/07/2023;20230730-0326;Betaling via Bancontact online;-16,45;EUR;30/07/2023;;Bol.com;Bestelling 3836-1898
+;31/07/2023;01/08/2023;20230731-0327;Betaling met bankkaart;-76,75;EUR;31/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;31/07/2023;01/08/2023;20230731-0328;Betaling met bankkaart;-103,60;EUR;31/07/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;31/07/2023;01/08/2023;20230731-0329;Betaling met bankkaart;-33,60;EUR;31/07/2023;;Delhaize;Bancontact · Delhaize Gent
+;01/08/2023;02/08/2023;20230801-0330;Doorlopende opdracht;-1.005,00;EUR;01/08/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur augustus 2023
+;01/08/2023;02/08/2023;20230801-0331;Betaling met bankkaart;-70,35;EUR;01/08/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;02/08/2023;03/08/2023;20230802-0332;Inkomende overschrijving;2.850,00;EUR;02/08/2023;BE62 5100 0754 7061;Werkgever NV;Loon augustus 2023
+;03/08/2023;04/08/2023;20230803-0333;Europese domiciliëring;-145,00;EUR;03/08/2023;;Luminus;Voorschot energie augustus 2023
+;03/08/2023;04/08/2023;20230803-0334;Betaling met bankkaart;-60,15;EUR;03/08/2023;;Lidl;Bancontact · Lidl Gent
+;03/08/2023;04/08/2023;20230803-0335;Betaling met bankkaart;-77,55;EUR;03/08/2023;;Delhaize;Bancontact · Delhaize Gent
+;03/08/2023;04/08/2023;20230803-0336;Betaling met bankkaart;-32,55;EUR;03/08/2023;;Decathlon;Bancontact · Decathlon Gent
+;04/08/2023;05/08/2023;20230804-0337;Betaling met bankkaart;-66,60;EUR;04/08/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;08/08/2023;09/08/2023;20230808-0338;Betaling met bankkaart;-30,85;EUR;08/08/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;08/08/2023;09/08/2023;20230808-0339;Betaling met bankkaart;-24,00;EUR;08/08/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;09/08/2023;10/08/2023;20230809-0340;Europese domiciliëring;-42,98;EUR;09/08/2023;;Proximus;Internet en tv augustus 2023
+;09/08/2023;10/08/2023;20230809-0341;Betaling met bankkaart;-17,70;EUR;09/08/2023;;Lidl;Bancontact · Lidl Gent
+;10/08/2023;11/08/2023;20230810-0342;Europese domiciliëring;-13,99;EUR;10/08/2023;;Netflix;Netflix.com
+;10/08/2023;11/08/2023;20230810-0343;Betaling met bankkaart;-89,10;EUR;10/08/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/08/2023;11/08/2023;20230810-0344;Betaling met bankkaart;-95,15;EUR;10/08/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;11/08/2023;12/08/2023;20230811-0345;Betaling met bankkaart;-49,10;EUR;11/08/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;11/08/2023;12/08/2023;20230811-0346;Betaling via Payconiq;-22,60;EUR;11/08/2023;;Frituur 't Pleintje;Payconiq
+;11/08/2023;12/08/2023;20230811-0347;Betaling via Payconiq;-13,70;EUR;11/08/2023;;Frituur 't Pleintje;Payconiq
+;12/08/2023;13/08/2023;20230812-0348;Betaling via Bancontact online;-53,40;EUR;12/08/2023;;Bol.com;Bestelling 3652-1666
+;12/08/2023;13/08/2023;20230812-0349;Betaling via Payconiq;-11,75;EUR;12/08/2023;;Frituur 't Pleintje;Payconiq
+;12/08/2023;13/08/2023;20230812-0350;Betaling via Payconiq;-17,40;EUR;12/08/2023;;Frituur 't Pleintje;Payconiq
+;13/08/2023;14/08/2023;20230813-0351;Betaling via Bancontact online;-43,40;EUR;13/08/2023;;Bol.com;Bestelling 3168-1105
+;13/08/2023;14/08/2023;20230813-0352;Betaling met bankkaart;-51,85;EUR;13/08/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;14/08/2023;15/08/2023;20230814-0353;Betaling met bankkaart;-36,50;EUR;14/08/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;15/08/2023;16/08/2023;20230815-0354;Betaling met bankkaart;-19,60;EUR;15/08/2023;;NMBS;Treinticket Gent – Brussel
+;15/08/2023;16/08/2023;20230815-0355;Betaling met bankkaart;-17,05;EUR;15/08/2023;;Lidl;Bancontact · Lidl Gent
+;15/08/2023;16/08/2023;20230815-0356;Betaling met bankkaart;-31,65;EUR;15/08/2023;;Decathlon;Bancontact · Decathlon Gent
+;15/08/2023;16/08/2023;20230815-0357;Betaling met bankkaart;-36,95;EUR;15/08/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;15/08/2023;16/08/2023;20230815-0358;Betaling via Bancontact online;-17,95;EUR;15/08/2023;;Bol.com;Bestelling 3560-1317
+;16/08/2023;17/08/2023;20230816-0359;Betaling via Bancontact online;-44,45;EUR;16/08/2023;;Bol.com;Bestelling 3754-1568
+;16/08/2023;17/08/2023;20230816-0360;Betaling met bankkaart;-64,20;EUR;16/08/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;16/08/2023;17/08/2023;20230816-0361;Betaling met bankkaart;-40,85;EUR;16/08/2023;;Lidl;Bancontact · Lidl Gent
+;17/08/2023;18/08/2023;20230817-0362;Europese domiciliëring;-11,99;EUR;17/08/2023;;Spotify;Spotify Premium
+;17/08/2023;18/08/2023;20230817-0363;Betaling met bankkaart;-66,40;EUR;17/08/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;17/08/2023;18/08/2023;20230817-0364;Betaling met bankkaart;-14,40;EUR;17/08/2023;;Bakkerij De Graankorrel;Bancontact
+;17/08/2023;18/08/2023;20230817-0365;Betaling met bankkaart;-93,35;EUR;17/08/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/08/2023;18/08/2023;20230817-0366;Betaling met bankkaart;-25,60;EUR;17/08/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;19/08/2023;20/08/2023;20230819-0367;Betaling met bankkaart;-90,40;EUR;19/08/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;19/08/2023;20/08/2023;20230819-0368;Betaling met bankkaart;-13,25;EUR;19/08/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;19/08/2023;20/08/2023;20230819-0369;Betaling met bankkaart;-15,80;EUR;19/08/2023;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;21/08/2023;22/08/2023;20230821-0370;Betaling met bankkaart;-58,95;EUR;21/08/2023;;Delhaize;Bancontact · Delhaize Gent
+;21/08/2023;22/08/2023;20230821-0371;Betaling met bankkaart;-9,80;EUR;21/08/2023;;Bakkerij De Graankorrel;Bancontact
+;21/08/2023;22/08/2023;20230821-0372;Betaling met bankkaart;-9,00;EUR;21/08/2023;;Bakkerij De Graankorrel;Bancontact
+;21/08/2023;22/08/2023;20230821-0373;Betaling via Bancontact online;-66,35;EUR;21/08/2023;;Bol.com;Bestelling 3056-1252
+;21/08/2023;22/08/2023;20230821-0374;Betaling met bankkaart;-33,25;EUR;21/08/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;23/08/2023;24/08/2023;20230823-0375;Betaling met bankkaart;-28,30;EUR;23/08/2023;;Lidl;Bancontact · Lidl Gent
+;23/08/2023;24/08/2023;20230823-0376;Betaling met bankkaart;-67,30;EUR;23/08/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;25/08/2023;26/08/2023;20230825-0377;Betaling met bankkaart;-14,70;EUR;25/08/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;25/08/2023;26/08/2023;20230825-0378;Betaling met bankkaart;-31,05;EUR;25/08/2023;;Delhaize;Bancontact · Delhaize Gent
+;25/08/2023;26/08/2023;20230825-0379;Betaling met bankkaart;-45,20;EUR;25/08/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;26/08/2023;27/08/2023;20230826-0380;Betaling met bankkaart;-70,70;EUR;26/08/2023;;Decathlon;Bancontact · Decathlon Gent
+;26/08/2023;27/08/2023;20230826-0381;Betaling met bankkaart;-26,85;EUR;26/08/2023;;Delhaize;Bancontact · Delhaize Gent
+;28/08/2023;29/08/2023;20230828-0382;Betaling met bankkaart;-10,10;EUR;28/08/2023;;Bakkerij De Graankorrel;Bancontact
+;28/08/2023;29/08/2023;20230828-0383;Betaling met bankkaart;-79,35;EUR;28/08/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;28/08/2023;29/08/2023;20230828-0384;Betaling via Payconiq;-18,65;EUR;28/08/2023;;Frituur 't Pleintje;Payconiq
+;29/08/2023;30/08/2023;20230829-0385;Betaling met bankkaart;-7,00;EUR;29/08/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;29/08/2023;30/08/2023;20230829-0386;Betaling met bankkaart;-65,90;EUR;29/08/2023;;Decathlon;Bancontact · Decathlon Gent
+;29/08/2023;30/08/2023;20230829-0387;Betaling met bankkaart;-65,15;EUR;29/08/2023;;Delhaize;Bancontact · Delhaize Gent
+;29/08/2023;30/08/2023;20230829-0388;Betaling met bankkaart;-52,20;EUR;29/08/2023;;Lidl;Bancontact · Lidl Gent
+;30/08/2023;31/08/2023;20230830-0389;Betaling met bankkaart;-28,45;EUR;30/08/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;31/08/2023;01/09/2023;20230831-0390;Betaling met bankkaart;-6,60;EUR;31/08/2023;;Bakkerij De Graankorrel;Bancontact
+;31/08/2023;01/09/2023;20230831-0391;Betaling met bankkaart;-30,90;EUR;31/08/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;01/09/2023;02/09/2023;20230901-0392;Doorlopende opdracht;-1.005,00;EUR;01/09/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur september 2023
+;01/09/2023;02/09/2023;20230901-0393;Betaling met bankkaart;-50,05;EUR;01/09/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/09/2023;02/09/2023;20230901-0394;Betaling met bankkaart;-14,65;EUR;01/09/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;02/09/2023;03/09/2023;20230902-0395;Inkomende overschrijving;2.850,00;EUR;02/09/2023;BE62 5100 0754 7061;Werkgever NV;Loon september 2023
+;02/09/2023;03/09/2023;20230902-0396;Betaling met bankkaart;-15,00;EUR;02/09/2023;;Bakkerij De Graankorrel;Bancontact
+;02/09/2023;03/09/2023;20230902-0397;Betaling met bankkaart;-72,60;EUR;02/09/2023;;Delhaize;Bancontact · Delhaize Gent
+;02/09/2023;03/09/2023;20230902-0398;Betaling via Payconiq;-9,15;EUR;02/09/2023;;Frituur 't Pleintje;Payconiq
+;02/09/2023;03/09/2023;20230902-0399;Betaling met bankkaart;-101,90;EUR;02/09/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;02/09/2023;03/09/2023;20230902-0400;Betaling met bankkaart;-72,65;EUR;02/09/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;03/09/2023;04/09/2023;20230903-0401;Europese domiciliëring;-145,00;EUR;03/09/2023;;Luminus;Voorschot energie september 2023
+;03/09/2023;04/09/2023;20230903-0402;Betaling met bankkaart;-19,60;EUR;03/09/2023;;NMBS;Treinticket Gent – Brussel
+;04/09/2023;05/09/2023;20230904-0403;Betaling met bankkaart;-25,25;EUR;04/09/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;05/09/2023;06/09/2023;20230905-0404;Betaling met bankkaart;-60,80;EUR;05/09/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;05/09/2023;06/09/2023;20230905-0405;Betaling met bankkaart;-10,55;EUR;05/09/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;05/09/2023;06/09/2023;20230905-0406;Betaling met bankkaart;-4,00;EUR;05/09/2023;;Bakkerij De Graankorrel;Bancontact
+;07/09/2023;08/09/2023;20230907-0407;Betaling met bankkaart;-60,35;EUR;07/09/2023;;Delhaize;Bancontact · Delhaize Gent
+;07/09/2023;08/09/2023;20230907-0408;Betaling met bankkaart;-45,15;EUR;07/09/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;09/09/2023;10/09/2023;20230909-0409;Europese domiciliëring;-42,98;EUR;09/09/2023;;Proximus;Internet en tv september 2023
+;09/09/2023;10/09/2023;20230909-0410;Betaling met bankkaart;-38,55;EUR;09/09/2023;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;09/09/2023;10/09/2023;20230909-0411;Betaling met bankkaart;-50,95;EUR;09/09/2023;;Lidl;Bancontact · Lidl Gent
+;10/09/2023;11/09/2023;20230910-0412;Europese domiciliëring;-13,99;EUR;10/09/2023;;Netflix;Netflix.com
+;10/09/2023;11/09/2023;20230910-0413;Betaling met bankkaart;-21,20;EUR;10/09/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;10/09/2023;11/09/2023;20230910-0414;Betaling met bankkaart;-52,60;EUR;10/09/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;10/09/2023;11/09/2023;20230910-0415;Betaling met bankkaart;-32,40;EUR;10/09/2023;;Lidl;Bancontact · Lidl Gent
+;12/09/2023;13/09/2023;20230912-0416;Betaling met bankkaart;-46,45;EUR;12/09/2023;;Delhaize;Bancontact · Delhaize Gent
+;12/09/2023;13/09/2023;20230912-0417;Betaling met bankkaart;-100,75;EUR;12/09/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;12/09/2023;13/09/2023;20230912-0418;Betaling met bankkaart;-5,15;EUR;12/09/2023;;Bakkerij De Graankorrel;Bancontact
+;13/09/2023;14/09/2023;20230913-0419;Betaling met bankkaart;-19,80;EUR;13/09/2023;;Lidl;Bancontact · Lidl Gent
+;13/09/2023;14/09/2023;20230913-0420;Betaling via Payconiq;-11,35;EUR;13/09/2023;;Frituur 't Pleintje;Payconiq
+;14/09/2023;15/09/2023;20230914-0421;Betaling met bankkaart;-63,40;EUR;14/09/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;14/09/2023;15/09/2023;20230914-0422;Betaling met bankkaart;-21,70;EUR;14/09/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;15/09/2023;16/09/2023;20230915-0423;Betaling met bankkaart;-76,90;EUR;15/09/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;15/09/2023;16/09/2023;20230915-0424;Betaling met bankkaart;-50,40;EUR;15/09/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;15/09/2023;16/09/2023;20230915-0425;Betaling via Bancontact online;-65,55;EUR;15/09/2023;;Bol.com;Bestelling 3272-1008
+;16/09/2023;17/09/2023;20230916-0426;Betaling met bankkaart;-41,95;EUR;16/09/2023;;Delhaize;Bancontact · Delhaize Gent
+;16/09/2023;17/09/2023;20230916-0427;Betaling met bankkaart;-7,15;EUR;16/09/2023;;Bakkerij De Graankorrel;Bancontact
+;16/09/2023;17/09/2023;20230916-0428;Betaling met bankkaart;-20,20;EUR;16/09/2023;;Lidl;Bancontact · Lidl Gent
+;17/09/2023;18/09/2023;20230917-0429;Europese domiciliëring;-11,99;EUR;17/09/2023;;Spotify;Spotify Premium
+;19/09/2023;20/09/2023;20230919-0430;Betaling met bankkaart;-108,30;EUR;19/09/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/09/2023;21/09/2023;20230920-0431;Betaling met bankkaart;-74,50;EUR;20/09/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/09/2023;21/09/2023;20230920-0432;Betaling met bankkaart;-53,80;EUR;20/09/2023;;Delhaize;Bancontact · Delhaize Gent
+;21/09/2023;22/09/2023;20230921-0433;Betaling met bankkaart;-41,10;EUR;21/09/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;24/09/2023;25/09/2023;20230924-0434;Betaling met bankkaart;-30,95;EUR;24/09/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;25/09/2023;26/09/2023;20230925-0435;Betaling via Bancontact online;-63,00;EUR;25/09/2023;;Bol.com;Bestelling 3106-1012
+;26/09/2023;27/09/2023;20230926-0436;Betaling via Payconiq;-12,70;EUR;26/09/2023;;Frituur 't Pleintje;Payconiq
+;26/09/2023;27/09/2023;20230926-0437;Betaling met bankkaart;-9,30;EUR;26/09/2023;;Bakkerij De Graankorrel;Bancontact
+;28/09/2023;29/09/2023;20230928-0438;Betaling met bankkaart;-42,05;EUR;28/09/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;29/09/2023;30/09/2023;20230929-0439;Betaling met bankkaart;-25,40;EUR;29/09/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;29/09/2023;30/09/2023;20230929-0440;Betaling met bankkaart;-23,05;EUR;29/09/2023;;Lidl;Bancontact · Lidl Gent
+;30/09/2023;01/10/2023;20230930-0441;Betaling met bankkaart;-78,50;EUR;30/09/2023;;Delhaize;Bancontact · Delhaize Gent
+;30/09/2023;01/10/2023;20230930-0442;Betaling met bankkaart;-56,20;EUR;30/09/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;01/10/2023;02/10/2023;20231001-0443;Doorlopende opdracht;-1.005,00;EUR;01/10/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur oktober 2023
+;02/10/2023;03/10/2023;20231002-0444;Inkomende overschrijving;2.850,00;EUR;02/10/2023;BE62 5100 0754 7061;Werkgever NV;Loon oktober 2023
+;02/10/2023;03/10/2023;20231002-0445;Betaling met bankkaart;-66,40;EUR;02/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;02/10/2023;03/10/2023;20231002-0446;Betaling met bankkaart;-77,05;EUR;02/10/2023;;Decathlon;Bancontact · Decathlon Gent
+;03/10/2023;04/10/2023;20231003-0447;Europese domiciliëring;-145,00;EUR;03/10/2023;;Luminus;Voorschot energie oktober 2023
+;03/10/2023;04/10/2023;20231003-0448;Betaling met bankkaart;-13,10;EUR;03/10/2023;;Bakkerij De Graankorrel;Bancontact
+;03/10/2023;04/10/2023;20231003-0449;Betaling met bankkaart;-18,95;EUR;03/10/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;05/10/2023;06/10/2023;20231005-0450;Betaling met bankkaart;-33,75;EUR;05/10/2023;;Lidl;Bancontact · Lidl Gent
+;05/10/2023;06/10/2023;20231005-0451;Betaling met bankkaart;-28,35;EUR;05/10/2023;;Lidl;Bancontact · Lidl Gent
+;05/10/2023;06/10/2023;20231005-0452;Betaling met bankkaart;-28,60;EUR;05/10/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;06/10/2023;07/10/2023;20231006-0453;Betaling met bankkaart;-25,90;EUR;06/10/2023;;Lidl;Bancontact · Lidl Gent
+;07/10/2023;08/10/2023;20231007-0454;Betaling met bankkaart;-47,00;EUR;07/10/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;07/10/2023;08/10/2023;20231007-0455;Betaling met bankkaart;-6,50;EUR;07/10/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;07/10/2023;08/10/2023;20231007-0456;Betaling met bankkaart;-79,20;EUR;07/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;08/10/2023;09/10/2023;20231008-0457;Betaling met bankkaart;-81,95;EUR;08/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/10/2023;10/10/2023;20231009-0458;Europese domiciliëring;-42,98;EUR;09/10/2023;;Proximus;Internet en tv oktober 2023
+;09/10/2023;10/10/2023;20231009-0459;Betaling met bankkaart;-34,25;EUR;09/10/2023;;Lidl;Bancontact · Lidl Gent
+;09/10/2023;10/10/2023;20231009-0460;Betaling met bankkaart;-100,15;EUR;09/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/10/2023;10/10/2023;20231009-0461;Betaling met bankkaart;-16,00;EUR;09/10/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;09/10/2023;10/10/2023;20231009-0462;Betaling met bankkaart;-19,60;EUR;09/10/2023;;NMBS;Treinticket Gent – Brussel
+;09/10/2023;10/10/2023;20231009-0463;Betaling met bankkaart;-19,60;EUR;09/10/2023;;NMBS;Treinticket Gent – Brussel
+;09/10/2023;10/10/2023;20231009-0464;Betaling met bankkaart;-43,65;EUR;09/10/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;09/10/2023;10/10/2023;20231009-0465;Betaling met bankkaart;-15,25;EUR;09/10/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;09/10/2023;10/10/2023;20231009-0466;Betaling via Payconiq;-19,55;EUR;09/10/2023;;Frituur 't Pleintje;Payconiq
+;10/10/2023;11/10/2023;20231010-0467;Europese domiciliëring;-13,99;EUR;10/10/2023;;Netflix;Netflix.com
+;10/10/2023;11/10/2023;20231010-0468;Betaling via Bancontact online;-41,40;EUR;10/10/2023;;Bol.com;Bestelling 3346-1326
+;11/10/2023;12/10/2023;20231011-0469;Betaling met bankkaart;-30,35;EUR;11/10/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;13/10/2023;14/10/2023;20231013-0470;Betaling met bankkaart;-47,40;EUR;13/10/2023;;Lidl;Bancontact · Lidl Gent
+;13/10/2023;14/10/2023;20231013-0471;Betaling met bankkaart;-61,70;EUR;13/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;14/10/2023;15/10/2023;20231014-0472;Betaling met bankkaart;-29,30;EUR;14/10/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;15/10/2023;16/10/2023;20231015-0473;Betaling met bankkaart;-13,00;EUR;15/10/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;17/10/2023;18/10/2023;20231017-0474;Europese domiciliëring;-11,99;EUR;17/10/2023;;Spotify;Spotify Premium
+;18/10/2023;19/10/2023;20231018-0475;Betaling met bankkaart;-81,70;EUR;18/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/10/2023;19/10/2023;20231018-0476;Betaling met bankkaart;-19,60;EUR;18/10/2023;;NMBS;Treinticket Gent – Brussel
+;18/10/2023;19/10/2023;20231018-0477;Betaling met bankkaart;-17,30;EUR;18/10/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;19/10/2023;20/10/2023;20231019-0478;Betaling met bankkaart;-61,10;EUR;19/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;19/10/2023;20/10/2023;20231019-0479;Betaling met bankkaart;-9,35;EUR;19/10/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;19/10/2023;20/10/2023;20231019-0480;Betaling met bankkaart;-22,15;EUR;19/10/2023;;Lidl;Bancontact · Lidl Gent
+;20/10/2023;21/10/2023;20231020-0481;Betaling met bankkaart;-59,80;EUR;20/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;21/10/2023;22/10/2023;20231021-0482;Betaling met bankkaart;-48,25;EUR;21/10/2023;;Decathlon;Bancontact · Decathlon Gent
+;23/10/2023;24/10/2023;20231023-0483;Betaling met bankkaart;-11,45;EUR;23/10/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;26/10/2023;27/10/2023;20231026-0484;Betaling met bankkaart;-63,65;EUR;26/10/2023;;Delhaize;Bancontact · Delhaize Gent
+;27/10/2023;28/10/2023;20231027-0485;Betaling met bankkaart;-19,60;EUR;27/10/2023;;NMBS;Treinticket Gent – Brussel
+;27/10/2023;28/10/2023;20231027-0486;Betaling met bankkaart;-105,65;EUR;27/10/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;29/10/2023;30/10/2023;20231029-0487;Betaling via Bancontact online;-24,70;EUR;29/10/2023;;Bol.com;Bestelling 3739-1266
+;29/10/2023;30/10/2023;20231029-0488;Betaling met bankkaart;-49,75;EUR;29/10/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;29/10/2023;30/10/2023;20231029-0489;Betaling met bankkaart;-5,05;EUR;29/10/2023;;Bakkerij De Graankorrel;Bancontact
+;31/10/2023;01/11/2023;20231031-0490;Betaling met bankkaart;-30,40;EUR;31/10/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;01/11/2023;02/11/2023;20231101-0491;Doorlopende opdracht;-1.005,00;EUR;01/11/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur november 2023
+;01/11/2023;02/11/2023;20231101-0492;Betaling met bankkaart;-11,20;EUR;01/11/2023;;Bakkerij De Graankorrel;Bancontact
+;01/11/2023;02/11/2023;20231101-0493;Betaling met bankkaart;-26,00;EUR;01/11/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;01/11/2023;02/11/2023;20231101-0494;Betaling via Payconiq;-11,05;EUR;01/11/2023;;Frituur 't Pleintje;Payconiq
+;02/11/2023;03/11/2023;20231102-0495;Inkomende overschrijving;2.850,00;EUR;02/11/2023;BE62 5100 0754 7061;Werkgever NV;Loon november 2023
+;02/11/2023;03/11/2023;20231102-0496;Betaling met bankkaart;-37,10;EUR;02/11/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;03/11/2023;04/11/2023;20231103-0497;Europese domiciliëring;-145,00;EUR;03/11/2023;;Luminus;Voorschot energie november 2023
+;03/11/2023;04/11/2023;20231103-0498;Betaling met bankkaart;-42,40;EUR;03/11/2023;;Lidl;Bancontact · Lidl Gent
+;03/11/2023;04/11/2023;20231103-0499;Betaling met bankkaart;-19,20;EUR;03/11/2023;;Lidl;Bancontact · Lidl Gent
+;04/11/2023;05/11/2023;20231104-0500;Betaling met bankkaart;-74,30;EUR;04/11/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;04/11/2023;05/11/2023;20231104-0501;Betaling met bankkaart;-4,15;EUR;04/11/2023;;Bakkerij De Graankorrel;Bancontact
+;05/11/2023;06/11/2023;20231105-0502;Betaling met bankkaart;-14,40;EUR;05/11/2023;;Bakkerij De Graankorrel;Bancontact
+;05/11/2023;06/11/2023;20231105-0503;Betaling met bankkaart;-30,45;EUR;05/11/2023;;Delhaize;Bancontact · Delhaize Gent
+;06/11/2023;07/11/2023;20231106-0504;Betaling met bankkaart;-97,35;EUR;06/11/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;06/11/2023;07/11/2023;20231106-0505;Betaling met bankkaart;-27,45;EUR;06/11/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;06/11/2023;07/11/2023;20231106-0506;Betaling met bankkaart;-15,55;EUR;06/11/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;08/11/2023;09/11/2023;20231108-0507;Betaling via Payconiq;-8,15;EUR;08/11/2023;;Frituur 't Pleintje;Payconiq
+;09/11/2023;10/11/2023;20231109-0508;Europese domiciliëring;-42,98;EUR;09/11/2023;;Proximus;Internet en tv november 2023
+;09/11/2023;10/11/2023;20231109-0509;Betaling met bankkaart;-55,50;EUR;09/11/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/11/2023;11/11/2023;20231110-0510;Europese domiciliëring;-13,99;EUR;10/11/2023;;Netflix;Netflix.com
+;11/11/2023;12/11/2023;20231111-0511;Betaling met bankkaart;-24,00;EUR;11/11/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;11/11/2023;12/11/2023;20231111-0512;Betaling met bankkaart;-78,10;EUR;11/11/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;11/11/2023;12/11/2023;20231111-0513;Betaling met bankkaart;-52,45;EUR;11/11/2023;;Delhaize;Bancontact · Delhaize Gent
+;13/11/2023;14/11/2023;20231113-0514;Betaling met bankkaart;-54,60;EUR;13/11/2023;;Lidl;Bancontact · Lidl Gent
+;15/11/2023;16/11/2023;20231115-0515;Betaling met bankkaart;-61,60;EUR;15/11/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/11/2023;18/11/2023;20231117-0516;Europese domiciliëring;-11,99;EUR;17/11/2023;;Spotify;Spotify Premium
+;17/11/2023;18/11/2023;20231117-0517;Betaling met bankkaart;-13,50;EUR;17/11/2023;;Bakkerij De Graankorrel;Bancontact
+;18/11/2023;19/11/2023;20231118-0518;Betaling met bankkaart;-18,30;EUR;18/11/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;19/11/2023;20/11/2023;20231119-0519;Betaling met bankkaart;-89,45;EUR;19/11/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;21/11/2023;22/11/2023;20231121-0520;Betaling met bankkaart;-50,05;EUR;21/11/2023;;Lidl;Bancontact · Lidl Gent
+;21/11/2023;22/11/2023;20231121-0521;Betaling via Payconiq;-16,55;EUR;21/11/2023;;Frituur 't Pleintje;Payconiq
+;22/11/2023;23/11/2023;20231122-0522;Betaling met bankkaart;-39,05;EUR;22/11/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;23/11/2023;24/11/2023;20231123-0523;Betaling met bankkaart;-30,80;EUR;23/11/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;24/11/2023;25/11/2023;20231124-0524;Betaling met bankkaart;-32,25;EUR;24/11/2023;;Delhaize;Bancontact · Delhaize Gent
+;24/11/2023;25/11/2023;20231124-0525;Betaling met bankkaart;-55,85;EUR;24/11/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;25/11/2023;26/11/2023;20231125-0526;Betaling met bankkaart;-29,70;EUR;25/11/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;25/11/2023;26/11/2023;20231125-0527;Betaling met bankkaart;-21,60;EUR;25/11/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;26/11/2023;27/11/2023;20231126-0528;Betaling met bankkaart;-75,15;EUR;26/11/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;26/11/2023;27/11/2023;20231126-0529;Betaling met bankkaart;-58,35;EUR;26/11/2023;;Lidl;Bancontact · Lidl Gent
+;26/11/2023;27/11/2023;20231126-0530;Betaling via Bancontact online;-27,70;EUR;26/11/2023;;Bol.com;Bestelling 3230-1636
+;27/11/2023;28/11/2023;20231127-0531;Betaling met bankkaart;-39,75;EUR;27/11/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;28/11/2023;29/11/2023;20231128-0532;Betaling met bankkaart;-26,35;EUR;28/11/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;28/11/2023;29/11/2023;20231128-0533;Betaling met bankkaart;-26,55;EUR;28/11/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;28/11/2023;29/11/2023;20231128-0534;Betaling met bankkaart;-10,40;EUR;28/11/2023;;Bakkerij De Graankorrel;Bancontact
+;28/11/2023;29/11/2023;20231128-0535;Betaling met bankkaart;-49,45;EUR;28/11/2023;;Lidl;Bancontact · Lidl Gent
+;29/11/2023;30/11/2023;20231129-0536;Betaling met bankkaart;-47,05;EUR;29/11/2023;;Delhaize;Bancontact · Delhaize Gent
+;29/11/2023;30/11/2023;20231129-0537;Betaling via Payconiq;-13,45;EUR;29/11/2023;;Frituur 't Pleintje;Payconiq
+;29/11/2023;30/11/2023;20231129-0538;Betaling met bankkaart;-38,60;EUR;29/11/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;30/11/2023;01/12/2023;20231130-0539;Betaling met bankkaart;-94,15;EUR;30/11/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;30/11/2023;01/12/2023;20231130-0540;Betaling via Bancontact online;-34,50;EUR;30/11/2023;;Bol.com;Bestelling 3667-1204
+;30/11/2023;01/12/2023;20231130-0541;Betaling met bankkaart;-68,70;EUR;30/11/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/12/2023;02/12/2023;20231201-0542;Doorlopende opdracht;-1.005,00;EUR;01/12/2023;BE71 0961 2345 6769;Immo Verhaeghe;Huur december 2023
+;02/12/2023;03/12/2023;20231202-0543;Inkomende overschrijving;2.850,00;EUR;02/12/2023;BE62 5100 0754 7061;Werkgever NV;Loon december 2023
+;02/12/2023;03/12/2023;20231202-0544;Betaling met bankkaart;-39,95;EUR;02/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;03/12/2023;04/12/2023;20231203-0545;Europese domiciliëring;-145,00;EUR;03/12/2023;;Luminus;Voorschot energie december 2023
+;03/12/2023;04/12/2023;20231203-0546;Betaling met bankkaart;-50,10;EUR;03/12/2023;;Lidl;Bancontact · Lidl Gent
+;04/12/2023;05/12/2023;20231204-0547;Betaling met bankkaart;-13,30;EUR;04/12/2023;;Bakkerij De Graankorrel;Bancontact
+;06/12/2023;07/12/2023;20231206-0548;Betaling met bankkaart;-38,10;EUR;06/12/2023;;Lidl;Bancontact · Lidl Gent
+;06/12/2023;07/12/2023;20231206-0549;Betaling met bankkaart;-27,05;EUR;06/12/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;07/12/2023;08/12/2023;20231207-0550;Betaling met bankkaart;-42,30;EUR;07/12/2023;;Lidl;Bancontact · Lidl Gent
+;07/12/2023;08/12/2023;20231207-0551;Betaling met bankkaart;-70,45;EUR;07/12/2023;;Delhaize;Bancontact · Delhaize Gent
+;08/12/2023;09/12/2023;20231208-0552;Betaling met bankkaart;-10,30;EUR;08/12/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;09/12/2023;10/12/2023;20231209-0553;Europese domiciliëring;-42,98;EUR;09/12/2023;;Proximus;Internet en tv december 2023
+;09/12/2023;10/12/2023;20231209-0554;Betaling met bankkaart;-6,70;EUR;09/12/2023;;Bakkerij De Graankorrel;Bancontact
+;09/12/2023;10/12/2023;20231209-0555;Betaling met bankkaart;-35,75;EUR;09/12/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;10/12/2023;11/12/2023;20231210-0556;Europese domiciliëring;-13,99;EUR;10/12/2023;;Netflix;Netflix.com
+;10/12/2023;11/12/2023;20231210-0557;Betaling met bankkaart;-23,30;EUR;10/12/2023;;Delhaize;Bancontact · Delhaize Gent
+;10/12/2023;11/12/2023;20231210-0558;Betaling met bankkaart;-77,00;EUR;10/12/2023;;Delhaize;Bancontact · Delhaize Gent
+;11/12/2023;12/12/2023;20231211-0559;Betaling met bankkaart;-29,55;EUR;11/12/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;12/12/2023;13/12/2023;20231212-0560;Betaling via Payconiq;-19,35;EUR;12/12/2023;;Frituur 't Pleintje;Payconiq
+;13/12/2023;14/12/2023;20231213-0561;Betaling met bankkaart;-19,60;EUR;13/12/2023;;NMBS;Treinticket Gent – Brussel
+;13/12/2023;14/12/2023;20231213-0562;Betaling via Payconiq;-13,50;EUR;13/12/2023;;Frituur 't Pleintje;Payconiq
+;13/12/2023;14/12/2023;20231213-0563;Betaling met bankkaart;-80,90;EUR;13/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;13/12/2023;14/12/2023;20231213-0564;Betaling met bankkaart;-21,30;EUR;13/12/2023;;Lidl;Bancontact · Lidl Gent
+;13/12/2023;14/12/2023;20231213-0565;Betaling met bankkaart;-104,35;EUR;13/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;14/12/2023;15/12/2023;20231214-0566;Betaling met bankkaart;-54,15;EUR;14/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;14/12/2023;15/12/2023;20231214-0567;Betaling met bankkaart;-24,00;EUR;14/12/2023;;Kinepolis;Kinepolis Gent · 2 tickets
+;15/12/2023;16/12/2023;20231215-0568;Betaling met bankkaart;-53,05;EUR;15/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/12/2023;18/12/2023;20231217-0569;Europese domiciliëring;-11,99;EUR;17/12/2023;;Spotify;Spotify Premium
+;17/12/2023;18/12/2023;20231217-0570;Betaling met bankkaart;-11,00;EUR;17/12/2023;;Bakkerij De Graankorrel;Bancontact
+;18/12/2023;19/12/2023;20231218-0571;Betaling met bankkaart;-43,60;EUR;18/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/12/2023;19/12/2023;20231218-0572;Betaling met bankkaart;-70,20;EUR;18/12/2023;;Zara;Bancontact · Zara Gent
+;18/12/2023;19/12/2023;20231218-0573;Betaling met bankkaart;-55,40;EUR;18/12/2023;;Decathlon;Bancontact · Decathlon Gent
+;19/12/2023;20/12/2023;20231219-0574;Betaling met bankkaart;-76,20;EUR;19/12/2023;;Delhaize;Bancontact · Delhaize Gent
+;19/12/2023;20/12/2023;20231219-0575;Betaling met bankkaart;-6,30;EUR;19/12/2023;;Bakkerij De Graankorrel;Bancontact
+;19/12/2023;20/12/2023;20231219-0576;Betaling met bankkaart;-46,60;EUR;19/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/12/2023;21/12/2023;20231220-0577;Betaling met bankkaart;-103,20;EUR;20/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/12/2023;21/12/2023;20231220-0578;Betaling met bankkaart;-32,15;EUR;20/12/2023;;Albert Heijn;Bancontact · AH Gent Zuid
+;20/12/2023;21/12/2023;20231220-0579;Betaling via Payconiq;-12,35;EUR;20/12/2023;;Frituur 't Pleintje;Payconiq
+;21/12/2023;22/12/2023;20231221-0580;Betaling met bankkaart;-8,35;EUR;21/12/2023;;Bakkerij De Graankorrel;Bancontact
+;22/12/2023;23/12/2023;20231222-0581;Betaling met bankkaart;-24,30;EUR;22/12/2023;;Delhaize;Bancontact · Delhaize Gent
+;22/12/2023;23/12/2023;20231222-0582;Betaling met bankkaart;-80,10;EUR;22/12/2023;;Zara;Bancontact · Zara Gent
+;22/12/2023;23/12/2023;20231222-0583;Betaling met bankkaart;-23,00;EUR;22/12/2023;;Decathlon;Bancontact · Decathlon Gent
+;22/12/2023;23/12/2023;20231222-0584;Betaling met bankkaart;-56,20;EUR;22/12/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;23/12/2023;24/12/2023;20231223-0585;Betaling met bankkaart;-25,50;EUR;23/12/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;24/12/2023;25/12/2023;20231224-0586;Betaling met bankkaart;-12,30;EUR;24/12/2023;;Bakkerij De Graankorrel;Bancontact
+;24/12/2023;25/12/2023;20231224-0587;Betaling met bankkaart;-35,15;EUR;24/12/2023;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;25/12/2023;26/12/2023;20231225-0588;Betaling met bankkaart;-63,65;EUR;25/12/2023;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;26/12/2023;27/12/2023;20231226-0589;Betaling met bankkaart;-51,60;EUR;26/12/2023;;Decathlon;Bancontact · Decathlon Gent
+;26/12/2023;27/12/2023;20231226-0590;Betaling met bankkaart;-53,05;EUR;26/12/2023;;Lidl;Bancontact · Lidl Gent
+;26/12/2023;27/12/2023;20231226-0591;Betaling met bankkaart;-19,60;EUR;26/12/2023;;NMBS;Treinticket Gent – Brussel
+;27/12/2023;28/12/2023;20231227-0592;Betaling via Payconiq;-22,80;EUR;27/12/2023;;Frituur 't Pleintje;Payconiq
+;27/12/2023;28/12/2023;20231227-0593;Betaling met bankkaart;-15,40;EUR;27/12/2023;;Carrefour Express;Bancontact · Carrefour Gent
+;28/12/2023;29/12/2023;20231228-0594;Betaling met bankkaart;-52,90;EUR;28/12/2023;;Aldi;Bancontact · Aldi Gentbrugge
+;28/12/2023;29/12/2023;20231228-0595;Betaling met bankkaart;-77,40;EUR;28/12/2023;;Delhaize;Bancontact · Delhaize Gent
+;29/12/2023;30/12/2023;20231229-0596;Betaling via Bancontact online;-21,65;EUR;29/12/2023;;Bol.com;Bestelling 3711-1079
+;29/12/2023;30/12/2023;20231229-0597;Betaling met bankkaart;-11,85;EUR;29/12/2023;;Bakkerij De Graankorrel;Bancontact
+;29/12/2023;30/12/2023;20231229-0598;Betaling met bankkaart;-42,10;EUR;29/12/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;30/12/2023;31/12/2023;20231230-0599;Betaling met bankkaart;-68,55;EUR;30/12/2023;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;30/12/2023;31/12/2023;20231230-0600;Betaling met bankkaart;-52,05;EUR;30/12/2023;;Lidl;Bancontact · Lidl Gent
+;30/12/2023;31/12/2023;20231230-0601;Betaling met bankkaart;-62,05;EUR;30/12/2023;;Delhaize;Bancontact · Delhaize Gent
+;31/12/2023;01/01/2024;20231231-0602;Betaling met bankkaart;-38,90;EUR;31/12/2023;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;31/12/2023;01/01/2024;20231231-0603;Betaling met bankkaart;-56,00;EUR;31/12/2023;;Delhaize;Bancontact · Delhaize Gent
+;31/12/2023;01/01/2024;20231231-0604;Betaling via Payconiq;-10,90;EUR;31/12/2023;;Frituur 't Pleintje;Payconiq
+;01/01/2024;02/01/2024;20240101-0605;Doorlopende opdracht;-1.005,00;EUR;01/01/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur januari 2024
+;01/01/2024;02/01/2024;20240101-0606;Betaling met bankkaart;-6,50;EUR;01/01/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;01/01/2024;02/01/2024;20240101-0607;Betaling met bankkaart;-68,70;EUR;01/01/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/01/2024;02/01/2024;20240101-0608;Betaling met bankkaart;-49,75;EUR;01/01/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;02/01/2024;03/01/2024;20240102-0609;Inkomende overschrijving;2.850,00;EUR;02/01/2024;BE62 5100 0754 7061;Werkgever NV;Loon januari 2024
+;02/01/2024;03/01/2024;20240102-0610;Betaling met bankkaart;-5,15;EUR;02/01/2024;;Bakkerij De Graankorrel;Bancontact
+;03/01/2024;04/01/2024;20240103-0611;Europese domiciliëring;-145,00;EUR;03/01/2024;;Luminus;Voorschot energie januari 2024
+;03/01/2024;04/01/2024;20240103-0612;Betaling met bankkaart;-5,75;EUR;03/01/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;03/01/2024;04/01/2024;20240103-0613;Betaling met bankkaart;-58,00;EUR;03/01/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;04/01/2024;05/01/2024;20240104-0614;Betaling met bankkaart;-63,30;EUR;04/01/2024;;Decathlon;Bancontact · Decathlon Gent
+;05/01/2024;06/01/2024;20240105-0615;Betaling met bankkaart;-40,90;EUR;05/01/2024;;Lidl;Bancontact · Lidl Gent
+;06/01/2024;07/01/2024;20240106-0616;Betaling met bankkaart;-52,30;EUR;06/01/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;07/01/2024;08/01/2024;20240107-0617;Betaling met bankkaart;-65,90;EUR;07/01/2024;;Delhaize;Bancontact · Delhaize Gent
+;07/01/2024;08/01/2024;20240107-0618;Betaling met bankkaart;-64,00;EUR;07/01/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;09/01/2024;10/01/2024;20240109-0619;Europese domiciliëring;-42,98;EUR;09/01/2024;;Proximus;Internet en tv januari 2024
+;09/01/2024;10/01/2024;20240109-0620;Betaling met bankkaart;-42,05;EUR;09/01/2024;;Delhaize;Bancontact · Delhaize Gent
+;09/01/2024;10/01/2024;20240109-0621;Betaling via Bancontact online;-26,85;EUR;09/01/2024;;Bol.com;Bestelling 3493-1437
+;10/01/2024;11/01/2024;20240110-0622;Europese domiciliëring;-13,99;EUR;10/01/2024;;Netflix;Netflix.com
+;10/01/2024;11/01/2024;20240110-0623;Betaling met bankkaart;-36,55;EUR;10/01/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;11/01/2024;12/01/2024;20240111-0624;Betaling met bankkaart;-24,15;EUR;11/01/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;12/01/2024;13/01/2024;20240112-0625;Betaling met bankkaart;-36,70;EUR;12/01/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;12/01/2024;13/01/2024;20240112-0626;Betaling met bankkaart;-10,15;EUR;12/01/2024;;Bakkerij De Graankorrel;Bancontact
+;12/01/2024;13/01/2024;20240112-0627;Betaling met bankkaart;-24,45;EUR;12/01/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;13/01/2024;14/01/2024;20240113-0628;Betaling met bankkaart;-24,00;EUR;13/01/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;13/01/2024;14/01/2024;20240113-0629;Betaling met bankkaart;-60,45;EUR;13/01/2024;;Decathlon;Bancontact · Decathlon Gent
+;13/01/2024;14/01/2024;20240113-0630;Betaling met bankkaart;-51,65;EUR;13/01/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;14/01/2024;15/01/2024;20240114-0631;Betaling met bankkaart;-16,55;EUR;14/01/2024;;Lidl;Bancontact · Lidl Gent
+;14/01/2024;15/01/2024;20240114-0632;Betaling met bankkaart;-19,60;EUR;14/01/2024;;NMBS;Treinticket Gent – Brussel
+;15/01/2024;16/01/2024;20240115-0633;Betaling met bankkaart;-19,60;EUR;15/01/2024;;NMBS;Treinticket Gent – Brussel
+;17/01/2024;18/01/2024;20240117-0634;Europese domiciliëring;-11,99;EUR;17/01/2024;;Spotify;Spotify Premium
+;17/01/2024;18/01/2024;20240117-0635;Betaling met bankkaart;-77,95;EUR;17/01/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/01/2024;19/01/2024;20240118-0636;Betaling met bankkaart;-86,85;EUR;18/01/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;19/01/2024;20/01/2024;20240119-0637;Betaling met bankkaart;-30,10;EUR;19/01/2024;;Delhaize;Bancontact · Delhaize Gent
+;21/01/2024;22/01/2024;20240121-0638;Betaling met bankkaart;-31,50;EUR;21/01/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;22/01/2024;23/01/2024;20240122-0639;Betaling met bankkaart;-78,75;EUR;22/01/2024;;Delhaize;Bancontact · Delhaize Gent
+;22/01/2024;23/01/2024;20240122-0640;Betaling met bankkaart;-24,00;EUR;22/01/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;23/01/2024;24/01/2024;20240123-0641;Betaling met bankkaart;-58,30;EUR;23/01/2024;;Lidl;Bancontact · Lidl Gent
+;24/01/2024;25/01/2024;20240124-0642;Betaling met bankkaart;-66,75;EUR;24/01/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/01/2024;25/01/2024;20240124-0643;Betaling met bankkaart;-69,05;EUR;24/01/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;25/01/2024;26/01/2024;20240125-0644;Betaling met bankkaart;-86,10;EUR;25/01/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;25/01/2024;26/01/2024;20240125-0645;Betaling met bankkaart;-33,25;EUR;25/01/2024;;Delhaize;Bancontact · Delhaize Gent
+;25/01/2024;26/01/2024;20240125-0646;Betaling met bankkaart;-16,50;EUR;25/01/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;26/01/2024;27/01/2024;20240126-0647;Betaling met bankkaart;-60,90;EUR;26/01/2024;;Lidl;Bancontact · Lidl Gent
+;28/01/2024;29/01/2024;20240128-0648;Betaling met bankkaart;-24,00;EUR;28/01/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;28/01/2024;29/01/2024;20240128-0649;Betaling met bankkaart;-38,25;EUR;28/01/2024;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;28/01/2024;29/01/2024;20240128-0650;Betaling via Payconiq;-15,55;EUR;28/01/2024;;Frituur 't Pleintje;Payconiq
+;30/01/2024;31/01/2024;20240130-0651;Betaling met bankkaart;-10,55;EUR;30/01/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;30/01/2024;31/01/2024;20240130-0652;Betaling met bankkaart;-58,30;EUR;30/01/2024;;Lidl;Bancontact · Lidl Gent
+;31/01/2024;01/02/2024;20240131-0653;Betaling met bankkaart;-19,60;EUR;31/01/2024;;NMBS;Treinticket Gent – Brussel
+;31/01/2024;01/02/2024;20240131-0654;Betaling met bankkaart;-41,75;EUR;31/01/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;31/01/2024;01/02/2024;20240131-0655;Betaling met bankkaart;-45,65;EUR;31/01/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;01/02/2024;02/02/2024;20240201-0656;Doorlopende opdracht;-1.005,00;EUR;01/02/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur februari 2024
+;01/02/2024;02/02/2024;20240201-0657;Betaling met bankkaart;-51,55;EUR;01/02/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;02/02/2024;03/02/2024;20240202-0658;Inkomende overschrijving;2.850,00;EUR;02/02/2024;BE62 5100 0754 7061;Werkgever NV;Loon februari 2024
+;02/02/2024;03/02/2024;20240202-0659;Betaling met bankkaart;-76,10;EUR;02/02/2024;;Delhaize;Bancontact · Delhaize Gent
+;03/02/2024;04/02/2024;20240203-0660;Europese domiciliëring;-145,00;EUR;03/02/2024;;Luminus;Voorschot energie februari 2024
+;03/02/2024;04/02/2024;20240203-0661;Betaling met bankkaart;-46,05;EUR;03/02/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;04/02/2024;05/02/2024;20240204-0662;Betaling met bankkaart;-38,60;EUR;04/02/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;07/02/2024;08/02/2024;20240207-0663;Betaling met bankkaart;-45,75;EUR;07/02/2024;;Lidl;Bancontact · Lidl Gent
+;07/02/2024;08/02/2024;20240207-0664;Betaling met bankkaart;-4,75;EUR;07/02/2024;;Bakkerij De Graankorrel;Bancontact
+;09/02/2024;10/02/2024;20240209-0665;Europese domiciliëring;-42,98;EUR;09/02/2024;;Proximus;Internet en tv februari 2024
+;10/02/2024;11/02/2024;20240210-0666;Europese domiciliëring;-13,99;EUR;10/02/2024;;Netflix;Netflix.com
+;10/02/2024;11/02/2024;20240210-0667;Betaling met bankkaart;-37,60;EUR;10/02/2024;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;10/02/2024;11/02/2024;20240210-0668;Betaling met bankkaart;-42,05;EUR;10/02/2024;;Lidl;Bancontact · Lidl Gent
+;10/02/2024;11/02/2024;20240210-0669;Betaling met bankkaart;-38,75;EUR;10/02/2024;;Delhaize;Bancontact · Delhaize Gent
+;10/02/2024;11/02/2024;20240210-0670;Betaling met bankkaart;-66,55;EUR;10/02/2024;;Delhaize;Bancontact · Delhaize Gent
+;11/02/2024;12/02/2024;20240211-0671;Betaling met bankkaart;-22,80;EUR;11/02/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;11/02/2024;12/02/2024;20240211-0672;Betaling met bankkaart;-30,10;EUR;11/02/2024;;Delhaize;Bancontact · Delhaize Gent
+;12/02/2024;13/02/2024;20240212-0673;Betaling met bankkaart;-99,25;EUR;12/02/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;13/02/2024;14/02/2024;20240213-0674;Betaling met bankkaart;-18,20;EUR;13/02/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;14/02/2024;15/02/2024;20240214-0675;Betaling met bankkaart;-35,05;EUR;14/02/2024;;Delhaize;Bancontact · Delhaize Gent
+;16/02/2024;17/02/2024;20240216-0676;Betaling met bankkaart;-26,05;EUR;16/02/2024;;Delhaize;Bancontact · Delhaize Gent
+;16/02/2024;17/02/2024;20240216-0677;Betaling met bankkaart;-9,75;EUR;16/02/2024;;Bakkerij De Graankorrel;Bancontact
+;16/02/2024;17/02/2024;20240216-0678;Betaling met bankkaart;-39,30;EUR;16/02/2024;;Lidl;Bancontact · Lidl Gent
+;16/02/2024;17/02/2024;20240216-0679;Betaling met bankkaart;-93,75;EUR;16/02/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/02/2024;17/02/2024;20240216-0680;Betaling met bankkaart;-44,90;EUR;16/02/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/02/2024;17/02/2024;20240216-0681;Betaling met bankkaart;-71,70;EUR;16/02/2024;;Decathlon;Bancontact · Decathlon Gent
+;16/02/2024;17/02/2024;20240216-0682;Betaling met bankkaart;-61,90;EUR;16/02/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;17/02/2024;18/02/2024;20240217-0683;Europese domiciliëring;-11,99;EUR;17/02/2024;;Spotify;Spotify Premium
+;17/02/2024;18/02/2024;20240217-0684;Betaling met bankkaart;-33,25;EUR;17/02/2024;;Lidl;Bancontact · Lidl Gent
+;17/02/2024;18/02/2024;20240217-0685;Betaling met bankkaart;-36,30;EUR;17/02/2024;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;18/02/2024;19/02/2024;20240218-0686;Betaling met bankkaart;-19,60;EUR;18/02/2024;;NMBS;Treinticket Gent – Brussel
+;18/02/2024;19/02/2024;20240218-0687;Betaling met bankkaart;-34,00;EUR;18/02/2024;;Delhaize;Bancontact · Delhaize Gent
+;19/02/2024;20/02/2024;20240219-0688;Betaling met bankkaart;-62,30;EUR;19/02/2024;;Lidl;Bancontact · Lidl Gent
+;22/02/2024;23/02/2024;20240222-0689;Betaling met bankkaart;-24,85;EUR;22/02/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;22/02/2024;23/02/2024;20240222-0690;Betaling via Payconiq;-11,90;EUR;22/02/2024;;Frituur 't Pleintje;Payconiq
+;22/02/2024;23/02/2024;20240222-0691;Betaling met bankkaart;-47,35;EUR;22/02/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;22/02/2024;23/02/2024;20240222-0692;Betaling met bankkaart;-14,35;EUR;22/02/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;22/02/2024;23/02/2024;20240222-0693;Betaling met bankkaart;-16,50;EUR;22/02/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;23/02/2024;24/02/2024;20240223-0694;Betaling met bankkaart;-33,60;EUR;23/02/2024;;Delhaize;Bancontact · Delhaize Gent
+;23/02/2024;24/02/2024;20240223-0695;Betaling met bankkaart;-63,55;EUR;23/02/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/02/2024;25/02/2024;20240224-0696;Betaling met bankkaart;-21,75;EUR;24/02/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;24/02/2024;25/02/2024;20240224-0697;Betaling met bankkaart;-89,60;EUR;24/02/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/02/2024;25/02/2024;20240224-0698;Betaling met bankkaart;-19,60;EUR;24/02/2024;;NMBS;Treinticket Gent – Brussel
+;24/02/2024;25/02/2024;20240224-0699;Betaling met bankkaart;-24,20;EUR;24/02/2024;;Lidl;Bancontact · Lidl Gent
+;25/02/2024;26/02/2024;20240225-0700;Betaling met bankkaart;-55,90;EUR;25/02/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;26/02/2024;27/02/2024;20240226-0701;Betaling met bankkaart;-52,60;EUR;26/02/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;27/02/2024;28/02/2024;20240227-0702;Betaling met bankkaart;-4,95;EUR;27/02/2024;;Bakkerij De Graankorrel;Bancontact
+;01/03/2024;02/03/2024;20240301-0703;Doorlopende opdracht;-1.005,00;EUR;01/03/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur maart 2024
+;01/03/2024;02/03/2024;20240301-0704;Betaling met bankkaart;-29,10;EUR;01/03/2024;;Lidl;Bancontact · Lidl Gent
+;02/03/2024;03/03/2024;20240302-0705;Inkomende overschrijving;2.850,00;EUR;02/03/2024;BE62 5100 0754 7061;Werkgever NV;Loon maart 2024
+;02/03/2024;03/03/2024;20240302-0706;Betaling met bankkaart;-47,85;EUR;02/03/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;03/03/2024;04/03/2024;20240303-0707;Europese domiciliëring;-145,00;EUR;03/03/2024;;Luminus;Voorschot energie maart 2024
+;03/03/2024;04/03/2024;20240303-0708;Betaling met bankkaart;-19,60;EUR;03/03/2024;;NMBS;Treinticket Gent – Brussel
+;03/03/2024;04/03/2024;20240303-0709;Betaling met bankkaart;-105,00;EUR;03/03/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;03/03/2024;04/03/2024;20240303-0710;Betaling met bankkaart;-103,40;EUR;03/03/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;05/03/2024;06/03/2024;20240305-0711;Betaling met bankkaart;-37,90;EUR;05/03/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;06/03/2024;07/03/2024;20240306-0712;Betaling met bankkaart;-64,55;EUR;06/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;07/03/2024;08/03/2024;20240307-0713;Betaling met bankkaart;-27,20;EUR;07/03/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;07/03/2024;08/03/2024;20240307-0714;Betaling met bankkaart;-51,10;EUR;07/03/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;08/03/2024;09/03/2024;20240308-0715;Betaling met bankkaart;-50,45;EUR;08/03/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/03/2024;10/03/2024;20240309-0716;Europese domiciliëring;-42,98;EUR;09/03/2024;;Proximus;Internet en tv maart 2024
+;09/03/2024;10/03/2024;20240309-0717;Betaling met bankkaart;-19,60;EUR;09/03/2024;;NMBS;Treinticket Gent – Brussel
+;09/03/2024;10/03/2024;20240309-0718;Betaling met bankkaart;-67,30;EUR;09/03/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/03/2024;11/03/2024;20240310-0719;Europese domiciliëring;-13,99;EUR;10/03/2024;;Netflix;Netflix.com
+;10/03/2024;11/03/2024;20240310-0720;Betaling met bankkaart;-74,20;EUR;10/03/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;12/03/2024;13/03/2024;20240312-0721;Betaling met bankkaart;-58,25;EUR;12/03/2024;;Lidl;Bancontact · Lidl Gent
+;13/03/2024;14/03/2024;20240313-0722;Betaling met bankkaart;-52,60;EUR;13/03/2024;;Lidl;Bancontact · Lidl Gent
+;13/03/2024;14/03/2024;20240313-0723;Betaling met bankkaart;-49,40;EUR;13/03/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;14/03/2024;15/03/2024;20240314-0724;Betaling met bankkaart;-6,60;EUR;14/03/2024;;Bakkerij De Graankorrel;Bancontact
+;14/03/2024;15/03/2024;20240314-0725;Betaling met bankkaart;-62,20;EUR;14/03/2024;;Lidl;Bancontact · Lidl Gent
+;15/03/2024;16/03/2024;20240315-0726;Betaling met bankkaart;-36,35;EUR;15/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;15/03/2024;16/03/2024;20240315-0727;Betaling met bankkaart;-70,15;EUR;15/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;16/03/2024;17/03/2024;20240316-0728;Betaling met bankkaart;-50,65;EUR;16/03/2024;;Lidl;Bancontact · Lidl Gent
+;16/03/2024;17/03/2024;20240316-0729;Betaling met bankkaart;-73,35;EUR;16/03/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/03/2024;17/03/2024;20240316-0730;Betaling met bankkaart;-79,75;EUR;16/03/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/03/2024;18/03/2024;20240317-0731;Europese domiciliëring;-11,99;EUR;17/03/2024;;Spotify;Spotify Premium
+;17/03/2024;18/03/2024;20240317-0732;Betaling met bankkaart;-47,65;EUR;17/03/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/03/2024;18/03/2024;20240317-0733;Betaling met bankkaart;-45,00;EUR;17/03/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;17/03/2024;18/03/2024;20240317-0734;Betaling met bankkaart;-61,60;EUR;17/03/2024;;Lidl;Bancontact · Lidl Gent
+;17/03/2024;18/03/2024;20240317-0735;Betaling met bankkaart;-19,00;EUR;17/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;18/03/2024;19/03/2024;20240318-0736;Betaling met bankkaart;-39,50;EUR;18/03/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;18/03/2024;19/03/2024;20240318-0737;Betaling via Bancontact online;-16,25;EUR;18/03/2024;;Bol.com;Bestelling 3705-1773
+;19/03/2024;20/03/2024;20240319-0738;Betaling met bankkaart;-37,80;EUR;19/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;20/03/2024;21/03/2024;20240320-0739;Betaling met bankkaart;-21,50;EUR;20/03/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;20/03/2024;21/03/2024;20240320-0740;Betaling via Bancontact online;-59,15;EUR;20/03/2024;;Bol.com;Bestelling 3152-1720
+;21/03/2024;22/03/2024;20240321-0741;Betaling met bankkaart;-14,55;EUR;21/03/2024;;Bakkerij De Graankorrel;Bancontact
+;21/03/2024;22/03/2024;20240321-0742;Betaling met bankkaart;-29,35;EUR;21/03/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;21/03/2024;22/03/2024;20240321-0743;Betaling met bankkaart;-43,50;EUR;21/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;25/03/2024;26/03/2024;20240325-0744;Betaling met bankkaart;-8,05;EUR;25/03/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;26/03/2024;27/03/2024;20240326-0745;Betaling met bankkaart;-23,50;EUR;26/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;27/03/2024;28/03/2024;20240327-0746;Betaling met bankkaart;-23,50;EUR;27/03/2024;;Decathlon;Bancontact · Decathlon Gent
+;27/03/2024;28/03/2024;20240327-0747;Betaling met bankkaart;-14,50;EUR;27/03/2024;;Bakkerij De Graankorrel;Bancontact
+;27/03/2024;28/03/2024;20240327-0748;Betaling met bankkaart;-49,05;EUR;27/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;28/03/2024;29/03/2024;20240328-0749;Betaling met bankkaart;-71,65;EUR;28/03/2024;;Delhaize;Bancontact · Delhaize Gent
+;29/03/2024;30/03/2024;20240329-0750;Betaling met bankkaart;-12,75;EUR;29/03/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;30/03/2024;31/03/2024;20240330-0751;Betaling met bankkaart;-43,50;EUR;30/03/2024;;Lidl;Bancontact · Lidl Gent
+;30/03/2024;31/03/2024;20240330-0752;Betaling met bankkaart;-29,35;EUR;30/03/2024;;Lidl;Bancontact · Lidl Gent
+;31/03/2024;01/04/2024;20240331-0753;Betaling met bankkaart;-31,85;EUR;31/03/2024;;Zara;Bancontact · Zara Gent
+;01/04/2024;02/04/2024;20240401-0754;Doorlopende opdracht;-1.005,00;EUR;01/04/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur april 2024
+;01/04/2024;02/04/2024;20240401-0755;Betaling met bankkaart;-28,85;EUR;01/04/2024;;Delhaize;Bancontact · Delhaize Gent
+;02/04/2024;03/04/2024;20240402-0756;Inkomende overschrijving;2.850,00;EUR;02/04/2024;BE62 5100 0754 7061;Werkgever NV;Loon april 2024
+;02/04/2024;03/04/2024;20240402-0757;Betaling met bankkaart;-35,70;EUR;02/04/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;03/04/2024;04/04/2024;20240403-0758;Europese domiciliëring;-145,00;EUR;03/04/2024;;Luminus;Voorschot energie april 2024
+;03/04/2024;04/04/2024;20240403-0759;Betaling met bankkaart;-21,65;EUR;03/04/2024;;Lidl;Bancontact · Lidl Gent
+;03/04/2024;04/04/2024;20240403-0760;Betaling met bankkaart;-21,95;EUR;03/04/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;04/04/2024;05/04/2024;20240404-0761;Betaling met bankkaart;-67,90;EUR;04/04/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;04/04/2024;05/04/2024;20240404-0762;Betaling met bankkaart;-62,60;EUR;04/04/2024;;Decathlon;Bancontact · Decathlon Gent
+;06/04/2024;07/04/2024;20240406-0763;Betaling met bankkaart;-12,95;EUR;06/04/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;07/04/2024;08/04/2024;20240407-0764;Betaling via Payconiq;-17,55;EUR;07/04/2024;;Frituur 't Pleintje;Payconiq
+;07/04/2024;08/04/2024;20240407-0765;Betaling via Payconiq;-8,95;EUR;07/04/2024;;Frituur 't Pleintje;Payconiq
+;08/04/2024;09/04/2024;20240408-0766;Betaling met bankkaart;-12,45;EUR;08/04/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;08/04/2024;09/04/2024;20240408-0767;Betaling met bankkaart;-68,55;EUR;08/04/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;08/04/2024;09/04/2024;20240408-0768;Betaling met bankkaart;-77,75;EUR;08/04/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;08/04/2024;09/04/2024;20240408-0769;Betaling met bankkaart;-40,25;EUR;08/04/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/04/2024;10/04/2024;20240409-0770;Europese domiciliëring;-42,98;EUR;09/04/2024;;Proximus;Internet en tv april 2024
+;09/04/2024;10/04/2024;20240409-0771;Betaling met bankkaart;-106,10;EUR;09/04/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/04/2024;10/04/2024;20240409-0772;Betaling met bankkaart;-28,80;EUR;09/04/2024;;Lidl;Bancontact · Lidl Gent
+;09/04/2024;10/04/2024;20240409-0773;Betaling met bankkaart;-54,45;EUR;09/04/2024;;Lidl;Bancontact · Lidl Gent
+;09/04/2024;10/04/2024;20240409-0774;Betaling met bankkaart;-60,70;EUR;09/04/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;09/04/2024;10/04/2024;20240409-0775;Betaling via Payconiq;-22,40;EUR;09/04/2024;;Frituur 't Pleintje;Payconiq
+;10/04/2024;11/04/2024;20240410-0776;Europese domiciliëring;-13,99;EUR;10/04/2024;;Netflix;Netflix.com
+;10/04/2024;11/04/2024;20240410-0777;Betaling met bankkaart;-44,35;EUR;10/04/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;10/04/2024;11/04/2024;20240410-0778;Betaling met bankkaart;-57,35;EUR;10/04/2024;;Delhaize;Bancontact · Delhaize Gent
+;10/04/2024;11/04/2024;20240410-0779;Betaling met bankkaart;-42,35;EUR;10/04/2024;;Lidl;Bancontact · Lidl Gent
+;10/04/2024;11/04/2024;20240410-0780;Betaling met bankkaart;-33,50;EUR;10/04/2024;;Delhaize;Bancontact · Delhaize Gent
+;11/04/2024;12/04/2024;20240411-0781;Betaling met bankkaart;-40,55;EUR;11/04/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;12/04/2024;13/04/2024;20240412-0782;Betaling via Bancontact online;-50,70;EUR;12/04/2024;;Bol.com;Bestelling 3647-1377
+;12/04/2024;13/04/2024;20240412-0783;Betaling met bankkaart;-58,60;EUR;12/04/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;12/04/2024;13/04/2024;20240412-0784;Betaling via Payconiq;-14,35;EUR;12/04/2024;;Frituur 't Pleintje;Payconiq
+;12/04/2024;13/04/2024;20240412-0785;Betaling met bankkaart;-23,45;EUR;12/04/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;13/04/2024;14/04/2024;20240413-0786;Betaling met bankkaart;-24,00;EUR;13/04/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;13/04/2024;14/04/2024;20240413-0787;Betaling met bankkaart;-24,00;EUR;13/04/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;13/04/2024;14/04/2024;20240413-0788;Betaling met bankkaart;-30,15;EUR;13/04/2024;;Zara;Bancontact · Zara Gent
+;14/04/2024;15/04/2024;20240414-0789;Betaling met bankkaart;-58,30;EUR;14/04/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;15/04/2024;16/04/2024;20240415-0790;Betaling met bankkaart;-79,80;EUR;15/04/2024;;Delhaize;Bancontact · Delhaize Gent
+;15/04/2024;16/04/2024;20240415-0791;Betaling met bankkaart;-90,15;EUR;15/04/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/04/2024;18/04/2024;20240417-0792;Europese domiciliëring;-11,99;EUR;17/04/2024;;Spotify;Spotify Premium
+;17/04/2024;18/04/2024;20240417-0793;Betaling met bankkaart;-61,85;EUR;17/04/2024;;Delhaize;Bancontact · Delhaize Gent
+;17/04/2024;18/04/2024;20240417-0794;Betaling met bankkaart;-48,90;EUR;17/04/2024;;Lidl;Bancontact · Lidl Gent
+;17/04/2024;18/04/2024;20240417-0795;Betaling met bankkaart;-25,85;EUR;17/04/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;21/04/2024;22/04/2024;20240421-0796;Betaling via Payconiq;-21,25;EUR;21/04/2024;;Frituur 't Pleintje;Payconiq
+;21/04/2024;22/04/2024;20240421-0797;Betaling met bankkaart;-19,40;EUR;21/04/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;23/04/2024;24/04/2024;20240423-0798;Betaling met bankkaart;-22,05;EUR;23/04/2024;;Delhaize;Bancontact · Delhaize Gent
+;24/04/2024;25/04/2024;20240424-0799;Betaling met bankkaart;-4,55;EUR;24/04/2024;;Bakkerij De Graankorrel;Bancontact
+;25/04/2024;26/04/2024;20240425-0800;Betaling met bankkaart;-34,50;EUR;25/04/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;25/04/2024;26/04/2024;20240425-0801;Betaling met bankkaart;-46,70;EUR;25/04/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;25/04/2024;26/04/2024;20240425-0802;Betaling met bankkaart;-47,25;EUR;25/04/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;26/04/2024;27/04/2024;20240426-0803;Betaling met bankkaart;-20,35;EUR;26/04/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;27/04/2024;28/04/2024;20240427-0804;Betaling met bankkaart;-36,25;EUR;27/04/2024;;Decathlon;Bancontact · Decathlon Gent
+;27/04/2024;28/04/2024;20240427-0805;Betaling via Payconiq;-18,20;EUR;27/04/2024;;Frituur 't Pleintje;Payconiq
+;27/04/2024;28/04/2024;20240427-0806;Betaling met bankkaart;-63,10;EUR;27/04/2024;;Delhaize;Bancontact · Delhaize Gent
+;28/04/2024;29/04/2024;20240428-0807;Betaling via Payconiq;-18,25;EUR;28/04/2024;;Frituur 't Pleintje;Payconiq
+;28/04/2024;29/04/2024;20240428-0808;Betaling met bankkaart;-11,25;EUR;28/04/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;28/04/2024;29/04/2024;20240428-0809;Betaling via Bancontact online;-49,25;EUR;28/04/2024;;Bol.com;Bestelling 3236-1470
+;30/04/2024;01/05/2024;20240430-0810;Betaling met bankkaart;-25,70;EUR;30/04/2024;;Lidl;Bancontact · Lidl Gent
+;30/04/2024;01/05/2024;20240430-0811;Betaling met bankkaart;-36,90;EUR;30/04/2024;;Lidl;Bancontact · Lidl Gent
+;01/05/2024;02/05/2024;20240501-0812;Doorlopende opdracht;-1.005,00;EUR;01/05/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur mei 2024
+;01/05/2024;02/05/2024;20240501-0813;Betaling met bankkaart;-29,95;EUR;01/05/2024;;Decathlon;Bancontact · Decathlon Gent
+;02/05/2024;03/05/2024;20240502-0814;Inkomende overschrijving;2.850,00;EUR;02/05/2024;BE62 5100 0754 7061;Werkgever NV;Loon mei 2024
+;02/05/2024;03/05/2024;20240502-0815;Betaling met bankkaart;-36,15;EUR;02/05/2024;;Lidl;Bancontact · Lidl Gent
+;03/05/2024;04/05/2024;20240503-0816;Europese domiciliëring;-145,00;EUR;03/05/2024;;Luminus;Voorschot energie mei 2024
+;03/05/2024;04/05/2024;20240503-0817;Betaling met bankkaart;-58,10;EUR;03/05/2024;;Delhaize;Bancontact · Delhaize Gent
+;03/05/2024;04/05/2024;20240503-0818;Betaling met bankkaart;-5,70;EUR;03/05/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;04/05/2024;05/05/2024;20240504-0819;Betaling met bankkaart;-11,50;EUR;04/05/2024;;Bakkerij De Graankorrel;Bancontact
+;04/05/2024;05/05/2024;20240504-0820;Betaling met bankkaart;-80,00;EUR;04/05/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;05/05/2024;06/05/2024;20240505-0821;Betaling via Bancontact online;-30,50;EUR;05/05/2024;;Bol.com;Bestelling 3146-1892
+;06/05/2024;07/05/2024;20240506-0822;Betaling met bankkaart;-12,40;EUR;06/05/2024;;Bakkerij De Graankorrel;Bancontact
+;07/05/2024;08/05/2024;20240507-0823;Betaling met bankkaart;-48,15;EUR;07/05/2024;;Lidl;Bancontact · Lidl Gent
+;08/05/2024;09/05/2024;20240508-0824;Betaling met bankkaart;-19,60;EUR;08/05/2024;;NMBS;Treinticket Gent – Brussel
+;08/05/2024;09/05/2024;20240508-0825;Betaling met bankkaart;-37,95;EUR;08/05/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;08/05/2024;09/05/2024;20240508-0826;Betaling met bankkaart;-29,30;EUR;08/05/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;08/05/2024;09/05/2024;20240508-0827;Betaling met bankkaart;-49,80;EUR;08/05/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/05/2024;10/05/2024;20240509-0828;Europese domiciliëring;-42,98;EUR;09/05/2024;;Proximus;Internet en tv mei 2024
+;10/05/2024;11/05/2024;20240510-0829;Europese domiciliëring;-13,99;EUR;10/05/2024;;Netflix;Netflix.com
+;10/05/2024;11/05/2024;20240510-0830;Betaling via Payconiq;-15,80;EUR;10/05/2024;;Frituur 't Pleintje;Payconiq
+;10/05/2024;11/05/2024;20240510-0831;Betaling met bankkaart;-94,45;EUR;10/05/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/05/2024;11/05/2024;20240510-0832;Betaling met bankkaart;-74,10;EUR;10/05/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/05/2024;11/05/2024;20240510-0833;Betaling via Payconiq;-19,35;EUR;10/05/2024;;Frituur 't Pleintje;Payconiq
+;11/05/2024;12/05/2024;20240511-0834;Betaling met bankkaart;-19,60;EUR;11/05/2024;;NMBS;Treinticket Gent – Brussel
+;13/05/2024;14/05/2024;20240513-0835;Betaling met bankkaart;-37,55;EUR;13/05/2024;;Decathlon;Bancontact · Decathlon Gent
+;13/05/2024;14/05/2024;20240513-0836;Betaling met bankkaart;-24,00;EUR;13/05/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;15/05/2024;16/05/2024;20240515-0837;Betaling met bankkaart;-72,20;EUR;15/05/2024;;Delhaize;Bancontact · Delhaize Gent
+;15/05/2024;16/05/2024;20240515-0838;Betaling via Payconiq;-17,05;EUR;15/05/2024;;Frituur 't Pleintje;Payconiq
+;15/05/2024;16/05/2024;20240515-0839;Betaling met bankkaart;-41,20;EUR;15/05/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;15/05/2024;16/05/2024;20240515-0840;Betaling met bankkaart;-13,75;EUR;15/05/2024;;Bakkerij De Graankorrel;Bancontact
+;15/05/2024;16/05/2024;20240515-0841;Betaling met bankkaart;-54,00;EUR;15/05/2024;;Zara;Bancontact · Zara Gent
+;16/05/2024;17/05/2024;20240516-0842;Betaling met bankkaart;-104,25;EUR;16/05/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/05/2024;17/05/2024;20240516-0843;Betaling met bankkaart;-51,10;EUR;16/05/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;16/05/2024;17/05/2024;20240516-0844;Betaling met bankkaart;-30,95;EUR;16/05/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;16/05/2024;17/05/2024;20240516-0845;Betaling met bankkaart;-15,40;EUR;16/05/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;17/05/2024;18/05/2024;20240517-0846;Europese domiciliëring;-11,99;EUR;17/05/2024;;Spotify;Spotify Premium
+;17/05/2024;18/05/2024;20240517-0847;Betaling met bankkaart;-27,30;EUR;17/05/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;17/05/2024;18/05/2024;20240517-0848;Betaling met bankkaart;-30,15;EUR;17/05/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;18/05/2024;19/05/2024;20240518-0849;Betaling met bankkaart;-60,20;EUR;18/05/2024;;Delhaize;Bancontact · Delhaize Gent
+;18/05/2024;19/05/2024;20240518-0850;Betaling met bankkaart;-32,05;EUR;18/05/2024;;Delhaize;Bancontact · Delhaize Gent
+;19/05/2024;20/05/2024;20240519-0851;Betaling met bankkaart;-40,95;EUR;19/05/2024;;Lidl;Bancontact · Lidl Gent
+;19/05/2024;20/05/2024;20240519-0852;Betaling met bankkaart;-51,90;EUR;19/05/2024;;Lidl;Bancontact · Lidl Gent
+;21/05/2024;22/05/2024;20240521-0853;Betaling met bankkaart;-59,40;EUR;21/05/2024;;Delhaize;Bancontact · Delhaize Gent
+;21/05/2024;22/05/2024;20240521-0854;Betaling met bankkaart;-46,00;EUR;21/05/2024;;Decathlon;Bancontact · Decathlon Gent
+;22/05/2024;23/05/2024;20240522-0855;Betaling met bankkaart;-25,25;EUR;22/05/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;25/05/2024;26/05/2024;20240525-0856;Betaling met bankkaart;-13,05;EUR;25/05/2024;;Bakkerij De Graankorrel;Bancontact
+;25/05/2024;26/05/2024;20240525-0857;Betaling met bankkaart;-46,80;EUR;25/05/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;25/05/2024;26/05/2024;20240525-0858;Betaling met bankkaart;-42,50;EUR;25/05/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;25/05/2024;26/05/2024;20240525-0859;Betaling met bankkaart;-48,60;EUR;25/05/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;27/05/2024;28/05/2024;20240527-0860;Betaling met bankkaart;-4,45;EUR;27/05/2024;;Bakkerij De Graankorrel;Bancontact
+;27/05/2024;28/05/2024;20240527-0861;Betaling met bankkaart;-42,80;EUR;27/05/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;28/05/2024;29/05/2024;20240528-0862;Betaling met bankkaart;-24,00;EUR;28/05/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;28/05/2024;29/05/2024;20240528-0863;Betaling met bankkaart;-56,00;EUR;28/05/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;28/05/2024;29/05/2024;20240528-0864;Betaling met bankkaart;-75,10;EUR;28/05/2024;;Delhaize;Bancontact · Delhaize Gent
+;29/05/2024;30/05/2024;20240529-0865;Betaling met bankkaart;-19,50;EUR;29/05/2024;;Delhaize;Bancontact · Delhaize Gent
+;29/05/2024;30/05/2024;20240529-0866;Betaling via Bancontact online;-39,75;EUR;29/05/2024;;Bol.com;Bestelling 3382-1700
+;29/05/2024;30/05/2024;20240529-0867;Betaling met bankkaart;-63,75;EUR;29/05/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;30/05/2024;31/05/2024;20240530-0868;Betaling met bankkaart;-19,60;EUR;30/05/2024;;NMBS;Treinticket Gent – Brussel
+;31/05/2024;01/06/2024;20240531-0869;Betaling met bankkaart;-24,00;EUR;31/05/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;01/06/2024;02/06/2024;20240601-0870;Doorlopende opdracht;-1.005,00;EUR;01/06/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur juni 2024
+;01/06/2024;02/06/2024;20240601-0871;Betaling met bankkaart;-62,10;EUR;01/06/2024;;Zara;Bancontact · Zara Gent
+;02/06/2024;03/06/2024;20240602-0872;Inkomende overschrijving;2.850,00;EUR;02/06/2024;BE62 5100 0754 7061;Werkgever NV;Loon juni 2024
+;02/06/2024;03/06/2024;20240602-0873;Betaling met bankkaart;-28,65;EUR;02/06/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;02/06/2024;03/06/2024;20240602-0874;Betaling met bankkaart;-34,55;EUR;02/06/2024;;Lidl;Bancontact · Lidl Gent
+;03/06/2024;04/06/2024;20240603-0875;Europese domiciliëring;-145,00;EUR;03/06/2024;;Luminus;Voorschot energie juni 2024
+;03/06/2024;04/06/2024;20240603-0876;Betaling met bankkaart;-34,40;EUR;03/06/2024;;Lidl;Bancontact · Lidl Gent
+;03/06/2024;04/06/2024;20240603-0877;Betaling met bankkaart;-14,75;EUR;03/06/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;05/06/2024;06/06/2024;20240605-0878;Betaling via Bancontact online;-25,75;EUR;05/06/2024;;Bol.com;Bestelling 3152-1135
+;05/06/2024;06/06/2024;20240605-0879;Betaling met bankkaart;-74,40;EUR;05/06/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;05/06/2024;06/06/2024;20240605-0880;Betaling via Payconiq;-21,85;EUR;05/06/2024;;Frituur 't Pleintje;Payconiq
+;07/06/2024;08/06/2024;20240607-0881;Betaling met bankkaart;-48,85;EUR;07/06/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;09/06/2024;10/06/2024;20240609-0882;Europese domiciliëring;-42,98;EUR;09/06/2024;;Proximus;Internet en tv juni 2024
+;09/06/2024;10/06/2024;20240609-0883;Betaling met bankkaart;-8,00;EUR;09/06/2024;;Bakkerij De Graankorrel;Bancontact
+;09/06/2024;10/06/2024;20240609-0884;Betaling met bankkaart;-30,00;EUR;09/06/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;10/06/2024;11/06/2024;20240610-0885;Europese domiciliëring;-13,99;EUR;10/06/2024;;Netflix;Netflix.com
+;10/06/2024;11/06/2024;20240610-0886;Betaling met bankkaart;-92,10;EUR;10/06/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/06/2024;11/06/2024;20240610-0887;Betaling met bankkaart;-24,00;EUR;10/06/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;10/06/2024;11/06/2024;20240610-0888;Betaling via Payconiq;-18,50;EUR;10/06/2024;;Frituur 't Pleintje;Payconiq
+;11/06/2024;12/06/2024;20240611-0889;Betaling met bankkaart;-31,75;EUR;11/06/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;11/06/2024;12/06/2024;20240611-0890;Betaling met bankkaart;-6,40;EUR;11/06/2024;;Bakkerij De Graankorrel;Bancontact
+;11/06/2024;12/06/2024;20240611-0891;Betaling met bankkaart;-27,45;EUR;11/06/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;12/06/2024;13/06/2024;20240612-0892;Betaling met bankkaart;-74,90;EUR;12/06/2024;;Delhaize;Bancontact · Delhaize Gent
+;13/06/2024;14/06/2024;20240613-0893;Betaling met bankkaart;-4,50;EUR;13/06/2024;;Bakkerij De Graankorrel;Bancontact
+;15/06/2024;16/06/2024;20240615-0894;Betaling met bankkaart;-34,50;EUR;15/06/2024;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;16/06/2024;17/06/2024;20240616-0895;Betaling met bankkaart;-105,20;EUR;16/06/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/06/2024;17/06/2024;20240616-0896;Betaling met bankkaart;-76,15;EUR;16/06/2024;;Decathlon;Bancontact · Decathlon Gent
+;16/06/2024;17/06/2024;20240616-0897;Betaling met bankkaart;-57,20;EUR;16/06/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;17/06/2024;18/06/2024;20240617-0898;Europese domiciliëring;-11,99;EUR;17/06/2024;;Spotify;Spotify Premium
+;17/06/2024;18/06/2024;20240617-0899;Betaling met bankkaart;-24,55;EUR;17/06/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;17/06/2024;18/06/2024;20240617-0900;Betaling met bankkaart;-48,65;EUR;17/06/2024;;Lidl;Bancontact · Lidl Gent
+;18/06/2024;19/06/2024;20240618-0901;Betaling met bankkaart;-16,65;EUR;18/06/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;20/06/2024;21/06/2024;20240620-0902;Betaling met bankkaart;-33,15;EUR;20/06/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;20/06/2024;21/06/2024;20240620-0903;Betaling met bankkaart;-40,00;EUR;20/06/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/06/2024;21/06/2024;20240620-0904;Betaling met bankkaart;-75,10;EUR;20/06/2024;;Decathlon;Bancontact · Decathlon Gent
+;21/06/2024;22/06/2024;20240621-0905;Betaling met bankkaart;-11,30;EUR;21/06/2024;;Bakkerij De Graankorrel;Bancontact
+;21/06/2024;22/06/2024;20240621-0906;Betaling met bankkaart;-63,65;EUR;21/06/2024;;Lidl;Bancontact · Lidl Gent
+;21/06/2024;22/06/2024;20240621-0907;Betaling met bankkaart;-61,05;EUR;21/06/2024;;Lidl;Bancontact · Lidl Gent
+;21/06/2024;22/06/2024;20240621-0908;Betaling met bankkaart;-40,20;EUR;21/06/2024;;Delhaize;Bancontact · Delhaize Gent
+;23/06/2024;24/06/2024;20240623-0909;Betaling met bankkaart;-7,90;EUR;23/06/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;23/06/2024;24/06/2024;20240623-0910;Betaling met bankkaart;-64,50;EUR;23/06/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;25/06/2024;26/06/2024;20240625-0911;Betaling met bankkaart;-7,10;EUR;25/06/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;25/06/2024;26/06/2024;20240625-0912;Betaling met bankkaart;-96,40;EUR;25/06/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;25/06/2024;26/06/2024;20240625-0913;Betaling met bankkaart;-30,05;EUR;25/06/2024;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;26/06/2024;27/06/2024;20240626-0914;Betaling met bankkaart;-63,75;EUR;26/06/2024;;Delhaize;Bancontact · Delhaize Gent
+;27/06/2024;28/06/2024;20240627-0915;Betaling via Bancontact online;-78,00;EUR;27/06/2024;;Bol.com;Bestelling 3380-1080
+;27/06/2024;28/06/2024;20240627-0916;Betaling met bankkaart;-15,65;EUR;27/06/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;27/06/2024;28/06/2024;20240627-0917;Betaling met bankkaart;-44,15;EUR;27/06/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;27/06/2024;28/06/2024;20240627-0918;Betaling met bankkaart;-44,80;EUR;27/06/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;27/06/2024;28/06/2024;20240627-0919;Betaling met bankkaart;-82,00;EUR;27/06/2024;;Decathlon;Bancontact · Decathlon Gent
+;27/06/2024;28/06/2024;20240627-0920;Betaling met bankkaart;-71,55;EUR;27/06/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;29/06/2024;30/06/2024;20240629-0921;Betaling met bankkaart;-56,30;EUR;29/06/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;30/06/2024;01/07/2024;20240630-0922;Betaling met bankkaart;-13,95;EUR;30/06/2024;;Bakkerij De Graankorrel;Bancontact
+;30/06/2024;01/07/2024;20240630-0923;Betaling met bankkaart;-14,90;EUR;30/06/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;01/07/2024;02/07/2024;20240701-0924;Doorlopende opdracht;-1.005,00;EUR;01/07/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur juli 2024
+;01/07/2024;02/07/2024;20240701-0925;Betaling met bankkaart;-10,80;EUR;01/07/2024;;Bakkerij De Graankorrel;Bancontact
+;01/07/2024;02/07/2024;20240701-0926;Betaling met bankkaart;-54,55;EUR;01/07/2024;;Lidl;Bancontact · Lidl Gent
+;02/07/2024;03/07/2024;20240702-0927;Inkomende overschrijving;2.850,00;EUR;02/07/2024;BE62 5100 0754 7061;Werkgever NV;Loon juli 2024
+;02/07/2024;03/07/2024;20240702-0928;Betaling met bankkaart;-12,20;EUR;02/07/2024;;Bakkerij De Graankorrel;Bancontact
+;02/07/2024;03/07/2024;20240702-0929;Betaling met bankkaart;-49,65;EUR;02/07/2024;;Lidl;Bancontact · Lidl Gent
+;03/07/2024;04/07/2024;20240703-0930;Europese domiciliëring;-145,00;EUR;03/07/2024;;Luminus;Voorschot energie juli 2024
+;03/07/2024;04/07/2024;20240703-0931;Betaling via Payconiq;-19,30;EUR;03/07/2024;;Frituur 't Pleintje;Payconiq
+;04/07/2024;05/07/2024;20240704-0932;Betaling met bankkaart;-24,00;EUR;04/07/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;06/07/2024;07/07/2024;20240706-0933;Betaling met bankkaart;-20,30;EUR;06/07/2024;;Lidl;Bancontact · Lidl Gent
+;08/07/2024;09/07/2024;20240708-0934;Betaling met bankkaart;-48,30;EUR;08/07/2024;;Delhaize;Bancontact · Delhaize Gent
+;08/07/2024;09/07/2024;20240708-0935;Betaling met bankkaart;-44,15;EUR;08/07/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;09/07/2024;10/07/2024;20240709-0936;Europese domiciliëring;-42,98;EUR;09/07/2024;;Proximus;Internet en tv juli 2024
+;09/07/2024;10/07/2024;20240709-0937;Betaling met bankkaart;-20,85;EUR;09/07/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;09/07/2024;10/07/2024;20240709-0938;Betaling met bankkaart;-63,35;EUR;09/07/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;10/07/2024;11/07/2024;20240710-0939;Europese domiciliëring;-13,99;EUR;10/07/2024;;Netflix;Netflix.com
+;10/07/2024;11/07/2024;20240710-0940;Betaling met bankkaart;-25,15;EUR;10/07/2024;;Delhaize;Bancontact · Delhaize Gent
+;11/07/2024;12/07/2024;20240711-0941;Betaling met bankkaart;-44,95;EUR;11/07/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;12/07/2024;13/07/2024;20240712-0942;Betaling met bankkaart;-24,55;EUR;12/07/2024;;Delhaize;Bancontact · Delhaize Gent
+;12/07/2024;13/07/2024;20240712-0943;Betaling met bankkaart;-8,95;EUR;12/07/2024;;Bakkerij De Graankorrel;Bancontact
+;12/07/2024;13/07/2024;20240712-0944;Betaling met bankkaart;-26,10;EUR;12/07/2024;;Decathlon;Bancontact · Decathlon Gent
+;13/07/2024;14/07/2024;20240713-0945;Betaling met bankkaart;-34,45;EUR;13/07/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;14/07/2024;15/07/2024;20240714-0946;Betaling met bankkaart;-24,95;EUR;14/07/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;17/07/2024;18/07/2024;20240717-0947;Europese domiciliëring;-11,99;EUR;17/07/2024;;Spotify;Spotify Premium
+;17/07/2024;18/07/2024;20240717-0948;Betaling met bankkaart;-80,40;EUR;17/07/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/07/2024;18/07/2024;20240717-0949;Betaling via Payconiq;-12,35;EUR;17/07/2024;;Frituur 't Pleintje;Payconiq
+;17/07/2024;18/07/2024;20240717-0950;Betaling met bankkaart;-39,55;EUR;17/07/2024;;Delhaize;Bancontact · Delhaize Gent
+;17/07/2024;18/07/2024;20240717-0951;Betaling met bankkaart;-74,45;EUR;17/07/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/07/2024;19/07/2024;20240718-0952;Betaling met bankkaart;-45,00;EUR;18/07/2024;;Zara;Bancontact · Zara Gent
+;18/07/2024;19/07/2024;20240718-0953;Betaling met bankkaart;-91,05;EUR;18/07/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;19/07/2024;20/07/2024;20240719-0954;Betaling met bankkaart;-77,90;EUR;19/07/2024;;Zara;Bancontact · Zara Gent
+;19/07/2024;20/07/2024;20240719-0955;Betaling met bankkaart;-12,50;EUR;19/07/2024;;Bakkerij De Graankorrel;Bancontact
+;21/07/2024;22/07/2024;20240721-0956;Betaling met bankkaart;-16,45;EUR;21/07/2024;;Decathlon;Bancontact · Decathlon Gent
+;21/07/2024;22/07/2024;20240721-0957;Betaling met bankkaart;-43,60;EUR;21/07/2024;;Lidl;Bancontact · Lidl Gent
+;23/07/2024;24/07/2024;20240723-0958;Betaling via Payconiq;-16,35;EUR;23/07/2024;;Frituur 't Pleintje;Payconiq
+;23/07/2024;24/07/2024;20240723-0959;Betaling via Bancontact online;-72,95;EUR;23/07/2024;;Bol.com;Bestelling 3407-1625
+;23/07/2024;24/07/2024;20240723-0960;Betaling met bankkaart;-37,00;EUR;23/07/2024;;Delhaize;Bancontact · Delhaize Gent
+;26/07/2024;27/07/2024;20240726-0961;Betaling met bankkaart;-39,20;EUR;26/07/2024;;Delhaize;Bancontact · Delhaize Gent
+;26/07/2024;27/07/2024;20240726-0962;Betaling met bankkaart;-58,15;EUR;26/07/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;27/07/2024;28/07/2024;20240727-0963;Betaling met bankkaart;-14,50;EUR;27/07/2024;;Bakkerij De Graankorrel;Bancontact
+;27/07/2024;28/07/2024;20240727-0964;Betaling met bankkaart;-20,00;EUR;27/07/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;28/07/2024;29/07/2024;20240728-0965;Betaling met bankkaart;-5,65;EUR;28/07/2024;;Bakkerij De Graankorrel;Bancontact
+;28/07/2024;29/07/2024;20240728-0966;Betaling met bankkaart;-6,80;EUR;28/07/2024;;Bakkerij De Graankorrel;Bancontact
+;31/07/2024;01/08/2024;20240731-0967;Betaling met bankkaart;-56,95;EUR;31/07/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;31/07/2024;01/08/2024;20240731-0968;Betaling met bankkaart;-35,85;EUR;31/07/2024;;Delhaize;Bancontact · Delhaize Gent
+;31/07/2024;01/08/2024;20240731-0969;Betaling met bankkaart;-72,15;EUR;31/07/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/08/2024;02/08/2024;20240801-0970;Doorlopende opdracht;-1.005,00;EUR;01/08/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur augustus 2024
+;01/08/2024;02/08/2024;20240801-0971;Betaling met bankkaart;-72,20;EUR;01/08/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;01/08/2024;02/08/2024;20240801-0972;Betaling met bankkaart;-29,15;EUR;01/08/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;02/08/2024;03/08/2024;20240802-0973;Inkomende overschrijving;2.850,00;EUR;02/08/2024;BE62 5100 0754 7061;Werkgever NV;Loon augustus 2024
+;02/08/2024;03/08/2024;20240802-0974;Betaling met bankkaart;-25,85;EUR;02/08/2024;;Zara;Bancontact · Zara Gent
+;03/08/2024;04/08/2024;20240803-0975;Europese domiciliëring;-145,00;EUR;03/08/2024;;Luminus;Voorschot energie augustus 2024
+;03/08/2024;04/08/2024;20240803-0976;Betaling met bankkaart;-35,05;EUR;03/08/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;04/08/2024;05/08/2024;20240804-0977;Betaling met bankkaart;-26,55;EUR;04/08/2024;;Lidl;Bancontact · Lidl Gent
+;05/08/2024;06/08/2024;20240805-0978;Betaling via Payconiq;-19,45;EUR;05/08/2024;;Frituur 't Pleintje;Payconiq
+;07/08/2024;08/08/2024;20240807-0979;Betaling met bankkaart;-43,00;EUR;07/08/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;07/08/2024;08/08/2024;20240807-0980;Betaling met bankkaart;-10,40;EUR;07/08/2024;;Bakkerij De Graankorrel;Bancontact
+;07/08/2024;08/08/2024;20240807-0981;Betaling met bankkaart;-55,40;EUR;07/08/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;08/08/2024;09/08/2024;20240808-0982;Betaling met bankkaart;-35,95;EUR;08/08/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;08/08/2024;09/08/2024;20240808-0983;Betaling met bankkaart;-48,85;EUR;08/08/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;09/08/2024;10/08/2024;20240809-0984;Europese domiciliëring;-42,98;EUR;09/08/2024;;Proximus;Internet en tv augustus 2024
+;10/08/2024;11/08/2024;20240810-0985;Europese domiciliëring;-13,99;EUR;10/08/2024;;Netflix;Netflix.com
+;10/08/2024;11/08/2024;20240810-0986;Betaling via Payconiq;-19,55;EUR;10/08/2024;;Frituur 't Pleintje;Payconiq
+;12/08/2024;13/08/2024;20240812-0987;Betaling met bankkaart;-98,05;EUR;12/08/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;12/08/2024;13/08/2024;20240812-0988;Betaling via Bancontact online;-55,90;EUR;12/08/2024;;Bol.com;Bestelling 3207-1617
+;13/08/2024;14/08/2024;20240813-0989;Betaling met bankkaart;-56,05;EUR;13/08/2024;;Delhaize;Bancontact · Delhaize Gent
+;14/08/2024;15/08/2024;20240814-0990;Betaling met bankkaart;-30,90;EUR;14/08/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;15/08/2024;16/08/2024;20240815-0991;Betaling met bankkaart;-43,75;EUR;15/08/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;15/08/2024;16/08/2024;20240815-0992;Betaling met bankkaart;-9,70;EUR;15/08/2024;;Bakkerij De Graankorrel;Bancontact
+;17/08/2024;18/08/2024;20240817-0993;Europese domiciliëring;-11,99;EUR;17/08/2024;;Spotify;Spotify Premium
+;17/08/2024;18/08/2024;20240817-0994;Betaling met bankkaart;-9,00;EUR;17/08/2024;;Bakkerij De Graankorrel;Bancontact
+;17/08/2024;18/08/2024;20240817-0995;Betaling via Bancontact online;-29,90;EUR;17/08/2024;;Bol.com;Bestelling 3605-1220
+;21/08/2024;22/08/2024;20240821-0996;Betaling met bankkaart;-41,70;EUR;21/08/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;23/08/2024;24/08/2024;20240823-0997;Betaling met bankkaart;-12,90;EUR;23/08/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;23/08/2024;24/08/2024;20240823-0998;Betaling met bankkaart;-23,75;EUR;23/08/2024;;Delhaize;Bancontact · Delhaize Gent
+;25/08/2024;26/08/2024;20240825-0999;Betaling met bankkaart;-55,85;EUR;25/08/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;27/08/2024;28/08/2024;20240827-1000;Betaling met bankkaart;-12,60;EUR;27/08/2024;;Bakkerij De Graankorrel;Bancontact
+;27/08/2024;28/08/2024;20240827-1001;Betaling met bankkaart;-40,00;EUR;27/08/2024;;Lidl;Bancontact · Lidl Gent
+;27/08/2024;28/08/2024;20240827-1002;Betaling met bankkaart;-25,25;EUR;27/08/2024;;Delhaize;Bancontact · Delhaize Gent
+;27/08/2024;28/08/2024;20240827-1003;Betaling met bankkaart;-98,85;EUR;27/08/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;28/08/2024;29/08/2024;20240828-1004;Betaling met bankkaart;-60,60;EUR;28/08/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;28/08/2024;29/08/2024;20240828-1005;Betaling met bankkaart;-75,80;EUR;28/08/2024;;Decathlon;Bancontact · Decathlon Gent
+;29/08/2024;30/08/2024;20240829-1006;Betaling via Payconiq;-11,55;EUR;29/08/2024;;Frituur 't Pleintje;Payconiq
+;30/08/2024;31/08/2024;20240830-1007;Betaling met bankkaart;-44,80;EUR;30/08/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;30/08/2024;31/08/2024;20240830-1008;Betaling met bankkaart;-24,55;EUR;30/08/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;01/09/2024;02/09/2024;20240901-1009;Doorlopende opdracht;-1.005,00;EUR;01/09/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur september 2024
+;01/09/2024;02/09/2024;20240901-1010;Betaling met bankkaart;-24,25;EUR;01/09/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;01/09/2024;02/09/2024;20240901-1011;Betaling met bankkaart;-30,80;EUR;01/09/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;01/09/2024;02/09/2024;20240901-1012;Betaling met bankkaart;-5,90;EUR;01/09/2024;;Bakkerij De Graankorrel;Bancontact
+;01/09/2024;02/09/2024;20240901-1013;Betaling met bankkaart;-41,65;EUR;01/09/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;02/09/2024;03/09/2024;20240902-1014;Inkomende overschrijving;2.850,00;EUR;02/09/2024;BE62 5100 0754 7061;Werkgever NV;Loon september 2024
+;02/09/2024;03/09/2024;20240902-1015;Betaling met bankkaart;-24,85;EUR;02/09/2024;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;02/09/2024;03/09/2024;20240902-1016;Betaling met bankkaart;-101,85;EUR;02/09/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;03/09/2024;04/09/2024;20240903-1017;Europese domiciliëring;-145,00;EUR;03/09/2024;;Luminus;Voorschot energie september 2024
+;03/09/2024;04/09/2024;20240903-1018;Betaling met bankkaart;-11,90;EUR;03/09/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;03/09/2024;04/09/2024;20240903-1019;Betaling met bankkaart;-72,05;EUR;03/09/2024;;Delhaize;Bancontact · Delhaize Gent
+;04/09/2024;05/09/2024;20240904-1020;Betaling met bankkaart;-6,85;EUR;04/09/2024;;Bakkerij De Graankorrel;Bancontact
+;06/09/2024;07/09/2024;20240906-1021;Betaling via Bancontact online;-41,00;EUR;06/09/2024;;Bol.com;Bestelling 3340-1036
+;08/09/2024;09/09/2024;20240908-1022;Betaling met bankkaart;-45,25;EUR;08/09/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;08/09/2024;09/09/2024;20240908-1023;Betaling met bankkaart;-13,10;EUR;08/09/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;09/09/2024;10/09/2024;20240909-1024;Europese domiciliëring;-42,98;EUR;09/09/2024;;Proximus;Internet en tv september 2024
+;09/09/2024;10/09/2024;20240909-1025;Betaling met bankkaart;-53,25;EUR;09/09/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/09/2024;10/09/2024;20240909-1026;Betaling met bankkaart;-34,05;EUR;09/09/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;09/09/2024;10/09/2024;20240909-1027;Betaling met bankkaart;-66,60;EUR;09/09/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/09/2024;11/09/2024;20240910-1028;Europese domiciliëring;-13,99;EUR;10/09/2024;;Netflix;Netflix.com
+;10/09/2024;11/09/2024;20240910-1029;Betaling via Bancontact online;-45,65;EUR;10/09/2024;;Bol.com;Bestelling 3200-1173
+;11/09/2024;12/09/2024;20240911-1030;Betaling met bankkaart;-33,50;EUR;11/09/2024;;Lidl;Bancontact · Lidl Gent
+;11/09/2024;12/09/2024;20240911-1031;Betaling met bankkaart;-45,90;EUR;11/09/2024;;Lidl;Bancontact · Lidl Gent
+;12/09/2024;13/09/2024;20240912-1032;Betaling met bankkaart;-42,25;EUR;12/09/2024;;Lidl;Bancontact · Lidl Gent
+;14/09/2024;15/09/2024;20240914-1033;Betaling met bankkaart;-49,90;EUR;14/09/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;14/09/2024;15/09/2024;20240914-1034;Betaling met bankkaart;-44,20;EUR;14/09/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;14/09/2024;15/09/2024;20240914-1035;Betaling met bankkaart;-90,25;EUR;14/09/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;14/09/2024;15/09/2024;20240914-1036;Betaling met bankkaart;-34,95;EUR;14/09/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;14/09/2024;15/09/2024;20240914-1037;Betaling met bankkaart;-24,00;EUR;14/09/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;15/09/2024;16/09/2024;20240915-1038;Betaling met bankkaart;-41,40;EUR;15/09/2024;;Delhaize;Bancontact · Delhaize Gent
+;15/09/2024;16/09/2024;20240915-1039;Betaling met bankkaart;-19,60;EUR;15/09/2024;;NMBS;Treinticket Gent – Brussel
+;15/09/2024;16/09/2024;20240915-1040;Betaling met bankkaart;-38,60;EUR;15/09/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;16/09/2024;17/09/2024;20240916-1041;Betaling met bankkaart;-19,60;EUR;16/09/2024;;NMBS;Treinticket Gent – Brussel
+;17/09/2024;18/09/2024;20240917-1042;Europese domiciliëring;-11,99;EUR;17/09/2024;;Spotify;Spotify Premium
+;17/09/2024;18/09/2024;20240917-1043;Betaling met bankkaart;-8,70;EUR;17/09/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;17/09/2024;18/09/2024;20240917-1044;Betaling met bankkaart;-14,30;EUR;17/09/2024;;Bakkerij De Graankorrel;Bancontact
+;17/09/2024;18/09/2024;20240917-1045;Betaling met bankkaart;-87,75;EUR;17/09/2024;;Decathlon;Bancontact · Decathlon Gent
+;18/09/2024;19/09/2024;20240918-1046;Betaling met bankkaart;-46,70;EUR;18/09/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;18/09/2024;19/09/2024;20240918-1047;Betaling via Payconiq;-17,10;EUR;18/09/2024;;Frituur 't Pleintje;Payconiq
+;19/09/2024;20/09/2024;20240919-1048;Betaling met bankkaart;-25,65;EUR;19/09/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;19/09/2024;20/09/2024;20240919-1049;Betaling met bankkaart;-27,50;EUR;19/09/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;20/09/2024;21/09/2024;20240920-1050;Betaling met bankkaart;-19,10;EUR;20/09/2024;;Delhaize;Bancontact · Delhaize Gent
+;21/09/2024;22/09/2024;20240921-1051;Betaling met bankkaart;-53,20;EUR;21/09/2024;;Decathlon;Bancontact · Decathlon Gent
+;22/09/2024;23/09/2024;20240922-1052;Betaling met bankkaart;-104,20;EUR;22/09/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;22/09/2024;23/09/2024;20240922-1053;Betaling met bankkaart;-56,60;EUR;22/09/2024;;Lidl;Bancontact · Lidl Gent
+;23/09/2024;24/09/2024;20240923-1054;Betaling via Payconiq;-22,70;EUR;23/09/2024;;Frituur 't Pleintje;Payconiq
+;23/09/2024;24/09/2024;20240923-1055;Betaling met bankkaart;-20,40;EUR;23/09/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;24/09/2024;25/09/2024;20240924-1056;Betaling met bankkaart;-39,45;EUR;24/09/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;24/09/2024;25/09/2024;20240924-1057;Betaling met bankkaart;-13,40;EUR;24/09/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;24/09/2024;25/09/2024;20240924-1058;Betaling met bankkaart;-36,65;EUR;24/09/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;25/09/2024;26/09/2024;20240925-1059;Betaling met bankkaart;-44,40;EUR;25/09/2024;;Delhaize;Bancontact · Delhaize Gent
+;27/09/2024;28/09/2024;20240927-1060;Betaling met bankkaart;-18,45;EUR;27/09/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;29/09/2024;30/09/2024;20240929-1061;Betaling met bankkaart;-43,35;EUR;29/09/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;30/09/2024;01/10/2024;20240930-1062;Betaling met bankkaart;-63,00;EUR;30/09/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/10/2024;02/10/2024;20241001-1063;Doorlopende opdracht;-1.005,00;EUR;01/10/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur oktober 2024
+;02/10/2024;03/10/2024;20241002-1064;Inkomende overschrijving;2.850,00;EUR;02/10/2024;BE62 5100 0754 7061;Werkgever NV;Loon oktober 2024
+;02/10/2024;03/10/2024;20241002-1065;Betaling met bankkaart;-12,15;EUR;02/10/2024;;Bakkerij De Graankorrel;Bancontact
+;03/10/2024;04/10/2024;20241003-1066;Europese domiciliëring;-145,00;EUR;03/10/2024;;Luminus;Voorschot energie oktober 2024
+;03/10/2024;04/10/2024;20241003-1067;Betaling met bankkaart;-18,30;EUR;03/10/2024;;Delhaize;Bancontact · Delhaize Gent
+;04/10/2024;05/10/2024;20241004-1068;Betaling met bankkaart;-19,65;EUR;04/10/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;04/10/2024;05/10/2024;20241004-1069;Betaling met bankkaart;-76,90;EUR;04/10/2024;;Delhaize;Bancontact · Delhaize Gent
+;06/10/2024;07/10/2024;20241006-1070;Betaling met bankkaart;-24,00;EUR;06/10/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;06/10/2024;07/10/2024;20241006-1071;Betaling met bankkaart;-64,50;EUR;06/10/2024;;Lidl;Bancontact · Lidl Gent
+;07/10/2024;08/10/2024;20241007-1072;Betaling met bankkaart;-19,60;EUR;07/10/2024;;NMBS;Treinticket Gent – Brussel
+;09/10/2024;10/10/2024;20241009-1073;Europese domiciliëring;-42,98;EUR;09/10/2024;;Proximus;Internet en tv oktober 2024
+;09/10/2024;10/10/2024;20241009-1074;Betaling met bankkaart;-40,00;EUR;09/10/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;10/10/2024;11/10/2024;20241010-1075;Europese domiciliëring;-13,99;EUR;10/10/2024;;Netflix;Netflix.com
+;10/10/2024;11/10/2024;20241010-1076;Betaling met bankkaart;-45,45;EUR;10/10/2024;;Delhaize;Bancontact · Delhaize Gent
+;10/10/2024;11/10/2024;20241010-1077;Betaling met bankkaart;-26,30;EUR;10/10/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;11/10/2024;12/10/2024;20241011-1078;Betaling met bankkaart;-51,60;EUR;11/10/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;11/10/2024;12/10/2024;20241011-1079;Betaling via Bancontact online;-79,35;EUR;11/10/2024;;Bol.com;Bestelling 3500-1818
+;11/10/2024;12/10/2024;20241011-1080;Betaling met bankkaart;-19,60;EUR;11/10/2024;;NMBS;Treinticket Gent – Brussel
+;11/10/2024;12/10/2024;20241011-1081;Betaling met bankkaart;-62,30;EUR;11/10/2024;;Delhaize;Bancontact · Delhaize Gent
+;11/10/2024;12/10/2024;20241011-1082;Betaling met bankkaart;-19,60;EUR;11/10/2024;;NMBS;Treinticket Gent – Brussel
+;12/10/2024;13/10/2024;20241012-1083;Betaling met bankkaart;-42,10;EUR;12/10/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;13/10/2024;14/10/2024;20241013-1084;Betaling met bankkaart;-24,00;EUR;13/10/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;13/10/2024;14/10/2024;20241013-1085;Betaling met bankkaart;-14,95;EUR;13/10/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;17/10/2024;18/10/2024;20241017-1086;Europese domiciliëring;-11,99;EUR;17/10/2024;;Spotify;Spotify Premium
+;17/10/2024;18/10/2024;20241017-1087;Betaling met bankkaart;-46,70;EUR;17/10/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/10/2024;19/10/2024;20241018-1088;Betaling met bankkaart;-47,40;EUR;18/10/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;20/10/2024;21/10/2024;20241020-1089;Betaling met bankkaart;-60,85;EUR;20/10/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;20/10/2024;21/10/2024;20241020-1090;Betaling met bankkaart;-27,60;EUR;20/10/2024;;Lidl;Bancontact · Lidl Gent
+;21/10/2024;22/10/2024;20241021-1091;Betaling met bankkaart;-9,70;EUR;21/10/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;23/10/2024;24/10/2024;20241023-1092;Betaling met bankkaart;-55,55;EUR;23/10/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/10/2024;25/10/2024;20241024-1093;Betaling met bankkaart;-20,85;EUR;24/10/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;25/10/2024;26/10/2024;20241025-1094;Betaling met bankkaart;-51,80;EUR;25/10/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;26/10/2024;27/10/2024;20241026-1095;Betaling met bankkaart;-25,05;EUR;26/10/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;26/10/2024;27/10/2024;20241026-1096;Betaling met bankkaart;-46,25;EUR;26/10/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;27/10/2024;28/10/2024;20241027-1097;Betaling met bankkaart;-98,60;EUR;27/10/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;27/10/2024;28/10/2024;20241027-1098;Betaling met bankkaart;-24,00;EUR;27/10/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;30/10/2024;31/10/2024;20241030-1099;Betaling met bankkaart;-72,30;EUR;30/10/2024;;Delhaize;Bancontact · Delhaize Gent
+;31/10/2024;01/11/2024;20241031-1100;Betaling met bankkaart;-22,60;EUR;31/10/2024;;Delhaize;Bancontact · Delhaize Gent
+;31/10/2024;01/11/2024;20241031-1101;Betaling met bankkaart;-16,75;EUR;31/10/2024;;Lidl;Bancontact · Lidl Gent
+;31/10/2024;01/11/2024;20241031-1102;Betaling met bankkaart;-47,65;EUR;31/10/2024;;Lidl;Bancontact · Lidl Gent
+;01/11/2024;02/11/2024;20241101-1103;Doorlopende opdracht;-1.005,00;EUR;01/11/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur november 2024
+;01/11/2024;02/11/2024;20241101-1104;Betaling met bankkaart;-54,95;EUR;01/11/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;01/11/2024;02/11/2024;20241101-1105;Betaling met bankkaart;-79,05;EUR;01/11/2024;;Delhaize;Bancontact · Delhaize Gent
+;01/11/2024;02/11/2024;20241101-1106;Betaling met bankkaart;-59,40;EUR;01/11/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;02/11/2024;03/11/2024;20241102-1107;Inkomende overschrijving;2.850,00;EUR;02/11/2024;BE62 5100 0754 7061;Werkgever NV;Loon november 2024
+;02/11/2024;03/11/2024;20241102-1108;Betaling met bankkaart;-19,60;EUR;02/11/2024;;NMBS;Treinticket Gent – Brussel
+;02/11/2024;03/11/2024;20241102-1109;Betaling met bankkaart;-30,00;EUR;02/11/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;02/11/2024;03/11/2024;20241102-1110;Betaling met bankkaart;-33,90;EUR;02/11/2024;;Lidl;Bancontact · Lidl Gent
+;02/11/2024;03/11/2024;20241102-1111;Betaling met bankkaart;-6,80;EUR;02/11/2024;;Bakkerij De Graankorrel;Bancontact
+;03/11/2024;04/11/2024;20241103-1112;Europese domiciliëring;-145,00;EUR;03/11/2024;;Luminus;Voorschot energie november 2024
+;03/11/2024;04/11/2024;20241103-1113;Betaling met bankkaart;-4,90;EUR;03/11/2024;;Bakkerij De Graankorrel;Bancontact
+;04/11/2024;05/11/2024;20241104-1114;Betaling met bankkaart;-30,95;EUR;04/11/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;05/11/2024;06/11/2024;20241105-1115;Betaling met bankkaart;-36,95;EUR;05/11/2024;;Lidl;Bancontact · Lidl Gent
+;05/11/2024;06/11/2024;20241105-1116;Betaling met bankkaart;-12,60;EUR;05/11/2024;;Bakkerij De Graankorrel;Bancontact
+;06/11/2024;07/11/2024;20241106-1117;Betaling met bankkaart;-23,80;EUR;06/11/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;06/11/2024;07/11/2024;20241106-1118;Betaling met bankkaart;-19,60;EUR;06/11/2024;;NMBS;Treinticket Gent – Brussel
+;07/11/2024;08/11/2024;20241107-1119;Betaling met bankkaart;-47,00;EUR;07/11/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;09/11/2024;10/11/2024;20241109-1120;Europese domiciliëring;-42,98;EUR;09/11/2024;;Proximus;Internet en tv november 2024
+;09/11/2024;10/11/2024;20241109-1121;Betaling via Payconiq;-19,30;EUR;09/11/2024;;Frituur 't Pleintje;Payconiq
+;10/11/2024;11/11/2024;20241110-1122;Europese domiciliëring;-13,99;EUR;10/11/2024;;Netflix;Netflix.com
+;10/11/2024;11/11/2024;20241110-1123;Betaling met bankkaart;-6,65;EUR;10/11/2024;;Bakkerij De Graankorrel;Bancontact
+;11/11/2024;12/11/2024;20241111-1124;Betaling met bankkaart;-20,35;EUR;11/11/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;12/11/2024;13/11/2024;20241112-1125;Betaling met bankkaart;-22,50;EUR;12/11/2024;;Lidl;Bancontact · Lidl Gent
+;12/11/2024;13/11/2024;20241112-1126;Betaling met bankkaart;-60,60;EUR;12/11/2024;;Delhaize;Bancontact · Delhaize Gent
+;13/11/2024;14/11/2024;20241113-1127;Betaling met bankkaart;-9,20;EUR;13/11/2024;;Bakkerij De Graankorrel;Bancontact
+;13/11/2024;14/11/2024;20241113-1128;Betaling met bankkaart;-64,50;EUR;13/11/2024;;Lidl;Bancontact · Lidl Gent
+;13/11/2024;14/11/2024;20241113-1129;Betaling met bankkaart;-30,55;EUR;13/11/2024;;Lidl;Bancontact · Lidl Gent
+;14/11/2024;15/11/2024;20241114-1130;Betaling met bankkaart;-16,45;EUR;14/11/2024;;Lidl;Bancontact · Lidl Gent
+;14/11/2024;15/11/2024;20241114-1131;Betaling met bankkaart;-101,70;EUR;14/11/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;15/11/2024;16/11/2024;20241115-1132;Betaling met bankkaart;-6,90;EUR;15/11/2024;;Bakkerij De Graankorrel;Bancontact
+;17/11/2024;18/11/2024;20241117-1133;Europese domiciliëring;-11,99;EUR;17/11/2024;;Spotify;Spotify Premium
+;17/11/2024;18/11/2024;20241117-1134;Betaling met bankkaart;-24,00;EUR;17/11/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;17/11/2024;18/11/2024;20241117-1135;Betaling via Payconiq;-10,95;EUR;17/11/2024;;Frituur 't Pleintje;Payconiq
+;17/11/2024;18/11/2024;20241117-1136;Betaling met bankkaart;-101,55;EUR;17/11/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/11/2024;19/11/2024;20241118-1137;Betaling met bankkaart;-13,50;EUR;18/11/2024;;Bakkerij De Graankorrel;Bancontact
+;18/11/2024;19/11/2024;20241118-1138;Betaling met bankkaart;-47,50;EUR;18/11/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/11/2024;19/11/2024;20241118-1139;Betaling met bankkaart;-30,70;EUR;18/11/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;19/11/2024;20/11/2024;20241119-1140;Betaling met bankkaart;-70,65;EUR;19/11/2024;;Delhaize;Bancontact · Delhaize Gent
+;22/11/2024;23/11/2024;20241122-1141;Betaling met bankkaart;-11,40;EUR;22/11/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;23/11/2024;24/11/2024;20241123-1142;Betaling met bankkaart;-13,45;EUR;23/11/2024;;Bakkerij De Graankorrel;Bancontact
+;23/11/2024;24/11/2024;20241123-1143;Betaling met bankkaart;-87,10;EUR;23/11/2024;;Decathlon;Bancontact · Decathlon Gent
+;24/11/2024;25/11/2024;20241124-1144;Betaling met bankkaart;-89,35;EUR;24/11/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/11/2024;25/11/2024;20241124-1145;Betaling met bankkaart;-56,55;EUR;24/11/2024;;Lidl;Bancontact · Lidl Gent
+;24/11/2024;25/11/2024;20241124-1146;Betaling met bankkaart;-51,25;EUR;24/11/2024;;Lidl;Bancontact · Lidl Gent
+;24/11/2024;25/11/2024;20241124-1147;Betaling met bankkaart;-8,60;EUR;24/11/2024;;Bakkerij De Graankorrel;Bancontact
+;24/11/2024;25/11/2024;20241124-1148;Betaling met bankkaart;-43,95;EUR;24/11/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;27/11/2024;28/11/2024;20241127-1149;Betaling met bankkaart;-76,10;EUR;27/11/2024;;Delhaize;Bancontact · Delhaize Gent
+;28/11/2024;29/11/2024;20241128-1150;Betaling met bankkaart;-18,80;EUR;28/11/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;28/11/2024;29/11/2024;20241128-1151;Betaling met bankkaart;-6,60;EUR;28/11/2024;;Bakkerij De Graankorrel;Bancontact
+;29/11/2024;30/11/2024;20241129-1152;Betaling met bankkaart;-54,55;EUR;29/11/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;30/11/2024;01/12/2024;20241130-1153;Betaling met bankkaart;-14,95;EUR;30/11/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;30/11/2024;01/12/2024;20241130-1154;Betaling met bankkaart;-29,65;EUR;30/11/2024;;Lidl;Bancontact · Lidl Gent
+;01/12/2024;02/12/2024;20241201-1155;Doorlopende opdracht;-1.005,00;EUR;01/12/2024;BE71 0961 2345 6769;Immo Verhaeghe;Huur december 2024
+;01/12/2024;02/12/2024;20241201-1156;Betaling met bankkaart;-19,60;EUR;01/12/2024;;NMBS;Treinticket Gent – Brussel
+;01/12/2024;02/12/2024;20241201-1157;Betaling met bankkaart;-59,15;EUR;01/12/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/12/2024;02/12/2024;20241201-1158;Betaling met bankkaart;-67,80;EUR;01/12/2024;;Delhaize;Bancontact · Delhaize Gent
+;02/12/2024;03/12/2024;20241202-1159;Inkomende overschrijving;2.850,00;EUR;02/12/2024;BE62 5100 0754 7061;Werkgever NV;Loon december 2024
+;02/12/2024;03/12/2024;20241202-1160;Betaling met bankkaart;-23,05;EUR;02/12/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;03/12/2024;04/12/2024;20241203-1161;Europese domiciliëring;-145,00;EUR;03/12/2024;;Luminus;Voorschot energie december 2024
+;03/12/2024;04/12/2024;20241203-1162;Betaling met bankkaart;-23,75;EUR;03/12/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;05/12/2024;06/12/2024;20241205-1163;Betaling met bankkaart;-43,15;EUR;05/12/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;06/12/2024;07/12/2024;20241206-1164;Betaling met bankkaart;-16,30;EUR;06/12/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;06/12/2024;07/12/2024;20241206-1165;Betaling met bankkaart;-34,55;EUR;06/12/2024;;Lidl;Bancontact · Lidl Gent
+;06/12/2024;07/12/2024;20241206-1166;Betaling met bankkaart;-100,30;EUR;06/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;07/12/2024;08/12/2024;20241207-1167;Betaling met bankkaart;-57,05;EUR;07/12/2024;;Zara;Bancontact · Zara Gent
+;07/12/2024;08/12/2024;20241207-1168;Betaling met bankkaart;-24,55;EUR;07/12/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;07/12/2024;08/12/2024;20241207-1169;Betaling met bankkaart;-12,30;EUR;07/12/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;08/12/2024;09/12/2024;20241208-1170;Betaling via Payconiq;-10,60;EUR;08/12/2024;;Frituur 't Pleintje;Payconiq
+;09/12/2024;10/12/2024;20241209-1171;Europese domiciliëring;-42,98;EUR;09/12/2024;;Proximus;Internet en tv december 2024
+;09/12/2024;10/12/2024;20241209-1172;Betaling via Bancontact online;-29,60;EUR;09/12/2024;;Bol.com;Bestelling 3310-1736
+;10/12/2024;11/12/2024;20241210-1173;Europese domiciliëring;-13,99;EUR;10/12/2024;;Netflix;Netflix.com
+;10/12/2024;11/12/2024;20241210-1174;Betaling met bankkaart;-65,85;EUR;10/12/2024;;Decathlon;Bancontact · Decathlon Gent
+;12/12/2024;13/12/2024;20241212-1175;Betaling met bankkaart;-59,65;EUR;12/12/2024;;Delhaize;Bancontact · Delhaize Gent
+;12/12/2024;13/12/2024;20241212-1176;Betaling met bankkaart;-85,35;EUR;12/12/2024;;Zara;Bancontact · Zara Gent
+;13/12/2024;14/12/2024;20241213-1177;Betaling met bankkaart;-9,45;EUR;13/12/2024;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;14/12/2024;15/12/2024;20241214-1178;Betaling met bankkaart;-27,05;EUR;14/12/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;14/12/2024;15/12/2024;20241214-1179;Betaling met bankkaart;-20,15;EUR;14/12/2024;;Lidl;Bancontact · Lidl Gent
+;15/12/2024;16/12/2024;20241215-1180;Betaling via Bancontact online;-62,05;EUR;15/12/2024;;Bol.com;Bestelling 3708-1145
+;15/12/2024;16/12/2024;20241215-1181;Betaling met bankkaart;-40,30;EUR;15/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/12/2024;17/12/2024;20241216-1182;Betaling via Payconiq;-13,10;EUR;16/12/2024;;Frituur 't Pleintje;Payconiq
+;17/12/2024;18/12/2024;20241217-1183;Europese domiciliëring;-11,99;EUR;17/12/2024;;Spotify;Spotify Premium
+;17/12/2024;18/12/2024;20241217-1184;Betaling met bankkaart;-84,60;EUR;17/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/12/2024;18/12/2024;20241217-1185;Betaling met bankkaart;-76,55;EUR;17/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;17/12/2024;18/12/2024;20241217-1186;Betaling met bankkaart;-72,40;EUR;17/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/12/2024;19/12/2024;20241218-1187;Betaling met bankkaart;-75,05;EUR;18/12/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;18/12/2024;19/12/2024;20241218-1188;Betaling met bankkaart;-19,60;EUR;18/12/2024;;NMBS;Treinticket Gent – Brussel
+;19/12/2024;20/12/2024;20241219-1189;Betaling met bankkaart;-32,10;EUR;19/12/2024;;Delhaize;Bancontact · Delhaize Gent
+;19/12/2024;20/12/2024;20241219-1190;Betaling met bankkaart;-50,05;EUR;19/12/2024;;Delhaize;Bancontact · Delhaize Gent
+;19/12/2024;20/12/2024;20241219-1191;Betaling met bankkaart;-25,55;EUR;19/12/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;20/12/2024;21/12/2024;20241220-1192;Betaling met bankkaart;-5,40;EUR;20/12/2024;;Bakkerij De Graankorrel;Bancontact
+;20/12/2024;21/12/2024;20241220-1193;Betaling met bankkaart;-16,30;EUR;20/12/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;20/12/2024;21/12/2024;20241220-1194;Betaling met bankkaart;-89,70;EUR;20/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;20/12/2024;21/12/2024;20241220-1195;Betaling met bankkaart;-65,70;EUR;20/12/2024;;Delhaize;Bancontact · Delhaize Gent
+;20/12/2024;21/12/2024;20241220-1196;Betaling met bankkaart;-13,30;EUR;20/12/2024;;Bakkerij De Graankorrel;Bancontact
+;22/12/2024;23/12/2024;20241222-1197;Betaling met bankkaart;-45,90;EUR;22/12/2024;;Albert Heijn;Bancontact · AH Gent Zuid
+;22/12/2024;23/12/2024;20241222-1198;Betaling met bankkaart;-24,00;EUR;22/12/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;22/12/2024;23/12/2024;20241222-1199;Betaling met bankkaart;-45,75;EUR;22/12/2024;;Delhaize;Bancontact · Delhaize Gent
+;23/12/2024;24/12/2024;20241223-1200;Betaling met bankkaart;-22,55;EUR;23/12/2024;;Lidl;Bancontact · Lidl Gent
+;25/12/2024;26/12/2024;20241225-1201;Betaling met bankkaart;-45,75;EUR;25/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;26/12/2024;27/12/2024;20241226-1202;Betaling met bankkaart;-46,20;EUR;26/12/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;26/12/2024;27/12/2024;20241226-1203;Betaling met bankkaart;-20,95;EUR;26/12/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;27/12/2024;28/12/2024;20241227-1204;Betaling met bankkaart;-58,55;EUR;27/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;27/12/2024;28/12/2024;20241227-1205;Betaling met bankkaart;-24,00;EUR;27/12/2024;;Kinepolis;Kinepolis Gent · 2 tickets
+;28/12/2024;29/12/2024;20241228-1206;Betaling met bankkaart;-48,90;EUR;28/12/2024;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;28/12/2024;29/12/2024;20241228-1207;Betaling met bankkaart;-48,25;EUR;28/12/2024;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;28/12/2024;29/12/2024;20241228-1208;Betaling met bankkaart;-19,60;EUR;28/12/2024;;NMBS;Treinticket Gent – Brussel
+;29/12/2024;30/12/2024;20241229-1209;Betaling met bankkaart;-54,70;EUR;29/12/2024;;Aldi;Bancontact · Aldi Gentbrugge
+;29/12/2024;30/12/2024;20241229-1210;Betaling met bankkaart;-45,95;EUR;29/12/2024;;Decathlon;Bancontact · Decathlon Gent
+;30/12/2024;31/12/2024;20241230-1211;Betaling met bankkaart;-19,60;EUR;30/12/2024;;NMBS;Treinticket Gent – Brussel
+;30/12/2024;31/12/2024;20241230-1212;Betaling met bankkaart;-30,80;EUR;30/12/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;31/12/2024;01/01/2025;20241231-1213;Betaling met bankkaart;-13,05;EUR;31/12/2024;;Carrefour Express;Bancontact · Carrefour Gent
+;01/01/2025;02/01/2025;20250101-1214;Doorlopende opdracht;-1.005,00;EUR;01/01/2025;BE71 0961 2345 6769;Immo Verhaeghe;Huur januari 2025
+;02/01/2025;03/01/2025;20250102-1215;Inkomende overschrijving;2.850,00;EUR;02/01/2025;BE62 5100 0754 7061;Werkgever NV;Loon januari 2025
+;02/01/2025;03/01/2025;20250102-1216;Betaling via Bancontact online;-60,20;EUR;02/01/2025;;Bol.com;Bestelling 3705-1509
+;03/01/2025;04/01/2025;20250103-1217;Europese domiciliëring;-145,00;EUR;03/01/2025;;Luminus;Voorschot energie januari 2025
+;03/01/2025;04/01/2025;20250103-1218;Betaling met bankkaart;-92,40;EUR;03/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;03/01/2025;04/01/2025;20250103-1219;Betaling met bankkaart;-87,60;EUR;03/01/2025;;Zara;Bancontact · Zara Gent
+;04/01/2025;05/01/2025;20250104-1220;Betaling met bankkaart;-39,80;EUR;04/01/2025;;Lidl;Bancontact · Lidl Gent
+;05/01/2025;06/01/2025;20250105-1221;Betaling met bankkaart;-20,50;EUR;05/01/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;05/01/2025;06/01/2025;20250105-1222;Betaling met bankkaart;-15,95;EUR;05/01/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;05/01/2025;06/01/2025;20250105-1223;Betaling met bankkaart;-70,95;EUR;05/01/2025;;Delhaize;Bancontact · Delhaize Gent
+;05/01/2025;06/01/2025;20250105-1224;Betaling met bankkaart;-28,60;EUR;05/01/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;06/01/2025;07/01/2025;20250106-1225;Betaling via Payconiq;-8,00;EUR;06/01/2025;;Frituur 't Pleintje;Payconiq
+;06/01/2025;07/01/2025;20250106-1226;Betaling met bankkaart;-102,95;EUR;06/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;06/01/2025;07/01/2025;20250106-1227;Betaling met bankkaart;-24,00;EUR;06/01/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;06/01/2025;07/01/2025;20250106-1228;Betaling met bankkaart;-51,30;EUR;06/01/2025;;Lidl;Bancontact · Lidl Gent
+;07/01/2025;08/01/2025;20250107-1229;Betaling met bankkaart;-21,90;EUR;07/01/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;07/01/2025;08/01/2025;20250107-1230;Betaling met bankkaart;-29,00;EUR;07/01/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;07/01/2025;08/01/2025;20250107-1231;Betaling met bankkaart;-50,65;EUR;07/01/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;07/01/2025;08/01/2025;20250107-1232;Betaling via Bancontact online;-12,30;EUR;07/01/2025;;Bol.com;Bestelling 3147-1703
+;07/01/2025;08/01/2025;20250107-1233;Betaling met bankkaart;-35,35;EUR;07/01/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;08/01/2025;09/01/2025;20250108-1234;Betaling met bankkaart;-39,65;EUR;08/01/2025;;Lidl;Bancontact · Lidl Gent
+;09/01/2025;10/01/2025;20250109-1235;Europese domiciliëring;-42,98;EUR;09/01/2025;;Proximus;Internet en tv januari 2025
+;09/01/2025;10/01/2025;20250109-1236;Betaling met bankkaart;-61,30;EUR;09/01/2025;;Lidl;Bancontact · Lidl Gent
+;10/01/2025;11/01/2025;20250110-1237;Europese domiciliëring;-13,99;EUR;10/01/2025;;Netflix;Netflix.com
+;10/01/2025;11/01/2025;20250110-1238;Betaling met bankkaart;-101,30;EUR;10/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;11/01/2025;12/01/2025;20250111-1239;Betaling met bankkaart;-27,40;EUR;11/01/2025;;Delhaize;Bancontact · Delhaize Gent
+;11/01/2025;12/01/2025;20250111-1240;Betaling met bankkaart;-22,05;EUR;11/01/2025;;Lidl;Bancontact · Lidl Gent
+;13/01/2025;14/01/2025;20250113-1241;Betaling met bankkaart;-47,90;EUR;13/01/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;14/01/2025;15/01/2025;20250114-1242;Betaling met bankkaart;-55,40;EUR;14/01/2025;;Lidl;Bancontact · Lidl Gent
+;14/01/2025;15/01/2025;20250114-1243;Betaling met bankkaart;-35,85;EUR;14/01/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;14/01/2025;15/01/2025;20250114-1244;Betaling met bankkaart;-41,55;EUR;14/01/2025;;Delhaize;Bancontact · Delhaize Gent
+;15/01/2025;16/01/2025;20250115-1245;Betaling via Payconiq;-9,90;EUR;15/01/2025;;Frituur 't Pleintje;Payconiq
+;15/01/2025;16/01/2025;20250115-1246;Betaling via Bancontact online;-48,55;EUR;15/01/2025;;Bol.com;Bestelling 3293-1671
+;17/01/2025;18/01/2025;20250117-1247;Europese domiciliëring;-11,99;EUR;17/01/2025;;Spotify;Spotify Premium
+;17/01/2025;18/01/2025;20250117-1248;Betaling via Bancontact online;-36,40;EUR;17/01/2025;;Bol.com;Bestelling 3751-1694
+;17/01/2025;18/01/2025;20250117-1249;Betaling met bankkaart;-11,45;EUR;17/01/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;17/01/2025;18/01/2025;20250117-1250;Betaling met bankkaart;-70,10;EUR;17/01/2025;;Delhaize;Bancontact · Delhaize Gent
+;18/01/2025;19/01/2025;20250118-1251;Betaling met bankkaart;-50,95;EUR;18/01/2025;;Lidl;Bancontact · Lidl Gent
+;18/01/2025;19/01/2025;20250118-1252;Betaling met bankkaart;-32,30;EUR;18/01/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;18/01/2025;19/01/2025;20250118-1253;Betaling met bankkaart;-45,55;EUR;18/01/2025;;Lidl;Bancontact · Lidl Gent
+;18/01/2025;19/01/2025;20250118-1254;Betaling met bankkaart;-68,75;EUR;18/01/2025;;Delhaize;Bancontact · Delhaize Gent
+;19/01/2025;20/01/2025;20250119-1255;Betaling met bankkaart;-54,90;EUR;19/01/2025;;Lidl;Bancontact · Lidl Gent
+;19/01/2025;20/01/2025;20250119-1256;Betaling met bankkaart;-29,55;EUR;19/01/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;19/01/2025;20/01/2025;20250119-1257;Betaling met bankkaart;-41,10;EUR;19/01/2025;;Delhaize;Bancontact · Delhaize Gent
+;19/01/2025;20/01/2025;20250119-1258;Betaling met bankkaart;-26,05;EUR;19/01/2025;;Lidl;Bancontact · Lidl Gent
+;20/01/2025;21/01/2025;20250120-1259;Betaling via Bancontact online;-30,95;EUR;20/01/2025;;Bol.com;Bestelling 3750-1394
+;20/01/2025;21/01/2025;20250120-1260;Betaling met bankkaart;-98,20;EUR;20/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;21/01/2025;22/01/2025;20250121-1261;Betaling met bankkaart;-13,05;EUR;21/01/2025;;Bakkerij De Graankorrel;Bancontact
+;21/01/2025;22/01/2025;20250121-1262;Betaling met bankkaart;-79,60;EUR;21/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;21/01/2025;22/01/2025;20250121-1263;Betaling met bankkaart;-56,70;EUR;21/01/2025;;Lidl;Bancontact · Lidl Gent
+;22/01/2025;23/01/2025;20250122-1264;Betaling met bankkaart;-6,75;EUR;22/01/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;22/01/2025;23/01/2025;20250122-1265;Betaling met bankkaart;-65,40;EUR;22/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;22/01/2025;23/01/2025;20250122-1266;Betaling met bankkaart;-62,70;EUR;22/01/2025;;Lidl;Bancontact · Lidl Gent
+;22/01/2025;23/01/2025;20250122-1267;Betaling met bankkaart;-39,80;EUR;22/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;22/01/2025;23/01/2025;20250122-1268;Betaling met bankkaart;-23,35;EUR;22/01/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;23/01/2025;24/01/2025;20250123-1269;Betaling met bankkaart;-32,30;EUR;23/01/2025;;Delhaize;Bancontact · Delhaize Gent
+;23/01/2025;24/01/2025;20250123-1270;Betaling met bankkaart;-106,00;EUR;23/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/01/2025;25/01/2025;20250124-1271;Betaling met bankkaart;-66,90;EUR;24/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/01/2025;25/01/2025;20250124-1272;Betaling met bankkaart;-41,80;EUR;24/01/2025;;Lidl;Bancontact · Lidl Gent
+;25/01/2025;26/01/2025;20250125-1273;Betaling met bankkaart;-19,60;EUR;25/01/2025;;NMBS;Treinticket Gent – Brussel
+;25/01/2025;26/01/2025;20250125-1274;Betaling met bankkaart;-49,55;EUR;25/01/2025;;Zara;Bancontact · Zara Gent
+;25/01/2025;26/01/2025;20250125-1275;Betaling met bankkaart;-85,45;EUR;25/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;26/01/2025;27/01/2025;20250126-1276;Betaling met bankkaart;-50,30;EUR;26/01/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;27/01/2025;28/01/2025;20250127-1277;Betaling met bankkaart;-5,60;EUR;27/01/2025;;Bakkerij De Graankorrel;Bancontact
+;28/01/2025;29/01/2025;20250128-1278;Betaling met bankkaart;-26,20;EUR;28/01/2025;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;29/01/2025;30/01/2025;20250129-1279;Betaling via Payconiq;-18,75;EUR;29/01/2025;;Frituur 't Pleintje;Payconiq
+;29/01/2025;30/01/2025;20250129-1280;Betaling met bankkaart;-19,60;EUR;29/01/2025;;NMBS;Treinticket Gent – Brussel
+;30/01/2025;31/01/2025;20250130-1281;Betaling met bankkaart;-34,15;EUR;30/01/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;31/01/2025;01/02/2025;20250131-1282;Betaling met bankkaart;-60,35;EUR;31/01/2025;;Delhaize;Bancontact · Delhaize Gent
+;01/02/2025;02/02/2025;20250201-1283;Doorlopende opdracht;-1.005,00;EUR;01/02/2025;BE71 0961 2345 6769;Immo Verhaeghe;Huur februari 2025
+;01/02/2025;02/02/2025;20250201-1284;Betaling met bankkaart;-17,35;EUR;01/02/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;01/02/2025;02/02/2025;20250201-1285;Betaling met bankkaart;-34,25;EUR;01/02/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;02/02/2025;03/02/2025;20250202-1286;Inkomende overschrijving;2.850,00;EUR;02/02/2025;BE62 5100 0754 7061;Werkgever NV;Loon februari 2025
+;02/02/2025;03/02/2025;20250202-1287;Betaling met bankkaart;-77,35;EUR;02/02/2025;;Delhaize;Bancontact · Delhaize Gent
+;02/02/2025;03/02/2025;20250202-1288;Betaling met bankkaart;-50,25;EUR;02/02/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;02/02/2025;03/02/2025;20250202-1289;Betaling met bankkaart;-36,30;EUR;02/02/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;02/02/2025;03/02/2025;20250202-1290;Betaling met bankkaart;-59,15;EUR;02/02/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;03/02/2025;04/02/2025;20250203-1291;Europese domiciliëring;-145,00;EUR;03/02/2025;;Luminus;Voorschot energie februari 2025
+;03/02/2025;04/02/2025;20250203-1292;Betaling met bankkaart;-13,80;EUR;03/02/2025;;Bakkerij De Graankorrel;Bancontact
+;03/02/2025;04/02/2025;20250203-1293;Betaling met bankkaart;-76,00;EUR;03/02/2025;;Decathlon;Bancontact · Decathlon Gent
+;03/02/2025;04/02/2025;20250203-1294;Betaling met bankkaart;-9,05;EUR;03/02/2025;;Bakkerij De Graankorrel;Bancontact
+;03/02/2025;04/02/2025;20250203-1295;Betaling met bankkaart;-44,20;EUR;03/02/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;04/02/2025;05/02/2025;20250204-1296;Betaling via Payconiq;-18,35;EUR;04/02/2025;;Frituur 't Pleintje;Payconiq
+;05/02/2025;06/02/2025;20250205-1297;Betaling met bankkaart;-44,80;EUR;05/02/2025;;Delhaize;Bancontact · Delhaize Gent
+;05/02/2025;06/02/2025;20250205-1298;Betaling met bankkaart;-28,65;EUR;05/02/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;06/02/2025;07/02/2025;20250206-1299;Betaling met bankkaart;-25,25;EUR;06/02/2025;;Delhaize;Bancontact · Delhaize Gent
+;07/02/2025;08/02/2025;20250207-1300;Betaling met bankkaart;-62,45;EUR;07/02/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;07/02/2025;08/02/2025;20250207-1301;Betaling met bankkaart;-17,70;EUR;07/02/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;09/02/2025;10/02/2025;20250209-1302;Europese domiciliëring;-42,98;EUR;09/02/2025;;Proximus;Internet en tv februari 2025
+;09/02/2025;10/02/2025;20250209-1303;Betaling met bankkaart;-59,55;EUR;09/02/2025;;Decathlon;Bancontact · Decathlon Gent
+;10/02/2025;11/02/2025;20250210-1304;Europese domiciliëring;-13,99;EUR;10/02/2025;;Netflix;Netflix.com
+;10/02/2025;11/02/2025;20250210-1305;Betaling met bankkaart;-10,45;EUR;10/02/2025;;Bakkerij De Graankorrel;Bancontact
+;13/02/2025;14/02/2025;20250213-1306;Betaling met bankkaart;-38,70;EUR;13/02/2025;;Delhaize;Bancontact · Delhaize Gent
+;13/02/2025;14/02/2025;20250213-1307;Betaling met bankkaart;-42,45;EUR;13/02/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;13/02/2025;14/02/2025;20250213-1308;Betaling met bankkaart;-36,05;EUR;13/02/2025;;Lidl;Bancontact · Lidl Gent
+;14/02/2025;15/02/2025;20250214-1309;Betaling met bankkaart;-25,10;EUR;14/02/2025;;Delhaize;Bancontact · Delhaize Gent
+;14/02/2025;15/02/2025;20250214-1310;Betaling met bankkaart;-45,35;EUR;14/02/2025;;Lidl;Bancontact · Lidl Gent
+;14/02/2025;15/02/2025;20250214-1311;Betaling met bankkaart;-107,80;EUR;14/02/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/02/2025;17/02/2025;20250216-1312;Betaling met bankkaart;-6,40;EUR;16/02/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;17/02/2025;18/02/2025;20250217-1313;Europese domiciliëring;-11,99;EUR;17/02/2025;;Spotify;Spotify Premium
+;17/02/2025;18/02/2025;20250217-1314;Betaling met bankkaart;-12,40;EUR;17/02/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;17/02/2025;18/02/2025;20250217-1315;Betaling met bankkaart;-43,40;EUR;17/02/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;17/02/2025;18/02/2025;20250217-1316;Betaling met bankkaart;-73,10;EUR;17/02/2025;;Decathlon;Bancontact · Decathlon Gent
+;18/02/2025;19/02/2025;20250218-1317;Betaling met bankkaart;-24,00;EUR;18/02/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;18/02/2025;19/02/2025;20250218-1318;Betaling met bankkaart;-8,85;EUR;18/02/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;18/02/2025;19/02/2025;20250218-1319;Betaling met bankkaart;-51,85;EUR;18/02/2025;;Lidl;Bancontact · Lidl Gent
+;20/02/2025;21/02/2025;20250220-1320;Betaling met bankkaart;-36,25;EUR;20/02/2025;;Delhaize;Bancontact · Delhaize Gent
+;21/02/2025;22/02/2025;20250221-1321;Betaling met bankkaart;-19,60;EUR;21/02/2025;;NMBS;Treinticket Gent – Brussel
+;23/02/2025;24/02/2025;20250223-1322;Betaling met bankkaart;-35,70;EUR;23/02/2025;;Lidl;Bancontact · Lidl Gent
+;24/02/2025;25/02/2025;20250224-1323;Betaling via Payconiq;-13,75;EUR;24/02/2025;;Frituur 't Pleintje;Payconiq
+;24/02/2025;25/02/2025;20250224-1324;Betaling met bankkaart;-52,10;EUR;24/02/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;24/02/2025;25/02/2025;20250224-1325;Betaling met bankkaart;-29,50;EUR;24/02/2025;;Delhaize;Bancontact · Delhaize Gent
+;24/02/2025;25/02/2025;20250224-1326;Betaling met bankkaart;-28,85;EUR;24/02/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;25/02/2025;26/02/2025;20250225-1327;Betaling met bankkaart;-54,85;EUR;25/02/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;26/02/2025;27/02/2025;20250226-1328;Betaling met bankkaart;-6,80;EUR;26/02/2025;;Bakkerij De Graankorrel;Bancontact
+;26/02/2025;27/02/2025;20250226-1329;Betaling met bankkaart;-55,05;EUR;26/02/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;26/02/2025;27/02/2025;20250226-1330;Betaling met bankkaart;-24,00;EUR;26/02/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;27/02/2025;28/02/2025;20250227-1331;Betaling met bankkaart;-14,60;EUR;27/02/2025;;Bakkerij De Graankorrel;Bancontact
+;27/02/2025;28/02/2025;20250227-1332;Betaling met bankkaart;-8,25;EUR;27/02/2025;;Bakkerij De Graankorrel;Bancontact
+;27/02/2025;28/02/2025;20250227-1333;Betaling met bankkaart;-46,85;EUR;27/02/2025;;Delhaize;Bancontact · Delhaize Gent
+;28/02/2025;01/03/2025;20250228-1334;Betaling met bankkaart;-71,05;EUR;28/02/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;01/03/2025;02/03/2025;20250301-1335;Doorlopende opdracht;-1.005,00;EUR;01/03/2025;BE71 0961 2345 6769;Immo Verhaeghe;Huur maart 2025
+;01/03/2025;02/03/2025;20250301-1336;Betaling met bankkaart;-53,65;EUR;01/03/2025;;Delhaize;Bancontact · Delhaize Gent
+;01/03/2025;02/03/2025;20250301-1337;Betaling via Payconiq;-16,00;EUR;01/03/2025;;Frituur 't Pleintje;Payconiq
+;01/03/2025;02/03/2025;20250301-1338;Betaling met bankkaart;-20,25;EUR;01/03/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;02/03/2025;03/03/2025;20250302-1339;Inkomende overschrijving;2.850,00;EUR;02/03/2025;BE62 5100 0754 7061;Werkgever NV;Loon maart 2025
+;02/03/2025;03/03/2025;20250302-1340;Betaling met bankkaart;-6,30;EUR;02/03/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;02/03/2025;03/03/2025;20250302-1341;Betaling met bankkaart;-62,95;EUR;02/03/2025;;Delhaize;Bancontact · Delhaize Gent
+;02/03/2025;03/03/2025;20250302-1342;Betaling met bankkaart;-19,60;EUR;02/03/2025;;NMBS;Treinticket Gent – Brussel
+;02/03/2025;03/03/2025;20250302-1343;Betaling met bankkaart;-45,25;EUR;02/03/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;03/03/2025;04/03/2025;20250303-1344;Europese domiciliëring;-145,00;EUR;03/03/2025;;Luminus;Voorschot energie maart 2025
+;04/03/2025;05/03/2025;20250304-1345;Betaling met bankkaart;-9,25;EUR;04/03/2025;;Bakkerij De Graankorrel;Bancontact
+;04/03/2025;05/03/2025;20250304-1346;Betaling met bankkaart;-4,55;EUR;04/03/2025;;Bakkerij De Graankorrel;Bancontact
+;04/03/2025;05/03/2025;20250304-1347;Betaling met bankkaart;-59,50;EUR;04/03/2025;;Zara;Bancontact · Zara Gent
+;04/03/2025;05/03/2025;20250304-1348;Betaling via Bancontact online;-59,05;EUR;04/03/2025;;Bol.com;Bestelling 3344-1254
+;04/03/2025;05/03/2025;20250304-1349;Betaling met bankkaart;-24,00;EUR;04/03/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;05/03/2025;06/03/2025;20250305-1350;Betaling met bankkaart;-109,60;EUR;05/03/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;05/03/2025;06/03/2025;20250305-1351;Betaling met bankkaart;-37,40;EUR;05/03/2025;;Lidl;Bancontact · Lidl Gent
+;06/03/2025;07/03/2025;20250306-1352;Betaling met bankkaart;-18,30;EUR;06/03/2025;;Delhaize;Bancontact · Delhaize Gent
+;08/03/2025;09/03/2025;20250308-1353;Betaling met bankkaart;-10,35;EUR;08/03/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;09/03/2025;10/03/2025;20250309-1354;Europese domiciliëring;-42,98;EUR;09/03/2025;;Proximus;Internet en tv maart 2025
+;09/03/2025;10/03/2025;20250309-1355;Betaling met bankkaart;-67,45;EUR;09/03/2025;;Decathlon;Bancontact · Decathlon Gent
+;10/03/2025;11/03/2025;20250310-1356;Europese domiciliëring;-13,99;EUR;10/03/2025;;Netflix;Netflix.com
+;11/03/2025;12/03/2025;20250311-1357;Betaling via Payconiq;-20,85;EUR;11/03/2025;;Frituur 't Pleintje;Payconiq
+;11/03/2025;12/03/2025;20250311-1358;Betaling met bankkaart;-20,30;EUR;11/03/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;12/03/2025;13/03/2025;20250312-1359;Betaling met bankkaart;-47,75;EUR;12/03/2025;;Delhaize;Bancontact · Delhaize Gent
+;12/03/2025;13/03/2025;20250312-1360;Betaling met bankkaart;-58,35;EUR;12/03/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;12/03/2025;13/03/2025;20250312-1361;Betaling met bankkaart;-88,90;EUR;12/03/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;13/03/2025;14/03/2025;20250313-1362;Betaling met bankkaart;-19,60;EUR;13/03/2025;;NMBS;Treinticket Gent – Brussel
+;13/03/2025;14/03/2025;20250313-1363;Betaling met bankkaart;-19,60;EUR;13/03/2025;;NMBS;Treinticket Gent – Brussel
+;13/03/2025;14/03/2025;20250313-1364;Betaling met bankkaart;-50,25;EUR;13/03/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;15/03/2025;16/03/2025;20250315-1365;Betaling met bankkaart;-104,80;EUR;15/03/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;16/03/2025;17/03/2025;20250316-1366;Betaling met bankkaart;-32,30;EUR;16/03/2025;;Lidl;Bancontact · Lidl Gent
+;16/03/2025;17/03/2025;20250316-1367;Betaling met bankkaart;-73,15;EUR;16/03/2025;;Delhaize;Bancontact · Delhaize Gent
+;17/03/2025;18/03/2025;20250317-1368;Europese domiciliëring;-11,99;EUR;17/03/2025;;Spotify;Spotify Premium
+;18/03/2025;19/03/2025;20250318-1369;Betaling met bankkaart;-24,00;EUR;18/03/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;20/03/2025;21/03/2025;20250320-1370;Betaling met bankkaart;-30,30;EUR;20/03/2025;;Delhaize;Bancontact · Delhaize Gent
+;20/03/2025;21/03/2025;20250320-1371;Betaling met bankkaart;-51,35;EUR;20/03/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;21/03/2025;22/03/2025;20250321-1372;Betaling met bankkaart;-38,20;EUR;21/03/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;22/03/2025;23/03/2025;20250322-1373;Betaling met bankkaart;-27,95;EUR;22/03/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;24/03/2025;25/03/2025;20250324-1374;Betaling met bankkaart;-30,50;EUR;24/03/2025;;Lidl;Bancontact · Lidl Gent
+;25/03/2025;26/03/2025;20250325-1375;Betaling met bankkaart;-36,00;EUR;25/03/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;26/03/2025;27/03/2025;20250326-1376;Betaling met bankkaart;-9,80;EUR;26/03/2025;;Bakkerij De Graankorrel;Bancontact
+;26/03/2025;27/03/2025;20250326-1377;Betaling met bankkaart;-76,40;EUR;26/03/2025;;Decathlon;Bancontact · Decathlon Gent
+;26/03/2025;27/03/2025;20250326-1378;Betaling met bankkaart;-8,70;EUR;26/03/2025;;Bakkerij De Graankorrel;Bancontact
+;27/03/2025;28/03/2025;20250327-1379;Betaling met bankkaart;-24,05;EUR;27/03/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;28/03/2025;29/03/2025;20250328-1380;Betaling met bankkaart;-51,45;EUR;28/03/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;28/03/2025;29/03/2025;20250328-1381;Betaling met bankkaart;-73,85;EUR;28/03/2025;;Delhaize;Bancontact · Delhaize Gent
+;28/03/2025;29/03/2025;20250328-1382;Betaling met bankkaart;-76,90;EUR;28/03/2025;;Decathlon;Bancontact · Decathlon Gent
+;29/03/2025;30/03/2025;20250329-1383;Betaling met bankkaart;-19,60;EUR;29/03/2025;;NMBS;Treinticket Gent – Brussel
+;29/03/2025;30/03/2025;20250329-1384;Betaling met bankkaart;-46,05;EUR;29/03/2025;;Lidl;Bancontact · Lidl Gent
+;30/03/2025;31/03/2025;20250330-1385;Betaling met bankkaart;-19,60;EUR;30/03/2025;;NMBS;Treinticket Gent – Brussel
+;30/03/2025;31/03/2025;20250330-1386;Betaling met bankkaart;-49,35;EUR;30/03/2025;;Lidl;Bancontact · Lidl Gent
+;01/04/2025;02/04/2025;20250401-1387;Doorlopende opdracht;-1.005,00;EUR;01/04/2025;BE71 0961 2345 6769;Immo Verhaeghe;Huur april 2025
+;01/04/2025;02/04/2025;20250401-1388;Betaling met bankkaart;-6,10;EUR;01/04/2025;;Bakkerij De Graankorrel;Bancontact
+;01/04/2025;02/04/2025;20250401-1389;Betaling met bankkaart;-58,25;EUR;01/04/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;02/04/2025;03/04/2025;20250402-1390;Inkomende overschrijving;2.850,00;EUR;02/04/2025;BE62 5100 0754 7061;Werkgever NV;Loon april 2025
+;03/04/2025;04/04/2025;20250403-1391;Europese domiciliëring;-145,00;EUR;03/04/2025;;Luminus;Voorschot energie april 2025
+;03/04/2025;04/04/2025;20250403-1392;Betaling met bankkaart;-37,45;EUR;03/04/2025;;Lidl;Bancontact · Lidl Gent
+;03/04/2025;04/04/2025;20250403-1393;Betaling met bankkaart;-48,40;EUR;03/04/2025;;Delhaize;Bancontact · Delhaize Gent
+;04/04/2025;05/04/2025;20250404-1394;Betaling met bankkaart;-13,30;EUR;04/04/2025;;Bakkerij De Graankorrel;Bancontact
+;05/04/2025;06/04/2025;20250405-1395;Betaling met bankkaart;-18,30;EUR;05/04/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;05/04/2025;06/04/2025;20250405-1396;Betaling met bankkaart;-41,45;EUR;05/04/2025;;Delhaize;Bancontact · Delhaize Gent
+;05/04/2025;06/04/2025;20250405-1397;Betaling met bankkaart;-68,20;EUR;05/04/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;05/04/2025;06/04/2025;20250405-1398;Betaling met bankkaart;-25,25;EUR;05/04/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;05/04/2025;06/04/2025;20250405-1399;Betaling met bankkaart;-33,70;EUR;05/04/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;05/04/2025;06/04/2025;20250405-1400;Betaling met bankkaart;-24,95;EUR;05/04/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;06/04/2025;07/04/2025;20250406-1401;Betaling met bankkaart;-9,75;EUR;06/04/2025;;Bakkerij De Graankorrel;Bancontact
+;06/04/2025;07/04/2025;20250406-1402;Betaling met bankkaart;-25,45;EUR;06/04/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;07/04/2025;08/04/2025;20250407-1403;Betaling met bankkaart;-39,05;EUR;07/04/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;08/04/2025;09/04/2025;20250408-1404;Betaling via Payconiq;-11,20;EUR;08/04/2025;;Frituur 't Pleintje;Payconiq
+;08/04/2025;09/04/2025;20250408-1405;Betaling met bankkaart;-97,65;EUR;08/04/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/04/2025;10/04/2025;20250409-1406;Europese domiciliëring;-42,98;EUR;09/04/2025;;Proximus;Internet en tv april 2025
+;09/04/2025;10/04/2025;20250409-1407;Betaling met bankkaart;-24,00;EUR;09/04/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;09/04/2025;10/04/2025;20250409-1408;Betaling met bankkaart;-59,20;EUR;09/04/2025;;Delhaize;Bancontact · Delhaize Gent
+;09/04/2025;10/04/2025;20250409-1409;Betaling met bankkaart;-58,90;EUR;09/04/2025;;Delhaize;Bancontact · Delhaize Gent
+;10/04/2025;11/04/2025;20250410-1410;Europese domiciliëring;-13,99;EUR;10/04/2025;;Netflix;Netflix.com
+;10/04/2025;11/04/2025;20250410-1411;Betaling met bankkaart;-14,65;EUR;10/04/2025;;Bakkerij De Graankorrel;Bancontact
+;10/04/2025;11/04/2025;20250410-1412;Betaling met bankkaart;-51,60;EUR;10/04/2025;;Delhaize;Bancontact · Delhaize Gent
+;11/04/2025;12/04/2025;20250411-1413;Betaling met bankkaart;-24,00;EUR;11/04/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;12/04/2025;13/04/2025;20250412-1414;Betaling met bankkaart;-15,20;EUR;12/04/2025;;Decathlon;Bancontact · Decathlon Gent
+;12/04/2025;13/04/2025;20250412-1415;Betaling met bankkaart;-6,05;EUR;12/04/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;14/04/2025;15/04/2025;20250414-1416;Betaling met bankkaart;-24,00;EUR;14/04/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;14/04/2025;15/04/2025;20250414-1417;Betaling met bankkaart;-6,75;EUR;14/04/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;14/04/2025;15/04/2025;20250414-1418;Betaling via Payconiq;-16,60;EUR;14/04/2025;;Frituur 't Pleintje;Payconiq
+;15/04/2025;16/04/2025;20250415-1419;Betaling met bankkaart;-88,80;EUR;15/04/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;15/04/2025;16/04/2025;20250415-1420;Betaling met bankkaart;-106,25;EUR;15/04/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;15/04/2025;16/04/2025;20250415-1421;Betaling via Payconiq;-15,70;EUR;15/04/2025;;Frituur 't Pleintje;Payconiq
+;15/04/2025;16/04/2025;20250415-1422;Betaling met bankkaart;-75,85;EUR;15/04/2025;;Delhaize;Bancontact · Delhaize Gent
+;15/04/2025;16/04/2025;20250415-1423;Betaling met bankkaart;-9,75;EUR;15/04/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;16/04/2025;17/04/2025;20250416-1424;Betaling met bankkaart;-15,30;EUR;16/04/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;17/04/2025;18/04/2025;20250417-1425;Europese domiciliëring;-11,99;EUR;17/04/2025;;Spotify;Spotify Premium
+;17/04/2025;18/04/2025;20250417-1426;Betaling met bankkaart;-66,75;EUR;17/04/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;17/04/2025;18/04/2025;20250417-1427;Betaling met bankkaart;-24,70;EUR;17/04/2025;;Delhaize;Bancontact · Delhaize Gent
+;18/04/2025;19/04/2025;20250418-1428;Betaling met bankkaart;-11,75;EUR;18/04/2025;;Bakkerij De Graankorrel;Bancontact
+;18/04/2025;19/04/2025;20250418-1429;Betaling met bankkaart;-30,35;EUR;18/04/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;19/04/2025;20/04/2025;20250419-1430;Betaling met bankkaart;-24,80;EUR;19/04/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;19/04/2025;20/04/2025;20250419-1431;Betaling met bankkaart;-62,55;EUR;19/04/2025;;Lidl;Bancontact · Lidl Gent
+;19/04/2025;20/04/2025;20250419-1432;Betaling met bankkaart;-14,50;EUR;19/04/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;20/04/2025;21/04/2025;20250420-1433;Betaling met bankkaart;-54,95;EUR;20/04/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;21/04/2025;22/04/2025;20250421-1434;Betaling met bankkaart;-19,85;EUR;21/04/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;21/04/2025;22/04/2025;20250421-1435;Betaling met bankkaart;-4,15;EUR;21/04/2025;;Bakkerij De Graankorrel;Bancontact
+;22/04/2025;23/04/2025;20250422-1436;Betaling met bankkaart;-47,25;EUR;22/04/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;22/04/2025;23/04/2025;20250422-1437;Betaling met bankkaart;-93,20;EUR;22/04/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;22/04/2025;23/04/2025;20250422-1438;Betaling met bankkaart;-72,40;EUR;22/04/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;23/04/2025;24/04/2025;20250423-1439;Betaling met bankkaart;-15,95;EUR;23/04/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;23/04/2025;24/04/2025;20250423-1440;Betaling met bankkaart;-19,05;EUR;23/04/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;26/04/2025;27/04/2025;20250426-1441;Betaling met bankkaart;-5,95;EUR;26/04/2025;;Bakkerij De Graankorrel;Bancontact
+;27/04/2025;28/04/2025;20250427-1442;Betaling met bankkaart;-12,15;EUR;27/04/2025;;Standaard Boekhandel;Bancontact · Standaard Boekhandel Gent
+;29/04/2025;30/04/2025;20250429-1443;Betaling met bankkaart;-42,15;EUR;29/04/2025;;Lidl;Bancontact · Lidl Gent
+;30/04/2025;01/05/2025;20250430-1444;Betaling met bankkaart;-13,25;EUR;30/04/2025;;Bakkerij De Graankorrel;Bancontact
+;30/04/2025;01/05/2025;20250430-1445;Betaling met bankkaart;-31,90;EUR;30/04/2025;;Decathlon;Bancontact · Decathlon Gent
+;30/04/2025;01/05/2025;20250430-1446;Betaling met bankkaart;-11,50;EUR;30/04/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;01/05/2025;02/05/2025;20250501-1447;Doorlopende opdracht;-1.005,00;EUR;01/05/2025;BE71 0961 2345 6769;Immo Verhaeghe;Huur mei 2025
+;01/05/2025;02/05/2025;20250501-1448;Betaling met bankkaart;-37,65;EUR;01/05/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;02/05/2025;03/05/2025;20250502-1449;Inkomende overschrijving;2.850,00;EUR;02/05/2025;BE62 5100 0754 7061;Werkgever NV;Loon mei 2025
+;03/05/2025;04/05/2025;20250503-1450;Europese domiciliëring;-145,00;EUR;03/05/2025;;Luminus;Voorschot energie mei 2025
+;04/05/2025;05/05/2025;20250504-1451;Betaling met bankkaart;-67,40;EUR;04/05/2025;;Decathlon;Bancontact · Decathlon Gent
+;04/05/2025;05/05/2025;20250504-1452;Betaling met bankkaart;-18,00;EUR;04/05/2025;;Delhaize;Bancontact · Delhaize Gent
+;05/05/2025;06/05/2025;20250505-1453;Betaling met bankkaart;-19,85;EUR;05/05/2025;;Lidl;Bancontact · Lidl Gent
+;06/05/2025;07/05/2025;20250506-1454;Betaling met bankkaart;-24,00;EUR;06/05/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;06/05/2025;07/05/2025;20250506-1455;Betaling met bankkaart;-17,00;EUR;06/05/2025;;Lidl;Bancontact · Lidl Gent
+;07/05/2025;08/05/2025;20250507-1456;Betaling met bankkaart;-19,30;EUR;07/05/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;08/05/2025;09/05/2025;20250508-1457;Betaling met bankkaart;-83,30;EUR;08/05/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;09/05/2025;10/05/2025;20250509-1458;Europese domiciliëring;-42,98;EUR;09/05/2025;;Proximus;Internet en tv mei 2025
+;10/05/2025;11/05/2025;20250510-1459;Europese domiciliëring;-13,99;EUR;10/05/2025;;Netflix;Netflix.com
+;10/05/2025;11/05/2025;20250510-1460;Betaling met bankkaart;-23,55;EUR;10/05/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;10/05/2025;11/05/2025;20250510-1461;Betaling met bankkaart;-37,15;EUR;10/05/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;10/05/2025;11/05/2025;20250510-1462;Betaling met bankkaart;-19,35;EUR;10/05/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;11/05/2025;12/05/2025;20250511-1463;Betaling met bankkaart;-19,60;EUR;11/05/2025;;NMBS;Treinticket Gent – Brussel
+;12/05/2025;13/05/2025;20250512-1464;Betaling met bankkaart;-60,25;EUR;12/05/2025;;Delhaize;Bancontact · Delhaize Gent
+;12/05/2025;13/05/2025;20250512-1465;Betaling met bankkaart;-36,35;EUR;12/05/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;13/05/2025;14/05/2025;20250513-1466;Betaling met bankkaart;-18,45;EUR;13/05/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;13/05/2025;14/05/2025;20250513-1467;Betaling met bankkaart;-14,20;EUR;13/05/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;14/05/2025;15/05/2025;20250514-1468;Betaling met bankkaart;-36,40;EUR;14/05/2025;;Lidl;Bancontact · Lidl Gent
+;14/05/2025;15/05/2025;20250514-1469;Betaling met bankkaart;-16,45;EUR;14/05/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;15/05/2025;16/05/2025;20250515-1470;Betaling met bankkaart;-43,55;EUR;15/05/2025;;Lidl;Bancontact · Lidl Gent
+;15/05/2025;16/05/2025;20250515-1471;Betaling met bankkaart;-14,95;EUR;15/05/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;15/05/2025;16/05/2025;20250515-1472;Betaling met bankkaart;-60,45;EUR;15/05/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;15/05/2025;16/05/2025;20250515-1473;Betaling met bankkaart;-39,15;EUR;15/05/2025;;Delhaize;Bancontact · Delhaize Gent
+;16/05/2025;17/05/2025;20250516-1474;Betaling met bankkaart;-19,60;EUR;16/05/2025;;NMBS;Treinticket Gent – Brussel
+;17/05/2025;18/05/2025;20250517-1475;Europese domiciliëring;-11,99;EUR;17/05/2025;;Spotify;Spotify Premium
+;18/05/2025;19/05/2025;20250518-1476;Betaling met bankkaart;-33,25;EUR;18/05/2025;;Lidl;Bancontact · Lidl Gent
+;18/05/2025;19/05/2025;20250518-1477;Betaling met bankkaart;-95,90;EUR;18/05/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;18/05/2025;19/05/2025;20250518-1478;Betaling met bankkaart;-24,00;EUR;18/05/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;18/05/2025;19/05/2025;20250518-1479;Betaling via Bancontact online;-28,40;EUR;18/05/2025;;Bol.com;Bestelling 3692-1807
+;19/05/2025;20/05/2025;20250519-1480;Betaling met bankkaart;-49,55;EUR;19/05/2025;;Aldi;Bancontact · Aldi Gentbrugge
+;19/05/2025;20/05/2025;20250519-1481;Betaling met bankkaart;-60,60;EUR;19/05/2025;;TotalEnergies;Bancontact · TotalEnergies Merelbeke
+;19/05/2025;20/05/2025;20250519-1482;Betaling met bankkaart;-46,20;EUR;19/05/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;19/05/2025;20/05/2025;20250519-1483;Betaling met bankkaart;-19,60;EUR;19/05/2025;;NMBS;Treinticket Gent – Brussel
+;20/05/2025;21/05/2025;20250520-1484;Betaling met bankkaart;-55,20;EUR;20/05/2025;;Delhaize;Bancontact · Delhaize Gent
+;22/05/2025;23/05/2025;20250522-1485;Betaling met bankkaart;-44,25;EUR;22/05/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;22/05/2025;23/05/2025;20250522-1486;Betaling via Payconiq;-16,50;EUR;22/05/2025;;Frituur 't Pleintje;Payconiq
+;23/05/2025;24/05/2025;20250523-1487;Betaling met bankkaart;-31,30;EUR;23/05/2025;;Lidl;Bancontact · Lidl Gent
+;24/05/2025;25/05/2025;20250524-1488;Betaling met bankkaart;-81,35;EUR;24/05/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;24/05/2025;25/05/2025;20250524-1489;Betaling met bankkaart;-91,55;EUR;24/05/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;26/05/2025;27/05/2025;20250526-1490;Betaling via Bancontact online;-79,40;EUR;26/05/2025;;Bol.com;Bestelling 3747-1129
+;26/05/2025;27/05/2025;20250526-1491;Betaling met bankkaart;-9,70;EUR;26/05/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;27/05/2025;28/05/2025;20250527-1492;Betaling met bankkaart;-29,85;EUR;27/05/2025;;Carrefour Express;Bancontact · Carrefour Gent
+;27/05/2025;28/05/2025;20250527-1493;Betaling via Payconiq;-9,40;EUR;27/05/2025;;Frituur 't Pleintje;Payconiq
+;28/05/2025;29/05/2025;20250528-1494;Betaling met bankkaart;-11,65;EUR;28/05/2025;;Bakkerij De Graankorrel;Bancontact
+;28/05/2025;29/05/2025;20250528-1495;Betaling met bankkaart;-70,20;EUR;28/05/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;28/05/2025;29/05/2025;20250528-1496;Betaling met bankkaart;-26,70;EUR;28/05/2025;;Albert Heijn;Bancontact · AH Gent Zuid
+;29/05/2025;30/05/2025;20250529-1497;Betaling met bankkaart;-13,45;EUR;29/05/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;30/05/2025;31/05/2025;20250530-1498;Betaling via Bancontact online;-58,70;EUR;30/05/2025;;Bol.com;Bestelling 3800-1341
+;31/05/2025;01/06/2025;20250531-1499;Betaling met bankkaart;-56,25;EUR;31/05/2025;;Delhaize;Bancontact · Delhaize Gent
+;31/05/2025;01/06/2025;20250531-1500;Betaling met bankkaart;-51,75;EUR;31/05/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort

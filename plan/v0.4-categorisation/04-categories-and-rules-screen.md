@@ -21,3 +21,8 @@ See and manage all categories and rules in one place.
 
 ## Done when
 Every rule can be found, changed and reordered, and suggestions can be confirmed or dismissed for good.
+
+## Notes from 0.4-1 and 0.4-2 (10 Nov 2026)
+- **Still to build on the server:** reorder (a permutation of the `priority` values among the viewer's visible rules: the server reassigns those values in the new order, so rules the viewer cannot see keep theirs) and the live preview of a rule ("Past op N transacties", only over the viewer's own rows, through the same `categorise.Match`). The tree, rule CRUD and `POST /api/rules/apply` exist (docs/api.md).
+- **Suggestions** must write through `categorise.Assign` with origin `suggestion`: it never replaces a rule's or a manual category.
+- **Names with punctuation:** Bilance names contain commas and `&` (`Energie, nutsvoorzieningen`, `Eten & Drinken`). No UI or CSV code may split a category name on commas. For the 0.5-3 mapping, store the source path as two parts (top and sub), not one joined string, because a name may contain any punctuation, ` / ` included.

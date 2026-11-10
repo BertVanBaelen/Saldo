@@ -136,6 +136,9 @@ func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun b
 	if err := aboveStored(ctx, tx, f.AccountID, kept); err != nil {
 		return Batch{}, nil, err
 	}
+	if err := tagByRules(ctx, tx, f.AccountID, kept); err != nil {
+		return Batch{}, nil, err
+	}
 	if b.Imported, err = InsertTransactions(ctx, tx, kept); err != nil {
 		return Batch{}, nil, err
 	}

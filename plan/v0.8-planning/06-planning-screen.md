@@ -21,3 +21,6 @@ The Planning screen from the mockup on real data, and the forecast on Start.
 
 ## Done when
 Planning and Start match the mockup on phone and desktop with real data.
+
+## Carried over from 0.3
+- On Start, the hero and the "Komende maanden" block do not link to Planning yet (the page was not built in 0.3-5). Add the links and the "Komt in versie 0.8" placeholder goes away.

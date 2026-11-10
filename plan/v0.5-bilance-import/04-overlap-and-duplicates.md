@@ -21,3 +21,8 @@ Old history from Bilance and recent history from the bank fit together without d
 
 ## Done when
 Importing a file that overlaps the synced period adds only the older rows.
+
+## Carried over from 0.3
+- 0.3-6 already skips exact matches (booking date, amount, counterparty and communication equal, counted per occurrence), at import and in the sync. This phase adds the fuzzy part: booking date ±1 day and a similar counterparty.
+- **Step 1 conflicts with the 0.3-6 fallback use.** A cutoff at the first synced date would block importing the rows after a failed sync. Offer the cutoff only for Bilance files, never for the generic CSV import.
+- The preview already warns when new rows fall in the period the account syncs (counts only); the side-by-side view of probable duplicates can replace that warning for Bilance files.

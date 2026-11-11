@@ -24,7 +24,10 @@ type ImportRow struct {
 	Line    int
 	Account string
 	Note    string // "" for none
-	Tx      bank.Transaction
+	// The file's category in two parts ("" when empty); stored with the row
+	// when the import has a CategoryPlan.
+	Category, Subcategory string
+	Tx                    bank.Transaction
 }
 
 // LineError is a row Import excluded, with a Dutch message.
@@ -48,6 +51,9 @@ type Batch struct {
 	// already syncs (from its earliest synced booked row on); the preview
 	// shows it, the batch JSON does not.
 	Overlap int `json:"-"`
+	// Categorised counts the imported rows that now have a category; the
+	// preview and the answer of an import show it, the batch JSON does not.
+	Categorised int `json:"-"`
 }
 
 // Messages for a file that names more than one own account, imported into an
@@ -74,7 +80,7 @@ const (
 // counts. A dry run accepts a file without readable rows; a real import
 // refuses it.
 func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun bool) (Batch, []LineError, error) {
-	bs, errs, err := s.ImportFiles(ctx, viewer, []ImportFile{f}, dryRun)
+	bs, errs, err := s.ImportFiles(ctx, viewer, []ImportFile{f}, nil, dryRun)
 	if err != nil {
 		return Batch{}, nil, err
 	}
@@ -86,7 +92,14 @@ func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun b
 // database transaction, so the whole import is atomic and a dry run rolls
 // all of it back. No parts is an error for a real import (nothing readable),
 // and an empty answer for a dry run.
-func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFile, dryRun bool) ([]Batch, []LineError, error) {
+//
+// plan is nil for a file without category columns. Otherwise the rows keep
+// the two parts of their file category, and the choices (CategoryPlan) are
+// resolved first, in this same transaction: new categories are created,
+// rows of a mapped pair get that category with origin "import", and after a
+// real import the choices are saved as the viewer's mapping. A dry run
+// does all of it and rolls it back, so a bad choice fails the preview too.
+func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFile, plan *CategoryPlan, dryRun bool) ([]Batch, []LineError, error) {
 	if len(files) == 0 && !dryRun {
 		return nil, nil, apperr.Invalid(msgNoRows)
 	}
@@ -95,10 +108,16 @@ func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFil
 		return nil, nil, err
 	}
 	defer tx.Rollback()
+	var targets resolved
+	if plan != nil && len(files) > 0 {
+		if targets, err = resolveChoices(ctx, tx, plan); err != nil {
+			return nil, nil, err
+		}
+	}
 	var batches []Batch
 	var errs []LineError
 	for _, f := range files {
-		b, e, err := importIn(ctx, tx, viewer, f, dryRun)
+		b, e, err := importIn(ctx, tx, viewer, f, plan != nil, targets, dryRun)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -106,6 +125,11 @@ func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFil
 	}
 	if dryRun {
 		return batches, errs, nil // the deferred rollback undoes it all
+	}
+	if targets != nil {
+		if err := saveMappings(ctx, tx, viewer, plan.Source, targets); err != nil {
+			return nil, nil, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, nil, err
@@ -116,7 +140,7 @@ func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFil
 const msgNoRows = "Geen enkele regel van het bestand kon gelezen worden. Er is niets geïmporteerd."
 
 // importIn is the body of Import, inside the caller's transaction.
-func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, dryRun bool) (Batch, []LineError, error) {
+func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withPairs bool, targets resolved, dryRun bool) (Batch, []LineError, error) {
 	a, err := accessOf(ctx, tx, viewer, f.AccountID)
 	if err != nil {
 		return Batch{}, nil, err
@@ -140,6 +164,7 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, dryRu
 	mixed := iban == "" && len(accounts) > 1
 	var txs []bank.Transaction
 	var notes []string
+	var pairs [][2]string
 	var errs []LineError
 	for _, r := range f.Rows {
 		switch {
@@ -150,6 +175,7 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, dryRu
 		default:
 			txs = append(txs, r.Tx)
 			notes = append(notes, r.Note)
+			pairs = append(pairs, [2]string{r.Category, r.Subcategory})
 		}
 	}
 	if len(txs) == 0 && !dryRun {
@@ -170,6 +196,12 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, dryRu
 	for i := range rows {
 		rows[i].ImportBatch = b.ID
 		rows[i].Note = notes[i]
+		if withPairs {
+			rows[i].ImportPair = &pairs[i]
+			if id := targets[pairs[i]]; id != 0 {
+				rows[i].CategoryID, rows[i].CategoryOrigin = id, "import"
+			}
+		}
 	}
 	kept, present, err := dropPresent(ctx, tx, f.AccountID, rows)
 	if err != nil {
@@ -182,6 +214,10 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, dryRu
 		return Batch{}, nil, err
 	}
 	if b.Imported, err = InsertTransactions(ctx, tx, kept); err != nil {
+		return Batch{}, nil, err
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM transactions WHERE import_batch_id = ? AND category_id IS NOT NULL`,
+		b.ID).Scan(&b.Categorised); err != nil {
 		return Batch{}, nil, err
 	}
 	// The unique key (account, dedupe key, occurrence) refuses the rest.

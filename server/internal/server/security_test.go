@@ -243,6 +243,9 @@ func TestPrivacySweep(t *testing.T) {
 		{"GET", "/api/devices", "", 200},
 		{"GET", "/api/bank/enablebanking", "", 200},
 		{"GET", "/api/imports", "", 200},
+		{"GET", "/api/imports/mappings?source=bilance", "", 200},
+		{"PUT", "/api/imports/mappings?source=bilance", `[]`, 200},
+		{"POST", "/api/imports/" + id(bertImport.ID) + "/reapply-categories", "", 404},
 		{"POST", "/api/sync", "", 202},
 		{"GET", "/api/sync", "", 200},
 		{"GET", "/api/transactions?account=" + acc1, "", 404},
@@ -416,6 +419,9 @@ func TestImportRoutesOutsideDemoModeAre401(t *testing.T) {
 	body, ct := multipartForm(t, importForm(csvHeader+csvCoffee, 1, csvMapping)...)
 	for _, c := range []struct{ method, path, body, ct string }{
 		{"GET", "/api/imports", "", ""},
+		{"GET", "/api/imports/mappings?source=bilance", "", ""},
+		{"PUT", "/api/imports/mappings?source=bilance", `[]`, "application/json"},
+		{"POST", "/api/imports/1/reapply-categories", "", ""},
 		{"POST", "/api/imports", body, ct},
 		{"POST", "/api/imports/preview", body, ct},
 		{"POST", "/api/imports", `{"x":1}`, "application/json"},

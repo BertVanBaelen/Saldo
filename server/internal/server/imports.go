@@ -19,6 +19,7 @@ import (
 
 	"github.com/BertVanBaelen/Saldo/server/internal/apperr"
 	"github.com/BertVanBaelen/Saldo/server/internal/auth"
+	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
 	"github.com/BertVanBaelen/Saldo/server/internal/importers"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
@@ -39,7 +40,8 @@ const (
 	maxMappingField  = 2 << 10
 	maxAccountMap    = 8 << 10 // up to importers.MaxAccountNames names
 	maxSettingsField = 256
-	maxImportErrors  = 20 // row errors in an answer; counts give the total
+	maxChoicesField  = 256 << 10 // up to importers.MaxCategoryPairs choices
+	maxImportErrors  = 20        // row errors in an answer; counts give the total
 	msgFileTooLarge  = "Het bestand is groter dan 20 MB."
 	msgBadUpload     = "Het bestand kwam niet goed aan. Probeer het opnieuw."
 	defaultFileName  = "bestand.csv"
@@ -151,6 +153,8 @@ type countsBody struct {
 	Present int `json:"present"`
 	Invalid int `json:"invalid"`
 	Overlap int `json:"overlap"`
+	// Categorised is how many of the new rows get a category.
+	Categorised int `json:"categorised"`
 }
 
 type accountNameBody struct {
@@ -163,6 +167,15 @@ type categoryBody struct {
 	Subcategory string `json:"subcategory"`
 	Rows        int    `json:"rows"`
 	Total       int64  `json:"total"`
+	// Saved is the saved target of the pair for the viewer (categoryId null:
+	// leave uncategorised), null when none; Suggestion is a category id
+	// guessed by name, null when none. Neither is applied by the server.
+	Saved      *savedBody `json:"saved"`
+	Suggestion *int64     `json:"suggestion"`
+}
+
+type savedBody struct {
+	CategoryID *int64 `json:"categoryId"`
 }
 
 type previewBody struct {
@@ -181,19 +194,21 @@ type previewBody struct {
 }
 
 type importBody struct {
-	Batches []ledger.Batch `json:"batches"`
-	Errors  []rowErrorBody `json:"errors"`
+	Batches     []ledger.Batch `json:"batches"`
+	Errors      []rowErrorBody `json:"errors"`
+	Categorised int            `json:"categorised"`
 }
 
 // upload is a read multipart request.
 type upload struct {
 	fileName   string
 	data       []byte
-	accountID  int64              // 0 when not sent
-	accountMap map[string]int64   // file account name -> account id; nil when not sent
-	mapping    *importers.Mapping // nil when not sent
-	echo       mappingBody        // the mapping as sent
-	options    importers.Options  // the overrides; zero when not sent
+	accountID  int64                   // 0 when not sent
+	accountMap map[string]int64        // file account name -> account id; nil when not sent
+	mapping    *importers.Mapping      // nil when not sent
+	echo       mappingBody             // the mapping as sent
+	options    importers.Options       // the overrides; zero when not sent
+	choices    []ledger.CategoryChoice // the category choices; nil when not sent
 }
 
 // hasAccount tells whether the upload names where the rows go.
@@ -221,7 +236,11 @@ func (u upload) hasAccount() bool { return u.accountID != 0 || u.accountMap != n
 // account are sent; an account without the mapping is 400. The counts are
 // those of a real import (the same code, rolled back), so they need edit
 // access to the accounts: hidden 404, read-only 403. counts null otherwise;
-// errors then holds the unreadable rows of the mapping, if any. 60 previews
+// errors then holds the unreadable rows of the mapping, if any. Each category
+// pair also answers saved (the saved target of the viewer) and suggestion (a
+// category id by name similarity); with the part categories (the choices of
+// POST /api/imports) counts.categorised says how many new rows get a category.
+// 60 previews
 // per user per hour, then 429 with Retry-After.
 // Errors: 415 not multipart, 413 file over 20 MB, 400 a bad file, setting,
 // mapping or upload (Dutch message, never cell text).
@@ -258,8 +277,13 @@ func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 	for _, a := range p.Accounts {
 		body.Accounts = append(body.Accounts, accountNameBody{a.Name, a.Rows})
 	}
-	for _, c := range p.Categories {
-		body.Categories = append(body.Categories, categoryBody{c.Category, c.Subcategory, c.Rows, c.Total})
+	if len(p.Categories) > 0 {
+		cats, err := s.categoryHints(r, viewer, p)
+		if err != nil {
+			s.fail(w, r, err, msgNotFound)
+			return
+		}
+		body.Categories = cats
 	}
 	if u.mapping != nil {
 		body.Mapping = u.echo
@@ -269,12 +293,12 @@ func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 		body.Preset = &p.Preset
 	}
 	if u.hasAccount() {
-		files, err := importFiles(u, p)
+		files, plan, err := importFiles(u, p)
 		if err != nil {
 			s.fail(w, r, err, msgAccountNotFound)
 			return
 		}
-		batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, true)
+		batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, plan, true)
 		if err != nil {
 			s.fail(w, r, err, msgAccountNotFound)
 			return
@@ -288,6 +312,7 @@ func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 			body.Counts.Present += b.Present
 			body.Counts.Invalid += b.Invalid
 			body.Counts.Overlap += b.Overlap
+			body.Counts.Categorised += b.Categorised
 		}
 		body.Errors = rowErrors(p.Errors, excluded)
 	}
@@ -297,8 +322,14 @@ func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 // postImport imports a CSV file into an account the viewer may edit.
 //
 // POST /api/imports, multipart/form-data with the parts file, mapping and
-// accountId or accountMap (as for the preview), optionally settings. 201
-// {batches, errors}: one batch per account the rows go to, each {id, source
+// accountId or accountMap (as for the preview), optionally settings and
+// categories (a JSON array of choices {category, subcategory, action: map |
+// create | skip, categoryId, new: {name, parentId, type, icon, colour}}, one
+// per source pair, for a file with category columns; a pair without a choice
+// stays uncategorised). The choices are checked and any new categories made
+// in the database transaction of the import, and a real import saves them as
+// the mapping of the viewer for the source. 201
+// {batches, errors, categorised}: one batch per account the rows go to, each {id, source
 // ("argenta", "bilance" or "csv"), fileName, accountId, createdAt,
 // imported, present, invalid}, errors at most 20 {line, message}. Readable
 // rows go in through the sync's dedupe key, so the same file again adds 0
@@ -334,21 +365,23 @@ func (s *Server) postImport(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	files, err := importFiles(u, p)
+	files, plan, err := importFiles(u, p)
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, false)
+	batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, plan, false)
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
+	categorised := 0
 	for _, b := range batches {
+		categorised += b.Categorised
 		s.audit(r, auth.EventImportDone, viewer, fmt.Sprintf("account=%d batch=%d imported=%d present=%d invalid=%d",
 			b.AccountID, b.ID, b.Imported, b.Present, b.Invalid))
 	}
-	writeJSON(w, http.StatusCreated, importBody{Batches: batches, Errors: rowErrors(p.Errors, excluded)})
+	writeJSON(w, http.StatusCreated, importBody{Batches: batches, Errors: rowErrors(p.Errors, excluded), Categorised: categorised})
 }
 
 // listImports answers GET /api/imports: the batches of the accounts the
@@ -369,28 +402,76 @@ func (s *Server) today() string { return s.now().In(clock.Brussels).Format(time.
 
 const msgMapAccounts = "Koppel elke rekeningnaam in het bestand aan een rekening."
 
+// categoryHints answers the category pairs of a parsed file with the saved
+// target of the viewer and a name-based suggestion each.
+func (s *Server) categoryHints(r *http.Request, viewer int64, p importers.Parsed) ([]categoryBody, error) {
+	saved, err := s.store.Mappings(r.Context(), viewer, sourceOf(p))
+	if err != nil {
+		return nil, err
+	}
+	tree, err := s.store.Categories(r.Context(), viewer)
+	if err != nil {
+		return nil, err
+	}
+	names := map[int64]string{}
+	for _, c := range tree {
+		names[c.ID] = c.Name
+	}
+	targets := make([]categorise.Target, len(tree))
+	for i, c := range tree {
+		targets[i] = categorise.Target{ID: c.ID, Name: c.Name}
+		if c.ParentID != nil {
+			targets[i].Parent = names[*c.ParentID]
+		}
+	}
+	out := make([]categoryBody, 0, len(p.Categories))
+	for _, c := range p.Categories {
+		b := categoryBody{Category: c.Category, Subcategory: c.Subcategory, Rows: c.Rows, Total: c.Total}
+		if i := slices.IndexFunc(saved, func(m ledger.SavedMapping) bool { return m.Category == c.Category && m.Subcategory == c.Subcategory }); i >= 0 {
+			b.Saved = &savedBody{saved[i].CategoryID}
+		}
+		if id, ok := categorise.SuggestTarget(c.Category, c.Subcategory, targets); ok {
+			b.Suggestion = &id
+		}
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+// sourceOf is the source a parsed file is stored under.
+func sourceOf(p importers.Parsed) string {
+	if p.Preset == importers.PresetArgenta || p.Preset == importers.PresetBilance {
+		return p.Preset
+	}
+	return "csv"
+}
+
 // importFiles splits the readable rows over the accounts they go to: one
 // part for the chosen account, or, when the mapping has an account name
 // column, one part per name in the order of its first row, each to the
 // account accountMap gives it. A name without an account is refused whole,
 // and the error never repeats it. The unreadable rows count on the first part.
-func importFiles(u upload, p importers.Parsed) ([]ledger.ImportFile, error) {
-	source := "csv"
-	switch p.Preset {
-	case importers.PresetArgenta, importers.PresetBilance:
-		source = p.Preset
+// The plan holds the category choices for a file with category columns and
+// is nil otherwise; choices for a file without such columns are refused.
+func importFiles(u upload, p importers.Parsed) ([]ledger.ImportFile, *ledger.CategoryPlan, error) {
+	source := sourceOf(p)
+	var plan *ledger.CategoryPlan
+	if p.Mapping.Category != importers.NoColumn || p.Mapping.Subcategory != importers.NoColumn {
+		plan = &ledger.CategoryPlan{Source: source, Choices: u.choices}
+	} else if len(u.choices) > 0 {
+		return nil, nil, apperr.Invalid("Het bestand heeft geen categoriekolommen om te koppelen.")
 	}
 	sum := sha256.Sum256(u.data)
 	base := ledger.ImportFile{Source: source, FileName: u.fileName, FileHash: hex.EncodeToString(sum[:])}
 	var files []ledger.ImportFile
 	if p.Mapping.AccountName == importers.NoColumn {
 		if u.accountID == 0 {
-			return nil, apperr.Invalid("Kies een rekening.")
+			return nil, nil, apperr.Invalid("Kies een rekening.")
 		}
 		base.AccountID = u.accountID
 		files = []ledger.ImportFile{base}
 	} else if u.accountMap == nil {
-		return nil, apperr.Invalid(msgMapAccounts)
+		return nil, nil, apperr.Invalid(msgMapAccounts)
 	}
 	part := map[string]int{}
 	for _, row := range p.Rows {
@@ -400,7 +481,7 @@ func importFiles(u upload, p importers.Parsed) ([]ledger.ImportFile, error) {
 			if i, ok = part[row.AccountName]; !ok {
 				id := u.accountMap[row.AccountName]
 				if id == 0 {
-					return nil, apperr.Invalid(msgMapAccounts)
+					return nil, nil, apperr.Invalid(msgMapAccounts)
 				}
 				i = len(files)
 				part[row.AccountName] = i
@@ -409,12 +490,13 @@ func importFiles(u upload, p importers.Parsed) ([]ledger.ImportFile, error) {
 				files = append(files, f)
 			}
 		}
-		files[i].Rows = append(files[i].Rows, ledger.ImportRow{Line: row.Line, Account: row.Account, Note: row.Note, Tx: row.Tx})
+		files[i].Rows = append(files[i].Rows, ledger.ImportRow{Line: row.Line, Account: row.Account, Note: row.Note,
+			Category: row.Category, Subcategory: row.Subcategory, Tx: row.Tx})
 	}
 	if len(files) > 0 {
 		files[0].Invalid = len(p.Errors)
 	}
-	return files, nil
+	return files, plan, nil
 }
 
 // maskSample copies the sample with every IBAN-shaped cell (the file's own
@@ -547,6 +629,16 @@ func readUpload(w http.ResponseWriter, r *http.Request) (upload, bool) {
 					return bad(http.StatusNotFound, "not_found", msgAccountNotFound)
 				}
 			}
+		case "categories":
+			v, err := readField(part, maxChoicesField)
+			if err != nil {
+				return readErr(err)
+			}
+			dec := json.NewDecoder(bytes.NewReader(v))
+			dec.DisallowUnknownFields()
+			if err := dec.Decode(&u.choices); err != nil || dec.More() || u.choices == nil {
+				return bad(http.StatusBadRequest, "invalid", "De koppeling van de categorieën klopt niet.")
+			}
 		case "settings":
 			v, err := readField(part, maxSettingsField)
 			if err != nil {
@@ -616,4 +708,54 @@ func cleanFileName(name string) string {
 		return defaultFileName
 	}
 	return name
+}
+
+// getImportMappings answers GET /api/imports/mappings?source=bilance: the
+// saved category mapping of the viewer for a source ("argenta", "bilance" or
+// "csv"), [{category, subcategory, categoryId}] (categoryId null: leave
+// uncategorised), [] when none. Unknown source 400.
+func (s *Server) getImportMappings(w http.ResponseWriter, r *http.Request) {
+	list, err := s.store.Mappings(r.Context(), viewerOf(r), r.URL.Query().Get("source"))
+	if err != nil {
+		s.fail(w, r, err, msgNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+// putImportMappings answers PUT /api/imports/mappings?source=bilance: saves
+// the entries of the body (an array like the GET answer) as the own mapping of
+// the viewer, upsert per pair; saved pairs the body does not name stay. 200
+// with the whole mapping. 400 for an unknown source, a category that does not
+// exist, a pair twice or more than 500 entries.
+func (s *Server) putImportMappings(w http.ResponseWriter, r *http.Request) {
+	var body []ledger.SavedMapping
+	if err := decodeJSON(w, r, &body); err != nil {
+		s.fail(w, r, err, msgNotFound)
+		return
+	}
+	list, err := s.store.PutMappings(r.Context(), viewerOf(r), r.URL.Query().Get("source"), body)
+	if err != nil {
+		s.fail(w, r, err, msgNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+// postReapplyCategories answers POST /api/imports/{id}/reapply-categories:
+// rewrites the category of the rows of one batch from the saved mapping of
+// the viewer and answers {changed}. Only rows with origin "import", or still
+// uncategorised from a skipped pair, change; never a manual, rule or
+// suggestion category. Hidden batch 404, read-only account 403.
+func (s *Server) postReapplyCategories(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, msgNotFound)
+	if !ok {
+		return
+	}
+	n, err := s.store.ReapplyCategories(r.Context(), viewerOf(r), id)
+	if err != nil {
+		s.fail(w, r, err, msgNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"changed": n})
 }

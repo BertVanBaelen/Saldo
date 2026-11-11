@@ -27,6 +27,7 @@ const paths = {
   phone: <><rect x="6" y="2.5" width="12" height="19" rx="3" /><path d="M11 18.5h2" /></>,
   mail: <><rect x="3" y="5" width="18" height="14" rx="3" /><path d="m4 7 8 6 8-6" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  merge: <><path d="M4 6h3a5 5 0 0 1 5 5 1 1 0 0 0 1 1h7" /><path d="M4 18h3a5 5 0 0 0 5-5" /><path d="m17 9 3 3-3 3" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   check: <path d="m5 12 5 5 9-10" />,

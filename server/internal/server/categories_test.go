@@ -216,7 +216,7 @@ func TestRemoveCategory(t *testing.T) {
 	split := p.count(`SELECT MIN(id) FROM transactions WHERE account_id = 1 AND counterparty_name = 'Decathlon'`)
 	p.exec(`INSERT INTO transaction_splits (transaction_id, category_id, amount) VALUES (?, ?, -2000), (?, 6, -2290)`, split, f, split)
 	p.exec(`INSERT INTO budgets (account_id, category_id, monthly_amount, from_month) VALUES (1, ?, 1000, '2026-01'), (1, ?, 2000, '2026-02'), (1, ?, 3000, '2026-02')`, f, f, g)
-	p.exec(`INSERT INTO category_mappings (source, source_category, category_id) VALUES ('bilance', 'Vrije tijd & entertainment / Weg', ?)`, f)
+	p.exec(`INSERT INTO category_mappings (user_id, source, source_category, source_subcategory, category_id) VALUES (1, 'bilance', 'Vrije tijd & entertainment', 'Weg', ?)`, f)
 	p.exec(`INSERT INTO category_suggestions (user_id, counterparty_key, category_id, confidence) VALUES (1, 'kinepolis', ?, 80)`, f)
 	kine := p.count(`SELECT COUNT(*) FROM transactions WHERE counterparty_name = 'Kinepolis'`)
 	lidl := p.count(`SELECT COUNT(*) FROM transactions WHERE counterparty_name = 'Lidl'`)

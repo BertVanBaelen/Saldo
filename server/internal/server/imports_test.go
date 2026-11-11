@@ -691,7 +691,7 @@ func TestImportBilance(t *testing.T) {
 	r = send(e.bert, "/api/imports/preview", "", true)
 	noCardText(r.body)
 	p = decode[previewBody](t, r.body)
-	if len(p.Accounts) != 2 || p.Accounts[0] != (accountNameBody{"Spaarrekening", 1}) || len(p.Categories) != 2 || p.Categories[1] != (categoryBody{"Inkomen", "Loon, premies", 1, 285000}) ||
+	if len(p.Accounts) != 2 || p.Accounts[0] != (accountNameBody{"Spaarrekening", 1}) || len(p.Categories) != 2 || p.Categories[1] != (categoryBody{Category: "Inkomen", Subcategory: "Loon, premies", Rows: 1, Total: 285000}) ||
 		p.Counts != nil || len(p.Errors) != 1 || p.Errors[0].Line != 4 {
 		t.Fatalf("mapping preview %s", r.body)
 	}

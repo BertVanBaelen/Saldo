@@ -227,52 +227,60 @@ func validType(t string) error {
 // CreateCategory adds a top category ({name, type, colour}) or a
 // subcategory ({name, parentId}) that takes its parent's type and colour.
 func (s *Store) CreateCategory(ctx context.Context, viewer int64, in CategoryInput) (TreeCategory, error) {
-	name, err := cleanName(in.Name.V)
-	if err != nil {
-		return TreeCategory{}, err
-	}
-	icon, err := iconOf(in.Icon)
-	if err != nil {
-		return TreeCategory{}, err
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return TreeCategory{}, err
 	}
 	defer tx.Rollback()
-	var parent *int64
-	var typ, colour string
-	if in.ParentID.Set && !in.ParentID.Null {
-		if in.Type.Set || in.Colour.Set {
-			return TreeCategory{}, apperr.Invalid("Een subcategorie krijgt het type en de kleur van haar hoofdcategorie.")
-		}
-		p, err := place(ctx, tx, in.ParentID.V, 0)
-		if err != nil {
-			return TreeCategory{}, err
-		}
-		parent, typ, colour = &p.id, p.typ, p.colour
-	} else {
-		typ = in.Type.V
-		if err := validType(typ); err != nil {
-			return TreeCategory{}, err
-		}
-		if colour, err = topColour(typ, in.Colour.V); err != nil {
-			return TreeCategory{}, err
-		}
-	}
-	if err := unique(ctx, tx, name, parent, 0); err != nil {
-		return TreeCategory{}, err
-	}
-	var id int64
-	if err := tx.QueryRowContext(ctx, `INSERT INTO categories (name, parent_id, type, colour, icon, sort_order)
-		VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2))
-		RETURNING id`, name, parent, typ, colour, icon).Scan(&id); err != nil {
+	id, err := createCategoryIn(ctx, tx, in)
+	if err != nil {
 		return TreeCategory{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return TreeCategory{}, err
 	}
 	return s.category(ctx, viewer, id)
+}
+
+// createCategoryIn is the body of CreateCategory inside the caller's
+// transaction (the import creates categories in its own), returning the new id.
+func createCategoryIn(ctx context.Context, tx *sql.Tx, in CategoryInput) (int64, error) {
+	name, err := cleanName(in.Name.V)
+	if err != nil {
+		return 0, err
+	}
+	icon, err := iconOf(in.Icon)
+	if err != nil {
+		return 0, err
+	}
+	var parent *int64
+	var typ, colour string
+	if in.ParentID.Set && !in.ParentID.Null {
+		if in.Type.Set || in.Colour.Set {
+			return 0, apperr.Invalid("Een subcategorie krijgt het type en de kleur van haar hoofdcategorie.")
+		}
+		p, err := place(ctx, tx, in.ParentID.V, 0)
+		if err != nil {
+			return 0, err
+		}
+		parent, typ, colour = &p.id, p.typ, p.colour
+	} else {
+		typ = in.Type.V
+		if err := validType(typ); err != nil {
+			return 0, err
+		}
+		if colour, err = topColour(typ, in.Colour.V); err != nil {
+			return 0, err
+		}
+	}
+	if err := unique(ctx, tx, name, parent, 0); err != nil {
+		return 0, err
+	}
+	var id int64
+	err = tx.QueryRowContext(ctx, `INSERT INTO categories (name, parent_id, type, colour, icon, sort_order)
+		VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2))
+		RETURNING id`, name, parent, typ, colour, icon).Scan(&id)
+	return id, err
 }
 
 // UpdateCategory renames, moves, retypes, recolours or re-icons a category. Moving

@@ -1,7 +1,7 @@
 // Importeren (phases 0.3-6 and 0.5-2): a CSV file into the accounts the viewer may edit, and the history of imports.
 // Design: finance-mockup/js/screens/importeren.js (start view and the wizard); spec: analysis/screens/importeren.md.
 // Built: file (with the parse settings), columns and account (or accounts from a column), the categories of the file
-// (read-only until 0.5-3 maps them), a check with counts, the result. Not yet (0.5): category mapping, probable
+// mapped onto Saldo's tree (0.5-3, ImporterenCategories.tsx), a check with counts, the result. Not yet (0.5): probable
 // duplicates, import cutoff, undo, a new account from the wizard.
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -11,8 +11,9 @@ import { Select } from '../components/Select';
 import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
 import { accColour, accountIcon, syncLine } from '../lib/accounts';
 import { api, ApiError, errorMessage, isAbort } from '../lib/api';
-import { eur, isoDate, MONTHS, toDate } from '../lib/format';
+import { isoDate, MONTHS, toDate } from '../lib/format';
 import {
+  buildChoices,
   columnsOf,
   doubled,
   FIELDS,
@@ -20,7 +21,9 @@ import {
   mappingOf,
   mappingProblems,
   MAX_IMPORT_BYTES,
+  pickProblem,
   sourceLabel,
+  type CategoryPicks,
   type ImportBatch,
   type FileAccount,
   type FileCategory,
@@ -34,8 +37,10 @@ import {
 } from '../lib/imports';
 import type { Account } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { CategoryStep } from './ImporterenCategories';
 import './Importeren.css';
 
+const NO_PICKS: CategoryPicks = { picks: {}, parentMode: false, parentPicks: {} };
 const STEPS = ['Bestand', 'Kolommen', 'Categorieën', 'Controle', 'Klaar'];
 type Step = 0 | 1 | 2 | 3 | 4 | 5; // 0 = the start view
 
@@ -81,17 +86,6 @@ const withSetting = (s: ImportSettings, k: keyof ImportSettings, v: string): Imp
   else delete next[k];
   return next as ImportSettings;
 };
-
-/** A source category pair as the file has it, never joined into one string. */
-function CatPath({ c }: { c: FileCategory }) {
-  if (!c.category && !c.subcategory) return <span className="im-path"><span className="im-path-leaf muted">Zonder categorie</span></span>;
-  return (
-    <span className="im-path">
-      {c.category && c.subcategory && <span className="im-path-parent">{c.category} &gt; </span>}
-      <span className="im-path-leaf">{c.subcategory || c.category}</span>
-    </span>
-  );
-}
 
 /** The server's message; a 429 also says how long to wait when the server tells. */
 function failure(e: unknown): string {
@@ -309,6 +303,7 @@ export function Importeren() {
   const [over, setOver] = useState(false);
   const [settings, setSettings] = useState<ImportSettings>({}); // what the user overrides of the detection
   const [nameMap, setNameMap] = useState<Record<string, number>>({}); // the account chosen per file account name
+  const [catState, setCatState] = useState<CategoryPicks>(NO_PICKS); // what the user chose per category pair
   const [stats, setStats] = useState<{ key: string; accounts: FileAccount[]; categories: FileCategory[] } | null>(null);
   const [statsErr, setStatsErr] = useState<{ key: string; message: string } | null>(null);
   const [statsTry, setStatsTry] = useState(0);
@@ -337,6 +332,11 @@ export function Importeren() {
   const statsKey = file && wantsStats && !problems.length ? JSON.stringify([mapping, settings]) : null;
   const statsNow = stats && stats.key === statsKey ? stats : null;
   const statsErrNow = statsErr && statsErr.key === statsKey ? statsErr : null;
+  // The category choices go with the check and the import: one per pair of the file, never a silent default.
+  const hasCats = cols.includes('category') || cols.includes('subcategory');
+  const cats = statsNow?.categories ?? [];
+  const choices = hasCats && statsNow ? buildChoices(cats, catState) : undefined;
+  const catProblem = hasCats && statsNow ? pickProblem(cats, catState) : '';
   const single = chosen !== null && editable.some((a) => a.id === chosen) ? chosen : editable.length === 1 ? editable[0].id : null;
   const accountFor = (name: string) => {
     const c = nameMap[name];
@@ -358,7 +358,7 @@ export function Importeren() {
       );
     }
   } else if (target === null) problems.push('Kies een rekening.');
-  const key = file && !problems.length ? JSON.stringify([target, mapping, settings]) : null;
+  const key = file && !problems.length && !catProblem && !(hasCats && !statsNow) ? JSON.stringify([target, mapping, settings, choices]) : null;
   const current = check && check.key === key ? check : null;
   const currentErr = checkErr && checkErr.key === key ? checkErr : null;
   // Offline, the effect below has aborted the request: nothing is running.
@@ -400,7 +400,7 @@ export function Importeren() {
     const ctl = new AbortController();
     const timer = setTimeout(() => {
       setCheckErr(null); // a retry (or a second visit) starts without the old error
-      api.previewImport(file, { target, mapping, settings: sett }, ctl.signal).then(
+      api.previewImport(file, { target, mapping, settings: sett, categories: choices }, ctl.signal).then(
         (p) => {
           if (ctl.signal.aborted) return;
           if (p.counts) setCheck({ key, counts: p.counts, errors: p.errors ?? [] });
@@ -451,6 +451,7 @@ export function Importeren() {
           setNameMap({});
           setStats(null);
           setStatsErr(null);
+          setCatState(NO_PICKS);
           setCheck(null);
           setCheckErr(null);
           setStep(1);
@@ -474,7 +475,7 @@ export function Importeren() {
     setBusy('import');
     setImportErr(null);
     api
-      .importFile(file, target, mapping, ctl.signal, sett)
+      .importFile(file, target, mapping, ctl.signal, sett, choices)
       .then(
         (r) => {
           if (ctl.signal.aborted) return;
@@ -511,6 +512,7 @@ export function Importeren() {
     setNameMap({});
     setStats(null);
     setStatsErr(null);
+    setCatState(NO_PICKS);
     setResult(null);
     setImportErr(null);
     setReadErr(null);
@@ -947,10 +949,13 @@ export function Importeren() {
       </>
     );
   } else if (step === 3) {
-    const hasCats = cols.includes('category') || cols.includes('subcategory');
+    const sourceName = info?.preset === 'bilance' ? 'Bilance' : info?.preset === 'argenta' ? 'Argenta' : 'dit bestand';
     body = (
       <>
-        <StepTitle title="Koppel de categorieën" sub={hasCats ? 'Dit zijn de categorieën die Saldo in het bestand vond.' : undefined} />
+        <StepTitle
+          title="Koppel de categorieën"
+          sub={hasCats ? 'Saldo vond ' + plural(cats.length, 'categorie', 'categorieën') + ' in het bestand. Kies voor elke categorie waar ze in Saldo terechtkomt.' : undefined}
+        />
         {!hasCats ? (
           <div className="im-notice im-notice--info anim-in" style={delay(60)}>
             <Icon name="info" size={18} stroke={2.2} />
@@ -967,40 +972,13 @@ export function Importeren() {
             </p>
           )
         ) : (
-          <>
-            <div className="im-notice im-notice--info anim-in" style={delay(60)} role="status">
-              <Icon name="info" size={18} stroke={2.2} />
-              <div>
-                <strong>De koppeling aan de categorieën van Saldo komt in een volgende stap van deze versie.</strong>
-                <p className="im-notice-sub">Nu komen de transacties zonder categorie binnen. Je regels en suggesties kunnen ze daarna categoriseren.</p>
-              </div>
-            </div>
-            <section className="im-card im-card--table anim-in" style={delay(90)} aria-label="Categorieën in het bestand">
-              <div className="im-th im-catrow only-desktop" aria-hidden="true">
-                <span>Categorie in het bestand</span>
-                <span>Transacties</span>
-                <span>Totaal</span>
-              </div>
-              {statsNow.categories.map((c, i) => (
-                <div className="im-tr im-catrow" key={i}>
-                  <div className="im-catrow-src">
-                    <CatPath c={c} />
-                  </div>
-                  <div className="im-catrow-n">
-                    <span className="mono">{num(c.rows)}</span>
-                    <span className="only-phone"> transacties</span>
-                  </div>
-                  <div className={'im-catrow-sum mono' + (c.total > 0 ? ' pos' : '')}>{eur(c.total, c.total > 0)}</div>
-                </div>
-              ))}
-            </section>
-          </>
+          <CategoryStep cats={cats} state={catState} onChange={setCatState} source={sourceName} />
         )}
-        <ActionBar note={nothingSaved}>
+        <ActionBar note={catProblem ? <span className="im-actions-err">{catProblem}</span> : nothingSaved}>
           <button type="button" className="im-btn im-btn--ghost" onClick={() => setStep(2)}>
             Vorige
           </button>
-          <button type="button" className="im-btn im-btn--primary" onClick={() => setStep(4)}>
+          <button type="button" className="im-btn im-btn--primary" disabled={hasCats && (!statsNow || !!catProblem)} onClick={() => setStep(4)}>
             Volgende
             <Icon name="chevron" size={16} stroke={2.4} />
           </button>
@@ -1037,6 +1015,12 @@ export function Importeren() {
                 </Fragment>
               ))}
             </p>
+            {hasCats && (
+              <p className="im-help">
+                <strong>{plural(c.categorised ?? 0, 'nieuwe rij krijgt', 'nieuwe rijen krijgen')} een categorie</strong>
+                {c.new - (c.categorised ?? 0) > 0 && ', ' + num(c.new - (c.categorised ?? 0)) + ' blijven zonder categorie.'}
+              </p>
+            )}
             {c.present > 0 && <p className="im-help">Een rij die al in Saldo staat, komt er geen tweede keer in.</p>}
             {overlap > 0 && (
               <div className="im-notice im-notice--warn" role="status">
@@ -1109,9 +1093,19 @@ export function Importeren() {
             <BatchRow key={b.id} b={b} account={accountOf(b.accountId)} today={today} />
           ))}
         </section>
-        {(present > 0 || invalid > 0) && (
+        {(present > 0 || invalid > 0 || hasCats) && (
           <section className="im-card anim-in" style={delay(80)} aria-label="Wat er gebeurde">
             <ul className="im-done-facts">
+              {hasCats && (
+                <li>
+                  <span className="im-done-fact-icon" aria-hidden="true">
+                    <Icon name="tag" size={16} stroke={2.2} />
+                  </span>
+                  <span>
+                    <strong>{num(result.categorised ?? 0)}</strong> van de {plural(imported, 'transactie', 'transacties')} {(result.categorised ?? 0) === 1 ? 'heeft' : 'hebben'} een categorie. De koppeling is bewaard: de volgende import van dit soort bestand opent met alles al ingevuld.
+                  </span>
+                </li>
+              )}
               {present > 0 && (
                 <li>
                   <span className="im-done-fact-icon" aria-hidden="true">

@@ -27,6 +27,7 @@ Results were measured on a fresh demo database through the real API (`POST /api/
 | `several-accounts.csv` | 11 | Jun 2025 | three IBANs | Testrekening, and Reserve | Testrekening: new 4, invalid 7. Reserve: new 0, invalid 11; the import is refused |
 | `large.csv` | 1 500 | Jan 2023 to May 2025 | empty | Zichtrekening | new 1 500, present 0, invalid 0, overlap 0 |
 | `bilance-voorbeeld.csv` | 27 | Jan to Oct 2025, Oct to Nov 2026 | account names (3) | Zichtrekening, Spaarrekening and Reserve | see below: new 24, present 2, invalid 1, overlap 3 |
+| `bilance-tweede.csv` | 12 | Mar to Aug 2025 | account names (3) | Zichtrekening, Spaarrekening and Reserve | see below: new 12, present 0, invalid 0, overlap 0 |
 
 "Overlap" is how many of the new rows are dated in the period the account already syncs (from 1 November 2025 for the demo's Zichtrekening); the wizard warns about them.
 
@@ -71,6 +72,24 @@ What it covers: 3 account names (Zichtrekening 21 rows, Spaarrekening 2, Contant
 Steps in the wizard (**Meer > Importeren**), with `scripts/dev.ps1 -Fresh`:
 1. **Bestand:** "Lijkt een Bilance-export", scheidingsteken Komma, codering UTF-8, and the first lines show the card text reduced (`Colruyt Laagste Prijzen 14-01-2025 Gent`): the card holder and the card number are shown nowhere.
 2. **Kolommen:** every column is filled in (Datum, Bedrag, Tegenpartij = Handelaar, Tegenpartij als die leeg is = Titel, Mededeling = Betalingskenmerk, Notitie, Categorie, Subcategorie, Rekeningnaam = Rekening(en)). Under "Naar welke rekeningen?" three names: Contant (3 rijen), Spaarrekening (2), Zichtrekening (21). Map Zichtrekening to Zichtrekening, Spaarrekening to Spaarrekening and Contant to Reserve (a manual account); Volgende stays off until all three are mapped.
-3. **Categorieën:** 12 pairs, read-only, with a note that the mapping comes in a later step: for example `Eten & Drinken > Boodschappen` 5 transacties, `Winkelen > Overig` 5, `Wonen > Huur, hypotheek` 3, and "Zonder categorie" 2 transacties, total € 0,00 (the transfer). *Later phases extend this entry with what the mapping step shows and does.*
-4. **Controle:** 24 nieuw, 2 al in Saldo (the Zichtrekening rows `Huur oktober 2026` and `Netflix` of October 2026 equal two rows the demo synced), 1 onleesbaar ("Regel 15: Bedrag is ongeldig."), and the warning that 3 new rows fall in the period the bank already syncs. One of those 3 is a probable duplicate that the exact rule does not catch: `Spotify` on 18 October 2026 (the demo has Spotify on 17 October: same amount, similar name `SPOTIFY AB`, one day off). The other two (`Apotheek Peeters`, `Lidl`) are really new.
-5. **Klaar:** 3 batches, imported 19 (Zichtrekening), 2 (Spaarrekening), 3 (Reserve). Importing the same file again: 0 imported, 26 already present. In Transacties the rows have the note (`Verjaardag Sofie` on Pizzeria Roma) and the communication without the card holder (`Pizzeria Roma 09-04-2025 Gent`).
+3. **Categorieën:** 12 pairs with their transactions and total, for example `Eten & Drinken > Boodschappen` 5 transacties, `Winkelen > Overig` 5, `Wonen > Huur, hypotheek` 3, and "Zonder categorie" 2 transacties, total € 0,00 (the transfer), fixed on Niet categoriseren. On a fresh demo nothing is saved yet, so the step opens with **Voorstel** on 8 pairs (by name, against the default tree) and **Niet categoriseren** on the 4 others:
+
+   | Pair in the file | Pre-selected in Saldo |
+   |---|---|
+   | `Wonen > Huur, hypotheek` | Voorstel: Wonen › Huur |
+   | `Wonen > Energie, nutsvoorzieningen` | Voorstel: Wonen › Energie |
+   | `Eten & Drinken > Boodschappen` | Voorstel: Boodschappen |
+   | `Vrije tijd & entertainment > Telefoonkosten` | Voorstel: Abonnementen › Telefoon |
+   | `Winkelen > Overig` | Voorstel: Overig |
+   | `Inkomen > Loon` and `Inkomen > Rente` | Voorstel: Overig inkomen (both: a merge, "Samen met") |
+   | `Inkomen > Terugbetaling` | Voorstel: Terugbetaling |
+   | `Eten & Drinken > Uit eten, bezorging`, `Gezondheid & Educatie > Wellness, verzorging`, `Winkelen > Kleding, accessoires` | Niet categoriseren |
+
+   Try: change a pair (the badge goes, the chip "zelf gekozen" counts it); choose *Nieuwe categorie* for `Winkelen > Kleding, accessoires` (name, place, icon); switch on *Per hoofdcategorie koppelen* and give `Wonen` one target; choose the same category for two pairs (the *Samengevoegd* card). A new category only exists after the import, and not when the import fails.
+4. **Controle:** with the proposals as they are, 17 of the 24 new rows get a category (19 rows of the 26 readable ones sit in a pair with a proposal; the two rows already in Saldo, `Huur oktober 2026` and `Netflix`, are among them) and 7 stay without; an account rule can still categorise one of those 7. Worked out from the pair table, not run on a demo. 24 nieuw, 2 al in Saldo (the Zichtrekening rows `Huur oktober 2026` and `Netflix` of October 2026 equal two rows the demo synced), 1 onleesbaar ("Regel 15: Bedrag is ongeldig."), and the warning that 3 new rows fall in the period the bank already syncs. One of those 3 is a probable duplicate that the exact rule does not catch: `Spotify` on 18 October 2026 (the demo has Spotify on 17 October: same amount, similar name `SPOTIFY AB`, one day off). The other two (`Apotheek Peeters`, `Lidl`) are really new.
+5. **Klaar:** 3 batches, imported 19 (Zichtrekening), 2 (Spaarrekening), 3 (Reserve). Importing the same file again: 0 imported, 26 already present. In Transacties the rows have the note (`Verjaardag Sofie` on Pizzeria Roma) and the communication without the card holder (`Pizzeria Roma 09-04-2025 Gent`), and the category of the chosen target (origin "import": a rule or "apply to similar" never replaces it, only a manual pick on that row does).
+
+### `bilance-tweede.csv`
+Twelve invented rows in exactly the layout of `bilance-voorbeeld.csv` (UTF-8, LF, `, `, `€` suffix), dates in March to August 2025, the same three account names, no row that equals one of the first file, and **11 of the 12 category pairs of the first file plus one new pair**, `Huisdieren > Dierenarts` (only the pair without a category is missing). Accounts: Zichtrekening 9 rows, Spaarrekening 1, Contant 2. Preview: 12 rows, nothing present or unreadable, and nothing in the period the bank syncs.
+
+To see the mapping being reused (undo comes in 0.5-5, so use the two files in this order on a fresh demo): import `bilance-voorbeeld.csv` once with the choices you want (Bevestig *Voorstel*, create something new), then start the wizard again with `bilance-tweede.csv` and map the same three account names. *Categorieën* then opens with **11 pairs marked Opgeslagen** and showing your earlier targets (also a pair you left on Niet categoriseren: it is saved too), and `Huisdieren > Dierenarts` as the one new pair, with no match (no Voorstel; the name has no resemblance in the default tree) on Niet categoriseren. Click through to import: no mapping needed except for the new pair, and the result says how many of the 12 rows got a category. Another user signed in on the same demo sees none of the saved mapping.

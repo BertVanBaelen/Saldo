@@ -222,7 +222,7 @@ describe('Importeren · wizard', () => {
     // Step 5: the result, links onward, no undo.
     const h5 = await shown(() => screen.queryByRole('heading', { name: '29 transacties geïmporteerd' }));
     expect(document.activeElement).toBe(h5);
-    expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal), undefined);
+    expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal), undefined, undefined);
     expect(screen.getByText('In je Spaarrekening. Bewaard als batch 12.')).toBeTruthy();
     expect(screen.getByText('Stap 5 van 5')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Transacties bekijken/ }).getAttribute('href')).toBe('/transacties?rekening=' + SPAAR.id);
@@ -674,7 +674,12 @@ describe('Importeren · Bilance', () => {
     sample: [['Voorbeeld Winkel', '2026-11-02 00:00:00.000', '-170.00€', 'Eten & Drinken', 'Boodschappen', '', 'Voorbeeld Winkel 02-11-2026 Antwerpen', 'Voorbeeld Winkel Antwerpen', 'Zichtrekening', '']],
   };
   const NAMES = { accounts: [{ name: 'Spaarrekening', rows: 4 }, { name: 'Zichtrekening', rows: 26 }],
-    categories: [{ category: 'Eten & Drinken', subcategory: 'Boodschappen', rows: 12, total: -45000 }, { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', rows: 3, total: -30000 }, { category: '', subcategory: '', rows: 1, total: -500 }] };
+    // The first pair has a saved target (Boodschappen), the second a suggestion by name (Wonen › Energie), the last none.
+    categories: [
+      { category: 'Eten & Drinken', subcategory: 'Boodschappen', rows: 12, total: -45000, saved: { categoryId: 2 }, suggestion: 2 },
+      { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', rows: 3, total: -30000, saved: null, suggestion: 10 },
+      { category: '', subcategory: '', rows: 1, total: -500, saved: null, suggestion: null },
+    ] };
 
   /** The server answers a Bilance file: the suggestion, the names and categories with a mapping, counts with the accounts too. */
   function bilanceApi() {
@@ -714,19 +719,28 @@ describe('Importeren · Bilance', () => {
     await waitFor(() => expect(next().disabled).toBe(false));
     fireEvent.click(next());
 
-    // Categories: the pairs as the file has them, with counts and totals, and the note that mapping comes next.
+    // Categories: the pairs as the file has them, the saved target labelled Opgeslagen and the suggestion Voorstel,
+    // both shown in their select; a pair without a category stays fixed on "Niet categoriseren".
     await screen.findByRole('heading', { name: 'Koppel de categorieën' });
-    expect(screen.getByText('Energie, nutsvoorzieningen')).toBeTruthy();
+    expect(await screen.findByText('Energie, nutsvoorzieningen')).toBeTruthy();
     expect(screen.getAllByText(/Wonen >/)).toHaveLength(1);
     expect(screen.getByText('Zonder categorie')).toBeTruthy();
-    expect(screen.getByText(/De koppeling aan de categorieën van Saldo komt in een volgende stap/)).toBeTruthy();
+    const rows = [...document.querySelectorAll('.im-tr.im-catrow')].map((r) => r.querySelector('.im-badge')?.textContent ?? '');
+    expect(rows).toEqual(['Opgeslagen', 'Voorstel', '']);
+    expect(screen.getByRole('combobox', { name: 'Categorie in Saldo voor Eten & Drinken › Boodschappen' }).textContent).toBe('Boodschappen');
+    expect(screen.getByRole('combobox', { name: 'Categorie in Saldo voor Wonen › Energie, nutsvoorzieningen' }).textContent).toBe('Wonen › Energie');
     expect(api.previewImport).toHaveBeenCalledTimes(2); // the same mapping: nothing asked again
     fireEvent.click(next());
 
-    // Check and result: the map of names goes with both, one batch per account.
+    // Check and result: the map of names and the choice per pair go with both, one batch per account.
     await screen.findByRole('button', { name: 'Importeer 28 transacties' });
     const target = { Spaarrekening: SPAAR.id, Zichtrekening: ZICHT.id };
-    expect(api.previewImport.mock.calls[2][1]).toEqual({ target, mapping: BILANCE.mapping });
+    const choices = [
+      { category: 'Eten & Drinken', subcategory: 'Boodschappen', action: 'map', categoryId: 2 },
+      { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', action: 'map', categoryId: 10 },
+      { category: '', subcategory: '', action: 'skip' },
+    ];
+    expect(api.previewImport.mock.calls[2][1]).toEqual({ target, mapping: BILANCE.mapping, categories: choices });
     expect(screen.getByText('Dit is wat er in je Spaarrekening en Zichtrekening komt.')).toBeTruthy();
     api.importFile.mockResolvedValueOnce({
       batches: [
@@ -738,8 +752,65 @@ describe('Importeren · Bilance', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 28 transacties' }));
     await screen.findByRole('heading', { name: '28 transacties geïmporteerd' });
     expect(api.importFile.mock.calls[0][1]).toEqual(target);
+    expect(api.importFile.mock.calls[0][5]).toEqual(choices);
     expect(screen.getByText('In 2 rekeningen. Bewaard als batch 7 en 8.')).toBeTruthy();
     expect(screen.getAllByText('Bilance-export · batch 7 · vandaag').length + screen.getAllByText(/Bilance-export · batch 8/).length).toBeGreaterThan(1);
+  });
+
+  it('maps a pair by hand, a whole main category at once, and a new category, and sends those choices', async () => {
+    const api = bilanceApi();
+    api.previewImport.mockImplementation(async (file, o = {}) => ({
+      ...BILANCE,
+      fileName: file.name,
+      ...(o.mapping
+        ? {
+            accounts: [{ name: 'Zichtrekening', rows: 30 }],
+            categories: [
+              { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', rows: 3, total: -30000, saved: null, suggestion: 10 },
+              { category: 'Wonen', subcategory: 'Huur, hypotheek', rows: 2, total: -200000, saved: null, suggestion: null },
+              { category: 'Winkelen', subcategory: 'Overig', rows: 5, total: -9000, saved: null, suggestion: null },
+            ],
+          }
+        : {}),
+      ...(o.mapping && o.target !== undefined ? { counts: { rows: 30, new: 28, present: 1, invalid: 1, overlap: 0, categorised: 5 }, errors: [] } : {}),
+    }));
+    renderAt('/importeren');
+    await choose(csv('bilance.csv'));
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    fireEvent.click(next());
+    await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
+    await screen.findByText('Naam in het bestand');
+    pick(screen.getByRole('combobox', { name: 'Rekening in Saldo voor Zichtrekening' }), 'Zichtrekening');
+    await waitFor(() => expect(next().disabled).toBe(false));
+    fireEvent.click(next());
+    await screen.findByRole('heading', { name: 'Koppel de categorieën' });
+    const sel = (label: string) => screen.getByRole('combobox', { name: 'Categorie in Saldo voor ' + label });
+
+    // A pair by hand: the other pair sharing the target is named as merged.
+    pick(sel('Wonen › Huur, hypotheek'), 'Wonen › Energie');
+    expect(screen.getByText('Samen met Wonen › Energie, nutsvoorzieningen')).toBeTruthy();
+    // A new category: its name starts with the pair's own, and is sent with parent, type and icon.
+    pick(sel('Winkelen › Overig'), /Nieuwe categorie/);
+    fireEvent.change(screen.getByLabelText('Naam'), { target: { value: 'Webwinkels' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Tas' }));
+    // The next step is blocked by an empty name.
+    fireEvent.change(screen.getByLabelText('Naam'), { target: { value: ' ' } });
+    expect(screen.getByText('Geef de nieuwe categorie een naam.')).toBeTruthy();
+    expect(next().disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Naam'), { target: { value: 'Webwinkels' } });
+
+    // Per hoofdcategorie: Wonen takes one target for both pairs.
+    fireEvent.click(screen.getByRole('switch', { name: 'Per hoofdcategorie koppelen' }));
+    pick(sel('Wonen'), 'Wonen');
+    fireEvent.click(next());
+    await screen.findByRole('button', { name: 'Importeer 28 transacties' });
+    expect(document.body.textContent).toContain('5 nieuwe rijen krijgen een categorie, 23 blijven zonder categorie.');
+    const sent = api.previewImport.mock.calls.at(-1)?.[1]?.categories;
+    expect(sent).toEqual([
+      { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', action: 'map', categoryId: 1 },
+      { category: 'Wonen', subcategory: 'Huur, hypotheek', action: 'map', categoryId: 1 },
+      { category: 'Winkelen', subcategory: 'Overig', action: 'create', new: { name: 'Webwinkels', parentId: null, type: 'expense', icon: 'bag' } },
+    ]);
   });
 
   it('reads the file again with the delimiter or encoding the user picks, and sends the settings on', async () => {

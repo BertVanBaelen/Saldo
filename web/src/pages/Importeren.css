@@ -131,6 +131,26 @@
   white-space: nowrap;
 }
 .im-badge--ok { background: var(--soft); color: var(--greenText); }
+.im-badge--saved { background: var(--c1); color: var(--onPastel); }
+.im-badge--new { border: 1px dashed var(--greenText); color: var(--greenText); padding: 2px 8px; }
+.im-badge--none { background: var(--bg); border: 1px solid var(--line); color: var(--muted); padding: 2px 8px; }
+
+/* Category chip (target in Saldo) */
+.im-cat {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.im-cat--new { border: 1px dashed var(--greenText); color: var(--greenText); padding: 2px 10px 2px 8px; }
+
+/* Setting row with a switch */
+.im-toggle { display: flex; align-items: center; gap: 12px; }
+.im-toggle-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.im-toggle-name { font-size: 15px; font-weight: 500; }
+.im-toggle-sub { font-size: 13px; line-height: 1.4; color: var(--muted); }
+.switch:disabled { opacity: 0.45; }
 
 .im-arrow { display: none; color: var(--muted); }
 
@@ -466,30 +486,89 @@
   .im-mapacc-n { text-align: right; }
 }
 
-/* Stap 3 · categories of the file, read-only until 0.5-3 maps them */
+/* Stap 3 · categories of the file mapped onto Saldo's tree (finance-mockup importeren.css, Stap 3) */
+.im-catnote {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--soft);
+  font-size: 14px; line-height: 1.45;
+}
+.im-catnote > svg { flex: none; margin-top: 1px; color: var(--greenText); }
+.im-catnote strong { font-weight: 600; }
+.im-catnote p { margin-top: 2px; font-size: 13px; color: var(--muted); }
+
+.im-cattools { display: flex; flex-direction: column; gap: 10px; }
+.im-sum-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.im-cattools .im-toggle {
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+@media (min-width: 1024px) {
+  .im-cattools { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; }
+  .im-cattools .im-toggle { flex: 0 1 460px; }
+}
+
 .im-catrow {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "src src" "n sum";
+  grid-template-areas: "src src" "n sum" "tgt tgt";
   gap: 4px 8px;
 }
 .im-catrow-src { grid-area: src; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .im-path { font-size: 15px; overflow-wrap: anywhere; }
 .im-path-parent { color: var(--muted); }
 .im-path-leaf { font-weight: 500; }
+.im-path-kids { font-size: 12px; color: var(--muted); }
 .im-catrow-n { grid-area: n; font-size: 13px; color: var(--muted); }
 .im-catrow-sum { grid-area: sum; font-size: 13px; color: var(--muted); }
 .im-catrow-sum::before { content: "· "; font-family: var(--font); }
 .im-catrow-sum.pos { color: var(--greenText); }
+.im-catrow-tgt { grid-area: tgt; min-width: 0; display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.im-catrow-pick { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.im-catrow-pick > .select-trigger { flex: 1; min-width: 0; }
+.im-merge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--greenText); }
+.im-merge svg { flex: none; }
+.im-hint { font-size: 12px; line-height: 1.4; color: var(--muted); }
+.im-fixed {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px dashed var(--dashed);
+  font-size: 14px; color: var(--muted);
+}
+.im-opt-ico {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 22px; height: 22px; border-radius: 50%;
+}
+.im-newed {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; margin-top: 2px;
+  border-radius: 14px;
+  border: 1px dashed var(--greenText);
+}
 @media (min-width: 1024px) {
   .im-catrow {
-    grid-template-columns: minmax(0, 1.4fr) 88px 128px;
-    grid-template-areas: "src n sum";
+    grid-template-columns: minmax(0, 1.15fr) 88px 128px 20px minmax(0, 1.6fr);
+    grid-template-areas: "src n sum arrow tgt";
     gap: 0 14px;
+    padding-top: 10px; padding-bottom: 10px;
   }
+  .im-catrow > .im-arrow { grid-area: arrow; }
   .im-catrow-n, .im-catrow-sum { text-align: right; font-size: 14px; color: var(--text); }
   .im-catrow-sum::before { content: none; }
+  .im-catrow-tgt { margin-top: 0; gap: 4px; }
   .im-th.im-catrow > span:nth-child(1) { grid-area: src; }
   .im-th.im-catrow > span:nth-child(2) { grid-area: n; text-align: right; }
   .im-th.im-catrow > span:nth-child(3) { grid-area: sum; text-align: right; }
+  .im-th.im-catrow > span:nth-child(5) { grid-area: tgt; }
 }
+
+.im-merges { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.im-merges li { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.im-merges li:first-child { padding-top: 0; border-top: none; }
+.im-merges-from { font-size: 13px; line-height: 1.4; }
+.im-merges-n { font-size: 12px; color: var(--muted); }
+.im-newcats { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -31,6 +31,9 @@ type NewTransaction struct {
 	CategoryOrigin string
 	RuleID         int64
 	Note           string // "" for none
+	// ImportPair is the two parts of the file's category on an imported row
+	// (nil for none), kept so a changed mapping can be re-applied (0.5-3).
+	ImportPair *[2]string
 	bank.Transaction
 }
 
@@ -84,13 +87,14 @@ func InsertTransactions(ctx context.Context, db execer, rows []NewTransaction) (
 			INSERT INTO transactions (account_id, amount, currency, booking_date, value_date,
 			    counterparty_name, counterparty_iban, communication, status, external_id,
 			    dedupe_key, occurrence, source_connection_id, import_batch_id, raw_payload,
-			    category_id, category_origin, rule_id, note)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			    category_id, category_origin, rule_id, note, import_category, import_subcategory)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (account_id, dedupe_key, occurrence) DO NOTHING`,
 			r.AccountID, r.Amount, currencyOr(r.Currency), r.BookingDate, nullIfEmpty(r.ValueDate),
 			r.CounterpartyName, nullIfEmpty(r.CounterpartyIBAN), r.Communication, r.Status,
 			nullIfEmpty(r.EntryReference), r.DedupeKey, r.Occurrence, nullIfZero(r.ConnectionID), nullIfZero(r.ImportBatch), nullIfEmpty(string(r.Raw)),
-			nullIfZero(r.CategoryID), nullIfEmpty(r.CategoryOrigin), nullIfZero(r.RuleID), nullIfEmpty(r.Note))
+			nullIfZero(r.CategoryID), nullIfEmpty(r.CategoryOrigin), nullIfZero(r.RuleID), nullIfEmpty(r.Note),
+			pairPart(r.ImportPair, 0), pairPart(r.ImportPair, 1))
 		if err != nil {
 			return inserted, err
 		}
@@ -113,6 +117,13 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+
+func pairPart(p *[2]string, i int) any {
+	if p == nil {
+		return nil
+	}
+	return p[i]
 }
 
 func nullIfZero(n int64) any {

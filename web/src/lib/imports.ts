@@ -1,5 +1,6 @@
 // CSV import (phases 0.3-6 and 0.5-2): the shapes of /api/imports and the column mapping of the wizard.
-// The server parses the file; the web app only checks size, sends the mapping and settings and shows the counts.
+// The server parses the file; the web app only checks size, sends the mapping, settings and category choices
+// (0.5-3) and shows the counts.
 
 // `account` (the file's own IBAN) and `currency` are guards: the server refuses rows of another account or not in EUR.
 // `accountName` is "accounts from a column": each distinct name is mapped to an account of the viewer.
@@ -28,6 +29,8 @@ export interface ImportCounts {
   invalid: number;
   /** Of the new rows, those dated in the period the account already syncs with the bank. An older answer has none: 0. */
   overlap?: number;
+  /** Of the new rows, those that get a category (from the choices, or from a rule). */
+  categorised?: number;
 }
 
 export interface RowError {
@@ -55,6 +58,10 @@ export interface FileCategory {
   subcategory: string;
   rows: number;
   total: number;
+  /** The saved target of this pair (`categoryId` null: leave uncategorised), null when none. */
+  saved?: { categoryId: number | null } | null;
+  /** A category id guessed by name, null when none; only a suggestion. */
+  suggestion?: number | null;
 }
 
 /** Where the rows go: one account, or an account per file account name. */
@@ -95,6 +102,17 @@ export interface ImportResult {
   /** One batch per account the rows went to. */
   batches: ImportBatch[];
   errors: RowError[];
+  /** How many of the imported rows have a category. */
+  categorised?: number;
+}
+
+/** What to do with one source pair, as POST /api/imports takes it. */
+export interface CategoryChoice {
+  category: string;
+  subcategory: string;
+  action: 'map' | 'create' | 'skip';
+  categoryId?: number;
+  new?: { name: string; parentId: number | null; type: 'expense' | 'income' | ''; icon: string };
 }
 
 /** The server's limit (413 above it); checked before uploading anything. */
@@ -149,13 +167,14 @@ export function mappingProblems(cols: (ImportField | '')[]): string[] {
 }
 
 /** The multipart body of POST /api/imports and /api/imports/preview. */
-export function importForm(file: File, target?: ImportTarget, mapping?: ImportMapping, settings?: ImportSettings): FormData {
+export function importForm(file: File, target?: ImportTarget, mapping?: ImportMapping, settings?: ImportSettings, categories?: CategoryChoice[]): FormData {
   const f = new FormData();
   f.append('file', file);
   if (typeof target === 'number') f.append('accountId', String(target));
   else if (target) f.append('accountMap', JSON.stringify(target));
   if (mapping) f.append('mapping', JSON.stringify(mapping));
   if (settings && Object.keys(settings).length) f.append('settings', JSON.stringify(settings));
+  if (categories) f.append('categories', JSON.stringify(categories));
   return f;
 }
 
@@ -166,3 +185,87 @@ export function fileSize(bytes: number): string {
 }
 
 export const sourceLabel = (s: ImportBatch['source']) => (s === 'argenta' ? 'Argenta-export' : s === 'bilance' ? 'Bilance-export' : 'CSV-bestand');
+
+// ---------- Category choices (0.5-3) ----------
+
+/** What a source pair (or, per main category, its group of pairs) goes to: 'none', 'new' or the id of a category. */
+export interface Pick {
+  value: string;
+  /** For 'new': the name, the id of the parent ('' = a new main category) and the icon ('' = none). */
+  name: string;
+  parent: string;
+  icon: string;
+}
+
+/** Where a pick comes from: the saved mapping, a suggestion by name, or nothing yet. */
+export type PickOrigin = 'saved' | 'suggest' | 'none';
+
+export const pairKey = (c: { category: string; subcategory: string }) => JSON.stringify([c.category, c.subcategory]);
+
+const blank = (value: string, name: string): Pick => ({ value, name, parent: '', icon: '' });
+
+/** The saved target, else the suggestion, else "Niet categoriseren": always shown and editable, never sent unseen. */
+export function defaultPick(c: FileCategory): { pick: Pick; origin: PickOrigin } {
+  const name = c.subcategory || c.category;
+  if (c.saved) return { pick: blank(c.saved.categoryId === null ? 'none' : String(c.saved.categoryId), name), origin: 'saved' };
+  if (c.suggestion != null) return { pick: blank(String(c.suggestion), name), origin: 'suggest' };
+  return { pick: blank('none', name), origin: 'none' };
+}
+
+/** A pair with both parts can be mapped per main category; a pair with one part stands alone. */
+export const inGroup = (c: FileCategory) => !!c.category && !!c.subcategory;
+
+/** The state of the categories step: a pick per pair the user changed, and "per hoofdcategorie". */
+export interface CategoryPicks {
+  picks: Record<string, Pick>;
+  parentMode: boolean;
+  parentPicks: Record<string, Pick>;
+}
+
+/** The pick a pair is effectively sent with, which is also the pick its row shows. */
+export function pickOf(c: FileCategory, s: CategoryPicks, all: FileCategory[]): Pick {
+  if (!c.category && !c.subcategory) return blank('none', ''); // rows without a category stay without
+  if (s.parentMode && inGroup(c)) return s.parentPicks[c.category] ?? parentDefault(c.category, s, all);
+  return s.picks[pairKey(c)] ?? defaultPick(c).pick;
+}
+
+/** A main category starts with the target all its pairs share, else with nothing chosen. */
+export function parentDefault(top: string, s: CategoryPicks, all: FileCategory[]): Pick {
+  const picks = all.filter((c) => inGroup(c) && c.category === top).map((c) => s.picks[pairKey(c)] ?? defaultPick(c).pick);
+  return picks.length && picks.every((p) => p.value === picks[0].value) ? { ...picks[0], name: picks.length === 1 ? picks[0].name : top } : blank('none', top);
+}
+
+/** The choice to send for every pair of the file. */
+export function buildChoices(all: FileCategory[], s: CategoryPicks): CategoryChoice[] {
+  return all.map((c): CategoryChoice => {
+    const p = pickOf(c, s, all);
+    const base = { category: c.category, subcategory: c.subcategory };
+    if (p.value === 'none') return { ...base, action: 'skip' };
+    if (p.value !== 'new') return { ...base, action: 'map', categoryId: Number(p.value) };
+    // A new main category is an expense unless income goes into it, summed over the group it stands for.
+    const group = s.parentMode && inGroup(c);
+    const sum = all.filter((x) => (group ? inGroup(x) && x.category === c.category : x === c)).reduce((n, x) => n + x.total, 0);
+    return { ...base, action: 'create', new: { name: p.name, parentId: p.parent ? Number(p.parent) : null, type: p.parent ? '' : sum > 0 ? 'income' : 'expense', icon: p.icon } };
+  });
+}
+
+/** What still blocks the step, in Dutch; '' when nothing does. */
+export function pickProblem(all: FileCategory[], s: CategoryPicks): string {
+  return all.some((c) => {
+    const p = pickOf(c, s, all);
+    return p.value === 'new' && !p.name.trim();
+  })
+    ? 'Geef de nieuwe categorie een naam.'
+    : '';
+}
+
+/** The pairs per target category (by id) for the targets that two or more pairs share: the merges. */
+export function mergesOf(all: FileCategory[], s: CategoryPicks): Map<string, FileCategory[]> {
+  const by = new Map<string, FileCategory[]>();
+  for (const c of all) {
+    const v = pickOf(c, s, all).value;
+    if (v !== 'none' && v !== 'new') by.set(v, [...(by.get(v) ?? []), c]);
+  }
+  for (const [v, list] of by) if (list.length < 2) by.delete(v);
+  return by;
+}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/BertVanBaelen/Saldo/server/internal/apperr"
 	"github.com/BertVanBaelen/Saldo/server/internal/bank"
+	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
 )
 
 // ImportFile is one parsed CSV upload for an account (phase 0.3-6).
@@ -54,6 +55,16 @@ type Batch struct {
 	// Categorised counts the imported rows that now have a category; the
 	// preview and the answer of an import show it, the batch JSON does not.
 	Categorised int `json:"-"`
+	// Bilance files only (0.5-4); the preview and the answer of an import
+	// show them, the batch JSON does not. AfterCutoff counts the rows the
+	// cutoff skipped, Found the probable duplicates found and Probable the
+	// ones skipped (the rest was imported anyway), Taken the stored rows that
+	// took the file's category. Duplicates lists the probable duplicates, at
+	// most MaxListedDuplicates, skipped or not. FirstSynced is the account's
+	// first synced booking date ("" for none), the suggested cutoff.
+	AfterCutoff, Found, Probable, Taken int         `json:"-"`
+	Duplicates                          []Duplicate `json:"-"`
+	FirstSynced                         string      `json:"-"`
 }
 
 // Messages for a file that names more than one own account, imported into an
@@ -80,7 +91,7 @@ const (
 // counts. A dry run accepts a file without readable rows; a real import
 // refuses it.
 func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun bool) (Batch, []LineError, error) {
-	bs, errs, err := s.ImportFiles(ctx, viewer, []ImportFile{f}, nil, dryRun)
+	bs, errs, err := s.ImportFiles(ctx, viewer, []ImportFile{f}, nil, ImportOptions{}, dryRun)
 	if err != nil {
 		return Batch{}, nil, err
 	}
@@ -99,7 +110,15 @@ func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun b
 // rows of a mapped pair get that category with origin "import", and after a
 // real import the choices are saved as the viewer's mapping. A dry run
 // does all of it and rolls it back, so a bad choice fails the preview too.
-func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFile, plan *CategoryPlan, dryRun bool) ([]Batch, []LineError, error) {
+//
+// opts is for a Bilance file (0.5-4): rows booked on or after the cutoff of
+// their account are skipped first; the rows left are matched against what the
+// account holds, exactly (dropped, counted as present) and fuzzily (probable
+// duplicates, skipped unless opts.Include names their line). A skipped
+// probable duplicate whose stored row has no category and no split parts
+// takes the category the file's row would get, through categorise.Assign
+// with origin "import", in this same transaction (not part of the batch).
+func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFile, plan *CategoryPlan, opts ImportOptions, dryRun bool) ([]Batch, []LineError, error) {
 	if len(files) == 0 && !dryRun {
 		return nil, nil, apperr.Invalid(msgNoRows)
 	}
@@ -117,7 +136,7 @@ func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFil
 	var batches []Batch
 	var errs []LineError
 	for _, f := range files {
-		b, e, err := importIn(ctx, tx, viewer, f, plan != nil, targets, dryRun)
+		b, e, err := importIn(ctx, tx, viewer, f, plan != nil, targets, opts, dryRun)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -140,7 +159,7 @@ func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFil
 const msgNoRows = "Geen enkele regel van het bestand kon gelezen worden. Er is niets geïmporteerd."
 
 // importIn is the body of Import, inside the caller's transaction.
-func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withPairs bool, targets resolved, dryRun bool) (Batch, []LineError, error) {
+func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withPairs bool, targets resolved, opts ImportOptions, dryRun bool) (Batch, []LineError, error) {
 	a, err := accessOf(ctx, tx, viewer, f.AccountID)
 	if err != nil {
 		return Batch{}, nil, err
@@ -165,20 +184,25 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withP
 	var txs []bank.Transaction
 	var notes []string
 	var pairs [][2]string
+	var lines []int
 	var errs []LineError
+	cutoff, afterCutoff := opts.Cutoffs[f.AccountID], 0
 	for _, r := range f.Rows {
 		switch {
 		case mixed:
 			errs = append(errs, LineError{r.Line, msgMixedRow})
 		case iban != "" && r.Account != "" && NormalizeIBAN(r.Account) != iban:
 			errs = append(errs, LineError{r.Line, "Rekening " + MaskIBAN(r.Account) + " in het bestand is niet de gekozen rekening."})
+		case cutoff != "" && r.Tx.BookingDate >= cutoff:
+			afterCutoff++
 		default:
 			txs = append(txs, r.Tx)
 			notes = append(notes, r.Note)
 			pairs = append(pairs, [2]string{r.Category, r.Subcategory})
+			lines = append(lines, r.Line)
 		}
 	}
-	if len(txs) == 0 && !dryRun {
+	if len(txs)+afterCutoff == 0 && !dryRun {
 		if mixed {
 			return Batch{}, nil, apperr.Invalid(msgMixedFile)
 		}
@@ -187,7 +211,7 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withP
 		}
 		return Batch{}, nil, apperr.Invalid(msgNoRows)
 	}
-	b := Batch{Source: f.Source, FileName: f.FileName, AccountID: f.AccountID, Invalid: f.Invalid + len(errs)}
+	b := Batch{Source: f.Source, FileName: f.FileName, AccountID: f.AccountID, Invalid: f.Invalid + len(errs), AfterCutoff: afterCutoff}
 	if err := tx.QueryRowContext(ctx, `INSERT INTO import_batches (source, file_name, file_hash, account_id, created_by)
 		VALUES (?, ?, ?, ?, ?) RETURNING id`, f.Source, f.FileName, f.FileHash, f.AccountID, viewer).Scan(&b.ID); err != nil {
 		return Batch{}, nil, err
@@ -203,9 +227,29 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withP
 			}
 		}
 	}
-	kept, present, err := dropPresent(ctx, tx, f.AccountID, rows)
+	fuzzy := f.Source == SourceBilance
+	exact, probable, err := matchStored(ctx, tx, f.AccountID, rows, fuzzy)
 	if err != nil {
 		return Batch{}, nil, err
+	}
+	kept, present := make([]NewTransaction, 0, len(rows)), 0
+	cats := map[int64]*CategoryRef{}
+	for i, r := range rows {
+		s, dup := probable[i]
+		switch {
+		case exact[i]:
+			present++
+		case dup:
+			skip := !opts.Include[lines[i]]
+			if err := noteProbable(ctx, tx, &b, lines[i], notes[i], pairs[i], r, s, skip, cats); err != nil {
+				return Batch{}, nil, err
+			}
+			if !skip {
+				kept = append(kept, r)
+			}
+		default:
+			kept = append(kept, r)
+		}
 	}
 	if err := aboveStored(ctx, tx, f.AccountID, kept); err != nil {
 		return Batch{}, nil, err
@@ -228,6 +272,12 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withP
 		b.ID, f.AccountID).Scan(&b.Overlap); err != nil {
 		return Batch{}, nil, err
 	}
+	if fuzzy {
+		if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MIN(booking_date), '') FROM transactions WHERE account_id = ? AND source_connection_id IS NOT NULL AND status = 'booked'`,
+			f.AccountID).Scan(&b.FirstSynced); err != nil {
+			return Batch{}, nil, err
+		}
+	}
 	var created string
 	if err := tx.QueryRowContext(ctx, `UPDATE import_batches SET rows_imported = ?, rows_duplicate = ?, rows_skipped = ?
 		WHERE id = ? RETURNING created_at`, b.Imported, b.Present, b.Invalid, b.ID).Scan(&created); err != nil {
@@ -237,33 +287,57 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withP
 	return b, errs, nil
 }
 
-// dropPresent takes out the rows the account already holds by content
-// (ContentHash: date, amount, counterparty, communication), counting: k
-// equal rows in the file against m stored booked rows of any source drop the
-// first min(k, m) in file order and keep the rest, so a second real purchase
-// on one day is not lost. It returns the rows to insert and how many it took
-// out.
-//
-// The kept rows of a group keep occurrences m+1..k; aboveStored moves them
-// up when a stored row (a pending one, or an earlier moved import) holds
-// one of those slots.
-func dropPresent(ctx context.Context, tx *sql.Tx, accountID int64, rows []NewTransaction) ([]NewTransaction, int, error) {
-	if len(rows) == 0 {
-		return rows, 0, nil
-	}
-	have, _, err := storedContent(ctx, tx, accountID, rows)
-	if err != nil {
-		return nil, 0, err
-	}
-	kept := make([]NewTransaction, 0, len(rows))
-	for _, r := range rows {
-		if h := ContentHash(r.Transaction); have[h] > 0 {
-			have[h]--
-			continue
+// noteProbable records a probable duplicate on the batch: it is listed (up to
+// MaxListedDuplicates), and when it is skipped it counts and its stored row
+// takes the category the file's row would get, if that row has none and no
+// split parts (categorise.Assign, origin "import", which repeats the guard in
+// SQL).
+func noteProbable(ctx context.Context, tx *sql.Tx, b *Batch, line int, note string, pair [2]string, r NewTransaction, s storedRow,
+	skip bool, cats map[int64]*CategoryRef) error {
+	takes := r.CategoryID != 0 && s.category == 0 && !s.split
+	b.Found++
+	if skip {
+		b.Probable++
+		if takes {
+			changed, err := categorise.Assign(ctx, tx, s.id, r.CategoryID, 0, "import")
+			if err != nil {
+				return err
+			}
+			if changed {
+				b.Taken++
+			}
 		}
-		kept = append(kept, r)
 	}
-	return kept, len(rows) - len(kept), nil
+	if len(b.Duplicates) >= MaxListedDuplicates {
+		return nil
+	}
+	ref := func(id int64) (*CategoryRef, error) {
+		if id == 0 {
+			return nil, nil
+		}
+		if c, ok := cats[id]; ok {
+			return c, nil
+		}
+		c := &CategoryRef{}
+		if err := tx.QueryRowContext(ctx, `SELECT name, COALESCE(icon, ''), colour FROM categories WHERE id = ?`, id).Scan(&c.Name, &c.Icon, &c.Colour); err != nil {
+			return nil, err
+		}
+		cats[id] = c
+		return c, nil
+	}
+	incoming, err := ref(r.CategoryID)
+	if err != nil {
+		return err
+	}
+	have, err := ref(s.category)
+	if err != nil {
+		return err
+	}
+	b.Duplicates = append(b.Duplicates, Duplicate{Line: line, AccountID: b.AccountID, Date: r.BookingDate, Amount: r.Amount,
+		Counterparty: r.CounterpartyName, Note: note, Source: pair, Category: incoming, Takes: takes,
+		Existing: Existing{ID: s.id, Date: s.BookingDate, Amount: s.Amount, Counterparty: s.CounterpartyName,
+			Communication: s.Communication, Category: have, Imported: s.fromImport}})
+	return nil
 }
 
 // aboveStored renumbers the kept rows of a dedupe key to start above the
@@ -290,36 +364,6 @@ func aboveStored(ctx context.Context, tx *sql.Tx, accountID int64, kept []NewTra
 		kept[i].Occurrence += s
 	}
 	return nil
-}
-
-// storedContent counts the account's stored booked rows per ContentHash
-// between the earliest and the latest booking date of rows: all of them, and
-// those an import brought.
-func storedContent(ctx context.Context, tx *sql.Tx, accountID int64, rows []NewTransaction) (all, imported map[string]int, err error) {
-	lo, hi := rows[0].BookingDate, rows[0].BookingDate
-	for _, r := range rows {
-		lo, hi = min(lo, r.BookingDate), max(hi, r.BookingDate)
-	}
-	q, err := tx.QueryContext(ctx, `SELECT booking_date, amount, counterparty_name, communication, import_batch_id IS NOT NULL
-		FROM transactions WHERE account_id = ? AND status = 'booked' AND booking_date BETWEEN ? AND ?`, accountID, lo, hi)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer q.Close()
-	all, imported = map[string]int{}, map[string]int{}
-	for q.Next() {
-		var t bank.Transaction
-		var fromImport bool
-		if err := q.Scan(&t.BookingDate, &t.Amount, &t.CounterpartyName, &t.Communication, &fromImport); err != nil {
-			return nil, nil, err
-		}
-		h := ContentHash(t)
-		all[h]++
-		if fromImport {
-			imported[h]++
-		}
-	}
-	return all, imported, q.Err()
 }
 
 // Batches lists the imports into accounts the viewer holds (any

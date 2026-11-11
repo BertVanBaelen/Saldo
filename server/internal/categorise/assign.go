@@ -13,10 +13,13 @@ const Eligible = `NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transac
 	AND (transactions.category_id IS NULL OR transactions.category_origin IN ('rule', 'suggestion'))`
 
 // Assign is the single automatic write of a stored transaction's category
-// (origin "rule" with its rule, or "suggestion" with ruleID 0). It writes
-// only when the row is Eligible at the moment of the write and something
-// changes; a suggestion never replaces a rule's category (precedence:
-// manual > rule > suggestion). It reports whether the row changed.
+// (origin "rule" with its rule, "suggestion" with ruleID 0, or "import" with
+// ruleID 0). It writes only when the row is Eligible at the moment of the
+// write and something changes; a suggestion never replaces a rule's category
+// (precedence: manual > rule > suggestion). An "import" category (0.5-4: the
+// Bilance category of a skipped probable duplicate) only fills a row that has
+// no category at all; it never replaces any. It reports whether the row
+// changed.
 func Assign(ctx context.Context, db DB, txID, categoryID, ruleID int64, origin string) (bool, error) {
 	guard := Eligible
 	var rule any
@@ -28,6 +31,8 @@ func Assign(ctx context.Context, db DB, txID, categoryID, ruleID int64, origin s
 		rule = ruleID
 	case "suggestion":
 		guard += ` AND (transactions.category_id IS NULL OR transactions.category_origin = 'suggestion')`
+	case "import":
+		guard += ` AND transactions.category_id IS NULL`
 	default:
 		return false, fmt.Errorf("categorise: %q is not an automatic origin", origin)
 	}

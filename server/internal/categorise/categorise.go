@@ -8,7 +8,8 @@
 // changes the category of a stored transaction automatically, and it repeats
 // the eligibility guard (Eligible) in the SQL of its UPDATE, so a stale read
 // can never overwrite a row that was changed meanwhile. Rows of origin
-// 'manual' or 'import' (categories from a Bilance file), rows of unknown
+// 'manual' or 'import' (categories from a Bilance file; Assign itself writes
+// "import" only onto a row with no category, 0.5-4), rows of unknown
 // origin and split rows are never touched by it. Every automatic writer
 // (rules on demand, "apply to similar" through Plan and Apply, suggestions
 // of 0.4-4, learning and backfill of 0.5-6) must go through Assign; new rows

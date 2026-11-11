@@ -39,7 +39,7 @@ import type {
   User,
   UserList,
 } from './types';
-import { importForm, type CategoryChoice, type ImportBatch, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
+import { importForm, type CategoryChoice, type ImportBatch, type ImportExtras, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -190,10 +190,10 @@ export const api = {
 
   // CSV import (multipart): the preview lists the file's account names and category pairs when a mapping is sent,
   // and has counts when an account (or the map of account names) is sent with it.
-  previewImport: (file: File, opts: { target?: ImportTarget; mapping?: ImportMapping; settings?: ImportSettings; categories?: CategoryChoice[] } = {}, signal?: AbortSignal) =>
-    request<ImportPreview>('POST', '/api/imports/preview', { form: importForm(file, opts.target, opts.mapping, opts.settings, opts.categories), signal }),
-  importFile: (file: File, target: ImportTarget, mapping: ImportMapping, signal?: AbortSignal, settings?: ImportSettings, categories?: CategoryChoice[]) =>
-    request<ImportResult>('POST', '/api/imports', { form: importForm(file, target, mapping, settings, categories), signal }),
+  previewImport: (file: File, opts: { target?: ImportTarget; mapping?: ImportMapping; settings?: ImportSettings; categories?: CategoryChoice[]; cutoffs?: ImportExtras['cutoffs'] } = {}, signal?: AbortSignal) =>
+    request<ImportPreview>('POST', '/api/imports/preview', { form: importForm(file, opts.target, opts.mapping, opts.settings, opts.categories, { cutoffs: opts.cutoffs }), signal }),
+  importFile: (file: File, target: ImportTarget, mapping: ImportMapping, signal?: AbortSignal, settings?: ImportSettings, categories?: CategoryChoice[], extras?: ImportExtras) =>
+    request<ImportResult>('POST', '/api/imports', { form: importForm(file, target, mapping, settings, categories, extras), signal }),
   /** Batches of the accounts the viewer holds, newest first. */
   imports: (signal?: AbortSignal) => request<ImportBatch[]>('GET', '/api/imports', { signal }),
 

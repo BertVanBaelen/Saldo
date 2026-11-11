@@ -31,6 +31,41 @@ export interface ImportCounts {
   overlap?: number;
   /** Of the new rows, those that get a category (from the choices, or from a rule). */
   categorised?: number;
+  /** Bilance files (0.5-4): rows skipped by the cutoff, probable duplicates found (all skipped unless the request names lines to include), stored rows that take the file's category. */
+  afterCutoff?: number;
+  probable?: number;
+  categoryTaken?: number;
+}
+
+/** A category as the duplicates list shows it. */
+export interface CategoryRef {
+  name: string;
+  icon: string;
+  colour: string;
+}
+
+/** A probable duplicate of a Bilance file: the file's row and the stored row it probably is. Amounts in cents. */
+export interface ProbableDuplicate {
+  /** The line of the file; what an inclusion is sent as. */
+  line: number;
+  accountId: number;
+  date: string;
+  amount: number;
+  counterparty: string;
+  note: string;
+  /** The file's category and subcategory. */
+  source: [string, string];
+  /** The Saldo category the file's row gets through the mapping, null for none. */
+  category: CategoryRef | null;
+  /** The stored row has no category and no split parts: it takes `category` when the file's row is skipped. */
+  takes: boolean;
+  existing: { id: number; date: string; amount: number; counterparty: string; communication: string; category: CategoryRef | null; imported: boolean };
+}
+
+/** The suggested cutoff of one account: its first synced booking date, null when it has none. */
+export interface CutoffSuggestion {
+  accountId: number;
+  suggested: string | null;
 }
 
 export interface RowError {
@@ -85,6 +120,9 @@ export interface ImportPreview {
   /** Only when a mapping and an account (or the account names) were sent. */
   counts: ImportCounts | null;
   errors: RowError[];
+  /** With counts, for a Bilance file (0.5-4): how many probable duplicates there are, and the first 200. */
+  duplicates?: { total: number; items: ProbableDuplicate[] } | null;
+  cutoffs?: CutoffSuggestion[];
 }
 
 export interface ImportBatch {
@@ -104,6 +142,16 @@ export interface ImportResult {
   errors: RowError[];
   /** How many of the imported rows have a category. */
   categorised?: number;
+  /** Bilance files (0.5-4), as in the counts of the preview. */
+  afterCutoff?: number;
+  probable?: number;
+  categoryTaken?: number;
+}
+
+/** The Bilance-only parts (0.5-4): file lines of probable duplicates to import anyway, and a cutoff date per account id. */
+export interface ImportExtras {
+  include?: number[];
+  cutoffs?: Record<string, string>;
 }
 
 /** What to do with one source pair, as POST /api/imports takes it. */
@@ -167,7 +215,7 @@ export function mappingProblems(cols: (ImportField | '')[]): string[] {
 }
 
 /** The multipart body of POST /api/imports and /api/imports/preview. */
-export function importForm(file: File, target?: ImportTarget, mapping?: ImportMapping, settings?: ImportSettings, categories?: CategoryChoice[]): FormData {
+export function importForm(file: File, target?: ImportTarget, mapping?: ImportMapping, settings?: ImportSettings, categories?: CategoryChoice[], extras?: ImportExtras): FormData {
   const f = new FormData();
   f.append('file', file);
   if (typeof target === 'number') f.append('accountId', String(target));
@@ -175,6 +223,8 @@ export function importForm(file: File, target?: ImportTarget, mapping?: ImportMa
   if (mapping) f.append('mapping', JSON.stringify(mapping));
   if (settings && Object.keys(settings).length) f.append('settings', JSON.stringify(settings));
   if (categories) f.append('categories', JSON.stringify(categories));
+  if (extras?.include) f.append('duplicates', JSON.stringify({ include: extras.include }));
+  if (extras?.cutoffs) f.append('cutoffs', JSON.stringify(extras.cutoffs));
   return f;
 }
 

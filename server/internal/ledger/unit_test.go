@@ -173,3 +173,27 @@ func TestDedupeKeys(t *testing.T) {
 		t.Error("the content hash must ignore case and spacing")
 	}
 }
+
+// similarNames decides which counterparties may be the same payee (0.5-4).
+func TestSimilarNames(t *testing.T) {
+	tests := []struct {
+		a, b string
+		want bool
+	}{
+		{"Spotify", "SPOTIFY AB", true},                     // legal form dropped, case ignored
+		{"Frituur 't Pleintje", "FRITUUR T PLEINTJE", true}, // punctuation
+		{"Café De Hoek", "CAFE DE HOEK 0412", true},         // accents, a digits-only branch number
+		{"De Graankorrel", "Bakkerij De Graankorrel", true}, // one contains the other, whole words
+		{"Apotheek Van Damme", "Apotheek Damme Gent", true}, // half of the words are shared
+		{"Colruyt Laagste Prijzen", "Colruyt Gent", false},  // one shared word of three
+		{"Zo", "Zo Antwerpen", false},                       // contained, but under 4 characters and no shared word of 3
+		{"Lid", "Lidl", false},                              // not whole words
+		{"", "Spotify", false},                              // no name
+		{"0412", "0412", false},                             // only digits
+	}
+	for _, tt := range tests {
+		if got := similarNames(tt.a, tt.b); got != tt.want {
+			t.Errorf("similarNames(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+		}
+	}
+}

@@ -1,8 +1,9 @@
 // Importeren (phases 0.3-6 and 0.5-2): a CSV file into the accounts the viewer may edit, and the history of imports.
 // Design: finance-mockup/js/screens/importeren.js (start view and the wizard); spec: analysis/screens/importeren.md.
 // Built: file (with the parse settings), columns and account (or accounts from a column), the categories of the file
-// mapped onto Saldo's tree (0.5-3, ImporterenCategories.tsx), a check with counts, the result. Not yet (0.5): probable
-// duplicates, import cutoff, undo, a new account from the wizard.
+// mapped onto Saldo's tree (0.5-3, ImporterenCategories.tsx), a check with counts (for a Bilance file also the cutoff
+// per account and the probable duplicates, 0.5-4, ImporterenControle.tsx), the result. Not yet (0.5): undo, a new
+// account from the wizard.
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
@@ -30,6 +31,7 @@ import {
   type ImportCounts,
   type ImportField,
   type ImportPreview,
+  type ProbableDuplicate,
   type ImportResult,
   type ImportSettings,
   type ImportTarget,
@@ -38,6 +40,7 @@ import {
 import type { Account } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { CategoryStep } from './ImporterenCategories';
+import { CutoffCard, DuplicatesSection } from './ImporterenControle';
 import './Importeren.css';
 
 const NO_PICKS: CategoryPicks = { picks: {}, parentMode: false, parentPicks: {} };
@@ -297,7 +300,12 @@ export function Importeren() {
   const [readErr, setReadErr] = useState<Failure | null>(null);
   const [importErr, setImportErr] = useState<(Failure & { unsure: boolean }) | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [check, setCheck] = useState<{ key: string; counts: ImportCounts; errors: RowError[] } | null>(null);
+  const [check, setCheck] = useState<{ key: string; counts: ImportCounts; errors: RowError[]; duplicates: { total: number; items: ProbableDuplicate[] } | null } | null>(null);
+  // Bilance only (0.5-4): the cutoff the user set per account id (null: none), the suggestions the server gave for
+  // the accounts of one target, and the file lines of probable duplicates to import anyway.
+  const [cutState, setCutState] = useState<Record<string, string | null>>({});
+  const [suggest, setSuggest] = useState<{ tk: string; map: Record<string, string | null> } | null>(null);
+  const [include, setInclude] = useState<number[]>([]);
   const [checkErr, setCheckErr] = useState<{ key: string; message: string } | null>(null);
   const [checkTry, setCheckTry] = useState(0);
   const [over, setOver] = useState(false);
@@ -358,9 +366,22 @@ export function Importeren() {
       );
     }
   } else if (target === null) problems.push('Kies een rekening.');
-  const key = file && !problems.length && !catProblem && !(hasCats && !statsNow) ? JSON.stringify([target, mapping, settings, choices]) : null;
+  // The cutoff (Bilance only): what the user set, else the suggestion the server gave for these accounts. Sent only
+  // as dates; no date is no cutoff. The first check goes without (the suggestions are not known yet) and the
+  // suggestions then change the key, which asks again once.
+  const isBilance = info?.preset === 'bilance';
+  const targetIds = [...new Set(typeof target === 'number' ? [target] : Object.values(target ?? {}))];
+  const targetKey = JSON.stringify(target);
+  const suggested = suggest && suggest.tk === targetKey ? suggest.map : null;
+  const cutOf = (id: number) => (String(id) in cutState ? cutState[String(id)] : (suggested?.[String(id)] ?? null));
+  const cutDates = isBilance ? Object.fromEntries(targetIds.flatMap((id) => (cutOf(id) ? [[String(id), cutOf(id)!]] : []))) : {};
+  const cutoffs = Object.keys(cutDates).length ? cutDates : undefined;
+  const key = file && !problems.length && !catProblem && !(hasCats && !statsNow) ? JSON.stringify([target, mapping, settings, choices, cutoffs]) : null;
   const current = check && check.key === key ? check : null;
   const currentErr = checkErr && checkErr.key === key ? checkErr : null;
+  // The probable duplicates of the check that the user chose to import anyway.
+  const listed = current?.duplicates?.items ?? [];
+  const included = listed.filter((d) => include.includes(d.line));
   // Offline, the effect below has aborted the request: nothing is running.
   const checking = !!key && !current && !currentErr && online;
   const inCheck = step === 4;
@@ -400,11 +421,13 @@ export function Importeren() {
     const ctl = new AbortController();
     const timer = setTimeout(() => {
       setCheckErr(null); // a retry (or a second visit) starts without the old error
-      api.previewImport(file, { target, mapping, settings: sett, categories: choices }, ctl.signal).then(
+      api.previewImport(file, { target, mapping, settings: sett, categories: choices, cutoffs }, ctl.signal).then(
         (p) => {
           if (ctl.signal.aborted) return;
-          if (p.counts) setCheck({ key, counts: p.counts, errors: p.errors ?? [] });
-          else setCheckErr({ key, message: 'Onverwacht antwoord van de server.' });
+          if (p.counts) {
+            setCheck({ key, counts: p.counts, errors: p.errors ?? [], duplicates: p.duplicates ?? null });
+            if (p.cutoffs) setSuggest((s) => (s?.tk === targetKey ? s : { tk: targetKey, map: Object.fromEntries(p.cutoffs!.map((c) => [String(c.accountId), c.suggested])) }));
+          } else setCheckErr({ key, message: 'Onverwacht antwoord van de server.' });
         },
         (e) => {
           if (ctl.signal.aborted || isAbort(e)) return;
@@ -454,6 +477,9 @@ export function Importeren() {
           setCatState(NO_PICKS);
           setCheck(null);
           setCheckErr(null);
+          setCutState({});
+          setSuggest(null);
+          setInclude([]);
           setStep(1);
         },
         (e) => {
@@ -475,7 +501,7 @@ export function Importeren() {
     setBusy('import');
     setImportErr(null);
     api
-      .importFile(file, target, mapping, ctl.signal, sett, choices)
+      .importFile(file, target, mapping, ctl.signal, sett, choices, isBilance ? { include: included.length ? included.map((d) => d.line) : undefined, cutoffs } : undefined)
       .then(
         (r) => {
           if (ctl.signal.aborted) return;
@@ -518,6 +544,9 @@ export function Importeren() {
     setReadErr(null);
     setCheck(null);
     setCheckErr(null);
+    setCutState({});
+    setSuggest(null);
+    setInclude([]);
   };
 
   const canPick = online && !busy && editable.length > 0;
@@ -988,9 +1017,16 @@ export function Importeren() {
   } else if (step === 4) {
     const c = current?.counts;
     const overlap = c?.overlap ?? 0;
+    // A Bilance check is asked without the duplicates the user includes (that would ask the server again for every
+    // click), so what they change is worked out here from the listed rows.
+    const newN = (c?.new ?? 0) + included.length;
+    const dupN = (c?.probable ?? 0) - included.length;
+    const catN = (c?.categorised ?? 0) + included.filter((d) => d.category).length;
+    const takenN = (c?.categoryTaken ?? 0) - included.filter((d) => d.takes).length;
     body = (
       <>
         <StepTitle title="Controleer voor je importeert" sub={'Dit is wat er in je ' + targetNames + ' komt.'} />
+        {isBilance && suggested && targetIds.map((id) => <CutoffCard key={id} account={accountOf(id)} suggested={suggested[String(id)] ?? null} value={cutOf(id)} named={targetIds.length > 1} onChange={(v) => setCutState({ ...cutState, [String(id)]: v })} />)}
         {currentErr ? (
           <Alert message={currentErr.message} retryOff={!online} onRetry={() => setCheckTry((n) => n + 1)} />
         ) : !current || !c ? (
@@ -1002,9 +1038,9 @@ export function Importeren() {
         ) : (
           <>
             <div className="im-stats anim-in" style={delay(60)}>
-              <Stat n={c.new} label="nieuw" cls="new" />
-              <Stat n={c.present} label="al in Saldo" />
-              <Stat n={c.invalid} label="onleesbaar" cls={c.invalid ? 'warn' : ''} />
+              <Stat n={newN} label="nieuw" cls="new" />
+              {isBilance ? <Stat n={c.afterCutoff ?? 0} label="na afkapdatum" /> : <Stat n={c.present} label="al in Saldo" />}
+              {isBilance ? <Stat n={dupN} label="waarschijnlijke dubbels" cls={dupN ? 'warn' : ''} /> : <Stat n={c.invalid} label="onleesbaar" cls={c.invalid ? 'warn' : ''} />}
             </div>
             <p className="im-range anim-in" style={delay(70)}>
               {plural(c.rows, 'rij', 'rijen')} in het bestand ·{' '}
@@ -1015,14 +1051,33 @@ export function Importeren() {
                 </Fragment>
               ))}
             </p>
-            {hasCats && (
+            {isBilance && (
               <p className="im-help">
-                <strong>{plural(c.categorised ?? 0, 'nieuwe rij krijgt', 'nieuwe rijen krijgen')} een categorie</strong>
-                {c.new - (c.categorised ?? 0) > 0 && ', ' + num(c.new - (c.categorised ?? 0)) + ' blijven zonder categorie.'}
+                {plural(c.present, 'rij staat', 'rijen staan')} al in Saldo (precies hetzelfde), {num(c.invalid)} onleesbaar.
               </p>
             )}
-            {c.present > 0 && <p className="im-help">Een rij die al in Saldo staat, komt er geen tweede keer in.</p>}
-            {overlap > 0 && (
+            {hasCats && (
+              <p className="im-help">
+                <strong>{plural(catN, 'nieuwe rij krijgt', 'nieuwe rijen krijgen')} een categorie</strong>
+                {newN - catN > 0 && ', ' + num(newN - catN) + ' blijven zonder categorie.'}
+              </p>
+            )}
+            {isBilance && takenN > 0 && (
+              <p className="im-help">
+                <strong>{plural(takenN, 'bestaande transactie krijgt', 'bestaande transacties krijgen')} de categorie uit het bestand</strong>: alleen een overgeslagen dubbel die in Saldo nog geen categorie heeft. Een categorie die je zelf koos, blijft.
+              </p>
+            )}
+            {isBilance && current.duplicates && (
+              <DuplicatesSection
+                items={listed}
+                total={current.duplicates.total}
+                included={new Set(include)}
+                onToggle={(line) => setInclude(include.includes(line) ? include.filter((n) => n !== line) : [...include, line])}
+                onAll={(on) => setInclude(on ? listed.map((d) => d.line) : [])}
+              />
+            )}
+            {!isBilance && c.present > 0 && <p className="im-help">Een rij die al in Saldo staat, komt er geen tweede keer in.</p>}
+            {!isBilance && overlap > 0 && (
               <div className="im-notice im-notice--warn" role="status">
                 <Icon name="warning" size={18} stroke={2.2} />
                 <div>
@@ -1033,10 +1088,10 @@ export function Importeren() {
                 </div>
               </div>
             )}
-            {!c.new && (
+            {!newN && (
               <div className="im-notice im-notice--info">
                 <Icon name="info" size={18} stroke={2.2} />
-                <div>Er komt niets bij: elke rij staat al in Saldo of is onleesbaar.</div>
+                <div>Er komt niets bij: elke rij staat al in Saldo{isBilance ? ', ligt na de afkapdatum, lijkt een dubbel' : ''} of is onleesbaar.</div>
               </div>
             )}
             <RowErrors errors={current.errors} invalid={c.invalid} />
@@ -1056,13 +1111,13 @@ export function Importeren() {
           <button type="button" className="im-btn im-btn--ghost" disabled={busy === 'import'} onClick={() => setStep(3)}>
             Vorige
           </button>
-          <button type="button" className="im-btn im-btn--primary" disabled={!online || !!busy || !c || !c.new} aria-busy={busy === 'import' || undefined} onClick={runImport}>
+          <button type="button" className="im-btn im-btn--primary" disabled={!online || !!busy || !c || !newN} aria-busy={busy === 'import' || undefined} onClick={runImport}>
             {busy === 'import' ? (
               <Spin text="Bezig met importeren…" />
             ) : (
               <>
                 <Icon name="upload" size={16} stroke={2.4} />
-                Importeer {c ? plural(c.new, 'transactie', 'transacties') : 'transacties'}
+                Importeer {c ? plural(newN, 'transactie', 'transacties') : 'transacties'}
               </>
             )}
           </button>
@@ -1073,6 +1128,7 @@ export function Importeren() {
     const imported = result.batches.reduce((n, b) => n + b.imported, 0);
     const present = result.batches.reduce((n, b) => n + b.present, 0);
     const invalid = result.batches.reduce((n, b) => n + b.invalid, 0);
+    const { afterCutoff: cutSkipped = 0, probable = 0, categoryTaken: taken = 0 } = result;
     const first = result.batches[0];
     const done = first && accountOf(first.accountId);
     body = (
@@ -1093,9 +1149,40 @@ export function Importeren() {
             <BatchRow key={b.id} b={b} account={accountOf(b.accountId)} today={today} />
           ))}
         </section>
-        {(present > 0 || invalid > 0 || hasCats) && (
+        {(present > 0 || invalid > 0 || hasCats || cutSkipped > 0 || probable > 0 || taken > 0) && (
           <section className="im-card anim-in" style={delay(80)} aria-label="Wat er gebeurde">
             <ul className="im-done-facts">
+              {cutSkipped > 0 && (
+                <li>
+                  <span className="im-done-fact-icon" aria-hidden="true">
+                    <Icon name="calendar" size={16} stroke={2.2} />
+                  </span>
+                  <span>
+                    <strong>{num(cutSkipped)}</strong> {cutSkipped === 1 ? 'rij' : 'rijen'} overgeslagen vanaf de afkapdatum: die komen van de bank.
+                  </span>
+                </li>
+              )}
+              {probable > 0 && (
+                <li>
+                  <span className="im-done-fact-icon" aria-hidden="true">
+                    <Icon name="close" size={16} stroke={2.2} />
+                  </span>
+                  <span>
+                    <strong>{num(probable)}</strong> {probable === 1 ? 'waarschijnlijk dubbel' : 'waarschijnlijke dubbels'} overgeslagen
+                    {included.length > 0 && ', ' + num(included.length) + ' toch geïmporteerd'}.
+                  </span>
+                </li>
+              )}
+              {taken > 0 && (
+                <li>
+                  <span className="im-done-fact-icon" aria-hidden="true">
+                    <Icon name="tag" size={16} stroke={2.2} />
+                  </span>
+                  <span>
+                    <strong>{num(taken)}</strong> {taken === 1 ? 'bestaande transactie kreeg' : 'bestaande transacties kregen'} hun categorie uit het bestand.
+                  </span>
+                </li>
+              )}
               {hasCats && (
                 <li>
                   <span className="im-done-fact-icon" aria-hidden="true">

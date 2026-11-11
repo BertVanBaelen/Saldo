@@ -35,16 +35,20 @@ const (
 	importBodyMax = importers.MaxFileBytes + 64<<10
 	// importTimeout replaces the server's 30 s read timeout for an upload:
 	// 20 MB from a phone on a slow uplink can take minutes.
-	importTimeout    = 5 * time.Minute
-	maxAccountField  = 20 // digits of an int64
-	maxMappingField  = 2 << 10
-	maxAccountMap    = 8 << 10 // up to importers.MaxAccountNames names
-	maxSettingsField = 256
-	maxChoicesField  = 256 << 10 // up to importers.MaxCategoryPairs choices
-	maxImportErrors  = 20        // row errors in an answer; counts give the total
-	msgFileTooLarge  = "Het bestand is groter dan 20 MB."
-	msgBadUpload     = "Het bestand kwam niet goed aan. Probeer het opnieuw."
-	defaultFileName  = "bestand.csv"
+	importTimeout      = 5 * time.Minute
+	maxAccountField    = 20 // digits of an int64
+	maxMappingField    = 2 << 10
+	maxAccountMap      = 8 << 10 // up to importers.MaxAccountNames names
+	maxSettingsField   = 256
+	maxChoicesField    = 256 << 10 // up to importers.MaxCategoryPairs choices
+	maxDuplicatesField = 64 << 10
+	maxIncludeLines    = 5000    // lines of probable duplicates to import anyway
+	maxLineNumber      = 1 << 24 // beyond any file the row limit allows
+	maxCutoffsField    = 8 << 10 // up to importers.MaxAccountNames accounts
+	maxImportErrors    = 20      // row errors in an answer; counts give the total
+	msgFileTooLarge    = "Het bestand is groter dan 20 MB."
+	msgBadUpload       = "Het bestand kwam niet goed aan. Probeer het opnieuw."
+	defaultFileName    = "bestand.csv"
 )
 
 // importLimits are the per-user limits of the import routes, and the
@@ -155,6 +159,26 @@ type countsBody struct {
 	Overlap int `json:"overlap"`
 	// Categorised is how many of the new rows get a category.
 	Categorised int `json:"categorised"`
+	// Of a Bilance file (0.5-4): the rows skipped by the cutoff, the probable
+	// duplicates found and skipped, and the stored rows that took the file's
+	// category.
+	AfterCutoff   int `json:"afterCutoff"`
+	Probable      int `json:"probable"`
+	CategoryTaken int `json:"categoryTaken"`
+}
+
+// duplicatesBody is the probable duplicates of a Bilance preview: how many
+// there are, and the first ones.
+type duplicatesBody struct {
+	Total int                `json:"total"`
+	Items []ledger.Duplicate `json:"items"`
+}
+
+// cutoffBody is the suggested cutoff of one account: its first synced
+// booking date, null when it has none.
+type cutoffBody struct {
+	AccountID int64   `json:"accountId"`
+	Suggested *string `json:"suggested"`
 }
 
 type accountNameBody struct {
@@ -191,12 +215,20 @@ type previewBody struct {
 	Categories []categoryBody    `json:"categories"`
 	Counts     *countsBody       `json:"counts"`
 	Errors     []rowErrorBody    `json:"errors"`
+	// With counts, for a Bilance file (0.5-4): the probable duplicates and the
+	// suggested cutoff per account. Left out for a file of another source.
+	Duplicates *duplicatesBody `json:"duplicates,omitempty"`
+	Cutoffs    []cutoffBody    `json:"cutoffs,omitempty"`
 }
 
 type importBody struct {
 	Batches     []ledger.Batch `json:"batches"`
 	Errors      []rowErrorBody `json:"errors"`
 	Categorised int            `json:"categorised"`
+	// Of a Bilance file (0.5-4), as in the preview's counts.
+	AfterCutoff   int `json:"afterCutoff"`
+	Probable      int `json:"probable"`
+	CategoryTaken int `json:"categoryTaken"`
 }
 
 // upload is a read multipart request.
@@ -209,6 +241,8 @@ type upload struct {
 	echo       mappingBody             // the mapping as sent
 	options    importers.Options       // the overrides; zero when not sent
 	choices    []ledger.CategoryChoice // the category choices; nil when not sent
+	include    map[int]bool            // lines of probable duplicates to import; nil when duplicates was not sent
+	cutoffs    map[int64]string        // account id -> date; nil when cutoffs was not sent
 }
 
 // hasAccount tells whether the upload names where the rows go.
@@ -240,6 +274,11 @@ func (u upload) hasAccount() bool { return u.accountID != 0 || u.accountMap != n
 // pair also answers saved (the saved target of the viewer) and suggestion (a
 // category id by name similarity); with the part categories (the choices of
 // POST /api/imports) counts.categorised says how many new rows get a category.
+// For a Bilance file (0.5-4) the parts duplicates ({"include": [lines]}) and
+// cutoffs ({"<accountId>": "yyyy-mm-dd" | null}) apply, counts also has
+// afterCutoff, probable and categoryTaken, and duplicates (total and the first
+// 200 probable duplicates) and cutoffs (the suggested date per account) come
+// with counts; any other file answers 400 to those parts.
 // 60 previews
 // per user per hour, then 429 with Retry-After.
 // Errors: 415 not multipart, 413 file over 20 MB, 400 a bad file, setting,
@@ -293,12 +332,12 @@ func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 		body.Preset = &p.Preset
 	}
 	if u.hasAccount() {
-		files, plan, err := importFiles(u, p)
+		files, plan, opts, err := importFiles(u, p)
 		if err != nil {
 			s.fail(w, r, err, msgAccountNotFound)
 			return
 		}
-		batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, plan, true)
+		batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, plan, opts, true)
 		if err != nil {
 			s.fail(w, r, err, msgAccountNotFound)
 			return
@@ -307,14 +346,32 @@ func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 		if len(files) > 0 { // the parse errors count on the first part
 			body.Counts.Invalid = 0
 		}
+		if p.Preset == importers.PresetBilance {
+			body.Duplicates, body.Cutoffs = &duplicatesBody{Items: []ledger.Duplicate{}}, []cutoffBody{}
+		}
 		for _, b := range batches {
 			body.Counts.New += b.Imported
 			body.Counts.Present += b.Present
 			body.Counts.Invalid += b.Invalid
 			body.Counts.Overlap += b.Overlap
 			body.Counts.Categorised += b.Categorised
+			body.Counts.AfterCutoff += b.AfterCutoff
+			body.Counts.Probable += b.Probable
+			body.Counts.CategoryTaken += b.Taken
+			if body.Duplicates != nil {
+				body.Duplicates.Total += b.Found
+				body.Duplicates.Items = append(body.Duplicates.Items, b.Duplicates...)
+				c := cutoffBody{AccountID: b.AccountID}
+				if b.FirstSynced != "" {
+					c.Suggested = &b.FirstSynced
+				}
+				body.Cutoffs = append(body.Cutoffs, c)
+			}
 		}
 		body.Errors = rowErrors(p.Errors, excluded)
+		if body.Duplicates != nil && len(body.Duplicates.Items) > ledger.MaxListedDuplicates {
+			body.Duplicates.Items = body.Duplicates.Items[:ledger.MaxListedDuplicates]
+		}
 	}
 	writeJSON(w, http.StatusOK, body)
 }
@@ -365,23 +422,26 @@ func (s *Server) postImport(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	files, plan, err := importFiles(u, p)
+	files, plan, opts, err := importFiles(u, p)
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, plan, false)
+	batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, plan, opts, false)
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	categorised := 0
+	body := importBody{Batches: batches, Errors: rowErrors(p.Errors, excluded)}
 	for _, b := range batches {
-		categorised += b.Categorised
-		s.audit(r, auth.EventImportDone, viewer, fmt.Sprintf("account=%d batch=%d imported=%d present=%d invalid=%d",
-			b.AccountID, b.ID, b.Imported, b.Present, b.Invalid))
+		body.Categorised += b.Categorised
+		body.AfterCutoff += b.AfterCutoff
+		body.Probable += b.Probable
+		body.CategoryTaken += b.Taken
+		s.audit(r, auth.EventImportDone, viewer, fmt.Sprintf("account=%d batch=%d imported=%d present=%d invalid=%d cutoff=%d probable=%d taken=%d",
+			b.AccountID, b.ID, b.Imported, b.Present, b.Invalid, b.AfterCutoff, b.Probable, b.Taken))
 	}
-	writeJSON(w, http.StatusCreated, importBody{Batches: batches, Errors: rowErrors(p.Errors, excluded), Categorised: categorised})
+	writeJSON(w, http.StatusCreated, body)
 }
 
 // listImports answers GET /api/imports: the batches of the accounts the
@@ -399,6 +459,8 @@ func (s *Server) listImports(w http.ResponseWriter, r *http.Request) {
 // today is the latest booking date a file may hold (Brussels; the demo date
 // in demo mode).
 func (s *Server) today() string { return s.now().In(clock.Brussels).Format(time.DateOnly) }
+
+const msgBadCutoffs = "De afkapdatums kloppen niet. Geef per rekening een datum als jjjj-mm-dd, of null voor geen."
 
 const msgMapAccounts = "Koppel elke rekeningnaam in het bestand aan een rekening."
 
@@ -453,7 +515,26 @@ func sourceOf(p importers.Parsed) string {
 // and the error never repeats it. The unreadable rows count on the first part.
 // The plan holds the category choices for a file with category columns and
 // is nil otherwise; choices for a file without such columns are refused.
-func importFiles(u upload, p importers.Parsed) ([]ledger.ImportFile, *ledger.CategoryPlan, error) {
+func importFiles(u upload, p importers.Parsed) ([]ledger.ImportFile, *ledger.CategoryPlan, ledger.ImportOptions, error) {
+	files, plan, err := splitFiles(u, p)
+	if err != nil {
+		return nil, nil, ledger.ImportOptions{}, err
+	}
+	// The cutoff and the probable duplicates are for a Bilance file: the generic CSV import is
+	// also the fallback after a failed sync, which a cutoff at the first synced date would block.
+	if (u.cutoffs != nil || u.include != nil) && sourceOf(p) != ledger.SourceBilance {
+		return nil, nil, ledger.ImportOptions{}, apperr.Invalid("Een afkapdatum en de keuze voor dubbels gelden alleen voor een Bilance-bestand.")
+	}
+	for id := range u.cutoffs {
+		if !slices.ContainsFunc(files, func(f ledger.ImportFile) bool { return f.AccountID == id }) {
+			return nil, nil, ledger.ImportOptions{}, apperr.Invalid("Een afkapdatum hoort bij een rekening die niet in deze import zit.")
+		}
+	}
+	return files, plan, ledger.ImportOptions{Include: u.include, Cutoffs: u.cutoffs}, nil
+}
+
+// splitFiles is the splitting of importFiles: the parts and the plan.
+func splitFiles(u upload, p importers.Parsed) ([]ledger.ImportFile, *ledger.CategoryPlan, error) {
 	source := sourceOf(p)
 	var plan *ledger.CategoryPlan
 	if p.Mapping.Category != importers.NoColumn || p.Mapping.Subcategory != importers.NoColumn {
@@ -638,6 +719,48 @@ func readUpload(w http.ResponseWriter, r *http.Request) (upload, bool) {
 			dec.DisallowUnknownFields()
 			if err := dec.Decode(&u.choices); err != nil || dec.More() || u.choices == nil {
 				return bad(http.StatusBadRequest, "invalid", "De koppeling van de categorieën klopt niet.")
+			}
+		case "duplicates":
+			v, err := readField(part, maxDuplicatesField)
+			if err != nil {
+				return readErr(err)
+			}
+			var d struct {
+				Include []int `json:"include"`
+			}
+			dec := json.NewDecoder(bytes.NewReader(v))
+			dec.DisallowUnknownFields()
+			if err := dec.Decode(&d); err != nil || dec.More() || len(d.Include) > maxIncludeLines ||
+				slices.ContainsFunc(d.Include, func(n int) bool { return n < 1 || n > maxLineNumber }) {
+				return bad(http.StatusBadRequest, "invalid", "De keuze voor de dubbels klopt niet.")
+			}
+			u.include = map[int]bool{}
+			for _, n := range d.Include {
+				u.include[n] = true
+			}
+		case "cutoffs":
+			v, err := readField(part, maxCutoffsField)
+			if err != nil {
+				return readErr(err)
+			}
+			var raw map[string]*string
+			dec := json.NewDecoder(bytes.NewReader(v))
+			if err := dec.Decode(&raw); err != nil || dec.More() || raw == nil || len(raw) > importers.MaxAccountNames {
+				return bad(http.StatusBadRequest, "invalid", msgBadCutoffs)
+			}
+			u.cutoffs = map[int64]string{}
+			for k, d := range raw {
+				id, perr := strconv.ParseInt(k, 10, 64)
+				if perr != nil || id <= 0 {
+					return bad(http.StatusBadRequest, "invalid", msgBadCutoffs)
+				}
+				if d == nil {
+					continue // null: no cutoff for this account
+				}
+				if _, perr := time.Parse(time.DateOnly, *d); perr != nil {
+					return bad(http.StatusBadRequest, "invalid", msgBadCutoffs)
+				}
+				u.cutoffs[id] = *d
 			}
 		case "settings":
 			v, err := readField(part, maxSettingsField)

@@ -222,7 +222,7 @@ describe('Importeren · wizard', () => {
     // Step 5: the result, links onward, no undo.
     const h5 = await shown(() => screen.queryByRole('heading', { name: '29 transacties geïmporteerd' }));
     expect(document.activeElement).toBe(h5);
-    expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal), undefined, undefined);
+    expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal), undefined, undefined, undefined);
     expect(screen.getByText('In je Spaarrekening. Bewaard als batch 12.')).toBeTruthy();
     expect(screen.getByText('Stap 5 van 5')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Transacties bekijken/ }).getAttribute('href')).toBe('/transacties?rekening=' + SPAAR.id);
@@ -826,5 +826,80 @@ describe('Importeren · Bilance', () => {
     await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
     pick(screen.getByRole('combobox', { name: 'Decimaalteken' }), 'Punt · 1,234.56');
     await waitFor(() => expect(api.previewImport.mock.calls.at(-1)?.[1]).toEqual({ mapping: BILANCE.mapping, settings: { delimiter: ';', decimal: '.' } }));
+  });
+
+  it('suggests the first synced date as cutoff, and lists the probable duplicates side by side, skipped until included', async () => {
+    const api = stubApi({ accounts: [ZICHT] });
+    const streaming = { name: 'Streaming', icon: 'tv', colour: 'c5' };
+    const dup = (line: number, who: string, existing: string, takes: boolean) => ({
+      line, accountId: ZICHT.id, date: '2026-10-18', amount: -1199, counterparty: who, note: '', source: ['Winkelen', 'Overig'] as [string, string], category: streaming, takes,
+      existing: { id: line, date: '2026-10-17', amount: -1199, counterparty: existing, communication: '', category: takes ? null : { name: 'Abonnementen', icon: 'repeat', colour: 'c5' }, imported: false },
+    });
+    // The answer of the server: with the cutoff the two rows are skipped by date, without it they are probable duplicates.
+    api.previewImport.mockImplementation(async (file, o = {}) => ({
+      ...BILANCE,
+      fileName: file.name,
+      ...(o.mapping ? { accounts: [{ name: 'Zichtrekening', rows: 30 }], categories: [] } : {}),
+      ...(o.mapping && o.target !== undefined
+        ? {
+            counts: o.cutoffs
+              ? { rows: 30, new: 20, present: 2, invalid: 1, afterCutoff: 7, probable: 0, categoryTaken: 0 }
+              : { rows: 30, new: 25, present: 2, invalid: 1, afterCutoff: 0, probable: 2, categoryTaken: 1, categorised: 20 },
+            duplicates: o.cutoffs ? { total: 0, items: [] } : { total: 2, items: [dup(3, 'SPOTIFY AB', 'Spotify', true), dup(4, 'Bakkerij', 'Bakkerij De Graankorrel', false)] },
+            cutoffs: [{ accountId: ZICHT.id, suggested: '2025-11-01' }],
+            errors: [],
+          }
+        : {}),
+    }));
+    renderAt('/importeren');
+    await choose(csv('bilance.csv'));
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    fireEvent.click(next());
+    await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
+    await waitFor(() => expect(next().disabled).toBe(false));
+    onward();
+
+    // The suggestion is the default: the check asked again with that date, and the rows after it are counted, not listed.
+    await screen.findByRole('button', { name: 'Importeer 20 transacties' });
+    expect(api.previewImport.mock.calls.at(-1)?.[1]?.cutoffs).toEqual({ [ZICHT.id]: '2025-11-01' });
+    const date = screen.getByLabelText('Afkapdatum', { selector: 'input' }) as HTMLInputElement;
+    expect(date.value).toBe('2025-11-01');
+    expect(screen.getByText('Voorstel')).toBeTruthy();
+    expect(screen.getByText('na afkapdatum').previousSibling?.textContent).toBe('7');
+    expect(screen.queryByText('Waarschijnlijke dubbels')).toBeNull();
+
+    // No cutoff: the duplicates appear, each with the file's row and the stored row; nothing is imported for them yet.
+    fireEvent.click(screen.getByRole('button', { name: 'Geen afkapdatum' }));
+    await screen.findByRole('button', { name: 'Importeer 25 transacties' });
+    expect(api.previewImport.mock.calls.at(-1)?.[1]?.cutoffs).toBeUndefined();
+    expect(date.value).toBe('');
+    const rows = [...document.querySelectorAll('.im-dup')] as HTMLElement[];
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText('In het bestand')).toBeTruthy();
+    expect(within(rows[0]).getByText('SPOTIFY AB')).toBeTruthy();
+    expect(within(rows[0]).getByText('Al in Saldo · van de bank')).toBeTruthy();
+    expect(within(rows[0]).getByText('Spotify')).toBeTruthy();
+    expect(within(rows[0]).getByText('Niet gecategoriseerd')).toBeTruthy();
+    expect(within(rows[0]).getByText('krijgt Streaming')).toBeTruthy();
+    expect(within(rows[1]).getByText('Abonnementen')).toBeTruthy(); // its own category stays: nothing is taken over
+    expect(within(rows[0]).getByRole('button', { name: 'Toch importeren' }).getAttribute('aria-pressed')).toBe('false');
+    const section = screen.getByRole('heading', { name: 'Waarschijnlijke dubbels' }).closest('section') as HTMLElement;
+    expect(within(section).getByText('2 overgeslagen')).toBeTruthy();
+    expect(document.body.textContent).toContain('1 bestaande transactie krijgt de categorie uit het bestand');
+
+    // Including a row imports it (without asking the server again); including all does the same for every row.
+    const calls = api.previewImport.mock.calls.length;
+    fireEvent.click(within(rows[0]).getByRole('button', { name: 'Toch importeren' }));
+    expect(within(rows[0]).getByRole('button', { name: 'Wordt geïmporteerd' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Importeer 26 transacties' })).toBeTruthy();
+    expect(within(section).getByText('1 overgeslagen')).toBeTruthy();
+    expect(screen.queryByText('krijgt Streaming')).toBeNull();
+    expect(document.body.textContent).not.toContain('bestaande transactie krijgt');
+    fireEvent.click(screen.getByRole('button', { name: 'Alles opnemen' }));
+    expect(screen.getByRole('button', { name: 'Importeer 27 transacties' })).toBeTruthy();
+    expect(api.previewImport).toHaveBeenCalledTimes(calls);
+    fireEvent.click(screen.getByRole('button', { name: 'Importeer 27 transacties' }));
+    await screen.findByRole('heading', { name: /transacties geïmporteerd/ });
+    expect(api.importFile.mock.calls[0][6]).toEqual({ include: [3, 4], cutoffs: undefined });
   });
 });

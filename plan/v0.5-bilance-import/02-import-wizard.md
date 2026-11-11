@@ -34,7 +34,7 @@ The contract is in [docs/api.md](../../docs/api.md), "CSV import" and "Bilance".
 - **Preview with a mapping, no account:** answers the distinct account names and the distinct category pairs of the readable rows (with rows and total); with an account (or the map) the counts as before. Category pairs are carried on the parsed row (`importers.Row.Category` and `.Subcategory`, two separate strings) and listed in the preview as `categories: [{category, subcategory, rows, total}]`; they are not stored or applied yet.
 - **Limits:** 20 MiB, 100 000 rows (were 5 MiB, 20 000), read as before (`io.LimitReader`, an oversized upload is refused unread, `MaxBytesReader` on the body), the import read deadline 5 minutes.
 - **Wizard** (`web/src/pages/Importeren.tsx`): *Bestand*, *Kolommen*, *Categorieën*, *Controle*, *Klaar*. Settings in *Bestand* (scheidingsteken, codering) and *Kolommen* (datumnotatie, decimaalteken); the account-name table in *Kolommen*; the read-only category table in *Categorieën* with the note that mapping comes next; the result lists one batch per account. See [importeren](../../analysis/screens/importeren.md) for the deviations from the mockup.
-- **Fixture:** `fixtures/csv/bilance-voorbeeld.csv` (27 invented rows) with the expected result in `fixtures/csv/README.md`.
+- **Fixture:** `fixtures/csv/bilance-voorbeeld.csv` (27 invented rows; 28 since [0.5-4](04-overlap-and-duplicates.md)) with the expected result in `fixtures/csv/README.md`.
 
 ## Decisions (11 Nov 2026)
 1. **Counterparty:** `Handelaar` with white space runs collapsed to one space (the parser's cell cleaning does that), `Titel` when `Handelaar` is empty (the `counterpartyFallback` field). All columns stay in `raw_payload`; nothing returns `raw_payload` through the API.

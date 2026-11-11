@@ -558,23 +558,25 @@ When a sync deletes a pending row that the bank books now (see "Sync with a real
 
 ## Suggestions (phase 0.4-4)
 
-A suggestion (CAT-5) proposes, for a counterparty the viewer has categorised before, the category they chose most often, for the rows of that counterparty that still wait for a category. It is computed on every read from the viewer's own data; nothing of another user is used and `GET` writes nothing. Full learning (new rows, backfill) follows in 0.5-6.
+A suggestion (CAT-5) proposes, for a counterparty the viewer has categorised before, the category they chose most often, for the rows of that counterparty that still wait for a category. It is computed on every read from the viewer's own data; nothing of another user is used and `GET` writes nothing. Learning on the Bilance history (confidence, level, backfill) is 0.5-6, below.
 
 **Model** (`categorise.Suggest`):
 - Training rows: the transactions on accounts the viewer holds (read-only too) without split parts, with a category of origin `manual` or `import` (human decisions; categories set by a rule or a suggestion are echoes and do not count) and a counterparty name. They are grouped per counterparty key: the name normalised like rule text (lower case, diacritics folded, white space collapsed), so `Bakkerij De Graankorrel` and `BAKKERIJ  DE GRAANKORREL` are one key.
-- Per key: `seen` = its training rows; the category with most rows wins (a tie: the category of the newest row, by booking date then id); `confidence` = round(100 × the winner's rows / `seen`).
+- Per key: `seen` = its training rows; the category with most rows wins (a tie: the category of the newest row, by booking date then id); `confidence` (0.5-6, smoothed) = round(100 × the winner's rows / (`seen` + `categorise.Smoothing`)) with `Smoothing` 2. A share earned on few rows counts for less: 2 of 2 is 50, 3 of 3 is 60, 8 of 8 is 80, 10 of 10 is 83, 8 of 10 is 67, a 1:1 split is 25 (not offered).
+- `level` (0.5-6): `high` when `confidence` ≥ 80 (`categorise.HighConfidence`) and `seen` ≥ 5 (`categorise.HighSeen`), else `low`. `high` is offered as a rule (the web app's "Maak regel" is its primary action); `low` is only for confirmation. At Smoothing 2 a confidence of 80 already needs 8 rows, so `HighSeen` only guards a later change of the formula.
+- The training data is computed on every read, with nothing stored: rows of origin `manual` or `import`, so an undone import batch (its rows are gone) stops training at once, and a category set by a rule or a suggestion never trains.
 - Offered when `seen` ≥ 2 (`categorise.MinSeen`), `confidence` ≥ 40 (`categorise.MinConfidence`), `open` ≥ 1, the category exists, and the viewer has not confirmed or dismissed that key and category before. `open` = the rows of the key without a category and without split parts (pending rows and transfers too) on accounts the viewer may **edit**. Only the winning category is offered: a dismissed winner does not make way for the second.
 - Every suggestion waits for confirmation; nothing is applied automatically.
 
 ### `GET /api/suggestions` (0.4-4)
 ```json
 [ { "counterpartyKey": "bakkerij de graankorrel", "counterparty": "Bakkerij De Graankorrel",
-    "categoryId": 2, "confidence": 92, "seen": 11, "open": 1 } ]
+    "categoryId": 2, "confidence": 92, "level": "high", "seen": 11, "open": 1 } ]
 ```
-`counterparty` is the spelling of the newest open row. Order: `confidence` desc, `open` desc, `counterpartyKey`. "N suggesties om te bevestigen" in Meer is the length of this list.
+`counterparty` is the spelling of the newest open row. `level` is `high` or `low`. Order: `confidence` desc, `open` desc, `counterpartyKey`. "N suggesties om te bevestigen" in Meer is the length of this list.
 
 ### `POST /api/suggestions/confirm` (0.4-4)
-Body `{"counterpartyKey": "bakkerij de graankorrel", "categoryId": 2}`. In one database transaction: the suggestion is derived again; every open row of the key on the accounts the viewer may edit gets the category through `categorise.Assign` with origin `suggestion` and no rule (a row with any category, and a split row, stays as it is, so a manual, imported or rule category is never replaced); the viewer gets a rule for new rows (below); the decision `confirmed` is stored. Answers `200 {"updated": 3, "rule": {"id": 12, "created": true, "conflict": false}}`. A suggestion that is not offered answers `404` "Deze suggestie bestaat niet meer."; one the viewer confirmed already answers `200 {"updated": 0, "rule": null}` (a repeated request: nothing changes). A confirmed suggestion never comes back for that key and category: it categorised the rows that waited then. Rows that arrive later get the category from that rule when they land on one of the viewer's personal accounts; full learning stays 0.5-6.
+Body `{"counterpartyKey": "bakkerij de graankorrel", "categoryId": 2}`. In one database transaction: the suggestion is derived again; every open row of the key on the accounts the viewer may edit gets the category through `categorise.Assign` with origin `suggestion` and no rule (a row with any category, and a split row, stays as it is, so a manual, imported or rule category is never replaced); the viewer gets a rule for new rows (below); the decision `confirmed` is stored. Answers `200 {"updated": 3, "rule": {"id": 12, "created": true, "conflict": false}}`. A suggestion that is not offered answers `404` "Deze suggestie bestaat niet meer."; one the viewer confirmed already answers `200 {"updated": 0, "rule": null}` (a repeated request: nothing changes). A confirmed suggestion never comes back for that key and category: it categorised the rows that waited then. Rows that arrive later get the category from that rule when they land on one of the viewer's personal accounts.
 
 **The rule.** Confirming also makes sure the viewer has a user rule (no account, as "apply to similar" makes for a personal account) with the condition "counterparty is equal to" the suggestion's counterparty (the newest spelling, cleaned like rule text) and the suggestion's category, in the same transaction. The rule is not run: the confirm just categorised the rows that waited. `rule` says what happened:
 - `created: true`: a new rule, `rule.id` is its id.
@@ -586,6 +588,22 @@ Body `{"counterpartyKey": "bakkerij de graankorrel", "categoryId": 2}`. In one d
 
 ### `POST /api/suggestions/dismiss` (0.4-4)
 Same body. Stores `dismissed` and answers `204`; the suggestion never comes back for that key and category. Not offered: `404` as for confirm; dismissed already: `204` again (a repeated request).
+
+### `GET /api/suggestions/backfill` (0.5-6)
+What "Geschiedenis toepassen" would do, written nowhere: the offered suggestions (the same `categorise.Suggest`, the same training, thresholds and decisions) as one list with a preview, for the rows without a category and without split parts on the accounts the viewer may edit.
+```json
+{ "groups": [ { "counterpartyKey": "bakkerij de graankorrel", "counterparty": "Bakkerij De Graankorrel",
+    "category": { "id": 2, "name": "Boodschappen", "icon": "cart", "colour": "c2" },
+    "level": "high", "confidence": 92, "rows": 4,
+    "examples": [ { "date": "2026-11-12", "amount": -450 } ] } ],
+  "rows": 4, "left": 9, "limit": 2000, "groupLimit": 200 }
+```
+`groups` has the order of `GET /api/suggestions`. `examples` are at most 3 waiting rows, newest first, with date and signed cents only (no communication, IBAN, card text or raw row). `rows` is what the groups would categorise, `left` the waiting rows that stay without a category (no suggestion for their counterparty); `limit` and `groupLimit` are the most rows and groups one apply takes. Nothing of another user is used.
+
+### `POST /api/suggestions/backfill` (0.5-6)
+Body `{"items": [{"counterpartyKey": "bakkerij de graankorrel", "categoryId": 2}]}`: the groups the viewer ticked, 1 to 200 pairs (`400` "Kies minstens één en hoogstens 200 groepen." otherwise; an empty key, a key over 200 characters or a `categoryId` below 1 is `400` "De gegevens kloppen niet."). In one database transaction every pair is derived again from what the learning proposes now; a pair that is not offered (a wrong category, another user's counterparty, a decided or dismissed one, nothing waiting any more) is skipped and counted as `stale`; a pair named twice counts once. The rows of the other pairs get the category through `categorise.Confirm`, that is `categorise.Assign` with origin `suggestion`: a row with any category (manual, rule, import or suggestion) and a split row stay as they are. If the pairs would categorise more than 2000 rows the whole call answers `400` "Dat zijn te veel transacties in één keer. Kies minder groepen (hoogstens 2000 transacties)." with nothing written. Answers `200 {"categorised": 17, "groups": 3, "stale": 1}`.
+
+The apply is always an explicit act over a previewed list, never automatic. It only categorises: it creates no rule and stores no decision in `category_suggestions` (a suggestion disappears by itself once no row of it waits), and no import batch, so an undo of an import does not undo it. Every row it touched has origin `suggestion` and can be changed by hand on its transaction. Unlike `POST /api/suggestions/confirm` it makes no rule: a rule for new rows stays a separate choice ("Maak regel" or Bevestigen on the suggestion).
 
 **Stored** in `category_suggestions` with `user_id` = the viewer: one row per user, key and category, with the decision (`confirmed` | `dismissed`; `open` is never written: open suggestions are computed) and the confidence and `seen` at that moment. Migration 0006 merges duplicates (keeping the lowest id) and adds a unique index on (`user_id`, `counterparty_key`, `category_id`) for user rows. Removing a category with `moveTo` moves the decisions along (on a clash the target's stays), with `moveTo=none` they are deleted. Errors never repeat a key or a counterparty, and none is logged.
 

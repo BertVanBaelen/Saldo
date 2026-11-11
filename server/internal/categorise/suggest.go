@@ -11,9 +11,22 @@ import (
 // they chose most often, offered for the rows of that counterparty that
 // still wait for a category. Computed on read; only the viewer's decision
 // to confirm or dismiss one is stored (by the caller).
+//
+// Confidence (0.5-6) is the winner's rows over all training rows plus
+// Smoothing, in percent: top / (seen + Smoothing). A share earned on a few
+// rows counts for less: 2 of 2 is 50, 3 of 3 is 60, 8 of 8 is 80, 10 of 10 is
+// 83, 8 of 10 is 67, a 1:1 split is 25. Level "high" (Maak regel) needs
+// HighConfidence and HighSeen; everything else is "low" (only for
+// confirmation). At Smoothing 2 a confidence of 80 already needs 8 rows, so
+// HighSeen only guards a later change of the formula.
 const (
-	MinSeen       = 2
-	MinConfidence = 40
+	MinSeen        = 2
+	MinConfidence  = 40
+	Smoothing      = 2
+	HighConfidence = 80
+	HighSeen       = 5
+	LevelHigh      = "high"
+	LevelLow       = "low"
 )
 
 // Group counts the rows of one raw counterparty name: of one category (the
@@ -28,13 +41,14 @@ type Group struct {
 
 // Suggestion is one offered category for a normalised counterparty (Key).
 // Counterparty is the raw spelling of its newest open row, Seen the number
-// of training rows, Confidence the winner's share of them in percent and
-// Open the rows waiting for a category.
+// of training rows, Confidence the smoothed share of the winner in percent,
+// Level "high" or "low" and Open the rows waiting for a category.
 type Suggestion struct {
 	CounterpartyKey string `json:"counterpartyKey"`
 	Counterparty    string `json:"counterparty"`
 	CategoryID      int64  `json:"categoryId"`
 	Confidence      int    `json:"confidence"`
+	Level           string `json:"level"`
 	Seen            int    `json:"seen"`
 	Open            int    `json:"open"`
 }
@@ -98,12 +112,17 @@ func Suggest(training, open []Group, decided func(key string, categoryID int64) 
 				best, top = c, *t
 			}
 		}
-		confidence := (200*top.rows + seen[k]) / (2 * seen[k]) // rounded half up
+		d := seen[k] + Smoothing
+		confidence := (200*top.rows + d) / (2 * d) // rounded half up
 		if confidence < MinConfidence || decided(k, best) {
 			continue
 		}
+		level := LevelLow
+		if confidence >= HighConfidence && seen[k] >= HighSeen {
+			level = LevelHigh
+		}
 		out = append(out, Suggestion{CounterpartyKey: k, Counterparty: w.name, CategoryID: best,
-			Confidence: confidence, Seen: seen[k], Open: w.rows})
+			Confidence: confidence, Level: level, Seen: seen[k], Open: w.rows})
 	}
 	slices.SortFunc(out, func(a, b Suggestion) int {
 		return cmp.Or(cmp.Compare(b.Confidence, a.Confidence), cmp.Compare(b.Open, a.Open), cmp.Compare(a.CounterpartyKey, b.CounterpartyKey))

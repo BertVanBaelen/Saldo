@@ -180,6 +180,8 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/suggestions", s.listSuggestions)
 	m.HandleFunc("POST /api/suggestions/confirm", s.postSuggestionConfirm)
 	m.HandleFunc("POST /api/suggestions/dismiss", s.postSuggestionDismiss)
+	m.HandleFunc("GET /api/suggestions/backfill", s.getBackfill)
+	m.HandleFunc("POST /api/suggestions/backfill", s.postBackfill)
 	m.HandleFunc("/api/", s.apiFallback)
 	m.HandleFunc("/api", s.apiFallback)
 	m.HandleFunc("/", s.serveWeb)

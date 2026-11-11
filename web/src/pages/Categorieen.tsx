@@ -9,10 +9,11 @@ import { Icon, type IconName } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useIsDesktop, useTitle } from '../components/ui';
 import { api, ApiError, errorMessage } from '../lib/api';
-import { catColours, confidenceLevel, plural, ruleConditions, ruleLabel } from '../lib/categories';
+import { catColours, plural, ruleConditions, ruleLabel } from '../lib/categories';
 import type { Rule, Suggestion, TreeCategory } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { categoryIcon } from '../lib/categoryIcons';
+import { BackfillSheet } from './CategorieenBackfill';
 import { CatChip, CatEditor, DelEditor, Info, OwnerChip, ReadOnlyChip, RuleEditor, RuleView } from './CategorieenEditors';
 import './Categorieen.css';
 
@@ -107,6 +108,7 @@ export function Categorieen() {
   // `ed` is what the user opened; without it the panel shows the tab's default (as the mockup's defaultEd).
   const [ed, setEd] = useState<Ed | null>(null);
   const [sheet, setSheet] = useState(false);
+  const [backfill, setBackfill] = useState(false);
   const [selCat, setSelCat] = useState<number | null>(null);
   const [selRule, setSelRule] = useState<number | null>(null);
   const [live, setLive] = useState('');
@@ -549,7 +551,7 @@ export function Categorieen() {
       <Note
         icon="spark"
         title="Saldo leert van je keuzes"
-        text="Een tegenpartij krijgt de categorie die je er het vaakst voor koos. Een suggestie met lage zekerheid wordt nooit toegepast zonder jouw bevestiging. Bevestigen categoriseert de transacties die nu wachten en maakt een regel voor nieuwe transacties op je persoonlijke rekeningen. Met ‘Als regel’ pas je die regel eerst aan."
+        text="Een tegenpartij krijgt de categorie die je er het vaakst voor koos. Een suggestie met lage zekerheid wordt nooit toegepast zonder jouw bevestiging. Bevestigen categoriseert de transacties die nu wachten en maakt een regel voor nieuwe transacties op je persoonlijke rekeningen. Bij hoge zekerheid kan je met ‘Maak regel’ de regel eerst aanpassen."
       />
     );
     if (!list.length) {
@@ -565,10 +567,15 @@ export function Categorieen() {
       <>
         {intro}
         {!online && <OfflineLine />}
+        <div className="ct-bf-bar">
+          <button type="button" className="btn btn--secondary" disabled={!online} aria-haspopup="dialog" onClick={() => setBackfill(true)}>
+            Geschiedenis toepassen
+          </button>
+          <span>Categoriseer in één keer de transacties zonder categorie, na een voorbeeld.</span>
+        </div>
         <div className="ct-suggs">
           {list.map((s, i) => {
-            const lv = confidenceLevel(s.confidence);
-            const colour = lv.key === 'hoog' ? 'var(--green)' : lv.key === 'gem' ? 'var(--warn)' : 'var(--dashed)';
+            const high = s.level === 'high';
             const nameId = 'ct-s-' + i;
             const off = !online || busyKey !== null;
             return (
@@ -593,30 +600,32 @@ export function Categorieen() {
                 <div className="ct-sugg-conf">
                   <span className="ct-sugg-label">Zekerheid</span>
                   <span className="ct-meter" aria-hidden="true">
-                    <span style={{ width: s.confidence + '%', background: colour }} />
+                    <span style={{ width: s.confidence + '%', background: high ? 'var(--green)' : 'var(--dashed)' }} />
                   </span>
-                  <span className={'ct-conf ct-conf--' + lv.key}>
-                    {lv.label} · {s.confidence}&nbsp;%
+                  <span className={'ct-conf ct-conf--' + (high ? 'hoog' : 'laag')}>
+                    {high ? 'Hoge zekerheid' : 'Lage zekerheid'} · {s.confidence}&nbsp;%
                   </span>
                 </div>
-                {lv.key === 'laag' && (
+                {!high && (
                   <p className="ct-sugg-low">
                     <Icon name="info" size={14} stroke={2.2} />
-                    <span>Lage zekerheid: Saldo past dit niet toe zonder jouw bevestiging.</span>
+                    <span>Alleen bevestigen: Saldo past dit niet toe zonder jouw bevestiging.</span>
                   </p>
                 )}
                 <div className="ct-sugg-actions">
-                  <button type="button" className="btn btn--primary" data-key={'confirm-' + s.counterpartyKey} disabled={off} aria-busy={busyKey === s.counterpartyKey || undefined} onClick={() => void decide(s, true)}>
+                  {high && (
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      data-key={'as-rule-' + s.counterpartyKey}
+                      aria-haspopup={desktop ? undefined : 'dialog'}
+                      onClick={() => open({ kind: 'rule', id: null, from: s }, 'as-rule-' + s.counterpartyKey, true)}
+                    >
+                      Maak regel
+                    </button>
+                  )}
+                  <button type="button" className={'btn ' + (high ? 'btn--secondary' : 'btn--primary')} data-key={'confirm-' + s.counterpartyKey} disabled={off} aria-busy={busyKey === s.counterpartyKey || undefined} onClick={() => void decide(s, true)}>
                     Bevestigen
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    data-key={'as-rule-' + s.counterpartyKey}
-                    aria-haspopup={desktop ? undefined : 'dialog'}
-                    onClick={() => open({ kind: 'rule', id: null, from: s }, 'as-rule-' + s.counterpartyKey, true)}
-                  >
-                    Als regel
                   </button>
                   <button type="button" className="btn btn--ghost" disabled={off} onClick={() => void decide(s, false)}>
                     Negeren
@@ -777,6 +786,18 @@ export function Categorieen() {
         <Sheet onClose={() => close()} label={edLabel(ed)} className="ct-sheet" backdropClassName="ct-backdrop">
           {editor(ed, 'p')}
         </Sheet>
+      )}
+      {backfill && (
+        <BackfillSheet
+          onClose={() => setBackfill(false)}
+          onDone={(r) => {
+            setBackfill(false);
+            toast(plural(r.categorised, 'transactie', 'transacties') + ' gecategoriseerd' + (r.stale ? ' · ' + plural(r.stale, 'groep was', 'groepen waren') + ' niet meer geldig' : ''));
+            refreshShell();
+            cats.reload();
+            sugg.reload();
+          }}
+        />
       )}
       <p className="visually-hidden" aria-live="polite">
         {live}

@@ -4,6 +4,8 @@ import type {
   Account,
   AccountPatch,
   Alert,
+  BackfillPreview,
+  BackfillResult,
   BalancePoint,
   ApiErrorBody,
   BankLinkResult,
@@ -179,6 +181,8 @@ export const api = {
   suggestions: (signal?: AbortSignal) => request<Suggestion[]>('GET', '/api/suggestions', { signal }),
   confirmSuggestion: (counterpartyKey: string, categoryId: number) =>
     request<SuggestionConfirmed>('POST', '/api/suggestions/confirm', { body: { counterpartyKey, categoryId } }),
+  backfillPreview: (signal?: AbortSignal) => request<BackfillPreview>('GET', '/api/suggestions/backfill', { signal }),
+  applyBackfill: (items: { counterpartyKey: string; categoryId: number }[]) => request<BackfillResult>('POST', '/api/suggestions/backfill', { body: { items } }),
   dismissSuggestion: (counterpartyKey: string, categoryId: number) => request<null>('POST', '/api/suggestions/dismiss', { body: { counterpartyKey, categoryId } }),
   alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),

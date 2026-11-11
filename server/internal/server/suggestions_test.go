@@ -61,7 +61,7 @@ func TestSuggestions(t *testing.T) {
 
 	before := p.dump()
 	got := p.suggestion(p.bert, key)
-	want := categorise.Suggestion{CounterpartyKey: key, Counterparty: "Bakkerij Graanveld proef", CategoryID: 16, Confidence: 80, Seen: 5, Open: 3}
+	want := categorise.Suggestion{CounterpartyKey: key, Counterparty: "Bakkerij Graanveld proef", CategoryID: 16, Confidence: 57, Level: "low", Seen: 5, Open: 3}
 	if got == nil || *got != want {
 		t.Fatalf("Bert's suggestion %+v, want %+v", got, want)
 	}
@@ -69,7 +69,7 @@ func TestSuggestions(t *testing.T) {
 		t.Error("a counterparty seen once is offered")
 	}
 	// Partner: her own choices (and the shared row); open on the accounts she may edit.
-	if s := p.suggestion(p.partner, key); s == nil || s.CategoryID != 5 || s.Seen != 11 || s.Confidence != 91 || s.Open != 2 {
+	if s := p.suggestion(p.partner, key); s == nil || s.CategoryID != 5 || s.Seen != 11 || s.Confidence != 77 || s.Open != 2 {
 		t.Errorf("Partner's suggestion %+v", s)
 	}
 	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
@@ -121,7 +121,7 @@ func TestSuggestions(t *testing.T) {
 		t.Error("a new row was categorised")
 	}
 	if p.count(`SELECT COUNT(*) FROM category_suggestions WHERE user_id = 1 AND counterparty_key = ? AND category_id = 16 AND state = 'confirmed'
-		AND confidence = 80 AND times_seen = 5`, key) != 1 {
+		AND confidence = 57 AND times_seen = 5`, key) != 1 {
 		t.Error("the confirmed state is not stored")
 	}
 

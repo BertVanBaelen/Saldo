@@ -4,7 +4,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api';
-import type { Account, Rule, Suggestion, TreeCategory } from '../lib/types';
+import type { Account, BackfillPreview, Rule, Suggestion, TreeCategory } from '../lib/types';
 import { ACCOUNTS, CATEGORIES, GEDEELD, renderAt, RULES, stubApi } from '../test/helpers';
 import { choose } from '../test/select';
 import { draftOf, inputOf, previewText } from './CategorieenEditors';
@@ -44,9 +44,9 @@ const LIST: Rule[] = [
 ];
 
 const SUGG: Suggestion[] = [
-  { counterpartyKey: 'bakkerij de graankorrel', counterparty: 'Bakkerij De Graankorrel', categoryId: 2, confidence: 92, seen: 11, open: 2 },
-  { counterpartyKey: "frituur 't pleintje", counterparty: "Frituur 't Pleintje", categoryId: 3, confidence: 64, seen: 7, open: 1 },
-  { counterpartyKey: 'apotheek van damme', counterparty: 'Apotheek Van Damme', categoryId: 6, confidence: 41, seen: 5, open: 1 },
+  { counterpartyKey: 'bakkerij de graankorrel', counterparty: 'Bakkerij De Graankorrel', categoryId: 2, confidence: 92, level: 'high', seen: 11, open: 2 },
+  { counterpartyKey: "frituur 't pleintje", counterparty: "Frituur 't Pleintje", categoryId: 3, confidence: 64, level: 'low', seen: 7, open: 1 },
+  { counterpartyKey: 'apotheek van damme', counterparty: 'Apotheek Van Damme', categoryId: 6, confidence: 41, level: 'low', seen: 5, open: 1 },
 ];
 
 // What Bevestigen makes (the stub answers rule 12): the Regels list has it after the reload.
@@ -476,14 +476,14 @@ describe('Categorieën en regels · rule editor', () => {
     await waitFor(() => expect(toast()).toBe('Regel gemaakt'));
   });
 
-  it('prefills "Als regel" from a suggestion, applies it on save and refreshes the suggestions', async () => {
+  it('prefills "Maak regel" from a suggestion, applies it on save and refreshes the suggestions', async () => {
     desktop();
     const api = stub();
     renderAt('/categorieen?tab=suggesties');
     // The info panel by default on this tab.
     await waitFor(() => expect(panel().getByText('Zo kiest Saldo een categorie')).toBeTruthy());
     const card = within((await screen.findByText('Bakkerij De Graankorrel')).closest('article')!);
-    fireEvent.click(card.getByRole('button', { name: 'Als regel' }));
+    fireEvent.click(card.getByRole('button', { name: 'Maak regel' }));
     await waitFor(() => expect(panel().getByText('Regel uit suggestie')).toBeTruthy());
     expect((panel().getByRole('textbox', { name: 'Tegenpartij' }) as HTMLInputElement).value).toBe('Bakkerij De Graankorrel');
     // Focus moves into the panel when opened on request.
@@ -570,18 +570,20 @@ describe('Categorieën en regels · preview', () => {
 });
 
 describe('Categorieën en regels · Suggesties', () => {
-  it('shows the cards with the confidence levels and the low-confidence note', async () => {
+  it('shows the level on each card: Maak regel only for high certainty, Alleen bevestigen for low', async () => {
     stub();
     renderAt('/categorieen?tab=suggesties');
     const card = (name: string) => within((screen.getByText(name, { selector: '.ct-sugg-name' })).closest('article')!);
     await screen.findByText('Bakkerij De Graankorrel');
     expect(card('Bakkerij De Graankorrel').getByText('11 keer gezien · 2 transacties wachten')).toBeTruthy();
-    expect(card('Bakkerij De Graankorrel').getByText('Hoog · 92 %')).toBeTruthy();
+    expect(card('Bakkerij De Graankorrel').getByText('Hoge zekerheid · 92 %')).toBeTruthy();
+    expect(card('Bakkerij De Graankorrel').getByRole('button', { name: 'Maak regel' })).toBeTruthy();
+    expect(card('Bakkerij De Graankorrel').queryByText(/Alleen bevestigen/)).toBeNull();
     expect(card("Frituur 't Pleintje").getByText('7 keer gezien · 1 transactie wacht')).toBeTruthy();
-    expect(card("Frituur 't Pleintje").getByText('Gemiddeld · 64 %')).toBeTruthy();
-    expect(card('Apotheek Van Damme').getByText('Laag · 41 %')).toBeTruthy();
-    expect(card('Apotheek Van Damme').getByText('Lage zekerheid: Saldo past dit niet toe zonder jouw bevestiging.')).toBeTruthy();
-    expect(card('Bakkerij De Graankorrel').queryByText(/Lage zekerheid/)).toBeNull();
+    expect(card("Frituur 't Pleintje").getByText('Lage zekerheid · 64 %')).toBeTruthy();
+    expect(card('Apotheek Van Damme').getByText('Alleen bevestigen: Saldo past dit niet toe zonder jouw bevestiging.')).toBeTruthy();
+    expect(card('Apotheek Van Damme').queryByRole('button', { name: 'Maak regel' })).toBeNull();
+    expect(card('Apotheek Van Damme').getByRole('button', { name: 'Bevestigen' })).toBeTruthy();
     expect(screen.getByText(/maakt een regel voor nieuwe transacties op je persoonlijke rekeningen/)).toBeTruthy();
   });
 
@@ -643,6 +645,63 @@ describe('Categorieën en regels · Suggesties', () => {
     expect(await screen.findByText('Er ging iets mis op de server (500). Probeer het opnieuw.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Opnieuw proberen' }));
     expect(await screen.findByText('Geen suggesties')).toBeTruthy();
+  });
+});
+
+// Invented groups: one of high certainty (ticked by default) and one of low (not).
+const BACKFILL: BackfillPreview = {
+  groups: [
+    {
+      counterpartyKey: 'bakkerij de graankorrel',
+      counterparty: 'Bakkerij De Graankorrel',
+      category: { id: 2, name: 'Boodschappen', icon: null, colour: 'c2' },
+      level: 'high',
+      confidence: 92,
+      rows: 4,
+      examples: [
+        { date: '2026-11-12', amount: -450 },
+        { date: '2026-11-05', amount: -380 },
+        { date: '2026-10-29', amount: -510 },
+      ],
+    },
+    {
+      counterpartyKey: 'apotheek van damme',
+      counterparty: 'Apotheek Van Damme',
+      category: { id: 6, name: 'Gezondheid', icon: null, colour: 'c4' },
+      level: 'low',
+      confidence: 57,
+      rows: 2,
+      examples: [{ date: '2026-11-03', amount: -1250 }],
+    },
+  ],
+  rows: 6,
+  left: 3,
+  limit: 2000,
+  groupLimit: 200,
+};
+
+describe('Categorieën en regels · Geschiedenis toepassen', () => {
+  it('lists the groups, ticks the high ones, counts, and posts only the ticked groups', async () => {
+    const api = stub();
+    api.backfillPreview.mockResolvedValue(structuredClone(BACKFILL));
+    api.applyBackfill.mockResolvedValue({ categorised: 4, groups: 1, stale: 1 });
+    renderAt('/categorieen?tab=suggesties');
+    fireEvent.click(await screen.findByRole('button', { name: 'Geschiedenis toepassen' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Geschiedenis toepassen' }));
+    expect(await dialog.findByText(/Er wordt niets overschreven/)).toBeTruthy();
+    const tick = (name: string) => dialog.getByRole('checkbox', { name: new RegExp(name) }) as HTMLInputElement;
+    expect(tick('Bakkerij De Graankorrel').checked).toBe(true);
+    expect(tick('Apotheek Van Damme').checked).toBe(false);
+    expect(dialog.getByText(/4 transacties · bv\. 12 nov −€ 4,50, 5 nov −€ 3,80, 29 okt −€ 5,10/)).toBeTruthy();
+    expect(dialog.getByText('4 transacties krijgen een categorie, 5 blijven zonder.')).toBeTruthy();
+    fireEvent.click(tick('Apotheek Van Damme'));
+    expect(dialog.getByText('6 transacties krijgen een categorie, 3 blijven zonder.')).toBeTruthy();
+    fireEvent.click(tick('Apotheek Van Damme'));
+    fireEvent.click(dialog.getByRole('button', { name: 'Toepassen' }));
+    await waitFor(() => expect(toast()).toBe('4 transacties gecategoriseerd · 1 groep was niet meer geldig'));
+    expect(api.applyBackfill).toHaveBeenCalledWith([{ counterpartyKey: 'bakkerij de graankorrel', categoryId: 2 }]);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(api.suggestions).toHaveBeenCalledTimes(2));
   });
 });
 

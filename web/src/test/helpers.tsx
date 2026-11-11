@@ -354,6 +354,8 @@ export function stubApi(s: Stub = {}) {
       rule: { id: 12, created: true, conflict: false },
     })),
     dismissSuggestion: vi.spyOn(api, 'dismissSuggestion').mockResolvedValue(null),
+    backfillPreview: vi.spyOn(api, 'backfillPreview').mockResolvedValue({ groups: [], rows: 0, left: 0, limit: 2000, groupLimit: 200 }),
+    applyBackfill: vi.spyOn(api, 'applyBackfill').mockResolvedValue({ categorised: 0, groups: 0, stale: 0 }),
     createCategory: vi.spyOn(api, 'createCategory').mockImplementation(async (b) => {
       const parent = b.parentId === undefined ? undefined : (s.categories ?? CATEGORIES).find((c) => c.id === b.parentId);
       return { id: 40, name: b.name, type: parent?.type ?? b.type ?? 'expense', colour: parent?.colour ?? b.colour ?? (b.type === 'income' ? 'soft' : 'c6'), icon: b.icon ?? null, parentId: b.parentId ?? null, count: 0 };

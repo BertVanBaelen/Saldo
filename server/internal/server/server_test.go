@@ -186,6 +186,8 @@ func TestOutsideDemoModeEverythingButHealthIs401(t *testing.T) {
 		{"GET", "/api/suggestions", ""},
 		{"POST", "/api/suggestions/confirm", `{"counterpartyKey":"x","categoryId":1}`},
 		{"POST", "/api/suggestions/dismiss", `{"counterpartyKey":"x","categoryId":1}`},
+		{"GET", "/api/suggestions/backfill", ""},
+		{"POST", "/api/suggestions/backfill", `{"items":[{"counterpartyKey":"x","categoryId":1}]}`},
 		{"PATCH", "/api/transactions/1", `{"note":"x"}`},
 		{"GET", "/api/transactions/1/similar", ""},
 		{"POST", "/api/transactions/1/similar", ""},

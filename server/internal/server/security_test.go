@@ -296,6 +296,8 @@ func TestPrivacySweep(t *testing.T) {
 		{"GET", "/api/suggestions", "", 200},
 		{"POST", "/api/suggestions/confirm", `{"counterpartyKey":"geheimwinkel noord","categoryId":2}`, 404},
 		{"POST", "/api/suggestions/dismiss", `{"counterpartyKey":"geheimwinkel noord","categoryId":2}`, 404},
+		{"GET", "/api/suggestions/backfill", "", 200},
+		{"POST", "/api/suggestions/backfill", `{"items":[{"counterpartyKey":"geheimwinkel noord","categoryId":2}]}`, 200},
 		{"PATCH", "/api/transactions/" + bertTx, `{"note":"Gezien"}`, 404},
 		{"PATCH", "/api/transactions/" + bertTx, `{"categoryId":2}`, 404},
 		{"GET", "/api/transactions/" + bertTx + "/similar", "", 404},

@@ -70,13 +70,6 @@ export function ruleConditions(r: Pick<Rule, 'counterparty' | 'counterpartyExact
   return c;
 }
 
-/** The label of a suggestion's confidence (percent): Hoog from 80, Gemiddeld from 55, else Laag. */
-export function confidenceLevel(pct: number): { key: 'hoog' | 'gem' | 'laag'; label: string } {
-  if (pct >= 80) return { key: 'hoog', label: 'Hoog' };
-  if (pct >= 55) return { key: 'gem', label: 'Gemiddeld' };
-  return { key: 'laag', label: 'Laag' };
-}
-
 /** "1 transactie", "3 transacties". */
 export function plural(n: number, one: string, more: string): string {
   return n + ' ' + (n === 1 ? one : more);

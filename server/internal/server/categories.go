@@ -213,6 +213,29 @@ func (s *Server) postSuggestionDismiss(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) getBackfill(w http.ResponseWriter, r *http.Request) {
+	p, err := s.store.BackfillPreview(r.Context(), viewerOf(r))
+	if err != nil {
+		s.fail(w, r, err, msgSuggestionGone)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+func (s *Server) postBackfill(w http.ResponseWriter, r *http.Request) {
+	var body ledger.BackfillInput
+	if err := decodeJSON(w, r, &body); err != nil {
+		s.fail(w, r, err, msgSuggestionGone)
+		return
+	}
+	res, err := s.store.Backfill(r.Context(), viewerOf(r), body)
+	if err != nil {
+		s.fail(w, r, err, msgSuggestionGone)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
 func (s *Server) decideSuggestion(w http.ResponseWriter, r *http.Request, state string) (ledger.SuggestionResult, bool) {
 	var body ledger.SuggestionInput
 	if err := decodeJSON(w, r, &body); err != nil {

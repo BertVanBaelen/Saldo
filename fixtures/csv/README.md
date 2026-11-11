@@ -94,3 +94,20 @@ Steps in the wizard (**Meer > Importeren**), with `scripts/dev.ps1 -Fresh`:
 Twelve invented rows in exactly the layout of `bilance-voorbeeld.csv` (UTF-8, LF, `, `, `€` suffix), dates in March to August 2025, the same three account names, no row that equals one of the first file, and **11 of the 12 category pairs of the first file plus one new pair**, `Huisdieren > Dierenarts` (only the pair without a category is missing). Accounts: Zichtrekening 9 rows, Spaarrekening 1, Contant 2. Preview: 12 rows, nothing present or unreadable, and nothing in the period the bank syncs.
 
 To see the mapping being reused (use the two files in this order on a fresh demo; undoing the first one leaves the mapping in place too): import `bilance-voorbeeld.csv` once with the choices you want (Bevestig *Voorstel*, create something new), then start the wizard again with `bilance-tweede.csv` and map the same three account names. *Categorieën* then opens with **11 pairs marked Opgeslagen** and showing your earlier targets (also a pair you left on Niet categoriseren: it is saved too), and `Huisdieren > Dierenarts` as the one new pair, with no match (no Voorstel; the name has no resemblance in the default tree) on Niet categoriseren. Click through to import: no mapping needed except for the new pair, and the result says how many of the 12 rows got a category. Another user signed in on the same demo sees none of the saved mapping.
+
+### Learning and backfill (0.5-6) with these files
+`bilance-voorbeeld.csv` and `bilance-tweede.csv` train the suggestions through their imported rows (origin `import`), but they hold no rows that wait for a category on a name the demo knows: their card names carry the town (`Colruyt Laagste Prijzen   Gent`), so they are other counterparties than the demo's, and the demo's four uncategorised rows (Bol.com pending, Bakkerij De Graankorrel, Frituur 't Pleintje, Apotheek Van Damme) have no history. The rows that wait come from **`valid.csv`** (20 uncategorised rows with the demo's counterparty names), imported into Zichtrekening **before or after** the Bilance files. The expectation, on a fresh demo, with `valid.csv` imported, then `bilance-voorbeeld.csv` (the suggested cutoff, after an import without cutoff and its undo, as in [local-testing](../../docs/local-testing.md)) and `bilance-tweede.csv`, every Voorstel accepted and the other pairs on Niet categoriseren:
+
+| Counterparty | Proposed | Level, confidence | Seen | Rows that wait |
+|---|---|---|---|---|
+| Colruyt Laagste Prijzen | Boodschappen | high, 93 % | 26 | 3 |
+| Delhaize | Boodschappen | high, 87 % | 13 | 2 |
+| Luminus, Netflix, Spotify | Wonen, Abonnementen, Abonnementen | high, 87 % | 13 each | 1 each |
+| Bol.com | Overig | high, 80 % | 8 | 2 (the pending demo row and one of the file) |
+| Kinepolis, NMBS | Vrije tijd, Vervoer | low, 78 % | 7 each | 1 each |
+| Proximus | Abonnementen | low, 76 % | 15 | 1 |
+| Immo Verhaeghe, Werkgever NV | Wonen, Salaris | low, 72 % | 16 each | 1 each |
+| Decathlon | Vrije tijd | low, 71 % | 5 | 1 |
+| Sofie Maes | Terugbetaling | low, 50 % | 2 | 1 |
+
+13 groups and 17 rows in all; the preview (`GET /api/suggestions/backfill`) ticks the 6 high groups in the web app (10 rows), and "X transacties krijgen een categorie, Y blijven zonder" reads 10 and 49 (17 and 42 with all 13). Only the demo and `valid.csv`, without the Bilance files: 12 groups (the same without Sofie Maes), Bol.com 75 % low, Proximus, Immo Verhaeghe and Werkgever NV 87 % high. The numbers were worked out from the demo seed and the files with a calculation that mimics the import, not clicked through. A backfill apply of the 6 high groups reports `{"categorised": 10, "groups": 6, "stale": 0}`, creates no rule and leaves the Bilance rows untouched (they already have a category); an undo of the Bilance batches afterwards does not undo it.

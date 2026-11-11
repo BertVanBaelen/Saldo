@@ -592,6 +592,7 @@ func TestCategoryAndRuleWritesRefuseCrossOrigin(t *testing.T) {
 		{"PUT", "/api/rules/order", `{"ids":[]}`},
 		{"POST", "/api/suggestions/confirm", `{"counterpartyKey":"x","categoryId":1}`},
 		{"POST", "/api/suggestions/dismiss", `{"counterpartyKey":"x","categoryId":1}`},
+		{"POST", "/api/suggestions/backfill", `{"items":[{"counterpartyKey":"x","categoryId":1}]}`},
 	} {
 		r := e.do(call{method: c.method, path: c.path, body: c.body, header: map[string]string{
 			"X-Test-User": strconv.FormatInt(e.bert, 10), "Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example.org"}})

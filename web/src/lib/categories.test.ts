@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catColours, categoryLabel, confidenceLevel, groupTree, plural, ruleConditions, ruleLabel, skippedText, splitState, toParts } from './categories';
+import { catColours, categoryLabel, groupTree, plural, ruleConditions, ruleLabel, skippedText, splitState, toParts } from './categories';
 import type { Rule, TreeCategory } from './types';
 
 const cat = (id: number, name: string, parentId: number | null = null, type: TreeCategory['type'] = 'expense'): TreeCategory => ({
@@ -128,10 +128,5 @@ describe('rule conditions and suggestion confidence', () => {
     expect(ruleConditions(rule({ amountMax: 0 }))).toEqual(['Bedrag tot € 0']);
     // Names with commas and ampersands are plain text.
     expect(ruleConditions(rule({ counterparty: 'Eten & Drinken, Gent' }))).toEqual(['Tegenpartij bevat ‘Eten & Drinken, Gent’']);
-  });
-
-  it('labels the confidence: Hoog from 80, Gemiddeld from 55, else Laag', () => {
-    expect([92, 80, 79, 55, 54, 40].map((p) => confidenceLevel(p).label)).toEqual(['Hoog', 'Hoog', 'Gemiddeld', 'Gemiddeld', 'Laag', 'Laag']);
-    expect(confidenceLevel(64).key).toBe('gem');
   });
 });

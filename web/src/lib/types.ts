@@ -227,14 +227,18 @@ export interface RuleApplyResult {
   skipped: SkippedCounts;
 }
 
+export type SuggestionLevel = 'high' | 'low';
+
 /** An item of GET /api/suggestions: the category the viewer chose most often for a counterparty. */
 export interface Suggestion {
   counterpartyKey: string;
   /** The spelling of the newest open row. */
   counterparty: string;
   categoryId: number;
-  /** 0–100. */
+  /** 0–100, smoothed: the winner's rows over all rows plus 2. */
   confidence: number;
+  /** `high`: offered as a rule; `low`: only for confirmation. */
+  level: SuggestionLevel;
   /** The viewer's categorised rows of this counterparty. */
   seen: number;
   /** Rows of this counterparty that wait for a category. */
@@ -246,6 +250,33 @@ export interface SuggestionConfirmed {
   updated: number;
   /** `created`: a new rule; else an equal one was reused, or (`conflict`) the viewer's rule for this counterparty has another category and stays as it is. */
   rule: { id: number; created: boolean; conflict: boolean } | null;
+}
+
+/** A group of GET /api/suggestions/backfill: what one counterparty's waiting rows would get. Examples hold date and amount only. */
+export interface BackfillGroup {
+  counterpartyKey: string;
+  counterparty: string;
+  category: { id: number; name: string; icon: string | null; colour: CategoryColour };
+  level: SuggestionLevel;
+  confidence: number;
+  rows: number;
+  examples: { date: string; amount: number }[];
+}
+
+/** GET /api/suggestions/backfill. `rows` would be categorised, `left` stay without; one apply takes at most `limit` rows and `groupLimit` groups. */
+export interface BackfillPreview {
+  groups: BackfillGroup[];
+  rows: number;
+  left: number;
+  limit: number;
+  groupLimit: number;
+}
+
+/** POST /api/suggestions/backfill: `stale` groups no longer matched what Saldo proposes and were skipped. */
+export interface BackfillResult {
+  categorised: number;
+  groups: number;
+  stale: number;
 }
 
 /** Rows that match a rule but stay as they are, by reason. */

@@ -34,7 +34,7 @@ describe('Meer · bankkoppelingen summary on real data', () => {
 });
 
 describe('Meer · Categorieën en regels line', () => {
-  const sugg = { counterpartyKey: 'bakkerij de graankorrel', counterparty: 'Bakkerij De Graankorrel', categoryId: 2, confidence: 92, seen: 11, open: 1 };
+  const sugg = { counterpartyKey: 'bakkerij de graankorrel', counterparty: 'Bakkerij De Graankorrel', categoryId: 2, confidence: 92, level: 'high' as const, seen: 11, open: 1 };
   const line = async () => (await screen.findByRole('link', { name: /^Categorieën en regels/ })).querySelector('.mr-row-sub')?.textContent;
 
   it('counts the suggestions to confirm, singular and plural', async () => {

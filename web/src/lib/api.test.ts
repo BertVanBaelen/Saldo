@@ -254,7 +254,7 @@ describe('categorisation calls', () => {
   });
 
   it('reads, confirms and dismisses suggestions', async () => {
-    const list = [{ counterpartyKey: 'bakkerij de graankorrel', counterparty: 'Bakkerij De Graankorrel', categoryId: 2, confidence: 92, seen: 11, open: 1 }];
+    const list = [{ counterpartyKey: 'bakkerij de graankorrel', counterparty: 'Bakkerij De Graankorrel', categoryId: 2, confidence: 92, level: 'high', seen: 11, open: 1 }];
     const get = respond(200, list);
     vi.stubGlobal('fetch', get);
     await expect(api.suggestions()).resolves.toEqual(list);

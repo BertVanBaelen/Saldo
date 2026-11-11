@@ -168,27 +168,38 @@ func similarRule(ctx context.Context, q categorise.DB, viewer, id int64) (txRow,
 	if r.Counterparty == "" {
 		return t, r, false, nil
 	}
+	found, ok, err := counterpartyRule(ctx, q, r, false)
+	if err != nil || !ok {
+		return t, r, false, err
+	}
+	found.CategoryID = r.CategoryID
+	return t, found, true, nil
+}
+
+// counterpartyRule is the first rule, in evaluation order, of r's owner whose
+// only condition is r's counterparty (normalised): a "contains" rule, or with
+// exact an "is equal to" rule too.
+func counterpartyRule(ctx context.Context, q categorise.DB, r categorise.Rule, exact bool) (categorise.Rule, bool, error) {
 	rows, err := q.QueryContext(ctx, `SELECT `+categorise.RuleColumns+` FROM rules
-		WHERE account_id IS ? AND user_id IS ? AND counterparty_exact = 0 AND counterparty_match IS NOT NULL
+		WHERE account_id IS ? AND user_id IS ? AND (counterparty_exact = 0 OR ?) AND counterparty_match IS NOT NULL
 		  AND counterparty_iban IS NULL AND communication_contains IS NULL AND communication_regex IS NULL
 		  AND amount_min IS NULL AND amount_max IS NULL
-		ORDER BY priority DESC, id DESC`, nullIfZero(r.AccountID), nullIfZero(r.UserID))
+		ORDER BY priority DESC, id DESC`, nullIfZero(r.AccountID), nullIfZero(r.UserID), exact)
 	if err != nil {
-		return t, r, false, err
+		return categorise.Rule{}, false, err
 	}
 	defer rows.Close()
 	want := categorise.Normalise(r.Counterparty)
 	for rows.Next() {
 		found, err := categorise.ScanRule(rows)
 		if err != nil {
-			return t, r, false, err
+			return categorise.Rule{}, false, err
 		}
 		if categorise.Normalise(found.Counterparty) == want {
-			found.CategoryID = r.CategoryID
-			return t, found, true, nil
+			return found, true, nil
 		}
 	}
-	return t, r, false, rows.Err()
+	return categorise.Rule{}, false, rows.Err()
 }
 
 // ruleCounterparty cleans a counterparty name like rule input: no control

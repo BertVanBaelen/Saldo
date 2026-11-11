@@ -153,14 +153,17 @@ export function Categorieen() {
     if (desktop && sheet) setSheet(false);
   }, [desktop, sheet]);
 
-  // ?regel=<id> (from Transacties "Regel aanpassen"): open that rule once the list is there.
+  // ?regel=<id> (from Transacties "Regel aanpassen" or the toast "Regel openen"): open that rule once the list
+  // has it. Closing the editor drops the param, so the same rule can be opened again later.
   const regelParam = params.get('regel');
   const handledRegel = useRef<string | null>(null);
   useEffect(() => {
+    if (!regelParam) handledRegel.current = null;
     if (!regelParam || !ruleList || handledRegel.current === regelParam) return;
-    handledRegel.current = regelParam;
     const r = ruleList.find((x) => x.id === Number(regelParam));
     if (r) {
+      handledRegel.current = regelParam;
+      opener.current = 'rule-' + r.id;
       setSelRule(r.id);
       setEd({ kind: 'rule', id: r.id });
       setSheet(true);
@@ -513,10 +516,18 @@ export function Categorieen() {
     const i = list.indexOf(s);
     try {
       if (confirm) {
-        const { updated } = await api.confirmSuggestion(s.counterpartyKey, s.categoryId);
-        toast(plural(updated, 'transactie', 'transacties') + ' naar ' + (byId.get(s.categoryId)?.name ?? 'de categorie'));
+        const { updated, rule } = await api.confirmSuggestion(s.counterpartyKey, s.categoryId);
+        const cat = byId.get(s.categoryId)?.name ?? 'de categorie';
+        const n = plural(updated, 'transactie', 'transacties');
+        const head = !rule
+          ? null
+          : rule.conflict
+            ? 'Er is al een regel voor ' + s.counterparty + ' met een andere categorie. Die blijft staan'
+            : (rule.created ? 'Regel gemaakt' : 'Regel bestond al') + ': ' + s.counterparty + ' wordt ' + cat;
+        toast(head === null ? n + ' naar ' + cat : head + (updated ? ' · ' + n + ' gecategoriseerd' : ''), rule ? { label: 'Regel openen', to: '/categorieen?tab=regels&regel=' + rule.id } : undefined);
         refreshShell();
         cats.reload();
+        rules.reload();
       } else {
         await api.dismissSuggestion(s.counterpartyKey, s.categoryId);
         toast('Genegeerd');
@@ -541,7 +552,7 @@ export function Categorieen() {
       <Note
         icon="spark"
         title="Saldo leert van je keuzes"
-        text="Een tegenpartij krijgt de categorie die je er het vaakst voor koos. Een suggestie met lage zekerheid wordt nooit toegepast zonder jouw bevestiging. Bevestigen categoriseert de transacties die nu wachten; voor nieuwe transacties maak je er een regel van."
+        text="Een tegenpartij krijgt de categorie die je er het vaakst voor koos. Een suggestie met lage zekerheid wordt nooit toegepast zonder jouw bevestiging. Bevestigen categoriseert de transacties die nu wachten en maakt een regel voor nieuwe transacties op je persoonlijke rekeningen. Met ‘Als regel’ pas je die regel eerst aan."
       />
     );
     if (!list.length) {

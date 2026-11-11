@@ -202,9 +202,8 @@ func (s *Server) listSuggestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) postSuggestionConfirm(w http.ResponseWriter, r *http.Request) {
-	n, ok := s.decideSuggestion(w, r, "confirmed")
-	if ok {
-		writeJSON(w, http.StatusOK, map[string]int{"updated": n})
+	if res, ok := s.decideSuggestion(w, r, "confirmed"); ok {
+		writeJSON(w, http.StatusOK, res)
 	}
 }
 
@@ -214,16 +213,16 @@ func (s *Server) postSuggestionDismiss(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) decideSuggestion(w http.ResponseWriter, r *http.Request, state string) (int, bool) {
+func (s *Server) decideSuggestion(w http.ResponseWriter, r *http.Request, state string) (ledger.SuggestionResult, bool) {
 	var body ledger.SuggestionInput
 	if err := decodeJSON(w, r, &body); err != nil {
 		s.fail(w, r, err, msgSuggestionGone)
-		return 0, false
+		return ledger.SuggestionResult{}, false
 	}
-	n, err := s.store.DecideSuggestion(r.Context(), viewerOf(r), body, state)
+	res, err := s.store.DecideSuggestion(r.Context(), viewerOf(r), body, state)
 	if err != nil {
 		s.fail(w, r, err, msgSuggestionGone)
-		return 0, false
+		return res, false
 	}
-	return n, true
+	return res, true
 }

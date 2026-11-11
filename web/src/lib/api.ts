@@ -28,6 +28,7 @@ import type {
   SimilarResult,
   SplitPartInput,
   Suggestion,
+  SuggestionConfirmed,
   SyncStatus,
   TokenInfo,
   Transaction,
@@ -177,7 +178,7 @@ export const api = {
   reorderRules: (ids: number[]) => request<Rule[]>('PUT', '/api/rules/order', { body: { ids } }),
   suggestions: (signal?: AbortSignal) => request<Suggestion[]>('GET', '/api/suggestions', { signal }),
   confirmSuggestion: (counterpartyKey: string, categoryId: number) =>
-    request<{ updated: number }>('POST', '/api/suggestions/confirm', { body: { counterpartyKey, categoryId } }),
+    request<SuggestionConfirmed>('POST', '/api/suggestions/confirm', { body: { counterpartyKey, categoryId } }),
   dismissSuggestion: (counterpartyKey: string, categoryId: number) => request<null>('POST', '/api/suggestions/dismiss', { body: { counterpartyKey, categoryId } }),
   alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),

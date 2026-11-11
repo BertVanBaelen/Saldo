@@ -432,6 +432,9 @@ func (s *Store) PreviewRule(ctx context.Context, viewer int64, in RulePreviewInp
 			return RulePreview{}, apperr.Invalid("De eigenaar van een regel verandert niet. Maak een nieuwe regel.")
 		}
 		r.ID = stored.ID
+		if !in.CounterpartyIBAN.Set { // the editor only has the masked IBAN: left out means unchanged
+			r.CounterpartyIBAN = stored.CounterpartyIBAN
+		}
 	}
 	if err := applyConditions(&r, in.RuleInput); err != nil {
 		return RulePreview{}, err

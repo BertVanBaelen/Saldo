@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api';
 import type { Transaction } from '../lib/types';
 import { ACCOUNTS, GEDEELD, renderAt, RULES, stubApi, TRANSACTIONS } from '../test/helpers';
+import { choose } from '../test/select';
 
 const toast = () => document.querySelector('.toast')?.textContent;
 const row = (name: string) => screen.getByText(name, { selector: '.tx-name' }).closest('.tx-row') as HTMLElement;
@@ -42,13 +43,16 @@ describe('Transactie detail · category', () => {
     const api = stubApi();
     renderAt('/transacties');
     const dialog = await open('Colruyt Laagste Prijzen');
-    const select = (await within(dialog).findByLabelText('Alle categorieën')) as HTMLSelectElement;
-    expect(select.value).toBe('');
-    expect(Array.from(select.querySelectorAll('optgroup')).map((g) => g.label)).toEqual(['Uitgaven', 'Inkomsten']);
-    fireEvent.change(select, { target: { value: '10' } });
+    const select = await within(dialog).findByRole('combobox', { name: 'Alle categorieën' });
+    expect(select.textContent).toBe('Alle categorieën');
+    fireEvent.click(select);
+    const list = within(screen.getByRole('listbox'));
+    expect(list.getByRole('group', { name: 'Uitgaven' })).toBeTruthy();
+    expect(list.getByRole('group', { name: 'Inkomsten' })).toBeTruthy();
+    fireEvent.click(list.getByRole('option', { name: 'Wonen › Energie' }));
     await waitFor(() => expect(api.updateTransaction).toHaveBeenCalledWith(115, { categoryId: 10 }));
     expect(await within(dialog).findByText('Wonen › Energie', { selector: 'dd' })).toBeTruthy();
-    expect(select.value).toBe('10');
+    expect(select.textContent).toBe('Wonen › Energie');
   });
 
   it('makes the same category manual when picked by hand over a rule, and does nothing for a manual one', async () => {
@@ -360,9 +364,9 @@ describe('Transactie detail · split', () => {
     renderAt('/transacties');
     const dialog = await open('Colruyt Laagste Prijzen');
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Splitsen' }));
-    const cat1 = within(dialog).getByLabelText('Categorie van deel 1') as HTMLSelectElement;
+    const cat1 = within(dialog).getByRole('combobox', { name: 'Categorie van deel 1' });
     expect(document.activeElement).toBe(cat1);
-    expect(cat1.value).toBe('2');
+    expect(cat1.textContent).toBe('Boodschappen');
     const rest = () => dialog.querySelector('.tx-rest-wrap') as HTMLElement;
     expect(rest().getAttribute('aria-live')).toBe('polite');
     expect(rest().textContent).toBe('Nog te verdelen€ 86,42Verdeel het hele bedrag om op te slaan.');
@@ -379,7 +383,7 @@ describe('Transactie detail · split', () => {
     fireEvent.click(save());
     expect(toast()).toBe('Kies voor elk deel een categorie.');
     expect(api.splitTransaction).not.toHaveBeenCalled();
-    fireEvent.change(within(dialog).getByLabelText('Categorie van deel 2'), { target: { value: '3' } });
+    choose(within(dialog).getByRole('combobox', { name: 'Categorie van deel 2' }), 'Vrije tijd');
     expect(save().getAttribute('aria-disabled')).toBe('false');
     fireEvent.click(save());
 

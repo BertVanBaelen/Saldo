@@ -3,8 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError, NETWORK_MESSAGE } from '../lib/api';
 import { MAX_IMPORT_BYTES, type ImportCounts, type ImportPreview, type RowError } from '../lib/imports';
 import { ACCOUNTS, GEDEELD, IMPORT_COUNTS, IMPORT_ERRORS, IMPORT_PREVIEW, importResult, NEW_MANUAL, renderAt, SPAAR, stubApi, ZICHT } from '../test/helpers';
+import { choose as pick } from '../test/select';
 import { CHECK_DELAY_MS, UNSURE } from './Importeren';
 
+/** The select that says what a file column becomes. */
+const col = (name: string) => screen.getByRole('combobox', { name: 'Kolom ‘' + name + '’ wordt' });
 const csv = (name = 'export-zicht.csv') => new File(['Boekingsdatum;Bedrag\n02/11/2026;-8,40\n'], name, { type: 'text/csv' });
 const status = () => document.querySelector('.im-page > [role="status"]')!.textContent;
 const MAPPING = IMPORT_PREVIEW.mapping;
@@ -170,10 +173,10 @@ describe('Importeren · wizard', () => {
     // Step 2: the suggested mapping, every field can be changed; no account chosen among three.
     const h2 = await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
     expect(document.activeElement).toBe(h2);
-    expect((screen.getByLabelText('Kolom ‘Boekdatum’ wordt') as HTMLSelectElement).value).toBe('date');
-    expect((screen.getByLabelText('Kolom ‘Rekening’ wordt') as HTMLSelectElement).value).toBe('account');
-    expect((screen.getByLabelText('Kolom ‘Munt’ wordt') as HTMLSelectElement).value).toBe('currency');
-    expect((screen.getByLabelText('Kolom ‘Referentie’ wordt') as HTMLSelectElement).value).toBe('');
+    expect(col('Boekdatum').textContent).toBe('Datum');
+    expect(col('Rekening').textContent).toBe('Rekening van het bestand');
+    expect(col('Munt').textContent).toBe('Munt');
+    expect(col('Referentie').textContent).toBe('Negeren');
     expect(screen.getByText('-8,40 · 2.784,50 · -64,12')).toBeTruthy();
     expect(screen.getByText(/dienen als controle/)).toBeTruthy();
     expect(screen.getByText('Kies een rekening.')).toBeTruthy();
@@ -234,12 +237,12 @@ describe('Importeren · wizard', () => {
     renderAt('/importeren');
     await toColumns();
 
-    fireEvent.change(screen.getByLabelText('Kolom ‘Boekdatum’ wordt'), { target: { value: '' } });
+    pick(col('Boekdatum'), 'Negeren');
     expect(screen.getByText('Kies nog een kolom voor Datum.')).toBeTruthy();
     expect(next().disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText('Kolom ‘Boekdatum’ wordt'), { target: { value: 'date' } });
-    fireEvent.change(screen.getByLabelText('Kolom ‘Referentie’ wordt'), { target: { value: 'amount' } });
+    pick(col('Boekdatum'), 'Datum');
+    pick(col('Referentie'), 'Bedrag');
     expect(screen.getByText('Elke soort mag maar bij één kolom staan.')).toBeTruthy();
     expect(screen.getAllByText('Ook gekozen bij een andere kolom')).toHaveLength(2);
     expect(next().disabled).toBe(true);
@@ -265,7 +268,7 @@ describe('Importeren · wizard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
     expect(pending[0].signal?.aborted).toBe(true);
     await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
-    fireEvent.change(screen.getByLabelText('Kolom ‘Mededeling’ wordt'), { target: { value: '' } });
+    pick(col('Mededeling'), 'Negeren');
     fireEvent.click(next());
     await waitFor(() => expect(pending).toHaveLength(2));
     expect(pending[1].mapping).toEqual({ ...MAPPING, communication: null });
@@ -282,7 +285,8 @@ describe('Importeren · wizard', () => {
     const api = stubApi({ accounts: [ZICHT] });
     renderAt('/importeren');
     await toColumns();
-    const options = within(screen.getByLabelText('Kolom ‘Referentie’ wordt')).getAllByRole('option').map((o) => o.textContent);
+    fireEvent.click(col('Referentie'));
+    const options = within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent);
     expect(options).toContain('Rekening van het bestand');
     expect(options).toContain('Munt');
     fireEvent.click(screen.getByRole('button', { name: 'Volgende' }));
@@ -298,8 +302,8 @@ describe('Importeren · wizard', () => {
     renderAt('/importeren');
     await toColumns();
     fireEvent.click(screen.getByRole('radio', { name: /Zichtrekening/ }));
-    fireEvent.change(screen.getByLabelText('Kolom ‘Munt’ wordt'), { target: { value: '' } });
-    fireEvent.change(screen.getByLabelText('Kolom ‘Rekening’ wordt'), { target: { value: '' } });
+    pick(col('Munt'), 'Negeren');
+    pick(col('Rekening'), 'Negeren');
     fireEvent.click(screen.getByRole('radio', { name: /Spaarrekening/ }));
     await quiet();
     expect(api.previewImport).toHaveBeenCalledTimes(1);
@@ -319,7 +323,7 @@ describe('Importeren · wizard', () => {
     // A changed account or mapping is checked again, once.
     fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
     fireEvent.click(screen.getByRole('radio', { name: /Zichtrekening/ }));
-    fireEvent.change(screen.getByLabelText('Kolom ‘Munt’ wordt'), { target: { value: 'currency' } });
+    pick(col('Munt'), 'Munt');
     fireEvent.click(next());
     await waitFor(() => expect(api.previewImport).toHaveBeenCalledTimes(3));
     expect(api.previewImport.mock.calls[2][1]).toEqual({ accountId: ZICHT.id, mapping: { ...MAPPING, account: null } });
@@ -480,7 +484,7 @@ describe('Importeren · wizard', () => {
     const api = stubApi({ accounts: [ZICHT] });
     renderAt('/importeren');
     await toColumns();
-    for (const name of ['Rekening', 'Munt']) fireEvent.change(screen.getByLabelText('Kolom ‘' + name + '’ wordt'), { target: { value: '' } });
+    for (const name of ['Rekening', 'Munt']) pick(col(name), 'Negeren');
     expect(screen.queryByText(/Kies nog een kolom/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Volgende' }));
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });

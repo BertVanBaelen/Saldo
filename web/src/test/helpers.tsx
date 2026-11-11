@@ -340,7 +340,10 @@ export function stubApi(s: Stub = {}) {
     removeConnection: vi.spyOn(api, 'removeConnection').mockImplementation(async (_id, history) => (history === 'delete' ? { deleted: [1], kept: [4] } : { deleted: [], kept: [1, 4] })),
     // Categorieën en regels (0.4-4): answers like the server, from the stub's lists.
     suggestions: vi.spyOn(api, 'suggestions').mockImplementation(async () => structuredClone(s.suggestions ?? [])),
-    confirmSuggestion: vi.spyOn(api, 'confirmSuggestion').mockImplementation(async (key) => ({ updated: (s.suggestions ?? []).find((x) => x.counterpartyKey === key)?.open ?? 0 })),
+    confirmSuggestion: vi.spyOn(api, 'confirmSuggestion').mockImplementation(async (key) => ({
+      updated: (s.suggestions ?? []).find((x) => x.counterpartyKey === key)?.open ?? 0,
+      rule: { id: 12, created: true, conflict: false },
+    })),
     dismissSuggestion: vi.spyOn(api, 'dismissSuggestion').mockResolvedValue(null),
     createCategory: vi.spyOn(api, 'createCategory').mockImplementation(async (b) => {
       const parent = b.parentId === undefined ? undefined : (s.categories ?? CATEGORIES).find((c) => c.id === b.parentId);

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
+import { Select } from '../components/Select';
 import { accColour, isShared, manager, others } from '../lib/accounts';
 import { api, ApiError, errorMessage, isAbort } from '../lib/api';
 import { catColours, categoryLabel, plural, ruleConditions, skippedText } from '../lib/categories';
@@ -164,7 +165,7 @@ export function Info() {
         {step(2, 'Een regel', 'Anders de regel met de hoogste prioriteit die past.')}
         {step(3, 'Een suggestie', 'Anders wat Saldo leerde uit je eerdere keuzes.')}
       </ol>
-      <p className="ct-box">Een suggestie met lage zekerheid past Saldo nooit toe zonder jouw bevestiging. Bevestig je ze, dan krijgen de open transacties die categorie.</p>
+      <p className="ct-box">Een suggestie met lage zekerheid past Saldo nooit toe zonder jouw bevestiging. Bevestig je ze, dan krijgen de open transacties die categorie en maakt Saldo er een regel van voor nieuwe transacties op je persoonlijke rekeningen.</p>
     </div>
   );
 }
@@ -283,19 +284,19 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
         <label className="ct-label" htmlFor={id('place')}>
           Plaats
         </label>
-        <select className="input ct-select" id={id('place')} value={place} disabled={k > 0} onChange={(e) => setPlace(e.target.value)}>
-          <option value="top-expense">Hoofdcategorie bij Uitgaven</option>
-          <option value="top-income">Hoofdcategorie bij Inkomsten</option>
-          <optgroup label="Subcategorie van">
-            {tree
+        <Select
+          id={id('place')}
+          value={place}
+          disabled={k > 0}
+          onChange={setPlace}
+          options={[
+            { value: 'top-expense', label: 'Hoofdcategorie bij Uitgaven' },
+            { value: 'top-income', label: 'Hoofdcategorie bij Inkomsten' },
+            ...tree
               .filter((x) => x.parentId === null && x.id !== c?.id)
-              .map((x) => (
-                <option key={x.id} value={String(x.id)}>
-                  {x.name + (x.type === 'income' ? ' (inkomsten)' : '')}
-                </option>
-              ))}
-          </optgroup>
-        </select>
+              .map((x) => ({ value: String(x.id), label: x.name + (x.type === 'income' ? ' (inkomsten)' : ''), group: 'Subcategorie van' })),
+          ]}
+        />
         <span className="ct-help">{k ? 'Verplaats eerst de ' + plural(k, 'subcategorie', 'subcategorieën') + '. Saldo heeft twee niveaus.' : 'Twee niveaus: hoofdcategorie en subcategorie.'}</span>
       </div>
       <div className="ct-field">
@@ -411,8 +412,8 @@ export function DelEditor({ mode, cat: c, tree, rules, counts, onDone, onCancel,
     const t = target ? 'kiest voortaan ' + target.name : null;
     ruleNote =
       used === 1
-        ? '1 regel kiest ' + c.name + '. ' + (t ? 'Die ' + t + '.' : 'Die regel wordt verwijderd.')
-        : used + ' regels kiezen ' + c.name + '. ' + (target ? 'Die kiezen voortaan ' + target.name + '.' : 'Die regels worden verwijderd.');
+        ? 'Je 1 regel kiest ' + c.name + '. ' + (t ? 'Die ' + t + '.' : 'Die regel wordt verwijderd.')
+        : 'Je ' + used + ' regels kiezen ' + c.name + '. ' + (target ? 'Die kiezen voortaan ' + target.name + '.' : 'Die regels worden verwijderd.');
   }
   const q = c.count ? 'Waar gaan je ' + plural(c.count, 'transactie', 'transacties') + ' naartoe?' : 'Je hebt geen transacties in ' + c.name + '. Kies waar die van andere gebruikers naartoe gaan.';
   const sub = (parent ? parent.name + ' › ' + c.name : c.name) + (counts ? ' · ' + plural(c.count, 'transactie', 'transacties') + ' van jou' : '');
@@ -459,13 +460,14 @@ export function DelEditor({ mode, cat: c, tree, rules, counts, onDone, onCancel,
                 <label className="visually-hidden" htmlFor={id('other')}>
                   Andere categorie
                 </label>
-                <select className="input ct-select ct-radio-select" id={id('other')} value={other} disabled={to !== 'other'} onChange={(e) => setOther(Number(e.target.value))}>
-                  {others.map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {categoryLabel(x, byId)}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  className="ct-radio-select"
+                  id={id('other')}
+                  value={String(other)}
+                  disabled={to !== 'other'}
+                  onChange={(v) => setOther(Number(v))}
+                  options={others.map((x) => ({ value: String(x.id), label: categoryLabel(x, byId) }))}
+                />
               </>,
             )}
           {radio('none', 'Niet gecategoriseerd', 'Ze komen bij Te categoriseren in Transacties')}
@@ -548,14 +550,14 @@ export function draftOf(r: Rule | null, from?: Suggestion): RuleDraft {
       apply: false,
     };
   }
-  return { exact: false, cp: from?.counterparty ?? '', iban: '', comm: '', regex: false, minIn: '', maxIn: '', categoryId: from?.categoryId ?? null, accountId: null, apply: !!from };
+  return { exact: !!from, cp: from?.counterparty ?? '', iban: '', comm: '', regex: false, minIn: '', maxIn: '', categoryId: from?.categoryId ?? null, accountId: null, apply: !!from };
 }
 
 const hasCondition = (d: RuleDraft) => !!(d.cp.trim() || d.iban.trim() || d.comm.trim() || d.minIn.trim() || d.maxIn.trim());
 
 /**
  * The body for the API. The IBAN of a stored rule only comes back masked: unchanged it is left out (a PATCH
- * keeps it; `ibanHidden`), emptied it is cleared.
+ * and the preview, which gets `ruleId`, use the stored one; `ibanHidden`), emptied it is cleared.
  */
 export function inputOf(d: RuleDraft, r: Rule | null): { input: RuleInput; ibanHidden: boolean } {
   const min = ruleAmount(d.minIn);
@@ -633,8 +635,8 @@ export function RuleEditor({ mode, rule: r, from, rules, tree, accounts, onSaved
   // Live preview: debounced, the stale request aborted.
   const { input, ibanHidden } = inputOf(d, r);
   const amountsOk = !Number.isNaN(input.amountMin) && !Number.isNaN(input.amountMax);
-  const body = hasCondition(d) && amountsOk && !ibanHidden ? JSON.stringify({ ...input, accountId: d.accountId, ...(r ? { ruleId: r.id } : {}) }) : null;
-  const idleText = !hasCondition(d) ? IDLE : ibanHidden ? 'Typ het IBAN opnieuw om te zien op welke transacties de regel past.' : 'Vul een bedrag in euro in, bijvoorbeeld 20 of 19,99.';
+  const body = hasCondition(d) && amountsOk ? JSON.stringify({ ...input, accountId: d.accountId, ...(r ? { ruleId: r.id } : {}) }) : null;
+  const idleText = !hasCondition(d) ? IDLE : 'Vul een bedrag in euro in, bijvoorbeeld 20 of 19,99.';
   useEffect(() => {
     if (!body) {
       setPv({ kind: 'idle', text: idleText });
@@ -857,48 +859,41 @@ export function RuleEditor({ mode, rule: r, from, rules, tree, accounts, onSaved
           <label className="ct-label" htmlFor={id('cat')}>
             Categorie
           </label>
-          <select
-            className="input ct-select"
+          <Select
             id={id('cat')}
-            value={d.categoryId ?? ''}
-            data-key="cat"
-            onChange={(e) => set({ categoryId: e.target.value ? Number(e.target.value) : null })}
-            {...invalid(id('cat-err'), err.cat)}
-          >
-            <option value="">Kies een categorie</option>
-            {(['expense', 'income'] as const).map((type) => (
-              <optgroup key={type} label={type === 'expense' ? 'Uitgaven' : 'Inkomsten'}>
-                {tree
-                  .filter((x) => x.type === type)
-                  .map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {categoryLabel(x, byId)}
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
-          </select>
+            value={d.categoryId === null ? '' : String(d.categoryId)}
+            dataKey="cat"
+            onChange={(v) => set({ categoryId: v ? Number(v) : null })}
+            invalid={!!err.cat}
+            describedBy={err.cat ? id('cat-err') : undefined}
+            options={[
+              { value: '', label: 'Kies een categorie' },
+              ...(['expense', 'income'] as const).flatMap((type) =>
+                tree.filter((x) => x.type === type).map((x) => ({ value: String(x.id), label: categoryLabel(x, byId), group: type === 'expense' ? 'Uitgaven' : 'Inkomsten' })),
+              ),
+            ]}
+          />
           <Err id={id('cat-err')} msg={err.cat} />
         </div>
         <div className="ct-field">
           <label className="ct-label" htmlFor={id('owner')}>
             Geldt voor
           </label>
-          <select
-            className="input ct-select"
+          <Select
             id={id('owner')}
-            value={d.accountId ?? ''}
+            value={d.accountId === null ? '' : String(d.accountId)}
             disabled={!!r}
-            aria-describedby={id('owner-help')}
-            onChange={(e) => set({ accountId: e.target.value ? Number(e.target.value) : null })}
-          >
-            <option value="">Al je persoonlijke rekeningen</option>
-            {owners.map((a) => (
-              <option key={a.id} value={a.id} disabled={a.permission !== 'edit'}>
-                {a.name + (isShared(a) && others(a).length ? ' · met ' + names(others(a).map((m) => m.name)) : '') + (a.permission !== 'edit' ? ' (alleen lezen)' : '')}
-              </option>
-            ))}
-          </select>
+            describedBy={id('owner-help')}
+            onChange={(v) => set({ accountId: v ? Number(v) : null })}
+            options={[
+              { value: '', label: 'Al je persoonlijke rekeningen' },
+              ...owners.map((a) => ({
+                value: String(a.id),
+                label: a.name + (isShared(a) && others(a).length ? ' · met ' + names(others(a).map((m) => m.name)) : '') + (a.permission !== 'edit' ? ' (alleen lezen)' : ''),
+                disabled: a.permission !== 'edit',
+              })),
+            ]}
+          />
           <span className="ct-help" id={id('owner-help')}>
             {ownerHelp(d.accountId, accounts)}
             {r && ' Voor wie een regel geldt, verandert niet: maak daarvoor een nieuwe regel.'}
@@ -909,13 +904,7 @@ export function RuleEditor({ mode, rule: r, from, rules, tree, accounts, onSaved
             <label className="ct-label" htmlFor={id('prio')}>
               Prioriteit
             </label>
-            <select className="input ct-select" id={id('prio')} value={prio} onChange={(e) => setPrio(Number(e.target.value))}>
-              {prioOpts.map((o) => (
-                <option key={o.i} value={o.i}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <Select id={id('prio')} value={String(prio)} onChange={(v) => setPrio(Number(v))} options={prioOpts.map((o) => ({ value: String(o.i), label: o.label }))} />
             <span className="ct-help">1 is de hoogste. Passen twee regels op dezelfde transactie, dan wint de hoogste.</span>
           </div>
         )}
@@ -943,7 +932,7 @@ export function RuleEditor({ mode, rule: r, from, rules, tree, accounts, onSaved
         <span>
           <strong>Ook toepassen op bestaande transacties</strong>
           <br />
-          <span className="muted">(handmatige keuzes blijven altijd staan)</span>
+          <span className="muted">(handmatige keuzes, imports en splitsingen blijven staan)</span>
         </span>
       </label>
       {err.form && (

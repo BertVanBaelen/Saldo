@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api';
 import type { Account, Rule, Suggestion, TreeCategory } from '../lib/types';
 import { ACCOUNTS, CATEGORIES, GEDEELD, renderAt, RULES, stubApi } from '../test/helpers';
+import { choose } from '../test/select';
 import { draftOf, inputOf, previewText } from './CategorieenEditors';
 
 const toast = () => document.querySelector('.toast')?.textContent;
@@ -47,6 +48,9 @@ const SUGG: Suggestion[] = [
   { counterpartyKey: "frituur 't pleintje", counterparty: "Frituur 't Pleintje", categoryId: 3, confidence: 64, seen: 7, open: 1 },
   { counterpartyKey: 'apotheek van damme', counterparty: 'Apotheek Van Damme', categoryId: 6, confidence: 41, seen: 5, open: 1 },
 ];
+
+// What Bevestigen makes (the stub answers rule 12): the Regels list has it after the reload.
+const NEW_RULE = rule({ id: 12, accountId: null, priority: 0, counterparty: 'Bakkerij De Graankorrel', counterpartyExact: true, categoryId: 2 });
 
 const stub = (over: Parameters<typeof stubApi>[0] = {}) => stubApi({ categories: TREE, rules: LIST, suggestions: SUGG, accounts: ACCS, ...over });
 
@@ -180,7 +184,7 @@ describe('Categorieën en regels · Categorieën', () => {
 
     dialog = await sheetFor('Categorie toevoegen');
     fireEvent.change(dialog.getByRole('textbox', { name: 'Naam' }), { target: { value: 'Huurinkomsten' } });
-    fireEvent.change(dialog.getByRole('combobox', { name: 'Plaats' }), { target: { value: 'top-income' } });
+    choose(dialog.getByRole('combobox', { name: 'Plaats' }), 'Hoofdcategorie bij Inkomsten');
     expect(dialog.getByText('Inkomsten zijn altijd groen.')).toBeTruthy();
     fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
     await waitFor(() => expect(api.createCategory).toHaveBeenLastCalledWith({ name: 'Huurinkomsten', type: 'income' }));
@@ -202,13 +206,13 @@ describe('Categorieën en regels · Categorieën', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Energie/ }));
     await waitFor(() => expect((panel().getByRole('textbox', { name: 'Naam' }) as HTMLInputElement).value).toBe('Energie'));
     fireEvent.change(panel().getByRole('textbox', { name: 'Naam' }), { target: { value: 'Gas en elektriciteit' } });
-    fireEvent.change(panel().getByRole('combobox', { name: 'Plaats' }), { target: { value: 'top-expense' } });
+    choose(panel().getByRole('combobox', { name: 'Plaats' }), 'Hoofdcategorie bij Uitgaven');
     fireEvent.click(panel().getByRole('button', { name: 'Opslaan' }));
     await waitFor(() => expect(api.updateCategory).toHaveBeenLastCalledWith(10, { name: 'Gas en elektriciteit', parentId: null, colour: 'c1' }));
 
     fireEvent.click(screen.getByRole('button', { name: /^Vervoer/ }));
     await waitFor(() => expect((panel().getByRole('textbox', { name: 'Naam' }) as HTMLInputElement).value).toBe('Vervoer'));
-    fireEvent.change(panel().getByRole('combobox', { name: 'Plaats' }), { target: { value: '1' } });
+    choose(panel().getByRole('combobox', { name: 'Plaats' }), 'Wonen');
     fireEvent.click(panel().getByRole('button', { name: 'Opslaan' }));
     await waitFor(() => expect(api.updateCategory).toHaveBeenLastCalledWith(4, { parentId: 1 }));
   });
@@ -217,7 +221,7 @@ describe('Categorieën en regels · Categorieën', () => {
     stub();
     renderAt('/categorieen');
     const dialog = await sheetFor(/^Wonen/);
-    expect((dialog.getByRole('combobox', { name: 'Plaats' }) as HTMLSelectElement).disabled).toBe(true);
+    expect((dialog.getByRole('combobox', { name: 'Plaats' }) as HTMLButtonElement).disabled).toBe(true);
     expect(dialog.getByText('Verplaats eerst de 1 subcategorie. Saldo heeft twee niveaus.')).toBeTruthy();
     expect((dialog.getByRole('button', { name: 'Verwijderen' }) as HTMLButtonElement).disabled).toBe(true);
     expect(dialog.getByText('Verwijderen kan pas als er geen subcategorieën meer onder hangen.')).toBeTruthy();
@@ -245,7 +249,7 @@ describe('Categorieën en regels · remove a category', () => {
     await waitFor(() => expect(dialog.getByText('Energie verwijderen')).toBeTruthy());
     expect(dialog.getByRole('group', { name: 'Waar gaan je 12 transacties naartoe?' })).toBeTruthy();
     expect((dialog.getByRole('radio', { name: /^Naar Wonen/ }) as HTMLInputElement).checked).toBe(true);
-    expect((dialog.getByRole('combobox', { name: 'Andere categorie' }) as HTMLSelectElement).disabled).toBe(true);
+    expect((dialog.getByRole('combobox', { name: 'Andere categorie' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(dialog.getAllByRole('button', { name: 'Verwijderen' }).at(-1)!);
     await waitFor(() => expect(toast()).toBe('Energie verwijderd · 12 naar Wonen'));
     expect(api.deleteCategory).toHaveBeenCalledWith(10, 1);
@@ -261,12 +265,13 @@ describe('Categorieën en regels · remove a category', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Verwijderen' }));
     await waitFor(() => expect(dialog.getByRole('radio', { name: 'Naar een andere categorie' })).toBeTruthy());
     // Same type only: no income categories.
-    const other = dialog.getByRole('combobox', { name: 'Andere categorie' }) as HTMLSelectElement;
-    expect(Array.from(other.options).map((o) => o.textContent)).toEqual(['Wonen', 'Wonen › Energie', 'Vrije tijd', 'Vervoer', 'Abonnementen', 'Overig']);
-    fireEvent.change(other, { target: { value: '6' } });
-    expect(dialog.getByText('1 regel kiest Boodschappen. Die kiest voortaan Overig.')).toBeTruthy();
+    const other = dialog.getByRole('combobox', { name: 'Andere categorie' });
+    fireEvent.click(other);
+    expect(within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent)).toEqual(['Wonen', 'Wonen › Energie', 'Vrije tijd', 'Vervoer', 'Abonnementen', 'Overig']);
+    fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: 'Overig' }));
+    expect(dialog.getByText('Je 1 regel kiest Boodschappen. Die kiest voortaan Overig.')).toBeTruthy();
     fireEvent.click(dialog.getByRole('radio', { name: /^Niet gecategoriseerd/ }));
-    expect(dialog.getByText('1 regel kiest Boodschappen. Die regel wordt verwijderd.')).toBeTruthy();
+    expect(dialog.getByText('Je 1 regel kiest Boodschappen. Die regel wordt verwijderd.')).toBeTruthy();
     expect(dialog.getByText(/Transacties van andere gebruikers in Boodschappen gaan naar dezelfde plaats/)).toBeTruthy();
 
     // The server refuses "none" while a split part uses the category.
@@ -384,18 +389,21 @@ describe('Categorieën en regels · rule editor', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'is gelijk aan' }));
     expect(dialog.getByRole('button', { name: 'is gelijk aan' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.change(dialog.getByRole('textbox', { name: 'Bedrag van' }), { target: { value: '19,99' } });
-    const cat = dialog.getByRole('combobox', { name: 'Categorie' }) as HTMLSelectElement;
-    expect(Array.from(cat.querySelectorAll('optgroup')).map((g) => g.label)).toEqual(['Uitgaven', 'Inkomsten']);
-    expect(Array.from(cat.options).map((o) => o.textContent)).toContain('Wonen › Energie');
-    fireEvent.change(cat, { target: { value: '2' } });
-    const owner = dialog.getByRole('combobox', { name: 'Geldt voor' }) as HTMLSelectElement;
-    expect(Array.from(owner.options).map((o) => [o.textContent, o.disabled])).toEqual([
+    fireEvent.click(dialog.getByRole('combobox', { name: 'Categorie' }));
+    let list = within(screen.getByRole('listbox'));
+    expect(list.getByRole('group', { name: 'Uitgaven' })).toBeTruthy();
+    expect(list.getByRole('group', { name: 'Inkomsten' })).toBeTruthy();
+    expect(list.getByRole('option', { name: 'Wonen › Energie' })).toBeTruthy();
+    fireEvent.click(list.getByRole('option', { name: 'Boodschappen' }));
+    fireEvent.click(dialog.getByRole('combobox', { name: 'Geldt voor' }));
+    list = within(screen.getByRole('listbox'));
+    expect(list.getAllByRole('option').map((o) => [o.textContent, o.getAttribute('aria-disabled') === 'true'])).toEqual([
       ['Al je persoonlijke rekeningen', false],
       ['Zichtrekening', false],
       ['Gedeelde rekening · met Partner', false],
       ['Huishoudpot · met Partner (alleen lezen)', true],
     ]);
-    fireEvent.change(owner, { target: { value: '4' } });
+    fireEvent.click(list.getByRole('option', { name: 'Gedeelde rekening · met Partner' }));
     expect(dialog.getByText('Geldt voor Gedeelde rekening. Leden met Bewerken, zoals Partner, zien en wijzigen deze regel ook.')).toBeTruthy();
     expect(await dialog.findByText('Past op 9 transacties · 2 krijgen een andere categorie · 1 overgeslagen: 1 zelf gekozen')).toBeTruthy();
     fireEvent.click(dialog.getByRole('checkbox', { name: /Ook toepassen op bestaande transacties/ }));
@@ -421,14 +429,14 @@ describe('Categorieën en regels · rule editor', () => {
     renderAt('/categorieen?tab=regels');
     const dialog = await sheetFor(/^Prioriteit 1:/);
     expect(dialog.getByText('Gedeelde rekening · prioriteit 1')).toBeTruthy();
-    expect((dialog.getByRole('combobox', { name: 'Geldt voor' }) as HTMLSelectElement).disabled).toBe(true);
+    expect((dialog.getByRole('combobox', { name: 'Geldt voor' }) as HTMLButtonElement).disabled).toBe(true);
     expect((dialog.getByRole('textbox', { name: 'Bedrag van' }) as HTMLInputElement).value).toBe('20');
     fireEvent.change(dialog.getByRole('textbox', { name: 'Bedrag van' }), { target: { value: '' } });
     fireEvent.change(dialog.getByRole('textbox', { name: 'Bedrag tot' }), { target: { value: '' } });
-    const prio = dialog.getByRole('combobox', { name: 'Prioriteit' }) as HTMLSelectElement;
+    fireEvent.click(dialog.getByRole('combobox', { name: 'Prioriteit' }));
     // The places of the editable rules, in the list's numbers.
-    expect(Array.from(prio.options).map((o) => o.textContent)).toEqual(['1 · hoogste', '3', '4 · laagste']);
-    fireEvent.change(prio, { target: { value: '1' } });
+    expect(within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent)).toEqual(['1 · hoogste', '3', '4 · laagste']);
+    fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: '3' }));
     await waitFor(() => expect(api.previewRule).toHaveBeenCalledWith(expect.objectContaining({ ruleId: 3, accountId: 4, amountMin: null }), expect.anything()));
     fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
     await waitFor(() => expect(toast()).toBe('Regel opgeslagen'));
@@ -458,7 +466,7 @@ describe('Categorieën en regels · rule editor', () => {
     renderAt('/categorieen?tab=regels');
     const dialog = await sheetFor('Regel toevoegen');
     fireEvent.change(dialog.getByRole('textbox', { name: 'Tegenpartij' }), { target: { value: 'Delhaize' } });
-    fireEvent.change(dialog.getByRole('combobox', { name: 'Categorie' }), { target: { value: '2' } });
+    choose(dialog.getByRole('combobox', { name: 'Categorie' }), 'Boodschappen');
     const save = dialog.getByRole('button', { name: 'Opslaan' });
     fireEvent.click(save);
     fireEvent.click(save);
@@ -480,13 +488,14 @@ describe('Categorieën en regels · rule editor', () => {
     expect((panel().getByRole('textbox', { name: 'Tegenpartij' }) as HTMLInputElement).value).toBe('Bakkerij De Graankorrel');
     // Focus moves into the panel when opened on request.
     expect(document.activeElement).toBe(panel().getByRole('textbox', { name: 'Tegenpartij' }));
-    expect(panel().getByRole('button', { name: 'bevat' }).getAttribute('aria-pressed')).toBe('true');
-    expect((panel().getByRole('combobox', { name: 'Categorie' }) as HTMLSelectElement).value).toBe('2');
+    expect(panel().getByRole('button', { name: 'is gelijk aan' }).getAttribute('aria-pressed')).toBe('true');
+    expect(panel().getByRole('button', { name: 'bevat' }).getAttribute('aria-pressed')).toBe('false');
+    expect(panel().getByRole('combobox', { name: 'Categorie' }).textContent).toBe('Boodschappen');
     expect((panel().getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
     expect((await screen.findByText('Bakkerij De Graankorrel')).closest('article')!.className).toContain('is-on');
     fireEvent.click(panel().getByRole('button', { name: 'Opslaan' }));
     await waitFor(() => expect(toast()).toBe('Regel gemaakt · 3 bijgewerkt'));
-    expect(api.createRule).toHaveBeenCalledWith(expect.objectContaining({ counterparty: 'Bakkerij De Graankorrel', counterpartyExact: false, categoryId: 2, accountId: null }));
+    expect(api.createRule).toHaveBeenCalledWith(expect.objectContaining({ counterparty: 'Bakkerij De Graankorrel', counterpartyExact: true, categoryId: 2, accountId: null }));
     await waitFor(() => expect(api.suggestions).toHaveBeenCalledTimes(2));
     expect(await panel().findByText('Zo kiest Saldo een categorie')).toBeTruthy();
   });
@@ -511,6 +520,17 @@ describe('Categorieën en regels · preview', () => {
     expect('counterpartyIban' in inputOf(d, r).input).toBe(false);
     expect(inputOf({ ...d, iban: '' }, r).input.counterpartyIban).toBeNull();
     expect(inputOf({ ...d, iban: 'BE71096123456769' }, r).input.counterpartyIban).toBe('BE71096123456769');
+  });
+
+  it('previews a rule with a masked IBAN by its id, without the IBAN', async () => {
+    const api = stub({ rules: LIST.map((r) => (r.id === 5 ? { ...r, counterpartyIban: 'BE90 •••• •••• 0453' } : r)) });
+    renderAt('/categorieen?tab=regels&regel=5');
+    const dialog = within(await screen.findByRole('dialog', { name: 'Regel bewerken' }));
+    expect(await dialog.findByText('Past op 14 transacties · 3 krijgen een andere categorie')).toBeTruthy();
+    const body = api.previewRule.mock.calls[0][0];
+    expect(body).toMatchObject({ ruleId: 5, counterparty: 'TotalEnergies' });
+    expect(body).not.toHaveProperty('counterpartyIban');
+    expect(dialog.queryByText(/Typ het IBAN opnieuw/)).toBeNull();
   });
 
   it('debounces the preview, aborts the stale one and shows a bad pattern inline', async () => {
@@ -562,19 +582,22 @@ describe('Categorieën en regels · Suggesties', () => {
     expect(card('Apotheek Van Damme').getByText('Laag · 41 %')).toBeTruthy();
     expect(card('Apotheek Van Damme').getByText('Lage zekerheid: Saldo past dit niet toe zonder jouw bevestiging.')).toBeTruthy();
     expect(card('Bakkerij De Graankorrel').queryByText(/Lage zekerheid/)).toBeNull();
-    expect(screen.getByText(/voor nieuwe transacties maak je er een regel van/)).toBeTruthy();
+    expect(screen.getByText(/maakt een regel voor nieuwe transacties op je persoonlijke rekeningen/)).toBeTruthy();
   });
 
-  it('confirms and dismisses, removing the card and refreshing the counts', async () => {
+  it('confirms and dismisses, removing the card and refreshing the lists and counts', async () => {
     const api = stub();
     renderAt('/categorieen?tab=suggesties');
     const card = within((await screen.findByText('Bakkerij De Graankorrel')).closest('article')!);
     const shell = api.transactions.mock.calls.length;
+    api.rules.mockImplementation(async () => structuredClone([...LIST, NEW_RULE]));
     fireEvent.click(card.getByRole('button', { name: 'Bevestigen' }));
-    await waitFor(() => expect(toast()).toBe('2 transacties naar Boodschappen'));
+    await waitFor(() => expect(toast()).toBe('Regel gemaakt: Bakkerij De Graankorrel wordt Boodschappen · 2 transacties gecategoriseerd Regel openen'));
+    expect(screen.getByRole('link', { name: 'Regel openen' }).getAttribute('href')).toBe('/categorieen?tab=regels&regel=12');
     expect(api.confirmSuggestion).toHaveBeenCalledWith('bakkerij de graankorrel', 2);
     expect(screen.queryByText('Bakkerij De Graankorrel')).toBeNull();
     expect(screen.getByRole('tab', { name: /^Suggesties/ }).textContent).toBe('Suggesties2');
+    await waitFor(() => expect(screen.getByRole('tab', { name: /^Regels/ }).textContent).toBe('Regels5'));
     await waitFor(() => expect(api.transactions.mock.calls.length).toBeGreaterThan(shell));
     expect(api.categories).toHaveBeenCalledTimes(2);
     await waitFor(() => expect(document.activeElement?.textContent).toBe('Bevestigen'));
@@ -583,6 +606,34 @@ describe('Categorieën en regels · Suggesties', () => {
     await waitFor(() => expect(toast()).toBe('Genegeerd'));
     expect(api.dismissSuggestion).toHaveBeenCalledWith("frituur 't pleintje", 3);
     expect(screen.queryByText("Frituur 't Pleintje")).toBeNull();
+  });
+
+  it('says so when the viewer already has a rule for that counterparty with another category', async () => {
+    const api = stub();
+    api.confirmSuggestion.mockResolvedValueOnce({ updated: 2, rule: { id: 5, created: false, conflict: true } });
+    renderAt('/categorieen?tab=suggesties');
+    const card = within((await screen.findByText('Bakkerij De Graankorrel')).closest('article')!);
+    fireEvent.click(card.getByRole('button', { name: 'Bevestigen' }));
+    await waitFor(() => expect(toast()).toBe('Er is al een regel voor Bakkerij De Graankorrel met een andere categorie. Die blijft staan · 2 transacties gecategoriseerd Regel openen'));
+    expect(screen.getByRole('link', { name: 'Regel openen' }).getAttribute('href')).toBe('/categorieen?tab=regels&regel=5');
+  });
+
+  // The toast link is a plain route change while this page is open: Suggesties becomes Regels, the rule opens.
+  it.each([
+    ['phone', false],
+    ['wide screen', true],
+  ])('opens the rule from the toast link on the Regels tab (%s)', async (_, wide) => {
+    if (wide) desktop();
+    const api = stub();
+    renderAt('/categorieen?tab=suggesties');
+    api.rules.mockImplementation(async () => structuredClone([...LIST, NEW_RULE]));
+    const card = within((await screen.findByText('Bakkerij De Graankorrel')).closest('article')!);
+    fireEvent.click(card.getByRole('button', { name: 'Bevestigen' }));
+    fireEvent.click(await screen.findByRole('link', { name: 'Regel openen' }));
+    expect(screen.getByTestId('location').textContent).toBe('/categorieen?tab=regels&regel=12');
+    expect(screen.getByRole('tab', { name: /^Regels/ }).getAttribute('aria-selected')).toBe('true');
+    const ed = wide ? panel() : within(await screen.findByRole('dialog', { name: 'Regel bewerken' }));
+    await waitFor(() => expect((ed.getByRole('textbox', { name: 'Tegenpartij' }) as HTMLInputElement).value).toBe('Bakkerij De Graankorrel'));
   });
 
   it('shows the empty state, and the error with retry', async () => {

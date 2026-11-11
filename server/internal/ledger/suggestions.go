@@ -90,21 +90,38 @@ func groups(ctx context.Context, q categorise.DB, query string, viewer int64) ([
 	return out, rows.Err()
 }
 
+// SuggestionResult is the answer of POST /api/suggestions/confirm: the rows
+// categorised and the rule for the counterparty, nil when there is none to
+// report.
+type SuggestionResult struct {
+	Updated int             `json:"updated"`
+	Rule    *SuggestionRule `json:"rule"`
+}
+
+// SuggestionRule is the viewer's user rule for a confirmed counterparty:
+// created now, reused (neither flag), or Conflict: another category, left as it is.
+type SuggestionRule struct {
+	ID       int64 `json:"id"`
+	Created  bool  `json:"created"`
+	Conflict bool  `json:"conflict"`
+}
+
 // DecideSuggestion stores the viewer's decision on an offered suggestion,
 // state "confirmed" or "dismissed", in one database transaction. Confirming
 // first gives its open rows on the accounts the viewer may edit the category
-// (categorise.Confirm) and returns how many changed. A suggestion that is not
-// offered is apperr.ErrNotFound, unless the same decision is stored already
-// (a repeated request changes nothing).
-func (s *Store) DecideSuggestion(ctx context.Context, viewer int64, in SuggestionInput, state string) (int, error) {
+// (categorise.Confirm), then makes sure the viewer has a user rule for the
+// counterparty (confirmRule). A suggestion that is not offered is
+// apperr.ErrNotFound, unless the same decision is stored already (a repeated
+// request changes nothing).
+func (s *Store) DecideSuggestion(ctx context.Context, viewer int64, in SuggestionInput, state string) (SuggestionResult, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, err
+		return SuggestionResult{}, err
 	}
 	defer tx.Rollback()
 	list, err := suggestions(ctx, tx, viewer)
 	if err != nil {
-		return 0, err
+		return SuggestionResult{}, err
 	}
 	var found *categorise.Suggestion
 	for i := range list {
@@ -118,20 +135,23 @@ func (s *Store) DecideSuggestion(ctx context.Context, viewer int64, in Suggestio
 			viewer, in.CounterpartyKey, in.CategoryID).Scan(&stored)
 		switch {
 		case err == nil && stored == state:
-			return 0, nil
+			return SuggestionResult{}, nil
 		case err != nil && !errors.Is(err, sql.ErrNoRows):
-			return 0, err
+			return SuggestionResult{}, err
 		}
-		return 0, apperr.ErrNotFound
+		return SuggestionResult{}, apperr.ErrNotFound
 	}
-	n := 0
+	var out SuggestionResult
 	if state == "confirmed" {
 		accounts, err := editableAccounts(ctx, tx, viewer)
 		if err != nil {
-			return 0, err
+			return SuggestionResult{}, err
 		}
-		if n, err = categorise.Confirm(ctx, tx, accounts, found.CounterpartyKey, found.CategoryID); err != nil {
-			return 0, err
+		if out.Updated, err = categorise.Confirm(ctx, tx, accounts, found.CounterpartyKey, found.CategoryID); err != nil {
+			return SuggestionResult{}, err
+		}
+		if out.Rule, err = confirmRule(ctx, tx, viewer, *found); err != nil {
+			return SuggestionResult{}, err
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO category_suggestions (user_id, counterparty_key, category_id, confidence, times_seen, state)
@@ -140,7 +160,31 @@ func (s *Store) DecideSuggestion(ctx context.Context, viewer int64, in Suggestio
 		    confidence = excluded.confidence, times_seen = excluded.times_seen, state = excluded.state,
 		    updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
 		viewer, found.CounterpartyKey, found.CategoryID, found.Confidence, found.Seen, state); err != nil {
-		return 0, err
+		return SuggestionResult{}, err
 	}
-	return n, tx.Commit()
+	return out, tx.Commit()
+}
+
+// confirmRule makes sure the viewer has a user rule "counterparty is equal
+// to" for a confirmed suggestion: an equivalent one (the first user rule whose
+// only condition is that counterparty) is reused, and when its category is
+// another one it is left as it is and reported as a conflict. The rule is not
+// run: the confirm categorised the rows that waited. nil: a name that rule
+// text cannot hold, no rule.
+func confirmRule(ctx context.Context, tx *sql.Tx, viewer int64, found categorise.Suggestion) (*SuggestionRule, error) {
+	cp := ruleCounterparty(found.Counterparty)
+	if categorise.Normalise(cp) != found.CounterpartyKey {
+		return nil, nil
+	}
+	r, existing, err := counterpartyRule(ctx, tx, categorise.Rule{UserID: viewer, Counterparty: cp}, true)
+	if err != nil {
+		return nil, err
+	}
+	if !existing {
+		if r, err = createRule(ctx, tx, viewer, RuleInput{Counterparty: Opt[string]{Set: true, V: cp},
+			CounterpartyExact: Opt[bool]{Set: true, V: true}, CategoryID: Opt[int64]{Set: true, V: found.CategoryID}}); err != nil {
+			return nil, err
+		}
+	}
+	return &SuggestionRule{ID: r.ID, Created: !existing, Conflict: r.CategoryID != found.CategoryID}, nil
 }

@@ -160,6 +160,13 @@ func TestRulePreviewChecks(t *testing.T) {
 	if got := p.preview(p.bert, `{"ruleId":`+ruleID+`,"counterparty":"kraam proefstad","categoryId":2}`); got.Changes != 1 || got.Skipped.Rule != 0 {
 		t.Errorf("draft in place of the stored rule: %+v", got)
 	}
+	// The editor only has the masked IBAN: a draft that leaves it out keeps the stored one.
+	iban := p.newRule(p.bert, `{"counterpartyIban":"BE68539007547034","categoryId":5}`)
+	p.exec(`UPDATE transactions SET counterparty_iban = 'BE68539007547034' WHERE id = ?`, p.addRow(1, "Met Iban", -1000, "booked", nil, nil))
+	p.exec(`UPDATE transactions SET counterparty_iban = 'BE71096123456769' WHERE id = ?`, p.addRow(1, "Andere Iban", -1000, "booked", nil, nil))
+	if got := p.preview(p.bert, `{"ruleId":`+strconv.FormatInt(iban, 10)+`,"categoryId":5}`); got.Matches != 1 || got.Changes != 1 {
+		t.Errorf("draft without the IBAN of the stored rule: %+v", got)
+	}
 	// A pathological pattern is harmless: RE2 is linear.
 	start := time.Now()
 	if got := p.preview(p.bert, `{"communication":"(x+x+)+y","communicationRegex":true}`); got.Matches != 0 {

@@ -312,8 +312,6 @@
 .ct-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; }
 .ct-editor .input { border-color: var(--line); }
 .ct-editor .input[aria-invalid="true"] { border-color: var(--neg); }
-.ct-select { padding: 0 10px; }
-.ct-select:disabled { opacity: 0.6; }
 .ct-mono { font-family: var(--mono); }
 .ct-help { font-size: 12px; line-height: 1.45; color: var(--muted); }
 .ct-err { font-size: 13px; line-height: 1.4; color: var(--negText); }

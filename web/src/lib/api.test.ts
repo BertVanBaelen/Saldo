@@ -250,9 +250,10 @@ describe('categorisation calls', () => {
     await expect(api.suggestions()).resolves.toEqual(list);
     expect(sent(get)).toEqual({ url: '/api/suggestions', method: 'GET', body: undefined });
 
-    const confirm = respond(200, { updated: 1 });
+    const answer = { updated: 1, rule: { id: 12, created: true, conflict: false } };
+    const confirm = respond(200, answer);
     vi.stubGlobal('fetch', confirm);
-    await expect(api.confirmSuggestion('bakkerij de graankorrel', 2)).resolves.toEqual({ updated: 1 });
+    await expect(api.confirmSuggestion('bakkerij de graankorrel', 2)).resolves.toEqual(answer);
     expect(sent(confirm)).toEqual({ url: '/api/suggestions/confirm', method: 'POST', body: { counterpartyKey: 'bakkerij de graankorrel', categoryId: 2 } });
 
     const dismiss = noContent();

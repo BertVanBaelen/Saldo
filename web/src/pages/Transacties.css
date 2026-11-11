@@ -530,14 +530,7 @@
   pointer-events: none;
 }
 .tx-part-dot--empty { border: 1.5px dashed var(--muted); }
-.tx-select {
-  appearance: none; -webkit-appearance: none;
-  padding: 0 30px 0 32px;
-  border-color: var(--line);
-  font-size: 14px;
-  text-overflow: ellipsis;
-}
-.tx-part-cat svg { position: absolute; right: 10px; top: 14px; color: var(--muted); pointer-events: none; }
+.tx-select { padding: 0 10px 0 32px; border-color: var(--line); font-size: 14px; } /* left room for the dot; the Select draws its own chevron */
 .tx-money { position: relative; }
 .tx-money span { position: absolute; left: 11px; top: 12px; font-family: var(--mono); font-size: 14px; color: var(--muted); pointer-events: none; }
 .tx-money-input { padding: 0 10px 0 26px; text-align: right; font-family: var(--mono); font-size: 15px; border-color: var(--line); }

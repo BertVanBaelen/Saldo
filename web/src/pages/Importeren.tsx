@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type R
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
+import { Select } from '../components/Select';
 import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
 import { accColour, accountIcon, syncLine } from '../lib/accounts';
 import { api, ApiError, errorMessage, isAbort } from '../lib/api';
@@ -673,26 +674,13 @@ export function Importeren() {
                   <Icon name="chevron" size={16} stroke={2} />
                 </span>
                 <div className="im-colrow-sel">
-                  <span className="im-sel">
-                    <select
-                      className="im-select"
-                      aria-label={'Kolom ‘' + name + '’ wordt'}
-                      aria-invalid={err || undefined}
-                      value={f}
-                      onChange={(e) => {
-                        const v = e.target.value as ImportField | '';
-                        setCols((c) => c.map((x, j) => (j === i ? v : x)));
-                      }}
-                    >
-                      <option value="">Negeren</option>
-                      {FIELDS.map((o) => (
-                        <option key={o.key} value={o.key}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    <Icon name="chevron" size={16} stroke={2.4} />
-                  </span>
+                  <Select
+                    label={'Kolom ‘' + name + '’ wordt'}
+                    invalid={err}
+                    value={f}
+                    onChange={(v) => setCols((c) => c.map((x, j) => (j === i ? (v as ImportField | '') : x)))}
+                    options={[{ value: '', label: 'Negeren' }, ...FIELDS.map((o) => ({ value: o.key, label: o.label }))]}
+                  />
                   {err && <span className="im-err">Ook gekozen bij een andere kolom</span>}
                 </div>
                 <div className="im-colrow-read">

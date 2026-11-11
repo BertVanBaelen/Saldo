@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
+	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 )
 
 func (p *pair) suggestion(h func(string, string, string) response, key string) *categorise.Suggestion {
@@ -81,7 +82,7 @@ func TestSuggestions(t *testing.T) {
 
 	// Partner confirms hers: only her editable account changes.
 	body := `{"counterpartyKey":"` + key + `","categoryId":5}`
-	if r := p.partner("POST", "/api/suggestions/confirm", body); r.status != 200 || r.body != "{\"updated\":1}\n" {
+	if r := p.partner("POST", "/api/suggestions/confirm", body); r.status != 200 || decode[ledger.SuggestionResult](t, r.body).Updated != 1 {
 		t.Fatalf("Partner's confirm: %d %s", r.status, r.body)
 	}
 	if p.row(herOpen) != "5:suggestion:-:-" || p.row(open[1]) != "-:-:-:-" {
@@ -94,7 +95,7 @@ func TestSuggestions(t *testing.T) {
 	}
 	// Bert confirms: every open row on his editable accounts, through Assign.
 	body = `{"counterpartyKey":"` + key + `","categoryId":16}`
-	if r := p.bert("POST", "/api/suggestions/confirm", body); r.status != 200 || r.body != "{\"updated\":3}\n" {
+	if r := p.bert("POST", "/api/suggestions/confirm", body); r.status != 200 || decode[ledger.SuggestionResult](t, r.body).Updated != 3 {
 		t.Fatalf("confirm: %d %s", r.status, r.body)
 	}
 	for _, id := range open {
@@ -109,7 +110,7 @@ func TestSuggestions(t *testing.T) {
 	}
 	// Twice: 200 and nothing more; never offered again, also not for a new row.
 	after := p.dump()
-	if r := p.bert("POST", "/api/suggestions/confirm", body); r.status != 200 || r.body != "{\"updated\":0}\n" || p.dump() != after {
+	if r := p.bert("POST", "/api/suggestions/confirm", body); r.status != 200 || r.body != "{\"updated\":0,\"rule\":null}\n" || p.dump() != after {
 		t.Errorf("second confirm: %d %s", r.status, r.body)
 	}
 	late := p.addRow(1, "Bakkerij Graanveld Proef", -350, "booked", nil, nil)
@@ -158,4 +159,68 @@ func TestSuggestions(t *testing.T) {
 	if p.row(kiosk) != "-:-:-:-" {
 		t.Error("a dismissed suggestion was confirmed")
 	}
+}
+
+// Confirming also makes the viewer's rule "counterparty is equal to": made,
+// reused, or, with another category, left as it is.
+func TestSuggestionConfirmMakesRule(t *testing.T) {
+	// offer trains two manual rows in category 6 and leaves two open rows.
+	offer := func(p *pair, name string) (body string, open []int64) {
+		for range 2 {
+			p.addRow(1, name, -100, "booked", 6, "manual")
+			open = append(open, p.addRow(1, name, -100, "booked", nil, nil))
+		}
+		return `{"counterpartyKey":"` + strings.ToLower(name) + `","categoryId":6}`, open
+	}
+	confirm := func(p *pair, body string) ledger.SuggestionResult {
+		r := p.bert("POST", "/api/suggestions/confirm", body)
+		if r.status != http.StatusOK {
+			t.Fatalf("confirm: %d %s", r.status, r.body)
+		}
+		return decode[ledger.SuggestionResult](t, r.body)
+	}
+
+	t.Run("creates", func(t *testing.T) {
+		p := newPair(t)
+		body, open := offer(p, "Kraam Een")
+		res := confirm(p, body)
+		if res.Updated != 2 || res.Rule == nil || !res.Rule.Created || res.Rule.Conflict {
+			t.Fatalf("answer %+v %+v", res, res.Rule)
+		}
+		if p.count(`SELECT COUNT(*) FROM rules WHERE id = ? AND user_id = 1 AND account_id IS NULL AND counterparty_exact = 1
+			AND counterparty_match = 'Kraam Een' AND category_id = 6`, res.Rule.ID) != 1 {
+			t.Error("the rule is not a user rule 'is equal to' Kraam Een in category 6")
+		}
+		for _, id := range open {
+			if got := p.row(id); got != "6:suggestion:-:-" {
+				t.Errorf("open row %d: %s", id, got)
+			}
+		}
+	})
+	t.Run("reuses an equivalent rule", func(t *testing.T) {
+		p := newPair(t)
+		body, _ := offer(p, "Kraam Twee")
+		id := p.newRule(p.bert, `{"counterparty":"kraam twee","counterpartyExact":true,"categoryId":6}`)
+		before := p.count(`SELECT COUNT(*) FROM rules`)
+		res := confirm(p, body)
+		if res.Updated != 2 || res.Rule == nil || *res.Rule != (ledger.SuggestionRule{ID: id}) || p.count(`SELECT COUNT(*) FROM rules`) != before {
+			t.Errorf("answer %+v %+v, rules %d before", res, res.Rule, before)
+		}
+	})
+	t.Run("leaves a rule with another category", func(t *testing.T) {
+		p := newPair(t)
+		body, open := offer(p, "Kraam Drie")
+		id := p.newRule(p.bert, `{"counterparty":"kraam drie","categoryId":5}`)
+		before := p.count(`SELECT COUNT(*) FROM rules`)
+		res := confirm(p, body)
+		if res.Updated != 2 || res.Rule == nil || *res.Rule != (ledger.SuggestionRule{ID: id, Conflict: true}) || p.count(`SELECT COUNT(*) FROM rules`) != before {
+			t.Errorf("answer %+v %+v, rules %d before", res, res.Rule, before)
+		}
+		if p.count(`SELECT COUNT(*) FROM rules WHERE id = ? AND category_id = 5`, id) != 1 {
+			t.Error("the rule's category changed")
+		}
+		if got := p.row(open[0]); got != "6:suggestion:-:-" {
+			t.Errorf("open row: %s", got)
+		}
+	})
 }

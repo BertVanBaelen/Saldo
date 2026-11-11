@@ -6,6 +6,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
+import { Select, type SelectOption } from '../components/Select';
 import { accColour, isShared, manager } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { catColours, categoryLabel, groupTree, plural, ruleLabel, skippedText, splitState, toParts, type SplitDraft, type TreeGroup } from '../lib/categories';
@@ -117,44 +118,31 @@ function CatSelect(p: {
   groups: { expense: TreeGroup[]; income: TreeGroup[] };
   byId: ReadonlyMap<number, TreeCategory>;
   dataKey: string;
-  blocked?: boolean;
   onPick: (id: number | null) => void;
 }) {
   const c = p.value !== null ? p.byId.get(p.value) : undefined;
+  const options: SelectOption[] = [{ value: '', label: p.placeholder }];
+  for (const type of ['expense', 'income'] as const) {
+    const group = type === 'expense' ? 'Uitgaven' : 'Inkomsten';
+    for (const g of p.groups[type]) {
+      options.push({ value: String(g.top.id), label: g.top.name, group });
+      for (const s of g.subs) options.push({ value: String(s.id), label: g.top.name + ' › ' + s.name, group });
+    }
+  }
   return (
     <div className="tx-part-cat">
       <i className={'tx-part-dot' + (c ? '' : ' tx-part-dot--empty')} style={c ? { background: catColours(c.colour).bg } : undefined} aria-hidden="true" />
       <label className="visually-hidden" htmlFor={p.id}>
         {p.label}
       </label>
-      <select
-        className="input tx-select"
+      <Select
+        className="tx-select"
         id={p.id}
-        data-key={p.dataKey}
-        value={p.value ?? ''}
-        aria-disabled={p.blocked || undefined}
-        onChange={(e) => p.onPick(e.target.value ? Number(e.target.value) : null)}
-      >
-        <option value="">{p.placeholder}</option>
-        {(['expense', 'income'] as const).map(
-          (type) =>
-            p.groups[type].length > 0 && (
-              <optgroup key={type} label={type === 'expense' ? 'Uitgaven' : 'Inkomsten'}>
-                {p.groups[type].flatMap((g) => [
-                  <option key={g.top.id} value={g.top.id}>
-                    {g.top.name}
-                  </option>,
-                  ...g.subs.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {g.top.name + ' › ' + s.name}
-                    </option>
-                  )),
-                ])}
-              </optgroup>
-            ),
-        )}
-      </select>
-      <Icon name="chevronDown" size={16} stroke={2.4} />
+        dataKey={p.dataKey}
+        value={p.value === null ? '' : String(p.value)}
+        options={options}
+        onChange={(v) => p.onPick(v ? Number(v) : null)}
+      />
     </div>
   );
 }
@@ -572,7 +560,6 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
             groups={groups}
             byId={byId}
             dataKey="pick-all"
-            blocked={off}
             onPick={pick}
           />
         </>

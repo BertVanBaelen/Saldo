@@ -116,8 +116,16 @@ export function Shell() {
       </main>
       <TabBar active={active} />
       {current && (
-        <div className="toast" role="status" key={current.id}>
+        <div className={'toast' + (current.action ? ' toast--action' : '')} role="status" key={current.id}>
           {current.text}
+          {current.action && (
+            <>
+              {' '}
+              <Link className="toast-link" to={current.action.to}>
+                {current.action.label}
+              </Link>
+            </>
+          )}
         </div>
       )}
     </div>

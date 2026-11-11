@@ -7,6 +7,8 @@ import type { Alert, Me, Scope, SyncStatus, Theme, User } from '../lib/types';
 export interface Toast {
   id: number;
   text: string;
+  /** A link in the toast (longer on screen): `to` is a router path. */
+  action?: { label: string; to: string };
 }
 
 export interface AppContextValue {
@@ -18,7 +20,7 @@ export interface AppContextValue {
   setScope: (s: Scope) => void;
   theme: Theme;
   setTheme: (t: Theme) => void;
-  toast: (text: string) => void;
+  toast: (text: string, action?: Toast['action']) => void;
   current: Toast | null;
   online: boolean;
   /** When the figures on screen were last loaded from the server. */
@@ -104,11 +106,11 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
 
   useEffect(() => applyTheme(theme), [theme]);
 
-  const toast = useCallback((text: string) => {
+  const toast = useCallback((text: string, action?: Toast['action']) => {
     window.clearTimeout(toastTimer.current);
     toastId.current += 1;
-    setCurrent({ id: toastId.current, text });
-    toastTimer.current = window.setTimeout(() => setCurrent(null), 2700);
+    setCurrent({ id: toastId.current, text, action });
+    toastTimer.current = window.setTimeout(() => setCurrent(null), action ? 6000 : 2700);
   }, []);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 

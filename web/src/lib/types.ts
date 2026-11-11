@@ -235,6 +235,13 @@ export interface Suggestion {
   open: number;
 }
 
+/** POST /api/suggestions/confirm: the rows categorised, and the rule Saldo made or found (null: nothing to report). */
+export interface SuggestionConfirmed {
+  updated: number;
+  /** `created`: a new rule; else an equal one was reused, or (`conflict`) the viewer's rule for this counterparty has another category and stays as it is. */
+  rule: { id: number; created: boolean; conflict: boolean } | null;
+}
+
 /** Rows that match a rule but stay as they are, by reason. */
 export interface SkippedCounts {
   manual: number;

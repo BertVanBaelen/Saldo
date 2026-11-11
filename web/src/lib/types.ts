@@ -149,6 +149,8 @@ export interface TreeCategory {
   name: string;
   type: 'expense' | 'income';
   colour: CategoryColour;
+  /** A name of CATEGORY_ICONS; `null` (or an unknown name) shows as `tag`. */
+  icon: string | null;
   parentId: number | null;
   count: number;
 }
@@ -178,6 +180,8 @@ export interface NewCategory {
   type?: TreeCategory['type'];
   colour?: CategoryColour;
   parentId?: number;
+  /** A name of CATEGORY_ICONS; the server answers 400 for an unknown one. */
+  icon?: string;
 }
 
 /** PATCH /api/categories/{id}: `parentId: null` makes it a top category. */
@@ -186,6 +190,8 @@ export interface CategoryPatch {
   parentId?: number | null;
   type?: TreeCategory['type'];
   colour?: CategoryColour;
+  /** `null` or `''` clears it (shows as `tag`). */
+  icon?: string | null;
 }
 
 /**

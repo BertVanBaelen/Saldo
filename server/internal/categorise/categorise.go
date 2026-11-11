@@ -34,24 +34,27 @@ type DB interface {
 
 // Default is one top category of the default tree with its subcategories.
 type Default struct {
-	Name, Type, Colour string
-	Subs               []string
+	Name, Type, Colour, Icon string
+	Subs                     []Sub
 }
+
+// Sub is a default subcategory; it takes its parent's type and colour.
+type Sub struct{ Name, Icon string }
 
 // Defaults is the Dutch default tree of the design (finance-mockup
 // categorieen.js, TREE). Expense tops come first: their ids are 1..6, the
 // income tops 7..10, then the subcategories in this order.
 var Defaults = []Default{
-	{"Wonen", "expense", "c1", []string{"Huur", "Energie", "Internet en tv", "Verzekeringen"}},
-	{"Boodschappen", "expense", "c2", []string{"Supermarkt", "Bakker"}},
-	{"Vrije tijd", "expense", "c3", []string{"Uitgaan", "Sport", "Cultuur", "Vakantie"}},
-	{"Vervoer", "expense", "c4", []string{"Brandstof", "Openbaar vervoer", "Onderhoud"}},
-	{"Abonnementen", "expense", "c5", []string{"Streaming", "Telefoon"}},
-	{"Overig", "expense", "c6", nil},
-	{"Salaris", "income", "soft", nil},
-	{"Terugbetaling", "income", "soft", nil},
-	{"Bijdrage", "income", "soft", nil},
-	{"Overig inkomen", "income", "soft", nil},
+	{"Wonen", "expense", "c1", "home", []Sub{{"Huur", "home"}, {"Energie", "bolt"}, {"Internet en tv", "wifi"}, {"Verzekeringen", "shield"}}},
+	{"Boodschappen", "expense", "c2", "cart", []Sub{{"Supermarkt", "cart"}, {"Bakker", "food"}}},
+	{"Vrije tijd", "expense", "c3", "ticket", []Sub{{"Uitgaan", "beer"}, {"Sport", "sport"}, {"Cultuur", "film"}, {"Vakantie", "plane"}}},
+	{"Vervoer", "expense", "c4", "car", []Sub{{"Brandstof", "fuel"}, {"Openbaar vervoer", "bus"}, {"Onderhoud", "wrench"}}},
+	{"Abonnementen", "expense", "c5", "repeat", []Sub{{"Streaming", "tv"}, {"Telefoon", "phone"}}},
+	{"Overig", "expense", "c6", "dots", nil},
+	{"Salaris", "income", "soft", "salary", nil},
+	{"Terugbetaling", "income", "soft", "refund", nil},
+	{"Bijdrage", "income", "soft", "piggy", nil},
+	{"Overig inkomen", "income", "soft", "wallet", nil},
 }
 
 // seededKey marks in app_settings that the defaults were offered once.
@@ -69,23 +72,23 @@ func SeedDefaults(ctx context.Context, db DB) error {
 		return err
 	}
 	if !has {
-		q := `INSERT INTO categories (id, name, parent_id, type, colour, sort_order) VALUES `
+		q := `INSERT INTO categories (id, name, parent_id, type, colour, sort_order, icon) VALUES `
 		var args []any
-		add := func(id int, name string, parent any, typ, colour string, order int) {
+		add := func(id int, name string, parent any, typ, colour string, order int, icon string) {
 			if args != nil {
 				q += ", "
 			}
-			q += "(?, ?, ?, ?, ?, ?)"
-			args = append(args, id, name, parent, typ, colour, order)
+			q += "(?, ?, ?, ?, ?, ?, ?)"
+			args = append(args, id, name, parent, typ, colour, order, icon)
 		}
 		for i, d := range Defaults {
-			add(i+1, d.Name, nil, d.Type, d.Colour, i+1)
+			add(i+1, d.Name, nil, d.Type, d.Colour, i+1, d.Icon)
 		}
 		id := len(Defaults)
 		for i, d := range Defaults {
 			for j, sub := range d.Subs {
 				id++
-				add(id, sub, i+1, d.Type, d.Colour, j+1)
+				add(id, sub.Name, i+1, d.Type, d.Colour, j+1, sub.Icon)
 			}
 		}
 		if _, err := db.ExecContext(ctx, q, args...); err != nil {

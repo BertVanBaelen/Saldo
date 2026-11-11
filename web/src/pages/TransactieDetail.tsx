@@ -10,6 +10,7 @@ import { Select, type SelectOption } from '../components/Select';
 import { accColour, isShared, manager } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { catColours, categoryLabel, groupTree, plural, ruleLabel, skippedText, splitState, toParts, type SplitDraft, type TreeGroup } from '../lib/categories';
+import { categoryIcon } from '../lib/categoryIcons';
 import { dateFull, eur } from '../lib/format';
 import type { Account, Rule, SimilarPreview, Split, Transaction, TreeCategory } from '../lib/types';
 import type { AsyncState } from '../lib/useAsync';
@@ -125,13 +126,20 @@ function CatSelect(p: {
   for (const type of ['expense', 'income'] as const) {
     const group = type === 'expense' ? 'Uitgaven' : 'Inkomsten';
     for (const g of p.groups[type]) {
-      options.push({ value: String(g.top.id), label: g.top.name, group });
-      for (const s of g.subs) options.push({ value: String(s.id), label: g.top.name + ' › ' + s.name, group });
+      const lead = (c: TreeCategory) => <Icon name={categoryIcon(c.icon)} size={16} stroke={2.2} className="tx-opt-ico" />;
+      options.push({ value: String(g.top.id), label: g.top.name, group, lead: lead(g.top) });
+      for (const s of g.subs) options.push({ value: String(s.id), label: g.top.name + ' › ' + s.name, group, lead: lead(s) });
     }
   }
   return (
     <div className="tx-part-cat">
-      <i className={'tx-part-dot' + (c ? '' : ' tx-part-dot--empty')} style={c ? { background: catColours(c.colour).bg } : undefined} aria-hidden="true" />
+      {c ? (
+        <span className="tx-part-dot" style={{ background: catColours(c.colour).bg, color: catColours(c.colour).fg }} aria-hidden="true">
+          <Icon name={categoryIcon(c.icon)} size={12} stroke={2.4} />
+        </span>
+      ) : (
+        <i className="tx-part-dot tx-part-dot--empty" aria-hidden="true" />
+      )}
       <label className="visually-hidden" htmlFor={p.id}>
         {p.label}
       </label>
@@ -546,7 +554,7 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
                   style={on ? { background: bg, color: fg, borderColor: 'var(--text)' } : { borderColor: c.colour === 'soft' ? 'var(--softChip)' : bg }}
                   onClick={() => pick(c.id)}
                 >
-                  {on && <Icon name="check" size={sheet ? 15 : 14} stroke={3} />}
+                  {on ? <Icon name="check" size={sheet ? 15 : 14} stroke={3} /> : <Icon name={categoryIcon(c.icon)} size={sheet ? 15 : 14} stroke={2.4} />}
                   {c.name}
                 </button>
               );

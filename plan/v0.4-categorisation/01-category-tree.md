@@ -37,3 +37,6 @@ Server side; the contract is in [docs/api.md](../../docs/api.md), "Categories". 
 
 ## Decided (10 Nov 2026)
 - The default set stays the mockup tree, as built. The 0.5 import maps Bilance's two-level categories onto it ([0.5-3](../v0.5-bilance-import/03-category-mapping.md)); merging is the category removal with `moveTo`.
+
+## Added after 0.4 testing (11 Nov 2026): category icons (CAT-6)
+Every category and subcategory gets an icon; the colour stays that of the main category. Migration `0007_category_icons.sql` adds a nullable `icon TEXT` (no rebuild, no data change) and backfills the seeded default tree of an existing install by name and parent name where `icon IS NULL`; a renamed category stays `NULL` and the web shows `tag`. `categorise.Defaults` carries an icon for every default category and subcategory, so a new database starts with them. The allowed names are one Go list, `categorise.CategoryIcons` with `ValidIcon` (`server/internal/categorise/icons.go`, 49 names), mirrored in `web/src/lib/categoryIcons.ts`; a Go test fails when the two differ. API: `icon` (string or `null`) on every category; accepted on create and change, an unknown name answers `400`, `null` or `""` clears it, leaving it out of a change keeps it ([docs/api.md](../../docs/api.md), "Categories").

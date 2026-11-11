@@ -317,31 +317,33 @@ Imported rows are stored as booked rows through the sync's key path, with the ba
 
 ## Categories (phase 0.4-1)
 
-One category tree shared by every user (analysis 4.2): names, types and colours, never amounts. Anyone signed in may add, rename, move, recolour and remove a category, for everyone. Counts only ever cover the viewer's own transactions.
+One category tree shared by every user (analysis 4.2): names, types, colours and icons, never amounts. Anyone signed in may add, rename, move, recolour and remove a category, for everyone. Counts only ever cover the viewer's own transactions.
 
 **Default tree.** On the first start of a database without categories the server adds the Dutch default set of the design (`categorise.Defaults`): expense tops Wonen (`c1`: Huur, Energie, Internet en tv, Verzekeringen), Boodschappen (`c2`: Supermarkt, Bakker), Vrije tijd (`c3`: Uitgaan, Sport, Cultuur, Vakantie), Vervoer (`c4`: Brandstof, Openbaar vervoer, Onderhoud), Abonnementen (`c5`: Streaming, Telefoon), Overig (`c6`); income tops Salaris, Terugbetaling, Bijdrage, Overig inkomen (`soft`). Ids: the expense tops 1–6, the income tops 7–10, then the subcategories in that order. It happens once (`app_settings.categories_seeded`): a database that already has categories only gets the marker, and removing every category never brings the defaults back. Demo mode uses the same tree.
 
 **Shape.** Two levels: a top category and its subcategories. A subcategory has the `type` and `colour` of its parent. Expense tops take one of `c1` … `c6` (a colour may repeat), income is always `soft`.
 
+**Icons (CAT-6).** Every category, top or sub, may carry an `icon`: a lowercase name from the fixed list in `categorise.CategoryIcons` (`server/internal/categorise/icons.go`, mirrored by `web/src/lib/categoryIcons.ts`; a Go test keeps the two equal): home, cart, car, fuel, bus, train, bike, plane, bolt, water, flame, wifi, phone, tv, health, pill, sport, food, coffee, beer, gift, school, book, kids, paw, bag, shirt, scissors, wrench, repeat, wallet, salary, refund, piggy, bank, receipt, shield, heart, music, film, gamepad, camera, laptop, tree, ticket, hotel, tax, tag, dots. The icon is chosen per category (a subcategory does not inherit it); the colour is never chosen per subcategory, it stays that of the main category. `null` means none: the client shows `tag`. Migration `0007_category_icons.sql` adds the nullable column and gives the seeded default categories of an existing install their icons (matched on name and parent name, only where none is set; a renamed category stays `null`). A new database gets them from `categorise.Defaults`.
+
 ### `GET /api/categories` (0.4-1)
 The whole tree, flat, in tree order: the expense tops by `sort_order`, each followed by its subcategories, then the income tops likewise.
 ```json
 [
-  { "id": 1, "name": "Wonen", "type": "expense", "colour": "c1", "parentId": null, "count": 0 },
-  { "id": 11, "name": "Huur", "type": "expense", "colour": "c1", "parentId": 1, "count": 12 }
+  { "id": 1, "name": "Wonen", "type": "expense", "colour": "c1", "parentId": null, "icon": "home", "count": 0 },
+  { "id": 11, "name": "Huur", "type": "expense", "colour": "c1", "parentId": 1, "icon": "home", "count": 12 }
 ]
 ```
-`type`: `expense` | `income`. `count` is the number of the **viewer's own** transactions (on accounts the viewer holds) in this category, not including its subcategories; another user's transactions never count. Since 0.4-3 a split transaction counts once under each category it has a part in (two parts in one category count once) and no longer under its own hidden category.
+`type`: `expense` | `income`. `icon`: a name from the list above or `null`. `count` is the number of the **viewer's own** transactions (on accounts the viewer holds) in this category, not including its subcategories; another user's transactions never count. Since 0.4-3 a split transaction counts once under each category it has a part in (two parts in one category count once) and no longer under its own hidden category.
 
 ### `POST /api/categories` (0.4-1)
-A top category `{"name": "Huisdieren", "type": "expense", "colour": "c3"}` (`colour` optional: `c6` for expense, `soft` for income) or a subcategory `{"name": "Dierenarts", "parentId": 3}` (`type` or `colour` with `parentId` answers `400`). Answers `201` with the category as in the list (`count` 0). It goes last among its siblings; there is no reorder API.
+A top category `{"name": "Huisdieren", "type": "expense", "colour": "c3", "icon": "paw"}` (`colour` optional: `c6` for expense, `soft` for income) or a subcategory `{"name": "Dierenarts", "parentId": 3, "icon": "pill"}` (`type` or `colour` with `parentId` answers `400`). `icon` is optional on both (absent, `null` or `""` = none). Answers `201` with the category as in the list (`count` 0). It goes last among its siblings; there is no reorder API.
 
 ### `PATCH /api/categories/{id}` (0.4-1)
-Any of `name`, `parentId` (a top category's id, or `null` to become a top category), `type` (only for a category that is, or with `parentId: null` becomes, a top category without subcategories; a new type takes its default colour unless `colour` is sent too) and `colour` (top expense categories only). Moving under a parent adopts its type and colour (a moved subcategory may change type, as the design's "Plaats" select allows). Recolouring a top category recolours its subcategories. Answers the category; an unknown id `404`.
+Any of `name`, `parentId` (a top category's id, or `null` to become a top category), `type` (only for a category that is, or with `parentId: null` becomes, a top category without subcategories; a new type takes its default colour unless `colour` is sent too) `colour` (top expense categories only) and `icon` (any category; a name from the list, or `null` or `""` to clear it; leaving it out keeps it). Moving under a parent adopts its type and colour (a moved subcategory may change type, as the design's "Plaats" select allows). Recolouring a top category recolours its subcategories. Answers the category; an unknown id `404`.
 
 **Names** are trimmed with runs of white space collapsed, 1–60 characters, no control characters. Commas, ampersands, slashes, quotes and any other punctuation are plain data (Bilance's names look like `Energie, nutsvoorzieningen` and `Eten & Drinken`): never split, stripped or refused. A name is unique per parent, case-insensitively (two top categories share the parent "none", whatever their type).
 
-**Errors** (`400 invalid`, Dutch): an empty, too long or control-character name; a name its parent already has; a parent that does not exist, is itself a subcategory or is the category itself; moving a category that has subcategories under another one ("Verplaats eerst de subcategorieën. Saldo heeft twee niveaus."); a type change of a subcategory or of a top with subcategories; a colour for a subcategory, a non-`soft` colour for income or an unknown one; an unknown field.
+**Errors** (`400 invalid`, Dutch): an empty, too long or control-character name; a name its parent already has; a parent that does not exist, is itself a subcategory or is the category itself; moving a category that has subcategories under another one ("Verplaats eerst de subcategorieën. Saldo heeft twee niveaus."); a type change of a subcategory or of a top with subcategories; a colour for a subcategory, a non-`soft` colour for income or an unknown one; an icon that is not on the list ("Kies een icoon uit de lijst."; names are lowercase); an unknown field.
 
 ### `DELETE /api/categories/{id}?moveTo=<categoryId>|none` (0.4-1)
 Removes a category for everyone and says where everything that used it goes; `moveTo` is required (`400` without it, like `history=` of a bank link). One database transaction, then `204`; audit-logged (`category_removed`, ids only). A category with subcategories answers `400` ("Verwijderen kan pas als er geen subcategorieën meer onder hangen."); an unknown one `404`.

@@ -174,7 +174,7 @@ describe('categorisation calls', () => {
   });
 
   it('reads the category tree and the rules', async () => {
-    const tree = [{ id: 1, name: 'Wonen', type: 'expense', colour: 'c1', parentId: null, count: 0 }];
+    const tree = [{ id: 1, name: 'Wonen', type: 'expense', colour: 'c1', icon: 'home', parentId: null, count: 0 }];
     const get = respond(200, tree);
     vi.stubGlobal('fetch', get);
     await expect(api.categories()).resolves.toEqual(tree);
@@ -190,7 +190,7 @@ describe('categorisation calls', () => {
   const noContent = () => vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
 
   it('creates, patches and removes categories', async () => {
-    const top = { id: 11, name: 'Huisdieren', type: 'expense', colour: 'c3', parentId: null, count: 0 };
+    const top = { id: 11, name: 'Huisdieren', type: 'expense', colour: 'c3', icon: null, parentId: null, count: 0 };
     const post = respond(201, top);
     vi.stubGlobal('fetch', post);
     await expect(api.createCategory({ name: 'Huisdieren', type: 'expense', colour: 'c3' })).resolves.toEqual(top);

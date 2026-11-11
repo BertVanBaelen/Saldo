@@ -1,6 +1,6 @@
 // Shared select: a WAI-ARIA select-only combobox (focus stays on the trigger, aria-activedescendant marks the option).
 // The list is a portal on <body>, fixed under the trigger, so a scrolling sheet or side panel never clips it.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import './Select.css';
@@ -11,6 +11,8 @@ export interface SelectOption {
   label: string;
   /** Consecutive options with the same group sit under one heading. */
   group?: string;
+  /** Drawn before the label in the list (not in the trigger). */
+  lead?: ReactNode;
   /** Not selectable, skipped by the arrow keys, dimmed. */
   disabled?: boolean;
 }
@@ -164,6 +166,7 @@ export function Select({ id, value, options, onChange, label, disabled, invalid,
         className="select-opt"
         onClick={() => pick(i)}
       >
+        {o.lead}
         <span className="select-opt-label">{o.label}</span>
         <span className="select-opt-check">{on && <Icon name="check" size={18} stroke={2.6} />}</span>
       </div>

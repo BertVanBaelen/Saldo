@@ -12,6 +12,7 @@ import { api, ApiError, errorMessage } from '../lib/api';
 import { catColours, confidenceLevel, plural, ruleConditions, ruleLabel } from '../lib/categories';
 import type { Rule, Suggestion, TreeCategory } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { categoryIcon } from '../lib/categoryIcons';
 import { CatChip, CatEditor, DelEditor, Info, OwnerChip, ReadOnlyChip, RuleEditor, RuleView } from './CategorieenEditors';
 import './Categorieen.css';
 
@@ -307,13 +308,9 @@ export function Categorieen() {
             open({ kind: 'cat', id: c.id }, 'cat-' + c.id);
           }}
         >
-          {sub ? (
-            <i className="ct-dot" style={{ background: lk.bg }} />
-          ) : (
-            <span className="ct-cav" style={{ background: lk.bg, color: lk.fg }}>
-              <Icon name="tag" size={16} stroke={2.2} />
-            </span>
-          )}
+          <span className={'ct-cav' + (sub ? ' ct-cav--sub' : '')} style={{ background: lk.bg, color: lk.fg }}>
+            <Icon name={categoryIcon(c.icon)} size={sub ? 13 : 16} stroke={2.2} />
+          </span>
           <span className="ct-crow-main">
             <span className="ct-crow-name">{c.name}</span>
             {subline && (

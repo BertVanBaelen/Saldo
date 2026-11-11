@@ -12,10 +12,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/apperr"
+	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
 )
 
 // The shared category tree (phase 0.4-1, docs/api.md "Categories"). Every
-// signed-in user sees and edits the same tree of names, types and colours;
+// signed-in user sees and edits the same tree of names, types, colours and icons;
 // counts only ever cover the viewer's own transactions.
 
 // Opt is a JSON field of a PATCH body: Set when present, Null when null.
@@ -36,12 +37,13 @@ func (o *Opt[T]) UnmarshalJSON(b []byte) error {
 
 // TreeCategory is one category of the tree as the API shows it.
 type TreeCategory struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Colour   string `json:"colour"`
-	ParentID *int64 `json:"parentId"`
-	Count    int    `json:"count"`
+	ID       int64   `json:"id"`
+	Name     string  `json:"name"`
+	Type     string  `json:"type"`
+	Colour   string  `json:"colour"`
+	ParentID *int64  `json:"parentId"`
+	Icon     *string `json:"icon"`
+	Count    int     `json:"count"`
 	order    int
 }
 
@@ -51,6 +53,7 @@ type CategoryInput struct {
 	Type     Opt[string] `json:"type"`
 	Colour   Opt[string] `json:"colour"`
 	ParentID Opt[int64]  `json:"parentId"`
+	Icon     Opt[string] `json:"icon"`
 }
 
 const maxCategoryName = 60
@@ -63,7 +66,7 @@ var expenseColours = []string{"c1", "c2", "c3", "c4", "c5", "c6"}
 // once under each category it has a part in, not under its own (hidden)
 // category.
 func (s *Store) Categories(ctx context.Context, viewer int64) ([]TreeCategory, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.id, c.name, c.type, c.colour, c.parent_id, c.sort_order,
+	rows, err := s.db.QueryContext(ctx, `SELECT c.id, c.name, c.type, c.colour, c.parent_id, c.sort_order, c.icon,
 		       (SELECT COUNT(*) FROM transactions t JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?1
 		        WHERE t.category_id = c.id AND NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id))
 		     + (SELECT COUNT(DISTINCT s.transaction_id) FROM transaction_splits s
@@ -78,7 +81,7 @@ func (s *Store) Categories(ctx context.Context, viewer int64) ([]TreeCategory, e
 	var all []TreeCategory
 	for rows.Next() {
 		var c TreeCategory
-		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &c.Colour, &c.ParentID, &c.order, &c.Count); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &c.Colour, &c.ParentID, &c.order, &c.Icon, &c.Count); err != nil {
 			return nil, err
 		}
 		all = append(all, c)
@@ -140,14 +143,15 @@ type stored struct {
 	parent   *int64
 	typ      string
 	colour   string
+	icon     *string
 	children int
 }
 
 func loadCategory(ctx context.Context, tx *sql.Tx, id int64) (stored, error) {
 	var c stored
-	err := tx.QueryRowContext(ctx, `SELECT id, name, parent_id, type, colour,
+	err := tx.QueryRowContext(ctx, `SELECT id, name, parent_id, type, colour, icon,
 		(SELECT COUNT(*) FROM categories k WHERE k.parent_id = c.id) FROM categories c WHERE id = ?`, id).
-		Scan(&c.id, &c.name, &c.parent, &c.typ, &c.colour, &c.children)
+		Scan(&c.id, &c.name, &c.parent, &c.typ, &c.colour, &c.icon, &c.children)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c, apperr.ErrNotFound
 	}
@@ -186,6 +190,18 @@ func unique(ctx context.Context, tx *sql.Tx, name string, parent *int64, self in
 	return nil
 }
 
+// iconOf checks the icon of a create or change body: a name of the fixed list,
+// or null or "" for none. Not sent on a change means unchanged (the caller).
+func iconOf(in Opt[string]) (*string, error) {
+	if in.Null || in.V == "" {
+		return nil, nil
+	}
+	if !categorise.ValidIcon(in.V) {
+		return nil, apperr.Invalid("Kies een icoon uit de lijst.")
+	}
+	return &in.V, nil
+}
+
 // topColour checks the colour of a top category of a type ("" = default).
 func topColour(typ, colour string) (string, error) {
 	switch {
@@ -212,6 +228,10 @@ func validType(t string) error {
 // subcategory ({name, parentId}) that takes its parent's type and colour.
 func (s *Store) CreateCategory(ctx context.Context, viewer int64, in CategoryInput) (TreeCategory, error) {
 	name, err := cleanName(in.Name.V)
+	if err != nil {
+		return TreeCategory{}, err
+	}
+	icon, err := iconOf(in.Icon)
 	if err != nil {
 		return TreeCategory{}, err
 	}
@@ -244,9 +264,9 @@ func (s *Store) CreateCategory(ctx context.Context, viewer int64, in CategoryInp
 		return TreeCategory{}, err
 	}
 	var id int64
-	if err := tx.QueryRowContext(ctx, `INSERT INTO categories (name, parent_id, type, colour, sort_order)
-		VALUES (?1, ?2, ?3, ?4, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2))
-		RETURNING id`, name, parent, typ, colour).Scan(&id); err != nil {
+	if err := tx.QueryRowContext(ctx, `INSERT INTO categories (name, parent_id, type, colour, icon, sort_order)
+		VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2))
+		RETURNING id`, name, parent, typ, colour, icon).Scan(&id); err != nil {
 		return TreeCategory{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -255,7 +275,7 @@ func (s *Store) CreateCategory(ctx context.Context, viewer int64, in CategoryInp
 	return s.category(ctx, viewer, id)
 }
 
-// UpdateCategory renames, moves, retypes or recolours a category. Moving
+// UpdateCategory renames, moves, retypes, recolours or re-icons a category. Moving
 // under a parent adopts its type and colour; recolouring a top category
 // recolours its subcategories. A category with subcategories cannot move
 // under another one, nor change its type.
@@ -272,6 +292,12 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 	name := c.name
 	if in.Name.Set {
 		if name, err = cleanName(in.Name.V); err != nil {
+			return TreeCategory{}, err
+		}
+	}
+	icon := c.icon
+	if in.Icon.Set {
+		if icon, err = iconOf(in.Icon); err != nil {
 			return TreeCategory{}, err
 		}
 	}
@@ -314,10 +340,10 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 		return TreeCategory{}, err
 	}
 	moved := (parent == nil) != (c.parent == nil) || parent != nil && *parent != *c.parent
-	if _, err := tx.ExecContext(ctx, `UPDATE categories SET name = ?1, parent_id = ?2, type = ?3, colour = ?4,
+	if _, err := tx.ExecContext(ctx, `UPDATE categories SET name = ?1, parent_id = ?2, type = ?3, colour = ?4, icon = ?7,
 		sort_order = CASE WHEN ?5 THEN (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2 AND id <> ?6)
 		                  ELSE sort_order END
-		WHERE id = ?6`, name, parent, typ, colour, moved, id); err != nil {
+		WHERE id = ?6`, name, parent, typ, colour, moved, id, icon); err != nil {
 		return TreeCategory{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE categories SET type = ?, colour = ? WHERE parent_id = ?`, typ, colour, id); err != nil {

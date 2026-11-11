@@ -3,7 +3,10 @@ package categorise
 import (
 	"context"
 	"database/sql"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -315,5 +318,72 @@ func TestApplyAccount(t *testing.T) {
 	if err := d.QueryRow(`SELECT group_concat(id || ':' || COALESCE(category_id, '-') || ':' || COALESCE(category_origin, '-') || ':' || COALESCE(rule_id, '-'), '|')
 		FROM (SELECT * FROM transactions ORDER BY id)`).Scan(&got); err != nil || got != want {
 		t.Errorf("rows %s, want %s (%v)", got, want, err)
+	}
+}
+
+func TestDefaultIcons(t *testing.T) {
+	d := openDB(t)
+	if err := SeedDefaults(context.Background(), d); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(t, d, `SELECT COUNT(*) FROM categories WHERE icon IS NULL`); n != 0 {
+		t.Errorf("%d seeded categories without an icon", n)
+	}
+	for _, df := range Defaults {
+		icons := []string{df.Icon}
+		for _, sub := range df.Subs {
+			icons = append(icons, sub.Icon)
+		}
+		for _, i := range icons {
+			if !ValidIcon(i) {
+				t.Errorf("%s: icon %q is not on the list", df.Name, i)
+			}
+		}
+	}
+	// Migration 0007 gives an existing install the same icons: undo them, run
+	// its backfill, compare. A renamed category stays without.
+	exec(t, d, `UPDATE categories SET icon = NULL`)
+	exec(t, d, `INSERT INTO categories (name, type, colour) VALUES ('Mijn eigen', 'expense', 'c1')`)
+	b, err := fs.ReadFile(db.Migrations(), "0007_category_icons.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, backfill, _ := strings.Cut(string(b), "ALTER TABLE categories ADD COLUMN icon TEXT;")
+	exec(t, d, backfill)
+	if n := count(t, d, `SELECT COUNT(*) FROM categories WHERE icon IS NULL`); n != 1 {
+		t.Errorf("%d categories without icon after the backfill, want 1 (the renamed one)", n)
+	}
+	for i, df := range Defaults {
+		if count(t, d, `SELECT COUNT(*) FROM categories WHERE id = ? AND icon = ?`, i+1, df.Icon) != 1 {
+			t.Errorf("backfill: %s is not %s", df.Name, df.Icon)
+		}
+	}
+	id := len(Defaults)
+	for _, df := range Defaults {
+		for _, s := range df.Subs {
+			id++
+			if count(t, d, `SELECT COUNT(*) FROM categories WHERE id = ? AND icon = ?`, id, s.Icon) != 1 {
+				t.Errorf("backfill: %s is not %s", s.Name, s.Icon)
+			}
+		}
+	}
+}
+
+// The list of names is kept in two places; they must not drift apart.
+func TestCategoryIconsMatchTheWeb(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "categoryIcons.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var web []string
+	_, list, _ := strings.Cut(string(b), "CATEGORY_ICONS = [")
+	list, _, _ = strings.Cut(list, "]")
+	for _, m := range regexp.MustCompile(`["']([a-z]+)["']`).FindAllStringSubmatch(list, -1) {
+		web = append(web, m[1])
+	}
+	slices.Sort(web)
+	want := slices.Sorted(slices.Values(CategoryIcons))
+	if !slices.Equal(web, want) {
+		t.Errorf("web/src/lib/categoryIcons.ts lists %v, the server %v", web, want)
 	}
 }

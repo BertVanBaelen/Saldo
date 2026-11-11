@@ -602,3 +602,36 @@ func TestCategoryAndRuleWritesRefuseCrossOrigin(t *testing.T) {
 		t.Error("a cross-origin request changed data")
 	}
 }
+
+// CAT-6: the icon is a name of the fixed list; null or "" clears it, leaving
+// it out of a change keeps it, and a sub category may carry one.
+func TestCategoryIcons(t *testing.T) {
+	p := newPair(t)
+	list := decode[[]ledger.TreeCategory](t, p.bert("GET", "/api/categories", "").body)
+	if list[0].Icon == nil || *list[0].Icon != "home" || list[1].Icon == nil || *list[1].Icon != "home" {
+		t.Errorf("seeded icons: %v, %v", list[0].Icon, list[1].Icon)
+	}
+	top := p.created(p.bert("POST", "/api/categories", `{"name":"Huisdieren","type":"expense","icon":"paw"}`))
+	if top.Icon == nil || *top.Icon != "paw" {
+		t.Fatalf("created: %+v", top)
+	}
+	sub := p.created(p.bert("POST", "/api/categories", `{"name":"Voeding","parentId":`+strconv.FormatInt(top.ID, 10)+`}`))
+	if sub.Icon != nil {
+		t.Errorf("no icon sent: %v", *sub.Icon)
+	}
+	path := "/api/categories/" + strconv.FormatInt(top.ID, 10)
+	expectError(t, p.bert("PATCH", path, `{"icon":"unicorn"}`), http.StatusBadRequest, "invalid")
+	expectError(t, p.bert("POST", "/api/categories", `{"name":"x","type":"expense","icon":"Paw"}`), http.StatusBadRequest, "invalid")
+	if c := decode[ledger.TreeCategory](t, p.bert("PATCH", path, `{"name":"Dieren"}`).body); c.Icon == nil || *c.Icon != "paw" {
+		t.Errorf("icon left out of a change must stay: %+v", c)
+	}
+	if c := decode[ledger.TreeCategory](t, p.bert("PATCH", path, `{"icon":"bag"}`).body); c.Icon == nil || *c.Icon != "bag" {
+		t.Errorf("changed: %+v", c)
+	}
+	for _, body := range []string{`{"icon":null}`, `{"icon":""}`} {
+		p.bert("PATCH", path, `{"icon":"bag"}`)
+		if c := decode[ledger.TreeCategory](t, p.bert("PATCH", path, body).body); c.Icon != nil {
+			t.Errorf("%s did not clear: %v", body, *c.Icon)
+		}
+	}
+}

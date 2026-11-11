@@ -2,7 +2,7 @@
 
 **After this version you can** have your transactions categorised automatically by rules, change a category in a tap and turn that into a rule for similar transactions, split a transaction, and manage categories and rules.
 
-Status: in progress (10 Nov 2026): the category tree (0.4-1), the rules engine (0.4-2), Categorise in Transacties (0.4-3) and the Categorieën en regels screen (0.4-4) are built and wait for verification. Analysis milestone: M2. Roadmap: [../README.md](../README.md).
+Status: in progress (10 Nov 2026): the category tree (0.4-1), the rules engine (0.4-2), Categorise in Transacties (0.4-3) and the Categorieën en regels screen (0.4-4) are built and wait for verification. Category icons (CAT-6, 11 Nov 2026, added after testing: an icon per category and subcategory, chosen in the editor, colour stays that of the main category) extend 0.4-1 and 0.4-4. Analysis milestone: M2. Roadmap: [../README.md](../README.md).
 
 ## Features
 | Id | Feature |
@@ -12,14 +12,15 @@ Status: in progress (10 Nov 2026): the category tree (0.4-1), the rules engine (
 | CAT-3 | Change a category, "apply to similar and create a rule", notes |
 | CAT-4 | Split a transaction over categories [S] |
 | CAT-5 | Categorieën en regels screen with suggestions to confirm |
+| CAT-6 | Category icons (added after 0.4 testing, 11 Nov 2026) |
 
 ## Phases
 | Phase | Title | Size | Features | Status |
 |---|---|---|---|---|
-| [0.4-1](01-category-tree.md) | Category tree | S | CAT-1 | built, to verify |
+| [0.4-1](01-category-tree.md) | Category tree | S | CAT-1, CAT-6 | built, to verify |
 | [0.4-2](02-rules-engine.md) | Rules engine | M | CAT-2 | built, to verify |
 | [0.4-3](03-categorise-in-transacties.md) | Categorise in Transacties | M | CAT-3, CAT-4 | built, to verify |
-| [0.4-4](04-categories-and-rules-screen.md) | Categorieën en regels screen | M | CAT-5 | built, to verify |
+| [0.4-4](04-categories-and-rules-screen.md) | Categorieën en regels screen | M | CAT-5, CAT-6 | built, to verify |
 
 ## Concepts
 category, categorisation-rule, transaction.

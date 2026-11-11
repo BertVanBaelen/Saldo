@@ -106,17 +106,18 @@ export const TRANSACTIONS: Transaction[] = [
 ];
 
 // Invented category tree (GET /api/categories): server order, subcategories after their top.
-const cat = (id: number, name: string, colour: TreeCategory['colour'], parentId: number | null = null, type: TreeCategory['type'] = 'expense'): TreeCategory => ({
+const cat = (id: number, name: string, colour: TreeCategory['colour'], parentId: number | null = null, type: TreeCategory['type'] = 'expense', icon: string | null = null): TreeCategory => ({
   id,
   name,
   type,
   colour,
+  icon,
   parentId,
   count: 0,
 });
 export const CATEGORIES: TreeCategory[] = [
-  cat(1, 'Wonen', 'c1'),
-  cat(10, 'Energie', 'c1', 1),
+  cat(1, 'Wonen', 'c1', null, 'expense', 'home'),
+  cat(10, 'Energie', 'c1', 1, 'expense', 'bolt'),
   cat(2, 'Boodschappen', 'c2'),
   cat(3, 'Vrije tijd', 'c3'),
   cat(4, 'Vervoer', 'c4'),
@@ -347,7 +348,7 @@ export function stubApi(s: Stub = {}) {
     dismissSuggestion: vi.spyOn(api, 'dismissSuggestion').mockResolvedValue(null),
     createCategory: vi.spyOn(api, 'createCategory').mockImplementation(async (b) => {
       const parent = b.parentId === undefined ? undefined : (s.categories ?? CATEGORIES).find((c) => c.id === b.parentId);
-      return { id: 40, name: b.name, type: parent?.type ?? b.type ?? 'expense', colour: parent?.colour ?? b.colour ?? (b.type === 'income' ? 'soft' : 'c6'), parentId: b.parentId ?? null, count: 0 };
+      return { id: 40, name: b.name, type: parent?.type ?? b.type ?? 'expense', colour: parent?.colour ?? b.colour ?? (b.type === 'income' ? 'soft' : 'c6'), icon: b.icon ?? null, parentId: b.parentId ?? null, count: 0 };
     }),
     updateCategory: vi.spyOn(api, 'updateCategory').mockImplementation(async (id, patch) => ({ ...(s.categories ?? CATEGORIES).find((c) => c.id === id)!, ...patch }) as TreeCategory),
     deleteCategory: vi.spyOn(api, 'deleteCategory').mockResolvedValue(null),

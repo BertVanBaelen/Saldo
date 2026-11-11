@@ -4,10 +4,12 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
+import { IconPicker } from '../components/IconPicker';
 import { Select } from '../components/Select';
 import { accColour, isShared, manager, others } from '../lib/accounts';
 import { api, ApiError, errorMessage, isAbort } from '../lib/api';
 import { catColours, categoryLabel, plural, ruleConditions, skippedText } from '../lib/categories';
+import { categoryIcon } from '../lib/categoryIcons';
 import { names, parseMoney } from '../lib/format';
 import type { Account, CategoryColour, CategoryPatch, Rule, RuleInput, RulePreview, Suggestion, TreeCategory } from '../lib/types';
 
@@ -34,6 +36,7 @@ export function CatChip({ c, byId }: { c: TreeCategory | undefined; byId: Readon
   const parent = c.parentId === null ? undefined : byId.get(c.parentId);
   return (
     <span className="ct-chip" style={{ background: lk.bg, color: lk.fg }}>
+      <Icon name={categoryIcon(c.icon)} size={13} stroke={2.4} className="ct-chip-ico" />
       {parent && <span className="ct-chip-parent">{parent.name} ›</span>} {c.name}
     </span>
   );
@@ -197,6 +200,8 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
   const [name, setName] = useState(c ? c.name : '');
   const [place, setPlace] = useState<Place>(c ? placeOf(c) : parentId !== undefined ? String(parentId) : 'top-expense');
   const [colour, setColour] = useState<CategoryColour>(c && c.type === 'expense' && c.parentId === null ? c.colour : 'c1');
+  /** `null`: not touched, so a create sends none and a save keeps the stored icon. */
+  const [icon, setIcon] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const { busy, run } = useBusy();
   const root = useRef<HTMLDivElement>(null);
@@ -205,6 +210,9 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
   const isTop = place === 'top-expense' || place === 'top-income';
   const parent = isTop ? undefined : byId.get(Number(place));
   const look: Look = place === 'top-expense' ? catColours(colour) : place === 'top-income' ? catColours('soft') : catColours(parent?.colour ?? 'c6');
+  const shownIcon = categoryIcon(icon ?? c?.icon);
+  // The picker draws in the main category's colour: its own, or the parent's for a subcategory.
+  const iconColour: CategoryColour = place === 'top-expense' ? colour : place === 'top-income' ? 'soft' : (parent?.colour ?? 'c6');
   const kids = c ? tree.filter((x) => x.parentId === c.id) : [];
   const k = kids.length;
   const shown = name.trim() || (c ? c.name : 'Nieuwe categorie');
@@ -235,7 +243,8 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
       try {
         let saved: TreeCategory;
         if (!c) {
-          saved = await api.createCategory(isTop ? { name: clean, type, ...(type === 'expense' ? { colour } : {}) } : { name: clean, parentId: Number(place) });
+          const extra = icon ? { icon } : {};
+          saved = await api.createCategory(isTop ? { name: clean, type, ...(type === 'expense' ? { colour } : {}), ...extra } : { name: clean, parentId: Number(place), ...extra });
         } else {
           const patch: CategoryPatch = {};
           if (clean !== c.name) patch.name = clean;
@@ -244,6 +253,7 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
             if (type !== c.type) patch.type = type;
             if (type === 'expense' && (colour !== c.colour || patch.parentId === null || patch.type)) patch.colour = colour;
           } else if (Number(place) !== c.parentId) patch.parentId = Number(place);
+          if (icon !== null && icon !== categoryIcon(c.icon)) patch.icon = icon;
           saved = Object.keys(patch).length ? await api.updateCategory(c.id, patch) : c;
         }
         toast(saved.name + (c ? ' opgeslagen' : ' toegevoegd'));
@@ -258,7 +268,7 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
 
   return (
     <div className="ct-editor" ref={root}>
-      <Head look={look} icon="tag" title={shown} sub={sub} inSheet={mode === 'p'} onClose={onClose} />
+      <Head look={look} icon={shownIcon} title={shown} sub={sub} inSheet={mode === 'p'} onClose={onClose} />
       <div className="ct-field">
         <label className="ct-label" htmlFor={id('name')}>
           Naam
@@ -334,9 +344,16 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
           <span className="ct-help">{place === 'top-income' ? 'Inkomsten zijn altijd groen.' : 'Krijgt de kleur van ' + (parent?.name ?? '') + '.'}</span>
         )}
       </div>
+      <div className="ct-field">
+        <span className="ct-label" id={id('icoon')}>
+          Pictogram
+        </span>
+        <IconPicker value={shownIcon} colour={iconColour} labelledBy={id('icoon')} onChange={setIcon} />
+      </div>
       <div className="ct-preview-strip">
         <span className="ct-preview-label">Voorbeeld</span>
         <span className="ct-chip" style={{ background: look.bg, color: look.fg }}>
+          <Icon name={shownIcon} size={13} stroke={2.4} className="ct-chip-ico" />
           {parent && <span className="ct-chip-parent">{parent.name} ›</span>} {shown}
         </span>
         {count !== null && (

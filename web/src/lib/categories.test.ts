@@ -7,6 +7,7 @@ const cat = (id: number, name: string, parentId: number | null = null, type: Tre
   name,
   type,
   colour: type === 'income' ? 'soft' : 'c1',
+  icon: null,
   parentId,
   count: 0,
 });

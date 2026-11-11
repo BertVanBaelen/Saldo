@@ -55,7 +55,7 @@ Done: CI passed on main for 0.3.0 (including `go test -race` and `govulncheck`, 
 ### The next phases
 Sizes are in the version READMEs. "Needs" lists the phases that must be done first; anything not listed can start now.
 
-**0.4 · Categorisation** (CAT-1 to CAT-5): [version README](v0.4-categorisation/README.md)
+**0.4 · Categorisation** (CAT-1 to CAT-6): [version README](v0.4-categorisation/README.md)
 | Phase | Title | Size | Needs |
 |---|---|---|---|
 | [0.4-1](v0.4-categorisation/01-category-tree.md) | Category tree | S | 0.3-3 (done): start here |
@@ -155,6 +155,7 @@ Feature ids are stable; phase files list the features they deliver. **[S]** = sh
 | CAT-3 | Change a category, "apply to similar and create a rule", notes | 0.4-3 |
 | CAT-4 | Split a transaction over categories [S] | 0.4-3 |
 | CAT-5 | Categorieën en regels screen with suggestions to confirm | 0.4-4 |
+| CAT-6 | Category icons | 0.4-1, 0.4-4 |
 
 ### 0.5 · Bilance import
 | Id | Feature | Phase |

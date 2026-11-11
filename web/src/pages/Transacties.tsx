@@ -9,6 +9,7 @@ import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, ScopeSwitch, useIsDesktop, useTitle } from '../components/ui';
 import { accColour, inScope, isShared } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
+import { categoryIcon } from '../lib/categoryIcons';
 import { cap, dateShort, dayHeading, eur, MONTHS, toDate } from '../lib/format';
 import type { Account, Transaction, TransactionPage } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -75,7 +76,7 @@ function useDebounced<T>(value: T, ms: number): T {
 
 // ---------- Pieces ----------
 
-function CatChip({ t }: { t: Transaction }) {
+function CatChip({ t, icon }: { t: Transaction; icon: string | null | undefined }) {
   const cv = catView(t);
   if (cv.split) return <span className="tx-cat tx-cat--split">{cv.name}</span>;
   if (cv.transfer && !t.category) {
@@ -88,6 +89,7 @@ function CatChip({ t }: { t: Transaction }) {
   }
   return (
     <span className={'tx-cat' + (cv.uncat ? ' tx-cat--uncat' : '')} style={cv.uncat ? undefined : { background: cv.bg, color: cv.fg }}>
+      {!cv.uncat && <Icon name={categoryIcon(icon)} size={12} stroke={2.4} className="tx-cat-ico" />}
       {cv.name}
     </span>
   );
@@ -103,10 +105,11 @@ interface RowProps {
   first: boolean;
   desktop: boolean;
   pressed: boolean;
+  icon: string | null | undefined;
   onOpen: (t: Transaction, el: HTMLButtonElement) => void;
 }
 
-function TxRow({ t, acc, first, desktop, pressed, onOpen }: RowProps) {
+function TxRow({ t, acc, first, desktop, pressed, icon, onOpen }: RowProps) {
   const cv = catView(t);
   const pending = t.status === 'pending';
   return (
@@ -135,7 +138,7 @@ function TxRow({ t, acc, first, desktop, pressed, onOpen }: RowProps) {
         </span>
       </span>
       <span className="only-desktop tx-catcell">
-        <CatChip t={t} />
+        <CatChip t={t} icon={icon} />
       </span>
       <span className="tx-row-end">
         <span className={'tx-amount mono ' + amountClass(t)}>{eur(t.amount, true)}</span>
@@ -370,6 +373,7 @@ export function Transacties() {
   // The detail's category tree and the rules that name the source of a category.
   const cats = useAsync((signal) => api.categories(signal), [dataVersion]);
   const rules = useAsync((signal) => api.rules(signal), [dataVersion]);
+  const icons = useMemo(() => new Map((cats.data || []).map((c) => [c.id, c.icon])), [cats.data]);
 
   // Rows changed in the detail, as the server answered, shown over the loaded pages. They stay until the
   // filters change: a row categorised under "Niet gecategoriseerd" keeps its place until then.
@@ -627,7 +631,7 @@ export function Transacties() {
               </h2>
               <div className="tx-card">
                 {d.items.map((t, j) => (
-                  <TxRow key={t.id} t={t} acc={byId.get(t.accountId)} first={j === 0} desktop={desktop} pressed={selected?.id === t.id} onOpen={open} />
+                  <TxRow key={t.id} t={t} acc={byId.get(t.accountId)} first={j === 0} desktop={desktop} pressed={selected?.id === t.id} icon={t.category && icons.get(t.category.id)} onOpen={open} />
                 ))}
               </div>
             </section>

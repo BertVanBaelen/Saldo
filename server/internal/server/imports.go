@@ -882,3 +882,58 @@ func (s *Server) postReapplyCategories(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"changed": n})
 }
+
+// undoTarget reads the batch id of the path and the query `run` (absent or
+// "1": with it the undo covers the whole file import, every batch of it).
+func undoTarget(w http.ResponseWriter, r *http.Request) (id int64, run, ok bool) {
+	id, ok = pathID(w, r, msgNotFound)
+	if !ok {
+		return 0, false, false
+	}
+	switch r.URL.Query().Get("run") {
+	case "":
+	case "1":
+		run = true
+	default:
+		writeError(w, http.StatusBadRequest, "invalid", "Gebruik run=1 of laat het weg.")
+		return 0, false, false
+	}
+	return id, run, true
+}
+
+// getUndoPreview answers GET /api/imports/{id}/undo-preview[?run=1]:
+// {batches, rows, changed, categorised} of what an undo would remove. Errors
+// as postUndo.
+func (s *Server) getUndoPreview(w http.ResponseWriter, r *http.Request) {
+	id, run, ok := undoTarget(w, r)
+	if !ok {
+		return
+	}
+	p, err := s.store.UndoPreview(r.Context(), viewerOf(r), id, run)
+	if err != nil {
+		s.fail(w, r, err, msgNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+// postUndo answers POST /api/imports/{id}/undo[?run=1]: removes the
+// transactions of the batch (with run: of every batch of its file import) and
+// marks the batches undone, in one database transaction, and answers
+// {batches, removed}. Needs edit access to every account involved: hidden or
+// unknown batch 404, read-only account 403; a batch that is undone already or
+// brought nothing is 400.
+func (s *Server) postUndo(w http.ResponseWriter, r *http.Request) {
+	id, run, ok := undoTarget(w, r)
+	if !ok {
+		return
+	}
+	viewer := viewerOf(r)
+	batches, removed, err := s.store.Undo(r.Context(), viewer, id, run, s.now())
+	if err != nil {
+		s.fail(w, r, err, msgNotFound)
+		return
+	}
+	s.audit(r, auth.EventImportUndone, viewer, fmt.Sprintf("batch=%d run=%t batches=%d removed=%d", id, run, batches, removed))
+	writeJSON(w, http.StatusOK, map[string]int{"batches": batches, "removed": removed})
+}

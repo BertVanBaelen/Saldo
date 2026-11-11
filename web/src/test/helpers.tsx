@@ -217,11 +217,11 @@ export const IMPORT_PREVIEW: ImportPreview = {
 export const IMPORT_COUNTS: ImportCounts = { rows: 31, new: 29, present: 1, invalid: 1, overlap: 0 };
 export const IMPORT_ERRORS: RowError[] = [{ line: 7, message: 'Het bedrag is niet leesbaar.' }];
 export const BATCHES: ImportBatch[] = [
-  { id: 3, source: 'argenta', fileName: 'argenta-zicht-oktober.csv', accountId: 1, createdAt: '2026-11-12T20:30:00+01:00', imported: 42, present: 0, invalid: 0 },
-  { id: 2, source: 'csv', fileName: 'spaarrekening-2025.csv', accountId: 2, createdAt: '2025-12-30T19:02:00+01:00', imported: 12, present: 0, invalid: 1 },
+  { id: 3, source: 'argenta', fileName: 'argenta-zicht-oktober.csv', accountId: 1, createdAt: '2026-11-12T20:30:00+01:00', imported: 42, present: 0, invalid: 0, undoneAt: null },
+  { id: 2, source: 'csv', fileName: 'spaarrekening-2025.csv', accountId: 2, createdAt: '2025-12-30T19:02:00+01:00', imported: 12, present: 0, invalid: 1, undoneAt: null },
 ];
 export const importResult = (fileName: string, accountId: number): ImportResult => ({
-  batches: [{ id: 12, source: 'argenta', fileName, accountId, createdAt: '2026-11-18T20:00:00+01:00', imported: 29, present: 1, invalid: 1 }],
+  batches: [{ id: 12, source: 'argenta', fileName, accountId, createdAt: '2026-11-18T20:00:00+01:00', imported: 29, present: 1, invalid: 1, undoneAt: null }],
   errors: IMPORT_ERRORS,
 });
 
@@ -344,6 +344,8 @@ export function stubApi(s: Stub = {}) {
       ...(o.target !== undefined && o.mapping ? { mapping: o.mapping, counts: IMPORT_COUNTS, errors: IMPORT_ERRORS } : {}),
     })),
     importFile: vi.spyOn(api, 'importFile').mockImplementation(async (file, target) => importResult(file.name, typeof target === 'number' ? target : Object.values(target)[0])),
+    undoPreview: vi.spyOn(api, 'undoPreview').mockResolvedValue({ batches: 1, rows: 42, changed: 3, categorised: 30 }),
+    undoImport: vi.spyOn(api, 'undoImport').mockResolvedValue({ batches: 1, removed: 42 }),
     removeConnection: vi.spyOn(api, 'removeConnection').mockImplementation(async (_id, history) => (history === 'delete' ? { deleted: [1], kept: [4] } : { deleted: [], kept: [1, 4] })),
     // Categorieën en regels (0.4-4): answers like the server, from the stub's lists.
     suggestions: vi.spyOn(api, 'suggestions').mockImplementation(async () => structuredClone(s.suggestions ?? [])),

@@ -39,7 +39,7 @@ import type {
   User,
   UserList,
 } from './types';
-import { importForm, type CategoryChoice, type ImportBatch, type ImportExtras, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
+import { importForm, type UndoPreview, type CategoryChoice, type ImportBatch, type ImportExtras, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -196,6 +196,10 @@ export const api = {
     request<ImportResult>('POST', '/api/imports', { form: importForm(file, target, mapping, settings, categories, extras), signal }),
   /** Batches of the accounts the viewer holds, newest first. */
   imports: (signal?: AbortSignal) => request<ImportBatch[]>('GET', '/api/imports', { signal }),
+  /** What undoing the file import of this batch removes: every batch of the run (all accounts), counted. */
+  undoPreview: (id: number, signal?: AbortSignal) => request<UndoPreview>('GET', '/api/imports/' + id + '/undo-preview?run=1', { signal }),
+  /** Removes the transactions of every batch of the file import this batch belongs to, in one go. */
+  undoImport: (id: number) => request<{ batches: number; removed: number }>('POST', '/api/imports/' + id + '/undo?run=1'),
 
   // Bank link: the viewer's Enable Banking app, the consent at the bank and the way back from it.
   enableBanking: (signal?: AbortSignal) => request<EnableBanking>('GET', '/api/bank/enablebanking', { signal }),

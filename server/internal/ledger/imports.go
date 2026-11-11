@@ -48,6 +48,12 @@ type Batch struct {
 	Imported  int    `json:"imported"`
 	Present   int    `json:"present"`
 	Invalid   int    `json:"invalid"`
+	// UndoneAt is when the batch was undone (0.5-5), null while it stands.
+	UndoneAt *string `json:"undoneAt"`
+	// Run is the first batch id of the file import this batch belongs to (one
+	// file over several accounts makes one batch per account, all with the
+	// same file hash, creator and creation second); only the history list has it.
+	Run int64 `json:"run,omitempty"`
 	// Overlap counts the imported rows dated in the period the account
 	// already syncs (from its earliest synced booked row on); the preview
 	// shows it, the batch JSON does not.
@@ -370,7 +376,8 @@ func aboveStored(ctx context.Context, tx *sql.Tx, accountID int64, kept []NewTra
 // permission), newest first.
 func (s *Store) Batches(ctx context.Context, viewer int64) ([]Batch, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT b.id, b.source, b.file_name, b.account_id, b.created_at,
-		       b.rows_imported, b.rows_duplicate, b.rows_skipped
+		       b.rows_imported, b.rows_duplicate, b.rows_skipped, b.undone_at,
+		       (SELECT MIN(r.id) FROM import_batches r WHERE r.file_hash = b.file_hash AND r.created_at = b.created_at AND r.created_by IS b.created_by)
 		FROM import_batches b JOIN account_access me ON me.account_id = b.account_id AND me.user_id = ?
 		ORDER BY b.created_at DESC, b.id DESC`, viewer)
 	if err != nil {
@@ -381,10 +388,14 @@ func (s *Store) Batches(ctx context.Context, viewer int64) ([]Batch, error) {
 	for rows.Next() {
 		var b Batch
 		var created string
-		if err := rows.Scan(&b.ID, &b.Source, &b.FileName, &b.AccountID, &created, &b.Imported, &b.Present, &b.Invalid); err != nil {
+		var undone sql.NullString
+		if err := rows.Scan(&b.ID, &b.Source, &b.FileName, &b.AccountID, &created, &b.Imported, &b.Present, &b.Invalid, &undone, &b.Run); err != nil {
 			return nil, err
 		}
 		b.CreatedAt, _, _ = formatTimestamp(created)
+		if at, _, ok := formatTimestamp(undone.String); undone.Valid && ok {
+			b.UndoneAt = &at
+		}
 		list = append(list, b)
 	}
 	return list, rows.Err()

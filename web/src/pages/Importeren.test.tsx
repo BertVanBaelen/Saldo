@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, NETWORK_MESSAGE } from '../lib/api';
-import { MAX_IMPORT_BYTES, type ImportCounts, type ImportPreview, type RowError } from '../lib/imports';
+import { MAX_IMPORT_BYTES, type ImportBatch, type ImportCounts, type ImportPreview, type RowError } from '../lib/imports';
 import { ACCOUNTS, GEDEELD, IMPORT_COUNTS, IMPORT_ERRORS, IMPORT_PREVIEW, importResult, NEW_MANUAL, renderAt, SPAAR, stubApi, ZICHT } from '../test/helpers';
 import { choose as pick } from '../test/select';
 import { CHECK_DELAY_MS, UNSURE } from './Importeren';
@@ -90,7 +90,7 @@ const backToColumns = () => {
 };
 
 describe('Importeren · start', () => {
-  it('lists the history with file, account, count and date, and offers no undo', async () => {
+  it('lists the history with file, account, count and date, and an undo per import', async () => {
     stubApi();
     renderAt('/importeren');
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
@@ -101,7 +101,7 @@ describe('Importeren · start', () => {
     const old = screen.getByText('spaarrekening-2025.csv').closest('.im-batch') as HTMLElement;
     expect(within(old).getByText('CSV-bestand · batch 2 · 30 december 2025')).toBeTruthy();
     expect(within(old).getByText('Spaarrekening')).toBeTruthy();
-    expect(screen.queryByText(/ongedaan/i)).toBeNull();
+    expect(within(row).getByRole('button', { name: 'Ongedaan maken: argenta-zicht-oktober.csv' })).toBeTruthy();
   });
 
   it('says so when there is no import yet', async () => {
@@ -154,6 +154,64 @@ describe('Importeren · start', () => {
     const open = vi.spyOn(HTMLInputElement.prototype, 'click');
     fireEvent.click(pick);
     expect(open).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Importeren · undo', () => {
+  const batch = (over: Partial<ImportBatch>): ImportBatch => ({ id: 1, source: 'bilance', fileName: 'bilance.csv', accountId: ZICHT.id, createdAt: '2026-11-12T20:30:00+01:00', imported: 24, present: 0, invalid: 0, undoneAt: null, run: 1, ...over });
+
+  it('groups the batches of one file import, mutes one that added nothing and says when one was undone', async () => {
+    stubApi({
+      imports: [
+        batch({ id: 9, run: 8 }),
+        batch({ id: 8, run: 8, accountId: SPAAR.id, imported: 4 }),
+        batch({ id: 5, run: 5, source: 'argenta', fileName: 'argenta-nog-eens.csv', imported: 0, present: 31 }),
+        batch({ id: 3, run: 3, source: 'argenta', fileName: 'argenta-oud.csv', imported: 42, undoneAt: '2026-11-13T09:00:00+01:00' }),
+      ],
+    });
+    renderAt('/importeren');
+    const run = (await screen.findByText('bilance.csv')).closest('.im-batch') as HTMLElement;
+    expect(within(run).getByText('Bilance-export · batch 8 en 9 · 12 november')).toBeTruthy();
+    expect(within(run).getByText('2 rekeningen')).toBeTruthy();
+    expect(within(run).getByText('28 transacties')).toBeTruthy();
+    expect(within(run).getByRole('button', { name: 'Alles ongedaan maken: bilance.csv' })).toBeTruthy();
+    const empty = screen.getByText('argenta-nog-eens.csv').closest('.im-batch') as HTMLElement;
+    expect(within(empty).getByText('Niets nieuws toegevoegd')).toBeTruthy();
+    expect(within(empty).queryByRole('button')).toBeNull();
+    const gone = screen.getByText('argenta-oud.csv').closest('.im-batch') as HTMLElement;
+    expect(within(gone).getByText('Ongedaan gemaakt op 13 november')).toBeTruthy();
+    expect(within(gone).queryByRole('button')).toBeNull();
+  });
+
+  it('shows what goes before it asks, then undoes and reloads the history', async () => {
+    const api = stubApi();
+    renderAt('/importeren');
+    fireEvent.click(await screen.findByRole('button', { name: 'Ongedaan maken: argenta-zicht-oktober.csv' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Batch 3 ongedaan maken?' }));
+    expect(api.undoPreview).toHaveBeenCalledWith(3, expect.any(AbortSignal));
+    expect(await dialog.findByText(/42 transacties worden verwijderd/)).toBeTruthy();
+    expect(dialog.getByText(/uit je Zichtrekening, inclusief hun categorie, splitsingen en notities\. 3 daarvan heb je zelf aangepast\./)).toBeTruthy();
+    expect(dialog.getByText(/Categorieën die bij het importeren zijn aangemaakt en categorieën die op bestaande transacties zijn overgenomen, blijven staan/)).toBeTruthy();
+    expect(api.undoImport).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole('button', { name: 'Ongedaan maken' }));
+    await waitFor(() => expect(api.undoImport).toHaveBeenCalledWith(3));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.querySelector('.toast')?.textContent).toBe('Ongedaan gemaakt · 42 transacties verwijderd');
+    await waitFor(() => expect(api.imports).toHaveBeenCalledTimes(2));
+  });
+
+  it('undoes the import from the result step', async () => {
+    const api = stubApi({ accounts: [ZICHT] });
+    renderAt('/importeren');
+    await toCheck();
+    fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
+    await screen.findByRole('heading', { name: '29 transacties geïmporteerd' });
+    fireEvent.click(screen.getByRole('button', { name: 'Ongedaan maken: export-zicht.csv' }));
+    fireEvent.click(await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Ongedaan maken' }));
+    await screen.findByRole('heading', { name: 'Import ongedaan gemaakt' });
+    expect(api.undoImport).toHaveBeenCalledWith(12);
+    expect(screen.getByText(/De 29 transacties zijn weer weg uit je Zichtrekening/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Ongedaan maken/ })).toBeNull();
   });
 });
 
@@ -219,15 +277,15 @@ describe('Importeren · wizard', () => {
     const alertsBefore = api.alerts.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
 
-    // Step 5: the result, links onward, no undo.
+    // Step 5: the result, links onward, undo.
     const h5 = await shown(() => screen.queryByRole('heading', { name: '29 transacties geïmporteerd' }));
     expect(document.activeElement).toBe(h5);
     expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal), undefined, undefined, undefined);
-    expect(screen.getByText('In je Spaarrekening. Bewaard als batch 12.')).toBeTruthy();
+    expect(screen.getByText('In je Spaarrekening. Bewaard als batch 12. Je kan de hele import in één keer ongedaan maken.')).toBeTruthy();
     expect(screen.getByText('Stap 5 van 5')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Transacties bekijken/ }).getAttribute('href')).toBe('/transacties?rekening=' + SPAAR.id);
     expect(screen.getByRole('button', { name: /Nog een bestand importeren/ })).toBeTruthy();
-    expect(screen.queryByText(/ongedaan/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ongedaan maken: export-zicht.csv' })).toBeTruthy();
     // The uncategorised badge and the history load again.
     await waitFor(() => expect(api.alerts.mock.calls.length).toBeGreaterThan(alertsBefore));
     expect(api.imports).toHaveBeenCalledTimes(2);
@@ -744,8 +802,8 @@ describe('Importeren · Bilance', () => {
     expect(screen.getByText('Dit is wat er in je Spaarrekening en Zichtrekening komt.')).toBeTruthy();
     api.importFile.mockResolvedValueOnce({
       batches: [
-        { id: 7, source: 'bilance', fileName: 'bilance.csv', accountId: ZICHT.id, createdAt: '2026-11-18T20:00:00+01:00', imported: 24, present: 1, invalid: 1 },
-        { id: 8, source: 'bilance', fileName: 'bilance.csv', accountId: SPAAR.id, createdAt: '2026-11-18T20:00:00+01:00', imported: 4, present: 0, invalid: 0 },
+        { id: 7, source: 'bilance', fileName: 'bilance.csv', accountId: ZICHT.id, createdAt: '2026-11-18T20:00:00+01:00', imported: 24, present: 1, invalid: 1, undoneAt: null },
+        { id: 8, source: 'bilance', fileName: 'bilance.csv', accountId: SPAAR.id, createdAt: '2026-11-18T20:00:00+01:00', imported: 4, present: 0, invalid: 0, undoneAt: null },
       ],
       errors: [],
     });
@@ -753,8 +811,10 @@ describe('Importeren · Bilance', () => {
     await screen.findByRole('heading', { name: '28 transacties geïmporteerd' });
     expect(api.importFile.mock.calls[0][1]).toEqual(target);
     expect(api.importFile.mock.calls[0][5]).toEqual(choices);
-    expect(screen.getByText('In 2 rekeningen. Bewaard als batch 7 en 8.')).toBeTruthy();
-    expect(screen.getAllByText('Bilance-export · batch 7 · vandaag').length + screen.getAllByText(/Bilance-export · batch 8/).length).toBeGreaterThan(1);
+    expect(screen.getByText('In 2 rekeningen. Bewaard als batch 7 en 8. Je kan de hele import in één keer ongedaan maken.')).toBeTruthy();
+    // One row for the run, one undo for both batches.
+    expect(screen.getByText('Bilance-export · batch 7 en 8 · vandaag')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Alles ongedaan maken: bilance.csv' })).toBeTruthy();
   });
 
   it('maps a pair by hand, a whole main category at once, and a new category, and sends those choices', async () => {

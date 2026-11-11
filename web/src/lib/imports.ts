@@ -134,6 +134,10 @@ export interface ImportBatch {
   imported: number;
   present: number;
   invalid: number;
+  /** When the batch was undone (0.5-5); null while it stands. */
+  undoneAt: string | null;
+  /** The history list only: the first batch id of the file import this batch belongs to (one file over several accounts is one run). */
+  run?: number;
 }
 
 export interface ImportResult {
@@ -318,4 +322,12 @@ export function mergesOf(all: FileCategory[], s: CategoryPicks): Map<string, Fil
   }
   for (const [v, list] of by) if (list.length < 2) by.delete(v);
   return by;
+}
+
+/** What an undo would remove (GET /api/imports/{id}/undo-preview); `changed` rows have a category set by hand or a suggestion, or a split. */
+export interface UndoPreview {
+  batches: number;
+  rows: number;
+  changed: number;
+  categorised: number;
 }

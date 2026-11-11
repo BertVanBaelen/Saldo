@@ -163,6 +163,8 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/imports/mappings", s.getImportMappings)
 	m.HandleFunc("PUT /api/imports/mappings", s.putImportMappings)
 	m.HandleFunc("POST /api/imports/{id}/reapply-categories", s.postReapplyCategories)
+	m.HandleFunc("GET /api/imports/{id}/undo-preview", s.getUndoPreview)
+	m.HandleFunc("POST /api/imports/{id}/undo", s.postUndo)
 	m.HandleFunc("GET /api/categories", s.listCategories)
 	m.HandleFunc("POST /api/categories", s.postCategory)
 	m.HandleFunc("PATCH /api/categories/{id}", s.patchCategory)

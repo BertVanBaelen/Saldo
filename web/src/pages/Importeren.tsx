@@ -2,8 +2,8 @@
 // Design: finance-mockup/js/screens/importeren.js (start view and the wizard); spec: analysis/screens/importeren.md.
 // Built: file (with the parse settings), columns and account (or accounts from a column), the categories of the file
 // mapped onto Saldo's tree (0.5-3, ImporterenCategories.tsx), a check with counts (for a Bilance file also the cutoff
-// per account and the probable duplicates, 0.5-4, ImporterenControle.tsx), the result. Not yet (0.5): undo, a new
-// account from the wizard.
+// per account and the probable duplicates, 0.5-4, ImporterenControle.tsx), the result, and the undo of an import (0.5-5,
+// ImporterenUndo.tsx; the history groups the batches of one file). Not yet: a new account from the wizard.
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
@@ -41,6 +41,7 @@ import type { Account } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { CategoryStep } from './ImporterenCategories';
 import { CutoffCard, DuplicatesSection } from './ImporterenControle';
+import { UndoDialog } from './ImporterenUndo';
 import './Importeren.css';
 
 const NO_PICKS: CategoryPicks = { picks: {}, parentMode: false, parentPicks: {} };
@@ -59,9 +60,19 @@ const plural = (n: number, one: string, many: string) => num(n) + ' ' + (n === 1
 
 /** "vandaag", "18 november" or "18 november 2025" */
 function when(day: string, today: string): string {
-  if (day === today) return 'vandaag';
+  return day === today ? 'vandaag' : dayMonth(day, today);
+}
+
+function dayMonth(day: string, today: string): string {
   const x = toDate(day);
   return x.getDate() + ' ' + MONTHS[x.getMonth()] + (day.slice(0, 4) === today.slice(0, 4) ? '' : ' ' + x.getFullYear());
+}
+
+/** The batches of one file import, newest first, from the history (a run is one file over several accounts). */
+function runsOf(list: ImportBatch[]): ImportBatch[][] {
+  const runs = new Map<number, ImportBatch[]>();
+  for (const b of list) runs.set(b.run ?? b.id, [...(runs.get(b.run ?? b.id) ?? []), b]);
+  return [...runs.values()];
 }
 
 const DELIMITERS: Record<string, string> = { ';': 'Puntkomma ( ; )', ',': 'Komma ( , )', '\t': 'Tab' };
@@ -167,20 +178,55 @@ function Spin({ text }: { text: string }) {
   );
 }
 
-function BatchRow({ b, account, today }: { b: ImportBatch; account: Account | undefined; today: string }) {
+/**
+ * One file import: a batch, or one per account when the file went to several (then "3 rekeningen" and one undo for all).
+ * A batch that brought nothing is muted and has no undo; an undone one says when.
+ */
+function BatchRow({ batches, accountOf, today, online, onUndo }: { batches: ImportBatch[]; accountOf: (id: number) => Account | undefined; today: string; online: boolean; onUndo: (live: ImportBatch[]) => void }) {
+  const b = batches[0];
+  const live = batches.filter((x) => !x.undoneAt && x.imported > 0);
+  const undone = batches.find((x) => x.undoneAt);
+  const ids = batches.map((x) => x.id).sort((a, c) => a - c);
+  const idText = ids.length === 1 ? String(b.id) : ids.slice(0, -1).join(', ') + ' en ' + ids[ids.length - 1];
+  const readOnly = live.some((x) => accountOf(x.accountId)?.permission !== 'edit');
+  const label = live.length > 1 ? 'Alles ongedaan maken' : 'Ongedaan maken';
+  let act: ReactNode = null;
+  if (live.length) {
+    act = readOnly ? (
+      <span className="chip chip--readonly">
+        <Icon name="lock" size={13} stroke={2.2} />
+        Alleen lezen
+      </span>
+    ) : (
+      <button type="button" className="im-btn im-btn--undo" disabled={!online} aria-label={label + ': ' + b.fileName} onClick={() => onUndo(live)}>
+        <Icon name="undo" size={16} stroke={2.2} />
+        {label}
+      </button>
+    );
+  } else if (undone?.undoneAt) {
+    act = (
+      <span className="im-undone">
+        <Icon name="undo" size={14} stroke={2.2} />
+        Ongedaan gemaakt op {dayMonth(isoDate(undone.undoneAt), today)}
+      </span>
+    );
+  } else {
+    act = <span className="im-undone">Niets nieuws toegevoegd</span>;
+  }
   return (
-    <div className="im-batch">
+    <div className={'im-batch' + (live.length ? '' : undone ? ' is-undone' : ' is-quiet')}>
       <Tile icon="file" bg={b.source === 'argenta' ? 'var(--c1)' : b.source === 'bilance' ? 'var(--c4)' : 'var(--c6)'} />
       <div className="im-batch-main">
         <span className="im-batch-name">{b.fileName}</span>
         <span className="im-batch-sub">
-          {sourceLabel(b.source)} · batch {b.id} · {when(isoDate(b.createdAt), today)}
+          {sourceLabel(b.source)} · batch {idText} · {when(isoDate(b.createdAt), today)}
         </span>
         <span className="im-batch-meta">
-          <AccPill a={account} />
-          <span className="mono">{plural(b.imported, 'transactie', 'transacties')}</span>
+          {batches.length === 1 ? <AccPill a={accountOf(b.accountId)} /> : <span>{plural(batches.length, 'rekening', 'rekeningen')}</span>}
+          <span className="mono">{plural(batches.reduce((n, x) => n + x.imported, 0), 'transactie', 'transacties')}</span>
         </span>
       </div>
+      <div className="im-batch-act">{act}</div>
     </div>
   );
 }
@@ -284,7 +330,7 @@ function Stat({ n, label, cls }: { n: number; label: string; cls?: string }) {
 
 export function Importeren() {
   useTitle('Importeren');
-  const { online, refreshShell, today, dataVersion } = useApp();
+  const { online, refreshShell, today, dataVersion, toast } = useApp();
   const accounts = useAsync((signal) => api.accounts(signal), [dataVersion]);
   const history = useAsync((signal) => api.imports(signal), [dataVersion]);
   const editable = useMemo(() => (accounts.data || []).filter((a) => a.permission === 'edit'), [accounts.data]);
@@ -300,6 +346,8 @@ export function Importeren() {
   const [readErr, setReadErr] = useState<Failure | null>(null);
   const [importErr, setImportErr] = useState<(Failure & { unsure: boolean }) | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [undoing, setUndoing] = useState<ImportBatch[] | null>(null); // the batches the open undo dialog is about
+  const [resultUndone, setResultUndone] = useState(false); // the import of the result step was undone from it
   const [check, setCheck] = useState<{ key: string; counts: ImportCounts; errors: RowError[]; duplicates: { total: number; items: ProbableDuplicate[] } | null } | null>(null);
   // Bilance only (0.5-4): the cutoff the user set per account id (null: none), the suggestions the server gave for
   // the accounts of one target, and the file lines of probable duplicates to import anyway.
@@ -540,6 +588,7 @@ export function Importeren() {
     setStatsErr(null);
     setCatState(NO_PICKS);
     setResult(null);
+    setResultUndone(false);
     setImportErr(null);
     setReadErr(null);
     setCheck(null);
@@ -547,6 +596,19 @@ export function Importeren() {
     setCutState({});
     setSuggest(null);
     setInclude([]);
+  };
+
+  // The undo went through: the history, the shell's counts (Te categoriseren) and every list reloaded on its next visit are stale.
+  const undone = (removed: number) => {
+    setUndoing(null);
+    if (step === 5) setResultUndone(true);
+    toast('Ongedaan gemaakt · ' + plural(removed, 'transactie', 'transacties') + ' verwijderd');
+    refreshShell();
+    history.reload();
+  };
+  const undoWhere = (list: ImportBatch[]) => {
+    const names = [...new Set(list.map((b) => b.accountId))].map((id) => accountOf(id)?.name ?? 'rekening');
+    return names.length === 1 ? 'je ' + names[0] : plural(names.length, 'rekening', 'rekeningen');
   };
 
   const canPick = online && !busy && editable.length > 0;
@@ -696,14 +758,14 @@ export function Importeren() {
         )
       ) : history.data.length ? (
         <div className="im-list">
-          {history.data.map((b) => (
-            <BatchRow key={b.id} b={b} account={accountOf(b.accountId)} today={today} />
+          {runsOf(history.data).map((run) => (
+            <BatchRow key={run[0].id} batches={run} accountOf={accountOf} today={today} online={online} onUndo={setUndoing} />
           ))}
         </div>
       ) : (
         <div className="im-empty">
           <strong>Nog geen imports</strong>
-          <span>Elke import verschijnt hier als een batch, met het bestand, de rekening en hoeveel transacties erbij kwamen.</span>
+          <span>Elke import verschijnt hier als een batch die je in één keer ongedaan kan maken, met het bestand, de rekening en hoeveel transacties erbij kwamen.</span>
         </div>
       )}
     </section>
@@ -1131,25 +1193,30 @@ export function Importeren() {
     const { afterCutoff: cutSkipped = 0, probable = 0, categoryTaken: taken = 0 } = result;
     const first = result.batches[0];
     const done = first && accountOf(first.accountId);
+    const nothing = imported === 0;
+    // After an undo from this step the rows show as undone; the day is the app's today (the demo clock too).
+    const shown = resultUndone ? result.batches.map((b) => ({ ...b, undoneAt: today + 'T12:00:00Z' })) : result.batches;
     body = (
       <>
         <section className="im-card im-done anim-in" style={delay(40)} aria-labelledby="im-step-h">
-          <span className="im-done-icon" aria-hidden="true">
-            <Icon name="check" size={28} stroke={2.8} />
+          <span className={'im-done-icon' + (resultUndone ? ' im-done-icon--undone' : '')} aria-hidden="true">
+            <Icon name={resultUndone ? 'undo' : 'check'} size={resultUndone ? 26 : 28} stroke={resultUndone ? 2.4 : 2.8} />
           </span>
           <h2 id="im-step-h" tabIndex={-1}>
-            {plural(imported, 'transactie', 'transacties')} geïmporteerd
+            {resultUndone ? 'Import ongedaan gemaakt' : nothing ? 'Niets nieuws toegevoegd' : plural(imported, 'transactie', 'transacties') + ' geïmporteerd'}
           </h2>
           <p className="im-done-sub">
-            {result.batches.length === 1
-              ? 'In je ' + (done?.name ?? 'rekening') + '. Bewaard als batch ' + first.id + '.'
-              : 'In ' + result.batches.length + ' rekeningen. Bewaard als batch ' + result.batches.map((b) => b.id).join(' en ') + '.'}
+            {resultUndone
+              ? 'De ' + plural(imported, 'transactie is', 'transacties zijn') + ' weer weg uit ' + undoWhere(result.batches) + '.' + (hasCats ? ' De koppeling van de categorieën blijft bewaard.' : '')
+              : nothing
+                ? 'Dit bestand was al geïmporteerd of staat al in Saldo; er is niets toegevoegd.'
+                : result.batches.length === 1
+                  ? 'In je ' + (done?.name ?? 'rekening') + '. Bewaard als batch ' + first.id + '. Je kan de hele import in één keer ongedaan maken.'
+                  : 'In ' + result.batches.length + ' rekeningen. Bewaard als batch ' + result.batches.map((b) => b.id).join(' en ') + '. Je kan de hele import in één keer ongedaan maken.'}
           </p>
-          {result.batches.map((b) => (
-            <BatchRow key={b.id} b={b} account={accountOf(b.accountId)} today={today} />
-          ))}
+          <BatchRow batches={shown} accountOf={accountOf} today={today} online={online} onUndo={setUndoing} />
         </section>
-        {(present > 0 || invalid > 0 || hasCats || cutSkipped > 0 || probable > 0 || taken > 0) && (
+        {!resultUndone && (present > 0 || invalid > 0 || hasCats || cutSkipped > 0 || probable > 0 || taken > 0) && (
           <section className="im-card anim-in" style={delay(80)} aria-label="Wat er gebeurde">
             <ul className="im-done-facts">
               {cutSkipped > 0 && (
@@ -1216,7 +1283,7 @@ export function Importeren() {
             </ul>
           </section>
         )}
-        <RowErrors errors={result.errors ?? []} invalid={invalid} />
+        {!resultUndone && <RowErrors errors={result.errors ?? []} invalid={invalid} />}
         <section className="im-sec anim-in" style={delay(120)} aria-labelledby="im-next-h">
           <div className="im-sec-head">
             <h3 className="label" id="im-next-h">
@@ -1293,6 +1360,7 @@ export function Importeren() {
           </>
         )}
       </Fragment>
+      {undoing && <UndoDialog batches={undoing} where={undoWhere(undoing)} onClose={() => setUndoing(null)} onDone={undone} />}
     </div>
   );
 }

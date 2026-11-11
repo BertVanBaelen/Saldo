@@ -1,0 +1,28 @@
+Titel, Datum, Bedrag, Categorie, Subcategorie, Tag(s), Betalingskenmerk, Handelaar, Rekening(en), Notitie
+"Huur", 2025-01-02 00:00:00.000, -1005.00€, "Wonen", "Huur, hypotheek", , "Huur januari 2025", "Immo Verhaeghe", "Zichtrekening", 
+"Loon", 2025-01-03 00:00:00.000, +2850.00€, "Inkomen", "Loon", , "Loon januari", "Werkgever NV", "Zichtrekening", 
+"Colruyt", 2025-01-14 00:00:00.000, -88.40€, "Eten & Drinken", "Boodschappen", , "Colruyt Laagste Prijzen |.| 14-01-2025 |.| 17:42 |.| Gent |.| BE |.| 0000********0000 |.| 5411 |.| Jan Voorbeeld", "Colruyt Laagste Prijzen   Gent", "Zichtrekening", 
+"Huur", 2025-02-02 00:00:00.000, -1005.00€, "Wonen", "Huur, hypotheek", , "Huur februari 2025", "Immo Verhaeghe", "Zichtrekening", 
+"Loon", 2025-02-03 00:00:00.000, +2850.00€, "Inkomen", "Loon", , "Loon februari", "Werkgever NV", "Zichtrekening", 
+"Delhaize", 2025-02-20 00:00:00.000, -64.10€, "Eten & Drinken", "Boodschappen", , "Delhaize |.| 20-02-2025 |.| 18:05 |.| Gent |.| BE |.| 0000********0000 |.| 5411 |.| Jan Voorbeeld", "Delhaize   Gent", "Zichtrekening", 
+"Luminus", 2025-03-05 00:00:00.000, -145.00€, "Wonen", "Energie, nutsvoorzieningen", , "+++123/4567/89012+++", "Luminus NV", "Zichtrekening", 
+"Zara", 2025-03-18 00:00:00.000, -39.99€, "Winkelen", "Kleding, accessoires", , "Zara |.| 18-03-2025 |.| 15:20 |.| Gent |.| BE |.| 0000********0000 |.| 5651 |.| Jan Voorbeeld", "Zara   Gent", "Zichtrekening", 
+"Pizzeria Roma", 2025-04-09 00:00:00.000, -52.00€, "Eten & Drinken", "Uit eten, bezorging", , "Pizzeria Roma |.| 09-04-2025 |.| 20:11 |.| Gent |.| BE |.| 0000********0000 |.| 5812 |.| Jan Voorbeeld", "Pizzeria Roma   Gent", "Zichtrekening", "Verjaardag Sofie"
+"Salon Anna", 2025-04-22 00:00:00.000, -35.00€, "Gezondheid & Educatie", "Wellness, verzorging", , , "Salon Anna", "Zichtrekening", 
+"Proximus", 2025-05-07 00:00:00.000, -24.99€, "Vrije tijd & entertainment", "Telefoonkosten", , "+++987/6543/21098+++", "Proximus", "Zichtrekening", 
+"Bol.com", 2025-05-19 00:00:00.000, -18.50€, "Winkelen", "Overig", , , "Bol.com", "Zichtrekening", "Cadeau"
+"Parking Gent", 2025-06-02 00:00:00.000, -9.50€, "Winkelen", "Overig", , , , "Zichtrekening", 
+"Kaart onbekend", 2025-06-18 00:00:00.000, abc€, "Winkelen", "Overig", , "Kaart |.| 18-06-2025 |.| 11:30 |.| Gent |.| BE |.| 0000********0000 |.| 5999 |.| Jan Voorbeeld", "Kaart onbekend", "Zichtrekening", 
+"MediaMarkt", 2025-07-11 00:00:00.000, -1349.99€, "Winkelen", "Overig", , "MediaMarkt |.| 11-07-2025 |.| 14:02 |.| Gent |.| BE |.| 0000********0000 |.| 5732 |.| Jan Voorbeeld", "MediaMarkt   Gent", "Zichtrekening", 
+"Delhaize", 2025-08-04 00:00:00.000, -76.20€, "Eten & Drinken", "Boodschappen", , "Delhaize|.|04-08-2025|.|18:40|.|Gent|.|BE|.|0000********0000|.|5411|.|Jan Voorbeeld", "Delhaize   Gent", "Zichtrekening", 
+"Overschrijving naar spaarrekening", 2025-09-16 00:00:00.000, -200.00€, , , , "Maandelijks sparen", "Spaarrekening", "Zichtrekening", 
+"Overschrijving van zichtrekening", 2025-09-16 00:00:00.000, +200.00€, , , , "Maandelijks sparen", "Zichtrekening", "Spaarrekening", 
+"Rente", 2025-10-01 00:00:00.000, +3.42€, "Inkomen", "Rente", , "Rente september", "Bank", "Spaarrekening", 
+"Markt", 2025-10-05 00:00:00.000, -12.50€, "Eten & Drinken", "Boodschappen", , , "Markt Gent", "Contant", "Groenten"
+"Kapper", 2025-10-11 00:00:00.000, -8.00€, "Gezondheid & Educatie", "Wellness, verzorging", , , "Kapper Jos", "Contant", 
+"Terugbetaling Sofie", 2025-10-20 00:00:00.000, +40.00€, "Inkomen", "Terugbetaling", , , "Sofie Maes", "Contant", 
+"Huur", 2026-10-01 00:00:00.000, -1005.00€, "Wonen", "Huur, hypotheek", , "Huur oktober 2026", "Immo Verhaeghe", "Zichtrekening", 
+"Netflix", 2026-10-12 00:00:00.000, -13.99€, "Winkelen", "Overig", , "Netflix.com", "Netflix", "Zichtrekening", 
+"Spotify", 2026-10-18 00:00:00.000, -11.99€, "Winkelen", "Overig", , "Spotify Premium", "SPOTIFY AB", "Zichtrekening", 
+"Apotheek Peeters", 2026-10-23 00:00:00.000, -42.50€, "Gezondheid & Educatie", "Wellness, verzorging", , "Apotheek Peeters |.| 23-10-2026 |.| 10:15 |.| Gent |.| BE |.| 0000********0000 |.| 5912 |.| Jan Voorbeeld", "Apotheek Peeters   Gent", "Zichtrekening", 
+"Lidl", 2026-11-03 00:00:00.000, -24.80€, "Eten & Drinken", "Boodschappen", , "Lidl |.| 03-11-2026 |.| 17:48 |.| Gent |.| BE |.| 0000********0000 |.| 5411 |.| Jan Voorbeeld", "Lidl   Gent", "Zichtrekening", 

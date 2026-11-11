@@ -25,22 +25,24 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/ratelimit"
 )
 
-// CSV import (phase 0.3-6). The two POST routes are the one exception to
-// "JSON only": they take multipart/form-data, read as a stream.
+// CSV import (phases 0.3-6 and 0.5-2). The two POST routes are the one
+// exception to "JSON only": they take multipart/form-data, read as a stream.
 
 const (
 	// importBodyMax caps the whole multipart body: the file plus room for
 	// the part headers and the two small fields.
 	importBodyMax = importers.MaxFileBytes + 64<<10
 	// importTimeout replaces the server's 30 s read timeout for an upload:
-	// 5 MB from a phone on a slow uplink can take longer.
-	importTimeout   = 2 * time.Minute
-	maxAccountField = 20 // digits of an int64
-	maxMappingField = 2 << 10
-	maxImportErrors = 20 // row errors in an answer; counts give the total
-	msgFileTooLarge = "Het bestand is groter dan 5 MB."
-	msgBadUpload    = "Het bestand kwam niet goed aan. Probeer het opnieuw."
-	defaultFileName = "bestand.csv"
+	// 20 MB from a phone on a slow uplink can take minutes.
+	importTimeout    = 5 * time.Minute
+	maxAccountField  = 20 // digits of an int64
+	maxMappingField  = 2 << 10
+	maxAccountMap    = 8 << 10 // up to importers.MaxAccountNames names
+	maxSettingsField = 256
+	maxImportErrors  = 20 // row errors in an answer; counts give the total
+	msgFileTooLarge  = "Het bestand is groter dan 20 MB."
+	msgBadUpload     = "Het bestand kwam niet goed aan. Probeer het opnieuw."
+	defaultFileName  = "bestand.csv"
 )
 
 // importLimits are the per-user limits of the import routes, and the
@@ -51,7 +53,7 @@ type importLimits struct {
 }
 
 // maxImportsRunning caps concurrent uploads: each can hold several times
-// 5 MB for up to two minutes, too much for a small Home Assistant box.
+// 20 MB for minutes, too much for a small Home Assistant box.
 const maxImportsRunning = 2
 
 // enter takes an import slot, or answers 503 and returns false. Taken before
@@ -80,6 +82,12 @@ type mappingBody struct {
 	Communication    *int `json:"communication"`
 	Account          *int `json:"account"`
 	Currency         *int `json:"currency"`
+	// Added in 0.5-2; absent means not mapped, so older clients keep working.
+	Note                 *int `json:"note"`
+	Category             *int `json:"category"`
+	Subcategory          *int `json:"subcategory"`
+	AccountName          *int `json:"accountName"`
+	CounterpartyFallback *int `json:"counterpartyFallback"`
 }
 
 func (b mappingBody) mapping() importers.Mapping {
@@ -91,7 +99,8 @@ func (b mappingBody) mapping() importers.Mapping {
 	}
 	return importers.Mapping{Date: col(b.Date), ValueDate: col(b.ValueDate), Amount: col(b.Amount),
 		Counterparty: col(b.Counterparty), CounterpartyIBAN: col(b.CounterpartyIBAN), Communication: col(b.Communication),
-		Account: col(b.Account), Currency: col(b.Currency)}
+		Account: col(b.Account), Currency: col(b.Currency), Note: col(b.Note), Category: col(b.Category),
+		Subcategory: col(b.Subcategory), AccountName: col(b.AccountName), CounterpartyFallback: col(b.CounterpartyFallback)}
 }
 
 func mappingOf(m importers.Mapping) mappingBody {
@@ -103,7 +112,32 @@ func mappingOf(m importers.Mapping) mappingBody {
 	}
 	return mappingBody{Date: col(m.Date), ValueDate: col(m.ValueDate), Amount: col(m.Amount),
 		Counterparty: col(m.Counterparty), CounterpartyIBAN: col(m.CounterpartyIBAN), Communication: col(m.Communication),
-		Account: col(m.Account), Currency: col(m.Currency)}
+		Account: col(m.Account), Currency: col(m.Currency), Note: col(m.Note), Category: col(m.Category),
+		Subcategory: col(m.Subcategory), AccountName: col(m.AccountName), CounterpartyFallback: col(m.CounterpartyFallback)}
+}
+
+// settingsBody is the manual override of what the parser detects, in JSON;
+// an empty or absent value means "as detected". Values come from fixed lists.
+type settingsBody struct {
+	Delimiter  string `json:"delimiter"`  // ";" "," or a tab
+	Encoding   string `json:"encoding"`   // "utf-8" or "windows-1252"
+	DateFormat string `json:"dateFormat"` // "dmy", "mdy" or "ymd"
+	Decimal    string `json:"decimal"`    // "," or "."
+}
+
+func (b settingsBody) options() (o importers.Options, ok bool) {
+	if !slices.Contains([]string{"", ";", ",", "\t"}, b.Delimiter) || !slices.Contains([]string{"", importers.EncodingUTF8, importers.EncodingWindows1252}, b.Encoding) ||
+		!slices.Contains([]string{"", "dmy", "mdy", "ymd"}, b.DateFormat) || !slices.Contains([]string{"", ",", "."}, b.Decimal) {
+		return o, false
+	}
+	o.Encoding, o.DateFormat = b.Encoding, b.DateFormat
+	if b.Delimiter != "" {
+		o.Delimiter = rune(b.Delimiter[0])
+	}
+	if b.Decimal != "" {
+		o.Decimal = b.Decimal[0]
+	}
+	return o, true
 }
 
 type rowErrorBody struct {
@@ -119,51 +153,78 @@ type countsBody struct {
 	Overlap int `json:"overlap"`
 }
 
+type accountNameBody struct {
+	Name string `json:"name"`
+	Rows int    `json:"rows"`
+}
+
+type categoryBody struct {
+	Category    string `json:"category"`
+	Subcategory string `json:"subcategory"`
+	Rows        int    `json:"rows"`
+	Total       int64  `json:"total"`
+}
+
 type previewBody struct {
-	FileName  string         `json:"fileName"`
-	Delimiter string         `json:"delimiter"`
-	Headers   []string       `json:"headers"`
-	Mapping   mappingBody    `json:"mapping"`
-	Preset    *string        `json:"preset"`
-	TotalRows int            `json:"totalRows"`
-	Sample    [][]string     `json:"sample"`
-	Counts    *countsBody    `json:"counts"`
-	Errors    []rowErrorBody `json:"errors"`
+	FileName   string            `json:"fileName"`
+	Delimiter  string            `json:"delimiter"`
+	Encoding   string            `json:"encoding"`
+	Headers    []string          `json:"headers"`
+	Mapping    mappingBody       `json:"mapping"`
+	Preset     *string           `json:"preset"`
+	TotalRows  int               `json:"totalRows"`
+	Sample     [][]string        `json:"sample"`
+	Accounts   []accountNameBody `json:"accounts"`
+	Categories []categoryBody    `json:"categories"`
+	Counts     *countsBody       `json:"counts"`
+	Errors     []rowErrorBody    `json:"errors"`
 }
 
 type importBody struct {
-	Batch  ledger.Batch   `json:"batch"`
-	Errors []rowErrorBody `json:"errors"`
+	Batches []ledger.Batch `json:"batches"`
+	Errors  []rowErrorBody `json:"errors"`
 }
 
 // upload is a read multipart request.
 type upload struct {
-	fileName  string
-	data      []byte
-	accountID int64              // 0 when not sent
-	mapping   *importers.Mapping // nil when not sent
-	echo      mappingBody        // the mapping as sent
+	fileName   string
+	data       []byte
+	accountID  int64              // 0 when not sent
+	accountMap map[string]int64   // file account name -> account id; nil when not sent
+	mapping    *importers.Mapping // nil when not sent
+	echo       mappingBody        // the mapping as sent
+	options    importers.Options  // the overrides; zero when not sent
 }
+
+// hasAccount tells whether the upload names where the rows go.
+func (u upload) hasAccount() bool { return u.accountID != 0 || u.accountMap != nil }
 
 // postImportPreview inspects a CSV file for the import wizard.
 //
 // POST /api/imports/preview, multipart/form-data with the parts file
-// (required), accountId and mapping (a JSON object of column indexes, keys
-// date, valueDate, amount, counterparty, counterpartyIban, communication,
-// account, currency; null or absent = not mapped). 200 with fileName, delimiter, headers,
-// mapping (the one sent, else the suggestion), preset ("argenta" or null),
-// totalRows, sample (the first three readable rows, cells in header order,
-// IBAN-shaped cells masked),
-// counts and errors. counts ({rows, new, present, invalid, overlap}; overlap
-// is how many of the new rows are dated on or after the account's earliest
-// synced booked row) and errors (at
-// most 20 {line, message}; counts.invalid is the total) only come when both
-// accountId and mapping are sent; one without the other is 400. The counts
-// are those of a real import (the same code, rolled back), so they need edit
-// access to the account: hidden 404, read-only 403. counts null and errors
-// [] otherwise. 60 previews per user per hour, then 429 with Retry-After.
-// Errors: 415 not multipart, 413 file over 5 MB, 400 a bad file, mapping
-// or upload (Dutch message, never cell text).
+// (required), settings (a JSON object of overrides, keys delimiter,
+// encoding, dateFormat, decimal), mapping (a JSON object of column indexes,
+// keys date, valueDate, amount, counterparty, counterpartyIban,
+// communication, account, currency, note, category, subcategory,
+// accountName, counterpartyFallback; null or absent = not mapped) and, with
+// the mapping, either accountId or accountMap (a JSON object of file
+// account name to account id, for a mapping with accountName). 200 with
+// fileName, delimiter, encoding, headers, mapping (the one sent, else the
+// suggestion), preset ("argenta", "bilance" or null), totalRows, sample (the
+// first three readable rows, cells in header order, IBAN-shaped cells masked,
+// card payment strings reduced), accounts and categories (with a mapping:
+// the distinct account names and category pairs of the readable rows, with
+// their counts), counts and errors. counts ({rows, new, present, invalid,
+// overlap}; overlap is how many of the new rows are dated on or after the
+// account's earliest synced booked row) and errors (at most 20 {line,
+// message}; counts.invalid is the total) come when the mapping and an
+// account are sent; an account without the mapping is 400. The counts are
+// those of a real import (the same code, rolled back), so they need edit
+// access to the accounts: hidden 404, read-only 403. counts null otherwise;
+// errors then holds the unreadable rows of the mapping, if any. 60 previews
+// per user per hour, then 429 with Retry-After.
+// Errors: 415 not multipart, 413 file over 20 MB, 400 a bad file, setting,
+// mapping or upload (Dutch message, never cell text).
 func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 	viewer := viewerOf(r)
 	if !multipartRequest(w, r) || !s.imports.enter(w) {
@@ -177,36 +238,57 @@ func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if (u.accountID == 0) != (u.mapping == nil) {
-		writeError(w, http.StatusBadRequest, "invalid", "Stuur de rekening en de koppeling samen mee, of geen van beide.")
+	if (u.mapping == nil && u.hasAccount()) || (u.accountID != 0 && u.accountMap != nil) {
+		writeError(w, http.StatusBadRequest, "invalid", "Stuur de koppeling mee met één rekening of met de koppeling van de rekeningnamen.")
 		return
 	}
 	var p importers.Parsed
 	var err error
 	if u.mapping == nil {
-		p, err = importers.Inspect(u.data)
+		p, err = importers.Inspect(u.data, u.options)
 	} else {
-		p, err = importers.Parse(u.data, *u.mapping, s.today())
+		p, err = importers.Parse(u.data, *u.mapping, s.today(), u.options)
 	}
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	body := previewBody{FileName: u.fileName, Delimiter: string(p.Delimiter), Headers: p.Headers, Mapping: mappingOf(p.Mapping),
-		TotalRows: p.TotalRows, Sample: maskSample(p.Sample), Errors: []rowErrorBody{}}
+	body := previewBody{FileName: u.fileName, Delimiter: string(p.Delimiter), Encoding: p.Encoding, Headers: p.Headers, Mapping: mappingOf(p.Mapping),
+		TotalRows: p.TotalRows, Sample: maskSample(p.Sample), Accounts: []accountNameBody{}, Categories: []categoryBody{}, Errors: []rowErrorBody{}}
+	for _, a := range p.Accounts {
+		body.Accounts = append(body.Accounts, accountNameBody{a.Name, a.Rows})
+	}
+	for _, c := range p.Categories {
+		body.Categories = append(body.Categories, categoryBody{c.Category, c.Subcategory, c.Rows, c.Total})
+	}
 	if u.mapping != nil {
 		body.Mapping = u.echo
+		body.Errors = rowErrors(p.Errors, nil)
 	}
 	if p.Preset != "" {
 		body.Preset = &p.Preset
 	}
-	if u.mapping != nil {
-		b, excluded, err := s.store.Import(r.Context(), viewer, importFile(u, p), true)
+	if u.hasAccount() {
+		files, err := importFiles(u, p)
 		if err != nil {
 			s.fail(w, r, err, msgAccountNotFound)
 			return
 		}
-		body.Counts = &countsBody{Rows: p.TotalRows, New: b.Imported, Present: b.Present, Invalid: b.Invalid, Overlap: b.Overlap}
+		batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, true)
+		if err != nil {
+			s.fail(w, r, err, msgAccountNotFound)
+			return
+		}
+		body.Counts = &countsBody{Rows: p.TotalRows, Invalid: len(p.Errors)}
+		if len(files) > 0 { // the parse errors count on the first part
+			body.Counts.Invalid = 0
+		}
+		for _, b := range batches {
+			body.Counts.New += b.Imported
+			body.Counts.Present += b.Present
+			body.Counts.Invalid += b.Invalid
+			body.Counts.Overlap += b.Overlap
+		}
 		body.Errors = rowErrors(p.Errors, excluded)
 	}
 	writeJSON(w, http.StatusOK, body)
@@ -214,9 +296,10 @@ func (s *Server) postImportPreview(w http.ResponseWriter, r *http.Request) {
 
 // postImport imports a CSV file into an account the viewer may edit.
 //
-// POST /api/imports, multipart/form-data with the parts file, accountId and
-// mapping (as for the preview), all required. 201 {batch, errors}: batch is
-// {id, source ("argenta" or "csv"), fileName, accountId, createdAt,
+// POST /api/imports, multipart/form-data with the parts file, mapping and
+// accountId or accountMap (as for the preview), optionally settings. 201
+// {batches, errors}: one batch per account the rows go to, each {id, source
+// ("argenta", "bilance" or "csv"), fileName, accountId, createdAt,
 // imported, present, invalid}, errors at most 20 {line, message}. Readable
 // rows go in through the sync's dedupe key, so the same file again adds 0
 // and counts its rows as present (a new batch all the same); unreadable rows
@@ -242,23 +325,30 @@ func (s *Server) postImport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if u.accountID == 0 || u.mapping == nil {
+	if !u.hasAccount() || u.mapping == nil || (u.accountID != 0 && u.accountMap != nil) {
 		writeError(w, http.StatusBadRequest, "invalid", "Kies een rekening en koppel de kolommen.")
 		return
 	}
-	p, err := importers.Parse(u.data, *u.mapping, s.today())
+	p, err := importers.Parse(u.data, *u.mapping, s.today(), u.options)
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	b, excluded, err := s.store.Import(r.Context(), viewer, importFile(u, p), false)
+	files, err := importFiles(u, p)
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	s.audit(r, auth.EventImportDone, viewer, fmt.Sprintf("account=%d batch=%d imported=%d present=%d invalid=%d",
-		b.AccountID, b.ID, b.Imported, b.Present, b.Invalid))
-	writeJSON(w, http.StatusCreated, importBody{Batch: b, Errors: rowErrors(p.Errors, excluded)})
+	batches, excluded, err := s.store.ImportFiles(r.Context(), viewer, files, false)
+	if err != nil {
+		s.fail(w, r, err, msgAccountNotFound)
+		return
+	}
+	for _, b := range batches {
+		s.audit(r, auth.EventImportDone, viewer, fmt.Sprintf("account=%d batch=%d imported=%d present=%d invalid=%d",
+			b.AccountID, b.ID, b.Imported, b.Present, b.Invalid))
+	}
+	writeJSON(w, http.StatusCreated, importBody{Batches: batches, Errors: rowErrors(p.Errors, excluded)})
 }
 
 // listImports answers GET /api/imports: the batches of the accounts the
@@ -277,18 +367,54 @@ func (s *Server) listImports(w http.ResponseWriter, r *http.Request) {
 // in demo mode).
 func (s *Server) today() string { return s.now().In(clock.Brussels).Format(time.DateOnly) }
 
-func importFile(u upload, p importers.Parsed) ledger.ImportFile {
+const msgMapAccounts = "Koppel elke rekeningnaam in het bestand aan een rekening."
+
+// importFiles splits the readable rows over the accounts they go to: one
+// part for the chosen account, or, when the mapping has an account name
+// column, one part per name in the order of its first row, each to the
+// account accountMap gives it. A name without an account is refused whole,
+// and the error never repeats it. The unreadable rows count on the first part.
+func importFiles(u upload, p importers.Parsed) ([]ledger.ImportFile, error) {
 	source := "csv"
-	if p.Preset == importers.PresetArgenta {
-		source = "argenta"
+	switch p.Preset {
+	case importers.PresetArgenta, importers.PresetBilance:
+		source = p.Preset
 	}
 	sum := sha256.Sum256(u.data)
-	f := ledger.ImportFile{AccountID: u.accountID, Source: source, FileName: u.fileName,
-		FileHash: hex.EncodeToString(sum[:]), Invalid: len(p.Errors)}
-	for _, row := range p.Rows {
-		f.Rows = append(f.Rows, ledger.ImportRow{Line: row.Line, Account: row.Account, Tx: row.Tx})
+	base := ledger.ImportFile{Source: source, FileName: u.fileName, FileHash: hex.EncodeToString(sum[:])}
+	var files []ledger.ImportFile
+	if p.Mapping.AccountName == importers.NoColumn {
+		if u.accountID == 0 {
+			return nil, apperr.Invalid("Kies een rekening.")
+		}
+		base.AccountID = u.accountID
+		files = []ledger.ImportFile{base}
+	} else if u.accountMap == nil {
+		return nil, apperr.Invalid(msgMapAccounts)
 	}
-	return f
+	part := map[string]int{}
+	for _, row := range p.Rows {
+		i := 0
+		if p.Mapping.AccountName != importers.NoColumn {
+			var ok bool
+			if i, ok = part[row.AccountName]; !ok {
+				id := u.accountMap[row.AccountName]
+				if id == 0 {
+					return nil, apperr.Invalid(msgMapAccounts)
+				}
+				i = len(files)
+				part[row.AccountName] = i
+				f := base
+				f.AccountID = id
+				files = append(files, f)
+			}
+		}
+		files[i].Rows = append(files[i].Rows, ledger.ImportRow{Line: row.Line, Account: row.Account, Note: row.Note, Tx: row.Tx})
+	}
+	if len(files) > 0 {
+		files[0].Invalid = len(p.Errors)
+	}
+	return files, nil
 }
 
 // maskSample copies the sample with every IBAN-shaped cell (the file's own
@@ -347,7 +473,7 @@ func multipartRequest(w http.ResponseWriter, r *http.Request) bool {
 // readUpload streams the multipart body (never to memory or disk as a
 // whole form) and answers the error itself. It first lifts the server's
 // read and write deadlines for this request, which would otherwise cut off
-// a slow 5 MB upload after 30 s; httptest's recorder does not support that,
+// a slow 20 MB upload after 30 s; httptest's recorder does not support that,
 // so the errors are ignored. Each part may come once; anything unknown is 400.
 func readUpload(w http.ResponseWriter, r *http.Request) (upload, bool) {
 	rc := http.NewResponseController(w)
@@ -388,7 +514,7 @@ func readUpload(w http.ResponseWriter, r *http.Request) (upload, bool) {
 		case "file":
 			u.fileName = cleanFileName(part.FileName())
 			u.data, err = importers.ReadUpload(part)
-			if _, ok := errors.AsType[*apperr.InvalidError](err); ok { // ReadUpload's only one: over 5 MB
+			if _, ok := errors.AsType[*apperr.InvalidError](err); ok { // ReadUpload's only one: over 20 MB
 				return bad(http.StatusRequestEntityTooLarge, "too_large", msgFileTooLarge)
 			}
 			if err != nil {
@@ -407,6 +533,35 @@ func readUpload(w http.ResponseWriter, r *http.Request) (upload, bool) {
 				return bad(http.StatusNotFound, "not_found", msgAccountNotFound)
 			}
 			u.accountID = id
+		case "accountMap":
+			v, err := readField(part, maxAccountMap)
+			if err != nil {
+				return readErr(err)
+			}
+			dec := json.NewDecoder(bytes.NewReader(v))
+			if err := dec.Decode(&u.accountMap); err != nil || dec.More() || u.accountMap == nil || len(u.accountMap) > importers.MaxAccountNames {
+				return bad(http.StatusBadRequest, "invalid", "De koppeling van de rekeningnamen klopt niet.")
+			}
+			for _, id := range u.accountMap {
+				if id <= 0 {
+					return bad(http.StatusNotFound, "not_found", msgAccountNotFound)
+				}
+			}
+		case "settings":
+			v, err := readField(part, maxSettingsField)
+			if err != nil {
+				return readErr(err)
+			}
+			var sb settingsBody
+			dec := json.NewDecoder(bytes.NewReader(v))
+			dec.DisallowUnknownFields()
+			var ok bool
+			if err := dec.Decode(&sb); err == nil && !dec.More() {
+				u.options, ok = sb.options()
+			}
+			if !ok {
+				return bad(http.StatusBadRequest, "invalid", "De instellingen van het bestand kloppen niet.")
+			}
 		case "mapping":
 			v, err := readField(part, maxMappingField)
 			if err != nil {

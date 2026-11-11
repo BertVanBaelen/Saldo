@@ -52,7 +52,7 @@ async function toCheck(file = csv(), n = 29) {
   await toColumns(file);
   fireEvent.click(screen.getByRole('radio', { name: /Zichtrekening/ }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Volgende' })).toHaveProperty('disabled', false));
-  fireEvent.click(screen.getByRole('button', { name: 'Volgende' }));
+  onward();
   await screen.findByRole('button', { name: 'Importeer ' + n + ' transacties' });
 }
 
@@ -78,6 +78,16 @@ const goOnline = () => {
 /** Long enough for a debounced check to have been sent, if the page would send one. */
 const quiet = () => new Promise((r) => setTimeout(r, CHECK_DELAY_MS + 150));
 const next = () => screen.getByRole('button', { name: 'Volgende' }) as HTMLButtonElement;
+/** From the columns step through the categories step to the check. */
+const onward = () => {
+  fireEvent.click(next());
+  fireEvent.click(next());
+};
+/** From the check step back to the columns step. */
+const backToColumns = () => {
+  fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+};
 
 describe('Importeren · start', () => {
   it('lists the history with file, account, count and date, and offers no undo', async () => {
@@ -92,7 +102,6 @@ describe('Importeren · start', () => {
     expect(within(old).getByText('CSV-bestand · batch 2 · 30 december 2025')).toBeTruthy();
     expect(within(old).getByText('Spaarrekening')).toBeTruthy();
     expect(screen.queryByText(/ongedaan/i)).toBeNull();
-    expect(screen.queryByText(/Bilance/)).toBeNull();
   });
 
   it('says so when there is no import yet', async () => {
@@ -117,11 +126,11 @@ describe('Importeren · start', () => {
     expect(screen.getByText(/Op je rekeningen kan je alleen lezen/)).toBeTruthy();
   });
 
-  it('refuses a file over 5 MiB and an empty file before uploading anything', async () => {
+  it('refuses a file over 20 MiB and an empty file before uploading anything', async () => {
     const api = stubApi();
     renderAt('/importeren');
     await choose(new File([new Uint8Array(MAX_IMPORT_BYTES + 1)], 'groot.csv', { type: 'text/csv' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('Dit bestand is groter dan 5 MB.');
+    expect((await screen.findByRole('alert')).textContent).toContain('Dit bestand is groter dan 20 MB.');
     await choose(new File([], 'leeg.csv', { type: 'text/csv' }));
     expect((await screen.findByRole('alert')).textContent).toContain('Dit bestand is leeg.');
     expect(api.previewImport).not.toHaveBeenCalled();
@@ -149,7 +158,7 @@ describe('Importeren · start', () => {
 });
 
 describe('Importeren · wizard', () => {
-  it('goes through file, columns, check and result', async () => {
+  it('goes through file, columns, categories, check and result', async () => {
     const api = stubApi();
     renderAt('/importeren');
     const file = csv();
@@ -163,7 +172,7 @@ describe('Importeren · wizard', () => {
     expect(api.previewImport).toHaveBeenCalledTimes(1);
     expect(api.previewImport.mock.calls[0][0]).toBe(file);
     expect(api.previewImport.mock.calls[0][1]).toEqual({});
-    expect(screen.getByText('Stap 1 van 4')).toBeTruthy();
+    expect(screen.getByText('Stap 1 van 5')).toBeTruthy();
     const steps = screen.getByRole('navigation', { name: 'Stappen van de import' });
     expect(within(steps).getAllByRole('listitem')[0].getAttribute('aria-current')).toBe('step');
     expect(screen.getByText('Lijkt een Argenta-export')).toBeTruthy();
@@ -189,13 +198,19 @@ describe('Importeren · wizard', () => {
     expect(status()).toBe('');
     fireEvent.click(next());
 
-    // Step 3: one check with the final mapping and account; counts and the unreadable rows, by line.
-    const h3 = await screen.findByRole('heading', { name: 'Controleer voor je importeert' });
+    // Step 3: no category column, so nothing to map; still a visible step.
+    const h3 = await screen.findByRole('heading', { name: 'Koppel de categorieën' });
     expect(document.activeElement).toBe(h3);
+    expect(screen.getByText('Geen categorie-kolom.')).toBeTruthy();
+    fireEvent.click(next());
+
+    // Step 4: one check with the final mapping and account; counts and the unreadable rows, by line.
+    const h4 = await screen.findByRole('heading', { name: 'Controleer voor je importeert' });
+    expect(document.activeElement).toBe(h4);
     await waitFor(() => expect(status()).toBe('29 nieuwe transacties van 31 rijen'));
     expect(api.previewImport).toHaveBeenCalledTimes(2);
     expect(api.previewImport.mock.calls[1][0]).toBe(file);
-    expect(api.previewImport.mock.calls[1][1]).toEqual({ accountId: SPAAR.id, mapping: MAPPING });
+    expect(api.previewImport.mock.calls[1][1]).toEqual({ target: SPAAR.id, mapping: MAPPING });
     expect(screen.getByText('Dit is wat er in je Spaarrekening komt.')).toBeTruthy();
     const stats = document.querySelector('.im-stats') as HTMLElement;
     expect([...stats.querySelectorAll('.im-stat')].map((s) => s.textContent)).toEqual(['29nieuw', '1al in Saldo', '1onleesbaar']);
@@ -204,12 +219,12 @@ describe('Importeren · wizard', () => {
     const alertsBefore = api.alerts.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
 
-    // Step 4: the result, links onward, no undo.
-    const h4 = await shown(() => screen.queryByRole('heading', { name: '29 transacties geïmporteerd' }));
-    expect(document.activeElement).toBe(h4);
-    expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal));
+    // Step 5: the result, links onward, no undo.
+    const h5 = await shown(() => screen.queryByRole('heading', { name: '29 transacties geïmporteerd' }));
+    expect(document.activeElement).toBe(h5);
+    expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal), undefined);
     expect(screen.getByText('In je Spaarrekening. Bewaard als batch 12.')).toBeTruthy();
-    expect(screen.getByText('Stap 4 van 4')).toBeTruthy();
+    expect(screen.getByText('Stap 5 van 5')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Transacties bekijken/ }).getAttribute('href')).toBe('/transacties?rekening=' + SPAAR.id);
     expect(screen.getByRole('button', { name: /Nog een bestand importeren/ })).toBeTruthy();
     expect(screen.queryByText(/ongedaan/i)).toBeNull();
@@ -261,15 +276,15 @@ describe('Importeren · wizard', () => {
     await toColumns();
     await quiet();
     expect(pending).toHaveLength(0);
-    fireEvent.click(next());
+    onward();
     await waitFor(() => expect(pending).toHaveLength(1));
     expect(status()).toBe('Bezig met controleren…');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+    backToColumns();
     expect(pending[0].signal?.aborted).toBe(true);
     await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
     pick(col('Mededeling'), 'Negeren');
-    fireEvent.click(next());
+    onward();
     await waitFor(() => expect(pending).toHaveLength(2));
     expect(pending[1].mapping).toEqual({ ...MAPPING, communication: null });
 
@@ -289,9 +304,9 @@ describe('Importeren · wizard', () => {
     const options = within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent);
     expect(options).toContain('Rekening van het bestand');
     expect(options).toContain('Munt');
-    fireEvent.click(screen.getByRole('button', { name: 'Volgende' }));
+    onward();
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });
-    expect(api.previewImport.mock.calls.at(-1)?.[1]).toEqual({ accountId: ZICHT.id, mapping: expect.objectContaining({ account: 0, currency: 6 }) });
+    expect(api.previewImport.mock.calls.at(-1)?.[1]).toEqual({ target: ZICHT.id, mapping: expect.objectContaining({ account: 0, currency: 6 }) });
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
     await screen.findByRole('heading', { name: '29 transacties geïmporteerd' });
     expect(api.importFile.mock.calls[0][2]).toMatchObject({ account: 0, currency: 6 });
@@ -308,10 +323,10 @@ describe('Importeren · wizard', () => {
     await quiet();
     expect(api.previewImport).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(next());
+    onward();
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });
     expect(api.previewImport).toHaveBeenCalledTimes(2);
-    expect(api.previewImport.mock.calls[1][1]).toEqual({ accountId: SPAAR.id, mapping: { ...MAPPING, currency: null, account: null } });
+    expect(api.previewImport.mock.calls[1][1]).toEqual({ target: SPAAR.id, mapping: { ...MAPPING, currency: null, account: null } });
 
     // Back and forward without a change keeps the counts it has.
     fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
@@ -321,12 +336,12 @@ describe('Importeren · wizard', () => {
     expect(api.previewImport).toHaveBeenCalledTimes(2);
 
     // A changed account or mapping is checked again, once.
-    fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+    backToColumns();
     fireEvent.click(screen.getByRole('radio', { name: /Zichtrekening/ }));
     pick(col('Munt'), 'Munt');
-    fireEvent.click(next());
+    onward();
     await waitFor(() => expect(api.previewImport).toHaveBeenCalledTimes(3));
-    expect(api.previewImport.mock.calls[2][1]).toEqual({ accountId: ZICHT.id, mapping: { ...MAPPING, account: null } });
+    expect(api.previewImport.mock.calls[2][1]).toEqual({ target: ZICHT.id, mapping: { ...MAPPING, account: null } });
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });
     await quiet();
     expect(api.previewImport).toHaveBeenCalledTimes(3);
@@ -367,7 +382,7 @@ describe('Importeren · wizard', () => {
     answerCheck(api, { rows: 31, new: 0, present: 0, invalid: 31, overlap: 0 }, [{ line: 2, message }]);
     renderAt('/importeren');
     await toColumns();
-    fireEvent.click(next());
+    onward();
     await screen.findByRole('button', { name: 'Importeer 0 transacties' });
     expect(screen.getByText('Er komt niets bij: elke rij staat al in Saldo of is onleesbaar.')).toBeTruthy();
     expect(screen.getByText(message)).toBeTruthy();
@@ -384,7 +399,7 @@ describe('Importeren · wizard', () => {
     answerCheck(api, { ...IMPORT_COUNTS, new: 1500, overlap }, IMPORT_ERRORS);
     renderAt('/importeren');
     await toColumns();
-    fireEvent.click(next());
+    onward();
     await screen.findByRole('button', { name: 'Importeer 1.500 transacties' });
     // A polite status message, not an alert, with the consequence in a second line.
     const note = screen.getAllByRole('status').find((s) => s.textContent?.includes(text))!;
@@ -417,7 +432,7 @@ describe('Importeren · wizard', () => {
     renderAt('/importeren');
     await toColumns();
     goOffline();
-    fireEvent.click(next());
+    onward();
     await screen.findByRole('heading', { name: 'Controleer voor je importeert' });
     expect(screen.getByText('De controle gaat verder zodra je verbinding hebt.')).toBeTruthy();
     expect(screen.queryByText('Bezig met controleren…')).toBeNull();
@@ -441,7 +456,7 @@ describe('Importeren · wizard', () => {
     });
     renderAt('/importeren');
     await toColumns();
-    fireEvent.click(next());
+    onward();
     await waitFor(() => expect(signals).toHaveLength(1));
     expect(status()).toBe('Bezig met controleren…');
 
@@ -462,14 +477,14 @@ describe('Importeren · wizard', () => {
     renderAt('/importeren');
     await toColumns();
     expect(screen.queryByRole('alert')).toBeNull();
-    fireEvent.click(next());
+    onward();
     expect((await screen.findByRole('alert')).textContent).toContain(NETWORK_MESSAGE);
 
     // Back in the columns step there is no error and no retry that would do nothing; coming back asks again.
-    fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+    backToColumns();
     await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
     expect(screen.queryByRole('alert')).toBeNull();
-    fireEvent.click(next());
+    onward();
     await waitFor(() => expect(api.previewImport).toHaveBeenCalledTimes(3));
     await screen.findByRole('alert');
 
@@ -486,7 +501,7 @@ describe('Importeren · wizard', () => {
     await toColumns();
     for (const name of ['Rekening', 'Munt']) pick(col(name), 'Negeren');
     expect(screen.queryByText(/Kies nog een kolom/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Volgende' }));
+    onward();
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });
     expect(api.previewImport.mock.calls.at(-1)?.[1]?.mapping).toEqual({ ...MAPPING, account: null, currency: null });
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
@@ -523,7 +538,7 @@ describe('Importeren · wizard', () => {
 
   it.each([
     [400, 'Dit is geen CSV-bestand dat Saldo kan lezen.'],
-    [413, 'Het bestand is groter dan 5 MB.'],
+    [413, 'Het bestand is groter dan 20 MB.'],
     [415, 'Kies een CSV-bestand.'],
   ])('shows the message of a %i when reading the file', async (code, message) => {
     const api = stubApi();
@@ -643,5 +658,102 @@ describe('Importeren · wizard', () => {
     await waitFor(() => expect(signal).toBeDefined());
     view.unmount();
     expect(signal!.aborted).toBe(true);
+  });
+});
+
+describe('Importeren · Bilance', () => {
+  const HEADERS = ['Titel', 'Datum', 'Bedrag', 'Categorie', 'Subcategorie', 'Tag(s)', 'Betalingskenmerk', 'Handelaar', 'Rekening(en)', 'Notitie'];
+  const BILANCE: ImportPreview = {
+    ...IMPORT_PREVIEW,
+    fileName: 'bilance.csv',
+    delimiter: ',',
+    headers: HEADERS,
+    preset: 'bilance',
+    mapping: { ...IMPORT_PREVIEW.mapping, account: null, valueDate: null, currency: null, counterpartyIban: null, date: 1, amount: 2, counterparty: 7, counterpartyFallback: 0,
+      communication: 6, category: 3, subcategory: 4, accountName: 8, note: 9 },
+    sample: [['Voorbeeld Winkel', '2026-11-02 00:00:00.000', '-170.00€', 'Eten & Drinken', 'Boodschappen', '', 'Voorbeeld Winkel 02-11-2026 Antwerpen', 'Voorbeeld Winkel Antwerpen', 'Zichtrekening', '']],
+  };
+  const NAMES = { accounts: [{ name: 'Spaarrekening', rows: 4 }, { name: 'Zichtrekening', rows: 26 }],
+    categories: [{ category: 'Eten & Drinken', subcategory: 'Boodschappen', rows: 12, total: -45000 }, { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', rows: 3, total: -30000 }, { category: '', subcategory: '', rows: 1, total: -500 }] };
+
+  /** The server answers a Bilance file: the suggestion, the names and categories with a mapping, counts with the accounts too. */
+  function bilanceApi() {
+    const api = stubApi({ accounts: [ZICHT, SPAAR] });
+    api.previewImport.mockImplementation(async (file, o = {}) => ({
+      ...BILANCE,
+      fileName: file.name,
+      ...(o.mapping ? NAMES : {}),
+      ...(o.mapping && o.target !== undefined ? { counts: { rows: 30, new: 28, present: 1, invalid: 1, overlap: 0 }, errors: IMPORT_ERRORS } : {}),
+    }));
+    return api;
+  }
+
+  it('reaches the check with the account names mapped, lists the category pairs read-only, and sends the map', async () => {
+    const api = bilanceApi();
+    renderAt('/importeren');
+    const file = csv('bilance.csv');
+    await choose(file);
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    expect(screen.getByText('Lijkt een Bilance-export')).toBeTruthy();
+    expect(screen.getByText('Komma ( , )')).toBeTruthy();
+    fireEvent.click(next());
+
+    // Columns: the preset's mapping, the account names to map (nothing is picked among two accounts).
+    await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
+    expect(col('Rekening(en)').textContent).toBe('Rekeningnaam');
+    expect(col('Subcategorie').textContent).toBe('Subcategorie');
+    expect(col('Titel').textContent).toBe('Tegenpartij als die leeg is');
+    expect(await screen.findByText('Naam in het bestand')).toBeTruthy();
+    expect([...document.querySelectorAll('.im-mapacc-name')].map((n) => n.textContent)).toEqual(['Spaarrekening', 'Zichtrekening']);
+    expect(screen.getByText('Koppel elke rekeningnaam aan een rekening.')).toBeTruthy();
+    expect(next().disabled).toBe(true);
+    expect(api.previewImport).toHaveBeenCalledTimes(2); // the file, then the names and categories
+    expect(api.previewImport.mock.calls[1][1]).toEqual({ mapping: BILANCE.mapping });
+    pick(screen.getByRole('combobox', { name: 'Rekening in Saldo voor Spaarrekening' }), 'Spaarrekening');
+    pick(screen.getByRole('combobox', { name: 'Rekening in Saldo voor Zichtrekening' }), 'Zichtrekening');
+    await waitFor(() => expect(next().disabled).toBe(false));
+    fireEvent.click(next());
+
+    // Categories: the pairs as the file has them, with counts and totals, and the note that mapping comes next.
+    await screen.findByRole('heading', { name: 'Koppel de categorieën' });
+    expect(screen.getByText('Energie, nutsvoorzieningen')).toBeTruthy();
+    expect(screen.getAllByText(/Wonen >/)).toHaveLength(1);
+    expect(screen.getByText('Zonder categorie')).toBeTruthy();
+    expect(screen.getByText(/De koppeling aan de categorieën van Saldo komt in een volgende stap/)).toBeTruthy();
+    expect(api.previewImport).toHaveBeenCalledTimes(2); // the same mapping: nothing asked again
+    fireEvent.click(next());
+
+    // Check and result: the map of names goes with both, one batch per account.
+    await screen.findByRole('button', { name: 'Importeer 28 transacties' });
+    const target = { Spaarrekening: SPAAR.id, Zichtrekening: ZICHT.id };
+    expect(api.previewImport.mock.calls[2][1]).toEqual({ target, mapping: BILANCE.mapping });
+    expect(screen.getByText('Dit is wat er in je Spaarrekening en Zichtrekening komt.')).toBeTruthy();
+    api.importFile.mockResolvedValueOnce({
+      batches: [
+        { id: 7, source: 'bilance', fileName: 'bilance.csv', accountId: ZICHT.id, createdAt: '2026-11-18T20:00:00+01:00', imported: 24, present: 1, invalid: 1 },
+        { id: 8, source: 'bilance', fileName: 'bilance.csv', accountId: SPAAR.id, createdAt: '2026-11-18T20:00:00+01:00', imported: 4, present: 0, invalid: 0 },
+      ],
+      errors: [],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Importeer 28 transacties' }));
+    await screen.findByRole('heading', { name: '28 transacties geïmporteerd' });
+    expect(api.importFile.mock.calls[0][1]).toEqual(target);
+    expect(screen.getByText('In 2 rekeningen. Bewaard als batch 7 en 8.')).toBeTruthy();
+    expect(screen.getAllByText('Bilance-export · batch 7 · vandaag').length + screen.getAllByText(/Bilance-export · batch 8/).length).toBeGreaterThan(1);
+  });
+
+  it('reads the file again with the delimiter or encoding the user picks, and sends the settings on', async () => {
+    const api = bilanceApi();
+    renderAt('/importeren');
+    await choose(csv('bilance.csv'));
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    pick(screen.getByRole('combobox', { name: 'Scheidingsteken' }), 'Puntkomma ( ; )');
+    await waitFor(() => expect(api.previewImport).toHaveBeenCalledTimes(2));
+    expect(api.previewImport.mock.calls[1][1]).toEqual({ settings: { delimiter: ';' } });
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    fireEvent.click(next());
+    await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
+    pick(screen.getByRole('combobox', { name: 'Decimaalteken' }), 'Punt · 1,234.56');
+    await waitFor(() => expect(api.previewImport.mock.calls.at(-1)?.[1]).toEqual({ mapping: BILANCE.mapping, settings: { delimiter: ';', decimal: '.' } }));
   });
 });

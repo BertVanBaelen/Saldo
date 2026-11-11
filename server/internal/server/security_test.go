@@ -180,7 +180,7 @@ func TestPrivacySweep(t *testing.T) {
 		t.Fatalf("Bert's manual account: %d %s", r.status, r.body)
 	}
 	manual := id(decode[ledger.Account](t, r.body).ID)
-	bertImport := e.importOK(e.bert, bert.Accounts[0].ID, csvHeader+csvCoffee).Batch
+	bertImport := e.importOK(e.bert, bert.Accounts[0].ID, csvHeader+csvCoffee).Batches[0]
 	// Bert's rules (0.4-2): a user rule and a rule on his account, applied.
 	if err := categorise.SeedDefaults(context.Background(), e.db); err != nil {
 		t.Fatal(err)

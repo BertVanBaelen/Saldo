@@ -11,7 +11,7 @@ import (
 // ImportFile is one parsed CSV upload for an account (phase 0.3-6).
 type ImportFile struct {
 	AccountID int64
-	Source    string // "argenta" or "csv"
+	Source    string // "argenta", "bilance" or "csv"
 	FileName  string // a sanitised base name
 	FileHash  string // hex SHA-256 of the file
 	Rows      []ImportRow
@@ -19,10 +19,11 @@ type ImportFile struct {
 }
 
 // ImportRow is one readable row of a file: its line, the file's own account
-// (a normalised IBAN, "" when unknown) and the transaction.
+// (a normalised IBAN, "" when unknown), the note and the transaction.
 type ImportRow struct {
 	Line    int
 	Account string
+	Note    string // "" for none
 	Tx      bank.Transaction
 }
 
@@ -73,11 +74,49 @@ const (
 // counts. A dry run accepts a file without readable rows; a real import
 // refuses it.
 func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun bool) (Batch, []LineError, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	bs, errs, err := s.ImportFiles(ctx, viewer, []ImportFile{f}, dryRun)
 	if err != nil {
 		return Batch{}, nil, err
 	}
+	return bs[0], errs, nil
+}
+
+// ImportFiles is Import for the parts of one file that go to several
+// accounts (accounts from a column, 0.5-2): one batch per part, all in one
+// database transaction, so the whole import is atomic and a dry run rolls
+// all of it back. No parts is an error for a real import (nothing readable),
+// and an empty answer for a dry run.
+func (s *Store) ImportFiles(ctx context.Context, viewer int64, files []ImportFile, dryRun bool) ([]Batch, []LineError, error) {
+	if len(files) == 0 && !dryRun {
+		return nil, nil, apperr.Invalid(msgNoRows)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	defer tx.Rollback()
+	var batches []Batch
+	var errs []LineError
+	for _, f := range files {
+		b, e, err := importIn(ctx, tx, viewer, f, dryRun)
+		if err != nil {
+			return nil, nil, err
+		}
+		batches, errs = append(batches, b), append(errs, e...)
+	}
+	if dryRun {
+		return batches, errs, nil // the deferred rollback undoes it all
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, err
+	}
+	return batches, errs, nil
+}
+
+const msgNoRows = "Geen enkele regel van het bestand kon gelezen worden. Er is niets geïmporteerd."
+
+// importIn is the body of Import, inside the caller's transaction.
+func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, dryRun bool) (Batch, []LineError, error) {
 	a, err := accessOf(ctx, tx, viewer, f.AccountID)
 	if err != nil {
 		return Batch{}, nil, err
@@ -100,6 +139,7 @@ func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun b
 	}
 	mixed := iban == "" && len(accounts) > 1
 	var txs []bank.Transaction
+	var notes []string
 	var errs []LineError
 	for _, r := range f.Rows {
 		switch {
@@ -109,6 +149,7 @@ func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun b
 			errs = append(errs, LineError{r.Line, "Rekening " + MaskIBAN(r.Account) + " in het bestand is niet de gekozen rekening."})
 		default:
 			txs = append(txs, r.Tx)
+			notes = append(notes, r.Note)
 		}
 	}
 	if len(txs) == 0 && !dryRun {
@@ -118,7 +159,7 @@ func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun b
 		if len(errs) > 0 {
 			return Batch{}, nil, apperr.Invalid("Dit bestand hoort bij een andere rekening dan de gekozen rekening.")
 		}
-		return Batch{}, nil, apperr.Invalid("Geen enkele regel van het bestand kon gelezen worden. Er is niets geïmporteerd.")
+		return Batch{}, nil, apperr.Invalid(msgNoRows)
 	}
 	b := Batch{Source: f.Source, FileName: f.FileName, AccountID: f.AccountID, Invalid: f.Invalid + len(errs)}
 	if err := tx.QueryRowContext(ctx, `INSERT INTO import_batches (source, file_name, file_hash, account_id, created_by)
@@ -128,6 +169,7 @@ func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun b
 	rows := Keyed(f.AccountID, iban, 0, txs)
 	for i := range rows {
 		rows[i].ImportBatch = b.ID
+		rows[i].Note = notes[i]
 	}
 	kept, present, err := dropPresent(ctx, tx, f.AccountID, rows)
 	if err != nil {
@@ -153,12 +195,6 @@ func (s *Store) Import(ctx context.Context, viewer int64, f ImportFile, dryRun b
 	var created string
 	if err := tx.QueryRowContext(ctx, `UPDATE import_batches SET rows_imported = ?, rows_duplicate = ?, rows_skipped = ?
 		WHERE id = ? RETURNING created_at`, b.Imported, b.Present, b.Invalid, b.ID).Scan(&created); err != nil {
-		return Batch{}, nil, err
-	}
-	if dryRun {
-		return b, errs, nil // the deferred rollback undoes it all
-	}
-	if err := tx.Commit(); err != nil {
 		return Batch{}, nil, err
 	}
 	b.CreatedAt, _, _ = formatTimestamp(created)

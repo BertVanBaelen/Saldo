@@ -197,7 +197,11 @@ export const IMPORT_PREVIEW: ImportPreview = {
   fileName: 'export-zicht.csv',
   delimiter: ';',
   headers: ['Rekening', 'Boekdatum', 'Valutadatum', 'Referentie', 'Beschrijving', 'Bedrag', 'Munt', 'Verrichtingsdatum', 'Rekening tegenpartij', 'Naam tegenpartij', 'Mededeling'],
-  mapping: { account: 0, date: 1, valueDate: 2, amount: 5, currency: 6, counterpartyIban: 8, counterparty: 9, communication: 10 },
+  encoding: 'utf-8',
+  mapping: {
+    account: 0, date: 1, valueDate: 2, amount: 5, currency: 6, counterpartyIban: 8, counterparty: 9, communication: 10,
+    note: null, category: null, subcategory: null, accountName: null, counterpartyFallback: null,
+  },
   preset: 'argenta',
   totalRows: 31,
   sample: [
@@ -205,6 +209,8 @@ export const IMPORT_PREVIEW: ImportPreview = {
     ['BE68 5390 0754 7034', '01/11/2026', '01/11/2026', 'REF-0002', 'Overschrijving', '2.784,50', 'EUR', '01/11/2026', 'BE62 5100 0754 7061', 'Atelier Noord bv', 'Loon oktober'],
     ['BE68 5390 0754 7034', '31/10/2026', '31/10/2026', 'REF-0003', 'Betaling met bankkaart', '-64,12', 'EUR', '30/10/2026', '', 'Colruyt Laagste Prijzen', ''],
   ],
+  accounts: [],
+  categories: [],
   counts: null,
   errors: [],
 };
@@ -215,7 +221,7 @@ export const BATCHES: ImportBatch[] = [
   { id: 2, source: 'csv', fileName: 'spaarrekening-2025.csv', accountId: 2, createdAt: '2025-12-30T19:02:00+01:00', imported: 12, present: 0, invalid: 1 },
 ];
 export const importResult = (fileName: string, accountId: number): ImportResult => ({
-  batch: { id: 12, source: 'argenta', fileName, accountId, createdAt: '2026-11-18T20:00:00+01:00', imported: 29, present: 1, invalid: 1 },
+  batches: [{ id: 12, source: 'argenta', fileName, accountId, createdAt: '2026-11-18T20:00:00+01:00', imported: 29, present: 1, invalid: 1 }],
   errors: IMPORT_ERRORS,
 });
 
@@ -335,9 +341,9 @@ export function stubApi(s: Stub = {}) {
     previewImport: vi.spyOn(api, 'previewImport').mockImplementation(async (file, o = {}) => ({
       ...structuredClone(IMPORT_PREVIEW),
       fileName: file.name,
-      ...(o.accountId !== undefined && o.mapping ? { mapping: o.mapping, counts: IMPORT_COUNTS, errors: IMPORT_ERRORS } : {}),
+      ...(o.target !== undefined && o.mapping ? { mapping: o.mapping, counts: IMPORT_COUNTS, errors: IMPORT_ERRORS } : {}),
     })),
-    importFile: vi.spyOn(api, 'importFile').mockImplementation(async (file, accountId) => importResult(file.name, accountId)),
+    importFile: vi.spyOn(api, 'importFile').mockImplementation(async (file, target) => importResult(file.name, typeof target === 'number' ? target : Object.values(target)[0])),
     removeConnection: vi.spyOn(api, 'removeConnection').mockImplementation(async (_id, history) => (history === 'delete' ? { deleted: [1], kept: [4] } : { deleted: [], kept: [1, 4] })),
     // Categorieën en regels (0.4-4): answers like the server, from the stub's lists.
     suggestions: vi.spyOn(api, 'suggestions').mockImplementation(async () => structuredClone(s.suggestions ?? [])),

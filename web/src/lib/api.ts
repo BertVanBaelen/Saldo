@@ -39,7 +39,7 @@ import type {
   User,
   UserList,
 } from './types';
-import { importForm, type ImportBatch, type ImportMapping, type ImportPreview, type ImportResult } from './imports';
+import { importForm, type ImportBatch, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -188,11 +188,12 @@ export const api = {
   sync: () => request<{ started: boolean; running?: boolean }>('POST', '/api/sync'),
   syncStatus: (signal?: AbortSignal) => request<SyncStatus>('GET', '/api/sync', { signal }),
 
-  // CSV import (multipart): the preview has counts only when both accountId and mapping are sent.
-  previewImport: (file: File, opts: { accountId?: number; mapping?: ImportMapping } = {}, signal?: AbortSignal) =>
-    request<ImportPreview>('POST', '/api/imports/preview', { form: importForm(file, opts.accountId, opts.mapping), signal }),
-  importFile: (file: File, accountId: number, mapping: ImportMapping, signal?: AbortSignal) =>
-    request<ImportResult>('POST', '/api/imports', { form: importForm(file, accountId, mapping), signal }),
+  // CSV import (multipart): the preview lists the file's account names and category pairs when a mapping is sent,
+  // and has counts when an account (or the map of account names) is sent with it.
+  previewImport: (file: File, opts: { target?: ImportTarget; mapping?: ImportMapping; settings?: ImportSettings } = {}, signal?: AbortSignal) =>
+    request<ImportPreview>('POST', '/api/imports/preview', { form: importForm(file, opts.target, opts.mapping, opts.settings), signal }),
+  importFile: (file: File, target: ImportTarget, mapping: ImportMapping, signal?: AbortSignal, settings?: ImportSettings) =>
+    request<ImportResult>('POST', '/api/imports', { form: importForm(file, target, mapping, settings), signal }),
   /** Batches of the accounts the viewer holds, newest first. */
   imports: (signal?: AbortSignal) => request<ImportBatch[]>('GET', '/api/imports', { signal }),
 

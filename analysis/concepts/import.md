@@ -15,7 +15,10 @@ Analysis: 4.1 (CSV fallback), 4.6, risks 1, 10, 11 · Data: `import_batch`, `cat
 - The rows of a batch can be removed as a whole by deleting the batch (`import_batch_id` cascades). The undo UI comes in 0.5-5.
 - Mappings are saved per source and reused; changing a mapping can be re-applied to that import.
 - Mapped imported categories feed the learning ([categorisation-rule](categorisation-rule.md)).
-- Bilance CSV layout: read from one real export in spike S2, the category format included ([0.5-1](../../plan/v0.5-bilance-import/01-spike-bilance-csv.md)). Incomes, amounts of 1 000 or more and transfers between own accounts were not in the sample and stay **[verify]**.
+- Bilance CSV layout: read from one real export in spike S2, the category format included ([0.5-1](../../plan/v0.5-bilance-import/01-spike-bilance-csv.md)). Incomes, amounts of 1 000 or more and transfers between own accounts were not in the sample and stay **[verify]**: the parser reads what it can without guessing and makes anything else an unreadable row.
+- **Accounts from a column** (0.5-2): the Bilance column `Rekening(en)` holds the *name* of an account, not an IBAN. The wizard lists each distinct name and maps it to one of the user's accounts (edit permission); an unmapped name blocks the import. One batch per account. The IBAN guard of 0.3-6 does not apply to such a file.
+- **Personal data in a Bilance row:** the card payment string in `Betalingskenmerk` carries the card holder's name and a masked card number. Only merchant, date and place are kept as the communication; the rest stays in the raw row, which no screen or API shows.
+- **Limits** (since 0.5-2): 20 MiB and 100 000 rows per file (0.3-6: 5 MiB and 20 000).
 - The full Bilance import comes **before planning** (decision 3 Nov 2026), so the forecast can find quarterly and yearly items in 12+ months of history.
 
 ## In the design

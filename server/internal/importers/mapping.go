@@ -23,22 +23,30 @@ var aliases = []struct {
 		"bedrag", "bedrag eur", "bedrag in eur", "amount", "amount eur", "montant", "montant eur"}},
 	{func(m *Mapping) *int { return &m.Counterparty }, []string{
 		"naam tegenpartij", "tegenpartij", "naam van de tegenpartij", "naam begunstigde", "begunstigde",
-		"counterparty", "counterparty name", "payee", "name", "naam", "nom de la contrepartie", "contrepartie"}},
+		"counterparty", "counterparty name", "payee", "name", "naam", "nom de la contrepartie", "contrepartie", "handelaar"}},
 	{func(m *Mapping) *int { return &m.CounterpartyIBAN }, []string{
 		"rekening tegenpartij", "rekeningnummer tegenpartij", "iban tegenpartij", "tegenrekening",
 		"counterparty iban", "counterparty account", "iban", "compte contrepartie", "compte de la contrepartie"}},
 	{func(m *Mapping) *int { return &m.Communication }, []string{
 		"mededeling", "mededelingen", "vrije mededeling", "gestructureerde mededeling", "communicatie",
-		"communication", "omschrijving", "beschrijving", "description", "details", "remittance information", "memo"}},
+		"communication", "omschrijving", "beschrijving", "description", "details", "remittance information", "memo",
+		"betalingskenmerk"}},
 	// Exact names only, so "rekening tegenpartij" never suggests the own account.
 	{func(m *Mapping) *int { return &m.Account }, []string{"rekening", "rekeningnummer", "account"}},
 	{func(m *Mapping) *int { return &m.Currency }, []string{"munt", "currency", "devise"}},
+	// Bilance (0.5-2): the account is a name, the title backs up an empty merchant.
+	{func(m *Mapping) *int { return &m.Note }, []string{"notitie", "note", "notes", "opmerking"}},
+	{func(m *Mapping) *int { return &m.Category }, []string{"categorie", "category"}},
+	{func(m *Mapping) *int { return &m.Subcategory }, []string{"subcategorie", "subcategory"}},
+	{func(m *Mapping) *int { return &m.AccountName }, []string{"rekening en", "rekeningnaam", "account name"}},
+	{func(m *Mapping) *int { return &m.CounterpartyFallback }, []string{"titel", "title"}},
 }
 
 // suggest maps each field to the first header that matches its aliases,
 // never giving a column to two fields.
 func suggest(headers []string) Mapping {
-	m := Mapping{NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}
+	m := Mapping{NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn,
+		NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}
 	norm := make([]string, len(headers))
 	for i, h := range headers {
 		norm[i] = normaliseHeader(h)
@@ -68,17 +76,35 @@ func suggest(headers []string) Mapping {
 // suggestion.
 var argentaHeaders = []string{"boekdatum", "valutadatum", "referentie", "bedrag", "munt", "naam tegenpartij", "mededeling"}
 
+// bilanceHeaders must all be present for a Bilance export (spike S2, read from
+// one real file): Titel, Datum, Bedrag, Categorie, Subcategorie, Tag(s),
+// Betalingskenmerk, Handelaar, Rekening(en), Notitie. Tag(s) and Notitie may
+// be missing. Its mapping is the generic suggestion too, through the aliases.
+var bilanceHeaders = []string{"titel", "datum", "bedrag", "categorie", "subcategorie", "betalingskenmerk", "handelaar", "rekening en"}
+
 func detectPreset(headers []string) string {
 	have := map[string]bool{}
 	for _, h := range headers {
 		have[normaliseHeader(h)] = true
 	}
-	for _, h := range argentaHeaders {
-		if !have[h] {
-			return ""
+	for _, p := range []struct {
+		name    string
+		headers []string
+	}{{PresetArgenta, argentaHeaders}, {PresetBilance, bilanceHeaders}} {
+		if hasAll(have, p.headers) {
+			return p.name
 		}
 	}
-	return PresetArgenta
+	return ""
+}
+
+func hasAll(have map[string]bool, names []string) bool {
+	for _, h := range names {
+		if !have[h] {
+			return false
+		}
+	}
+	return true
 }
 
 // normaliseHeader lower-cases, removes accents and turns every run of other

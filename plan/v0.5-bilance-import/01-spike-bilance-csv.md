@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.5 Bilance import](README.md) |
-| Status | layout read from a real export (10 Nov 2026); the open points below need a bigger sample before 0.5-2 is final |
+| Status | done (10 Nov 2026): layout read from a real export; the points under "Not in the sample" stay open until a bigger export, and 0.5-2 reads them without guessing |
 | Size | S |
 | Features | PLAT-1 |
 | Concepts | [import](../../analysis/concepts/import.md), [category](../../analysis/concepts/category.md), [transaction](../../analysis/concepts/transaction.md) |

@@ -1,6 +1,7 @@
 package importers
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,10 +32,18 @@ func capRunes(s string, n int) string {
 	return strings.TrimSpace(string([]rune(s)[:n]))
 }
 
+// timeOfDay is a time after a date ("00:00:00.000" in Bilance); it is ignored.
+var timeOfDay = regexp.MustCompile(`^\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$`)
+
 // parseDate reads dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy (day and month may have
-// one digit) and yyyy-mm-dd, and returns YYYY-MM-DD. Two-digit years and
-// impossible dates are refused.
-func parseDate(s string) (string, bool) {
+// one digit) and yyyy-mm-dd, each optionally followed by a time of day, and
+// returns YYYY-MM-DD. order "dmy", "mdy" or "ymd" fixes the order of the
+// three parts; "" takes yyyy-mm-dd when the year comes first after dashes,
+// else day first. Two-digit years and impossible dates are refused.
+func parseDate(s, order string) (string, bool) {
+	if day, tm, ok := strings.Cut(s, " "); ok && timeOfDay.MatchString(tm) {
+		s = day
+	}
 	sep := strings.IndexAny(s, "/-.")
 	if sep < 0 {
 		return "", false
@@ -44,8 +53,11 @@ func parseDate(s string) (string, bool) {
 		return "", false
 	}
 	d, m, y := parts[0], parts[1], parts[2]
-	if len(d) == 4 && s[sep] == '-' {
-		y, d = d, y
+	switch {
+	case order == "mdy":
+		d, m = m, d
+	case order == "ymd" || order == "" && len(d) == 4 && s[sep] == '-':
+		y, m, d = parts[0], parts[1], parts[2]
 	}
 	if len(y) != 4 || len(d) < 1 || len(d) > 2 || len(m) < 1 || len(m) > 2 || !digits(y+m+d) {
 		return "", false
@@ -61,11 +73,11 @@ func parseDate(s string) (string, bool) {
 }
 
 // checkDate parses a booking date and keeps it between 1990 and today.
-func checkDate(s, today string) (string, string) {
+func checkDate(s, today, order string) (string, string) {
 	if s == "" {
 		return "", "Datum ontbreekt."
 	}
-	d, ok := parseDate(s)
+	d, ok := parseDate(s, order)
 	switch {
 	case !ok:
 		return "", "Datum is ongeldig. Gebruik dd/mm/jjjj, dd-mm-jjjj, dd.mm.jjjj of jjjj-mm-dd."
@@ -238,4 +250,29 @@ func validIBAN(s string) string {
 		return ""
 	}
 	return iban
+}
+
+// cardSep separates the parts of a Bilance card payment string.
+const cardSep = "|.|"
+
+var cardDate = regexp.MustCompile(`^\d{2}-\d{2}-\d{4}$`)
+
+// cardSafe keeps only what is safe to store and show of a card payment
+// string (merchant |.| dd-mm-yyyy |.| hh:mm |.| place |.| country |.| masked
+// card number |.| category code |.| card holder's name): the merchant, the
+// date and the place, as one line. A string of any other shape keeps its
+// first part only, never a guess. A text without the separator passes as is.
+// The card holder and the card number stay in the raw payload only.
+func cardSafe(s string) string {
+	if !strings.Contains(s, cardSep) {
+		return s
+	}
+	parts := strings.Split(s, cardSep)
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	if len(parts) == 8 && cardDate.MatchString(parts[1]) {
+		return strings.Join(strings.Fields(parts[0]+" "+parts[1]+" "+parts[3]), " ")
+	}
+	return parts[0]
 }

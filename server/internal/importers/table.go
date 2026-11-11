@@ -8,13 +8,14 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/apperr"
 )
 
 var (
-	errTooLarge       = apperr.Invalid("Het bestand is groter dan 5 MB.")
+	errTooLarge       = apperr.Invalid("Het bestand is groter dan 20 MB.")
 	errEmpty          = apperr.Invalid("Het bestand is leeg.")
 	errNoRows         = apperr.Invalid("Het bestand bevat alleen een kopregel, geen transacties.")
 	errBinary         = apperr.Invalid("Dit is geen tekstbestand. Kies een CSV-bestand.")
@@ -22,6 +23,9 @@ var (
 	errNoDelimiter    = apperr.Invalid("Geen scheidingsteken gevonden. Gebruik een CSV-bestand met puntkomma, komma of tab.")
 	errTooManyRows    = apperr.Invalid(fmt.Sprintf("Het bestand heeft meer dan %d regels. Splits het in kleinere bestanden.", MaxRows))
 	errTooManyColumns = apperr.Invalid(fmt.Sprintf("Het bestand heeft meer dan %d kolommen.", MaxColumns))
+
+	errTooManyNames      = apperr.Invalid(fmt.Sprintf("Het bestand heeft meer dan %d verschillende rekeningnamen. Controleer de kolom die je als rekeningnaam koos.", MaxAccountNames))
+	errTooManyCategories = apperr.Invalid(fmt.Sprintf("Het bestand heeft meer dan %d verschillende categorieën. Controleer de kolommen die je als categorie koos.", MaxCategoryPairs))
 )
 
 // record is one data row: its cleaned cells, or a Dutch error.
@@ -32,18 +36,19 @@ type record struct {
 }
 
 type table struct {
-	delim   rune
-	headers []string
-	records []record
+	delim    rune
+	encoding string
+	headers  []string
+	records  []record
 }
 
 // readTable decodes the file, finds the delimiter and the header row (the
 // first non-blank row) and reads every data row. Blank rows are skipped.
-func readTable(data []byte) (*table, error) {
+func readTable(data []byte, opt Options) (*table, error) {
 	if len(data) > MaxFileBytes {
 		return nil, errTooLarge
 	}
-	text, err := decode(data)
+	text, encoding, err := decode(data, opt.Encoding)
 	if err != nil {
 		return nil, err
 	}
@@ -51,21 +56,26 @@ func readTable(data []byte) (*table, error) {
 		return nil, errEmpty
 	}
 	delim := excelSep(&text)
-	if delim == 0 {
+	if opt.Delimiter != 0 {
+		delim = opt.Delimiter
+	} else if delim == 0 {
 		delim = detectDelimiter(text)
 	}
 	if delim == 0 {
 		return nil, errNoDelimiter
 	}
 	// encoding/csv builds a whole record before the column check can run.
-	if tooManyFields(text, byte(delim)) {
+	// Bilance writes ", " between fields, also before a quote; a tab delimiter must keep its empty fields.
+	trim := !unicode.IsSpace(delim)
+	if tooManyFields(text, byte(delim), trim) {
 		return nil, errTooManyColumns
 	}
 
 	r := csv.NewReader(strings.NewReader(text))
 	r.Comma = delim
 	r.FieldsPerRecord = -1
-	t := &table{delim: delim}
+	r.TrimLeadingSpace = trim
+	t := &table{delim: delim, encoding: encoding}
 	for {
 		fields, err := r.Read()
 		if err == io.EOF {
@@ -162,34 +172,36 @@ func uniqueHeaders(cells []string) []string {
 	return out
 }
 
-// decode returns the file as UTF-8 text with "\n" line endings. It strips a
-// UTF-8 BOM, keeps valid UTF-8 and reads anything else as Windows-1252. A NUL
-// byte or more than 2% control characters means it is not a text file.
-func decode(data []byte) (string, error) {
+// decode returns the file as UTF-8 text with "\n" line endings, and the
+// encoding it read. It strips a UTF-8 BOM, keeps valid UTF-8 and reads
+// anything else as Windows-1252, unless enc forces one of the two (invalid
+// UTF-8 then becomes U+FFFD). A NUL byte or more than 2% control characters
+// means it is not a text file.
+func decode(data []byte, enc string) (string, string, error) {
 	data = bytes.TrimPrefix(data, []byte("\xEF\xBB\xBF"))
 	// A UTF-16 BOM, or a NUL in exactly one of the first two bytes (an ASCII
 	// character in UTF-16 without a BOM).
 	if bytes.HasPrefix(data, []byte{0xFF, 0xFE}) || bytes.HasPrefix(data, []byte{0xFE, 0xFF}) ||
 		len(data) >= 2 && (data[0] == 0) != (data[1] == 0) {
-		return "", errUTF16
+		return "", "", errUTF16
 	}
 	ctrl := 0
 	for _, b := range data {
 		switch {
 		case b == 0:
-			return "", errBinary
+			return "", "", errBinary
 		case b == '\t' || b == '\n' || b == '\r':
 		case b < 0x20 || b == 0x7F:
 			ctrl++
 		}
 	}
 	if ctrl*50 > len(data) {
-		return "", errBinary
+		return "", "", errBinary
 	}
 	var text string
-	if utf8.Valid(data) {
-		text = string(data)
-	} else {
+	name := EncodingUTF8
+	if enc == EncodingWindows1252 || enc == "" && !utf8.Valid(data) {
+		name = EncodingWindows1252
 		var b strings.Builder
 		b.Grow(len(data) + len(data)/4)
 		for _, c := range data {
@@ -200,8 +212,10 @@ func decode(data []byte) (string, error) {
 			}
 		}
 		text = b.String()
+	} else {
+		text = strings.ToValidUTF8(string(data), "\uFFFD")
 	}
-	return strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(text), nil
+	return strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(text), name, nil
 }
 
 // cp1252 maps Windows-1252 bytes 0x80-0x9F; undefined bytes become U+FFFD.
@@ -225,9 +239,9 @@ func excelSep(text *string) rune {
 }
 
 // tooManyFields reports a record with more than MaxColumns delimiters. It
-// scans like encoding/csv: a quote opens a field only at its start, a quoted
+// scans like encoding/csv (trim: with TrimLeadingSpace): a quote opens a field only at its start, a quoted
 // field may span lines, and a quote error ends the record at the line end.
-func tooManyFields(text string, delim byte) bool {
+func tooManyFields(text string, delim byte, trim bool) bool {
 	n, start, quoted := 0, true, false
 	toLineEnd := func(i int) int { // the index before the next newline
 		if j := strings.IndexByte(text[i:], '\n'); j >= 0 {
@@ -259,6 +273,13 @@ func tooManyFields(text string, delim byte) bool {
 			}
 			start = true
 			continue
+		case trim && start && c < utf8.RuneSelf && unicode.IsSpace(rune(c)):
+			continue // csv.Reader.TrimLeadingSpace skips white space before a quote
+		case trim && start && c >= utf8.RuneSelf:
+			if r, n := utf8.DecodeRuneInString(text[i:]); unicode.IsSpace(r) {
+				i += n - 1
+				continue
+			}
 		case c == '"' && start:
 			quoted = true
 		case c == '"':

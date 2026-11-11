@@ -1,7 +1,8 @@
-// Importeren (phase 0.3-6): a CSV file into one account the viewer may edit, and the history of imports.
+// Importeren (phases 0.3-6 and 0.5-2): a CSV file into the accounts the viewer may edit, and the history of imports.
 // Design: finance-mockup/js/screens/importeren.js (start view and the wizard); spec: analysis/screens/importeren.md.
-// Built: file, columns and account, a check with counts, the result. Not yet (0.5): category mapping, probable
-// duplicates, import cutoff, undo, the Bilance preset, a new account from the wizard.
+// Built: file (with the parse settings), columns and account (or accounts from a column), the categories of the file
+// (read-only until 0.5-3 maps them), a check with counts, the result. Not yet (0.5): category mapping, probable
+// duplicates, import cutoff, undo, a new account from the wizard.
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
@@ -10,7 +11,7 @@ import { Select } from '../components/Select';
 import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
 import { accColour, accountIcon, syncLine } from '../lib/accounts';
 import { api, ApiError, errorMessage, isAbort } from '../lib/api';
-import { isoDate, MONTHS, toDate } from '../lib/format';
+import { eur, isoDate, MONTHS, toDate } from '../lib/format';
 import {
   columnsOf,
   doubled,
@@ -21,18 +22,22 @@ import {
   MAX_IMPORT_BYTES,
   sourceLabel,
   type ImportBatch,
+  type FileAccount,
+  type FileCategory,
   type ImportCounts,
   type ImportField,
   type ImportPreview,
   type ImportResult,
+  type ImportSettings,
+  type ImportTarget,
   type RowError,
 } from '../lib/imports';
 import type { Account } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import './Importeren.css';
 
-const STEPS = ['Bestand', 'Kolommen', 'Controle', 'Klaar'];
-type Step = 0 | 1 | 2 | 3 | 4; // 0 = the start view
+const STEPS = ['Bestand', 'Kolommen', 'Categorieën', 'Controle', 'Klaar'];
+type Step = 0 | 1 | 2 | 3 | 4 | 5; // 0 = the start view
 
 /** Wait after entering the check step before asking the server, so a quick step back (or a dev double mount) sends nothing. */
 export const CHECK_DELAY_MS = 250;
@@ -52,6 +57,41 @@ function when(day: string, today: string): string {
 }
 
 const DELIMITERS: Record<string, string> = { ';': 'Puntkomma ( ; )', ',': 'Komma ( , )', '\t': 'Tab' };
+const delimiterOptions = Object.entries(DELIMITERS).map(([value, label]) => ({ value, label }));
+const ENCODINGS = [
+  { value: 'utf-8', label: 'UTF-8' },
+  { value: 'windows-1252', label: 'Windows-1252' },
+];
+const DATE_FORMATS = [
+  { value: '', label: 'Automatisch' },
+  { value: 'dmy', label: 'dag/maand/jaar · 02/06/2026' },
+  { value: 'mdy', label: 'maand/dag/jaar · 06/02/2026' },
+  { value: 'ymd', label: 'jaar-maand-dag · 2026-06-02' },
+];
+const DECIMALS = [
+  { value: '', label: 'Automatisch' },
+  { value: ',', label: 'Komma · 1.234,56' },
+  { value: '.', label: 'Punt · 1,234.56' },
+];
+
+/** The settings with the key `k` set, or without it for ""; "" is "as detected". */
+const withSetting = (s: ImportSettings, k: keyof ImportSettings, v: string): ImportSettings => {
+  const next: Record<string, string> = { ...s };
+  if (v) next[k] = v;
+  else delete next[k];
+  return next as ImportSettings;
+};
+
+/** A source category pair as the file has it, never joined into one string. */
+function CatPath({ c }: { c: FileCategory }) {
+  if (!c.category && !c.subcategory) return <span className="im-path"><span className="im-path-leaf muted">Zonder categorie</span></span>;
+  return (
+    <span className="im-path">
+      {c.category && c.subcategory && <span className="im-path-parent">{c.category} &gt; </span>}
+      <span className="im-path-leaf">{c.subcategory || c.category}</span>
+    </span>
+  );
+}
 
 /** The server's message; a 429 also says how long to wait when the server tells. */
 function failure(e: unknown): string {
@@ -133,7 +173,7 @@ function Spin({ text }: { text: string }) {
 function BatchRow({ b, account, today }: { b: ImportBatch; account: Account | undefined; today: string }) {
   return (
     <div className="im-batch">
-      <Tile icon="file" bg={b.source === 'argenta' ? 'var(--c1)' : 'var(--c6)'} />
+      <Tile icon="file" bg={b.source === 'argenta' ? 'var(--c1)' : b.source === 'bilance' ? 'var(--c4)' : 'var(--c6)'} />
       <div className="im-batch-main">
         <span className="im-batch-name">{b.fileName}</span>
         <span className="im-batch-sub">
@@ -267,6 +307,11 @@ export function Importeren() {
   const [checkErr, setCheckErr] = useState<{ key: string; message: string } | null>(null);
   const [checkTry, setCheckTry] = useState(0);
   const [over, setOver] = useState(false);
+  const [settings, setSettings] = useState<ImportSettings>({}); // what the user overrides of the detection
+  const [nameMap, setNameMap] = useState<Record<string, number>>({}); // the account chosen per file account name
+  const [stats, setStats] = useState<{ key: string; accounts: FileAccount[]; categories: FileCategory[] } | null>(null);
+  const [statsErr, setStatsErr] = useState<{ key: string; message: string } | null>(null);
+  const [statsTry, setStatsTry] = useState(0);
   const upload = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
@@ -282,17 +327,69 @@ export function Importeren() {
     document.getElementById(step ? 'im-step-h' : 'im-h1')?.focus();
   }, [step]);
 
-  const target = chosen !== null && editable.some((a) => a.id === chosen) ? chosen : editable.length === 1 ? editable[0].id : null;
+  const sett = Object.keys(settings).length ? settings : undefined;
   const mapping = useMemo(() => mappingOf(cols), [cols]);
   const dup = doubled(cols);
   const problems = mappingProblems(cols);
-  if (target === null) problems.push('Kies een rekening.');
-  const key = file && !problems.length ? target + ':' + JSON.stringify(mapping) : null;
+  // Accounts from a column: a column holds the account names, and each name goes to an account of the viewer.
+  const fromColumn = cols.includes('accountName');
+  const wantsStats = fromColumn || cols.includes('category') || cols.includes('subcategory');
+  const statsKey = file && wantsStats && !problems.length ? JSON.stringify([mapping, settings]) : null;
+  const statsNow = stats && stats.key === statsKey ? stats : null;
+  const statsErrNow = statsErr && statsErr.key === statsKey ? statsErr : null;
+  const single = chosen !== null && editable.some((a) => a.id === chosen) ? chosen : editable.length === 1 ? editable[0].id : null;
+  const accountFor = (name: string) => {
+    const c = nameMap[name];
+    return c && editable.some((a) => a.id === c) ? c : editable.length === 1 ? editable[0].id : null;
+  };
+  let target: ImportTarget | null = single;
+  if (fromColumn) {
+    const names = statsNow?.accounts ?? [];
+    target = names.length && names.every((n) => accountFor(n.name) !== null) ? Object.fromEntries(names.map((n) => [n.name, accountFor(n.name)!])) : null;
+    if (target === null) {
+      problems.push(
+        statsErrNow
+          ? 'De rekeningnamen van het bestand konden niet gelezen worden.'
+          : !statsNow
+            ? 'Saldo leest de rekeningnamen van het bestand…'
+            : statsNow.accounts.length
+              ? 'Koppel elke rekeningnaam aan een rekening.'
+              : 'Er is geen rij met een rekeningnaam om te importeren.',
+      );
+    }
+  } else if (target === null) problems.push('Kies een rekening.');
+  const key = file && !problems.length ? JSON.stringify([target, mapping, settings]) : null;
   const current = check && check.key === key ? check : null;
   const currentErr = checkErr && checkErr.key === key ? checkErr : null;
   // Offline, the effect below has aborted the request: nothing is running.
   const checking = !!key && !current && !currentErr && online;
-  const inCheck = step === 3;
+  const inCheck = step === 4;
+  const inStats = step === 2 || step === 3;
+
+  // The names and categories of the file come from one parse with the mapping (no account, nothing stored): only
+  // the columns and categories steps ask, and only when the mapping has account names or categories. Like the
+  // check below, it waits a moment, is aborted by a change or going offline, and a late answer is ignored.
+  useEffect(() => {
+    if (!statsKey || !file || !online || !inStats || stats?.key === statsKey) return;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => {
+      setStatsErr(null);
+      api.previewImport(file, { mapping, settings: sett }, ctl.signal).then(
+        (p) => {
+          if (!ctl.signal.aborted) setStats({ key: statsKey, accounts: p.accounts ?? [], categories: p.categories ?? [] });
+        },
+        (e) => {
+          if (ctl.signal.aborted || isAbort(e)) return;
+          setStatsErr({ key: statsKey, message: failure(e) });
+        },
+      );
+    }, CHECK_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      ctl.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsKey, inStats, online, statsTry]);
 
   // The counts come from one dry-run import (it costs one of the hourly previews and the whole file again), so
   // only the check step asks, with the final mapping and account. Leaving the step, going offline or changing the
@@ -303,7 +400,7 @@ export function Importeren() {
     const ctl = new AbortController();
     const timer = setTimeout(() => {
       setCheckErr(null); // a retry (or a second visit) starts without the old error
-      api.previewImport(file, { accountId: target, mapping }, ctl.signal).then(
+      api.previewImport(file, { target, mapping, settings: sett }, ctl.signal).then(
         (p) => {
           if (ctl.signal.aborted) return;
           if (p.counts) setCheck({ key, counts: p.counts, errors: p.errors ?? [] });
@@ -326,12 +423,14 @@ export function Importeren() {
     if (online && !upload.current) input.current?.click();
   };
 
-  const read = (f: File) => {
+  /** Reads the file with the parse settings `s`: a new file starts without any, a change of setting reads it again. */
+  const read = (f: File, s: ImportSettings) => {
     if (!online || upload.current) return;
     setPicked(f);
+    setSettings(s);
     setReadErr(null);
     if (f.size > MAX_IMPORT_BYTES) {
-      setReadErr({ message: 'Dit bestand is groter dan 5 MB. Kies een kleiner bestand, bv. een export over een kortere periode.', retry: false });
+      setReadErr({ message: 'Dit bestand is groter dan 20 MB. Kies een kleiner bestand, bv. een export over een kortere periode.', retry: false });
       return;
     }
     if (f.size === 0) {
@@ -342,13 +441,16 @@ export function Importeren() {
     upload.current = ctl;
     setBusy('read');
     api
-      .previewImport(f, {}, ctl.signal)
+      .previewImport(f, { settings: Object.keys(s).length ? s : undefined }, ctl.signal)
       .then(
         (p) => {
           if (ctl.signal.aborted) return;
           setFile(f);
           setInfo(p);
           setCols(columnsOf(p.mapping, p.headers.length));
+          setNameMap({});
+          setStats(null);
+          setStatsErr(null);
           setCheck(null);
           setCheckErr(null);
           setStep(1);
@@ -372,12 +474,12 @@ export function Importeren() {
     setBusy('import');
     setImportErr(null);
     api
-      .importFile(file, target, mapping, ctl.signal)
+      .importFile(file, target, mapping, ctl.signal, sett)
       .then(
         (r) => {
           if (ctl.signal.aborted) return;
           setResult(r);
-          setStep(4);
+          setStep(5);
           refreshShell();
           history.reload();
         },
@@ -405,6 +507,10 @@ export function Importeren() {
     setInfo(null);
     setCols([]);
     setChosen(null);
+    setSettings({});
+    setNameMap({});
+    setStats(null);
+    setStatsErr(null);
     setResult(null);
     setImportErr(null);
     setReadErr(null);
@@ -441,7 +547,7 @@ export function Importeren() {
         <h1 id="im-h1" tabIndex={-1}>
           Importeren
         </h1>
-        <span className={'im-head-sub' + (step === 0 ? ' only-desktop' : '')}>{step === 0 ? 'CSV-bestanden, bv. de export uit Argenta' : info?.fileName}</span>
+        <span className={'im-head-sub' + (step === 0 ? ' only-desktop' : '')}>{step === 0 ? 'CSV-bestanden, bv. de export uit Bilance of Argenta' : info?.fileName}</span>
       </div>
     </div>
   );
@@ -458,7 +564,7 @@ export function Importeren() {
       )}
     </button>
   );
-  const readAlert = readErr && <Alert message={readErr.message} retryOff={!online || !!busy} onRetry={readErr.retry && picked ? () => read(picked) : undefined} />;
+  const readAlert = readErr && <Alert message={readErr.message} retryOff={!online || !!busy} onRetry={readErr.retry && picked ? () => read(picked, settings) : undefined} />;
 
   let intro: ReactNode;
   if (!accounts.data) {
@@ -510,7 +616,7 @@ export function Importeren() {
           <Tile icon="upload" bg="var(--c4)" />
           <div className="im-intro-text">
             <h2 id="im-intro-h">Breng je geschiedenis mee</h2>
-            <p>Importeer een CSV-bestand, zoals de export uit Argenta. Je ziet eerst wat er bijkomt: er wordt niets bewaard tot je bevestigt.</p>
+            <p>Importeer een CSV-bestand, zoals de export uit Bilance of Argenta. Je ziet eerst wat er bijkomt: er wordt niets bewaard tot je bevestigt.</p>
           </div>
         </div>
         <div
@@ -524,7 +630,7 @@ export function Importeren() {
             e.preventDefault();
             setOver(false);
             const f = e.dataTransfer.files[0];
-            if (f && canPick) read(f);
+            if (f && canPick) read(f, {});
           }}
         >
           <span className="im-drop-icon only-desktop" aria-hidden="true">
@@ -573,8 +679,12 @@ export function Importeren() {
   );
 
   let body: ReactNode = null;
-  const acc = target !== null ? accountOf(target) : undefined;
+  const acc = typeof target === 'number' ? accountOf(target) : undefined;
+  // The accounts the rows go to: the one chosen, or those the file's account names are mapped to.
+  const targets = [...new Set(typeof target === 'number' ? [target] : Object.values(target ?? {}))].map(accountOf);
+  const targetNames = targets.map((a) => a?.name ?? 'rekening').join(' en ') || 'rekening';
   if (step === 1 && info && file) {
+    const settingsLocked = !online || !!busy;
     body = (
       <>
         <StepTitle title="Welk bestand importeer je?" sub="Saldo las het bestand en herkende hoe het is opgebouwd. Er wordt nog niets bewaard." />
@@ -604,6 +714,13 @@ export function Importeren() {
                 </p>
                 <p className="im-help">Saldo vult de kolommen in zoals in een export uit Argenta. Controleer ze in de volgende stap.</p>
               </>
+            ) : info.preset === 'bilance' ? (
+              <>
+                <p className="im-radio-name">
+                  Lijkt een Bilance-export <span className="im-badge im-badge--ok">Herkend</span>
+                </p>
+                <p className="im-help">Saldo vult de kolommen in zoals in een export uit Bilance, ook de rekeningen en de categorieën. Controleer ze in de volgende stap.</p>
+              </>
             ) : (
               <>
                 <p className="im-radio-name">Ander CSV-bestand</p>
@@ -616,11 +733,31 @@ export function Importeren() {
               Herkend in het bestand
             </h3>
             <div className="im-det">
-              <div className="im-det-fact">
-                <span className="field-label">Scheidingsteken</span>
-                <span className="im-det-val">{DELIMITERS[info.delimiter] ?? '“' + info.delimiter + '”'}</span>
+              <div className="field">
+                <label className="field-label" htmlFor="im-sep">
+                  Scheidingsteken
+                </label>
+                <Select id="im-sep" value={info.delimiter} options={delimiterOptions} disabled={settingsLocked} onChange={(v) => read(file, withSetting(settings, 'delimiter', v))} />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="im-enc">
+                  Codering
+                </label>
+                <Select id="im-enc" value={info.encoding} options={ENCODINGS} disabled={settingsLocked} onChange={(v) => read(file, withSetting(settings, 'encoding', v))} />
               </div>
             </div>
+            {info.headers.length === 1 && (
+              <div className="im-notice im-notice--warn" role="status">
+                <Icon name="warning" size={18} stroke={2.2} />
+                <div>Met dit scheidingsteken vindt Saldo maar één kolom per regel. Kies een ander scheidingsteken.</div>
+              </div>
+            )}
+            {settings.encoding === 'windows-1252' && (
+              <div className="im-notice im-notice--warn" role="status">
+                <Icon name="warning" size={18} stroke={2.2} />
+                <div>Zie je rare tekens zoals ‘CafÃ©’? Kies dan UTF-8.</div>
+              </div>
+            )}
             <div className="im-raw-wrap">
               <span className="field-label" id="im-raw-l">
                 Eerste regels
@@ -644,15 +781,15 @@ export function Importeren() {
     );
   } else if (step === 2 && info) {
     const hidden = (accounts.data || []).length - editable.length;
+    const intro =
+      info.preset === 'argenta'
+        ? 'Saldo denkt dat dit een Argenta-export is en vulde de kolommen zo in.'
+        : info.preset === 'bilance'
+          ? 'Saldo denkt dat dit een Bilance-export is en vulde de kolommen zo in.'
+          : 'Saldo raadde de kolommen aan de hand van hun naam.';
     body = (
       <>
-        <StepTitle
-          title="Wat staat in welke kolom?"
-          sub={
-            (info.preset === 'argenta' ? 'Saldo denkt dat dit een Argenta-export is en vulde de kolommen zo in.' : 'Saldo raadde de kolommen aan de hand van hun naam.') +
-            ' Controleer ze en pas aan waar nodig. Datum en Bedrag zijn nodig, de rest kan.'
-          }
-        />
+        <StepTitle title="Wat staat in welke kolom?" sub={intro + ' Controleer ze en pas aan waar nodig. Datum en Bedrag zijn nodig, de rest kan.'} />
         <section className="im-card im-card--table anim-in" style={delay(60)} aria-label="Kolommen">
           <div className="im-th im-colrow only-desktop" aria-hidden="true">
             <span>Kolom in het bestand</span>
@@ -692,34 +829,112 @@ export function Importeren() {
           })}
         </section>
         <p className="im-help anim-in" style={delay(75)}>
-          {acc && !acc.iban
-            ? 'Munt dient als controle: rijen die niet in euro zijn, importeert Saldo niet. De gekozen rekening heeft geen IBAN, dus Saldo kan niet controleren bij welke rekening het bestand hoort. Staan er rijen van meer dan één rekening in het bestand, dan importeert Saldo het niet.'
-            : 'Rekening van het bestand en Munt dienen als controle: rijen van een andere rekening dan de gekozen, of niet in euro, importeert Saldo niet.'}
+          {fromColumn
+            ? 'Munt dient als controle: rijen die niet in euro zijn, importeert Saldo niet. De rekeningnamen koppel je hieronder aan je rekeningen.'
+            : acc && !acc.iban
+              ? 'Munt dient als controle: rijen die niet in euro zijn, importeert Saldo niet. De gekozen rekening heeft geen IBAN, dus Saldo kan niet controleren bij welke rekening het bestand hoort. Staan er rijen van meer dan één rekening in het bestand, dan importeert Saldo het niet.'
+              : 'Rekening van het bestand en Munt dienen als controle: rijen van een andere rekening dan de gekozen, of niet in euro, importeert Saldo niet.'}
         </p>
-        <section className="im-card anim-in" style={delay(90)} aria-labelledby="im-tg-h">
-          <h3 className="im-card-title" id="im-tg-h">
-            Naar welke rekening?
-          </h3>
-          <div className="im-acc-list" role="radiogroup" aria-labelledby="im-tg-h">
-            {editable.map((a) => (
-              <label key={a.id} className="im-acc-opt">
-                <input type="radio" name="im-target" value={a.id} checked={target === a.id} onChange={() => setChosen(a.id)} />
-                <span className="im-acc-av" style={{ background: accColour(a.colour) }} aria-hidden="true">
-                  <Icon name={accountIcon(a)} size={17} stroke={2.2} />
-                </span>
-                <span className="im-radio-main">
-                  <span className="im-radio-name">{a.name}</span>
-                  <span className="im-radio-sub">{syncLine(a, today).text}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {hidden > 0 && (
-            <p className="im-help">
-              <Icon name="lock" size={13} stroke={2.2} /> Rekeningen waarop je alleen kan lezen, staan er niet bij. Importeren kan wie de rekening mag bewerken.
-            </p>
+        <div className="im-grid2 anim-in" style={delay(90)}>
+          <section className="im-card" aria-labelledby="im-fmt-h">
+            <h3 className="im-card-title" id="im-fmt-h">
+              Notatie
+            </h3>
+            <div className="im-grid2 im-grid2--tight">
+              <div className="field">
+                <label className="field-label" htmlFor="im-datefmt">
+                  Datumnotatie
+                </label>
+                <Select id="im-datefmt" value={settings.dateFormat ?? ''} options={DATE_FORMATS} onChange={(v) => setSettings((x) => withSetting(x, 'dateFormat', v))} />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="im-decimal">
+                  Decimaalteken
+                </label>
+                <Select id="im-decimal" value={settings.decimal ?? ''} options={DECIMALS} onChange={(v) => setSettings((x) => withSetting(x, 'decimal', v))} />
+              </div>
+            </div>
+            <p className="im-help">Bij Automatisch leest Saldo datums en bedragen zoals ze in het bestand staan. Kies zelf alleen als ze in de controle onleesbaar blijken.</p>
+          </section>
+          {fromColumn ? (
+            <section className="im-card" aria-labelledby="im-tg-h">
+              <h3 className="im-card-title" id="im-tg-h">
+                Naar welke rekeningen?
+              </h3>
+              {statsErrNow ? (
+                <Alert message={statsErrNow.message} retryOff={!online} onRetry={() => setStatsTry((n) => n + 1)} />
+              ) : !statsNow ? (
+                online && (
+                  <p className="im-checking">
+                    <Spin text="Bezig met de rekeningnamen lezen…" />
+                  </p>
+                )
+              ) : (
+                <div className="im-mapacc">
+                  <div className="im-mapacc-th only-desktop" aria-hidden="true">
+                    <span>Naam in het bestand</span>
+                    <span>Rijen</span>
+                    <span />
+                    <span>Rekening in Saldo</span>
+                  </div>
+                  {statsNow.accounts.map((a) => (
+                    <div className="im-mapacc-row" key={a.name}>
+                      <span className="im-mapacc-name">{a.name}</span>
+                      <span className="im-mapacc-n mono">
+                        {num(a.rows)}
+                        <span className="only-phone"> rijen</span>
+                      </span>
+                      <span className="im-arrow" aria-hidden="true">
+                        <Icon name="chevron" size={16} stroke={2} />
+                      </span>
+                      <div className="im-mapacc-sel">
+                        <Select
+                          label={'Rekening in Saldo voor ' + a.name}
+                          value={String(accountFor(a.name) ?? '')}
+                          onChange={(v) => setNameMap((m) => ({ ...m, [a.name]: Number(v) }))}
+                          options={[{ value: '', label: 'Kies een rekening', disabled: true }, ...editable.map((x) => ({ value: String(x.id), label: x.name }))]}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="im-help">
+                Saldo leest de rekeningen uit de kolom Rekeningnaam. Koppel elke naam aan een rekening van jou: elke rekening krijgt zijn eigen batch.
+              </p>
+              {hidden > 0 && (
+                <p className="im-help">
+                  <Icon name="lock" size={13} stroke={2.2} /> Rekeningen waarop je alleen kan lezen, staan er niet bij. Importeren kan wie de rekening mag bewerken.
+                </p>
+              )}
+            </section>
+          ) : (
+            <section className="im-card" aria-labelledby="im-tg-h">
+              <h3 className="im-card-title" id="im-tg-h">
+                Naar welke rekening?
+              </h3>
+              <div className="im-acc-list" role="radiogroup" aria-labelledby="im-tg-h">
+                {editable.map((a) => (
+                  <label key={a.id} className="im-acc-opt">
+                    <input type="radio" name="im-target" value={a.id} checked={single === a.id} onChange={() => setChosen(a.id)} />
+                    <span className="im-acc-av" style={{ background: accColour(a.colour) }} aria-hidden="true">
+                      <Icon name={accountIcon(a)} size={17} stroke={2.2} />
+                    </span>
+                    <span className="im-radio-main">
+                      <span className="im-radio-name">{a.name}</span>
+                      <span className="im-radio-sub">{syncLine(a, today).text}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {hidden > 0 && (
+                <p className="im-help">
+                  <Icon name="lock" size={13} stroke={2.2} /> Rekeningen waarop je alleen kan lezen, staan er niet bij. Importeren kan wie de rekening mag bewerken.
+                </p>
+              )}
+            </section>
           )}
-        </section>
+        </div>
         <ActionBar note={problems.length ? <span className="im-actions-err">{problems[0]}</span> : nothingSaved}>
           <button type="button" className="im-btn im-btn--ghost" onClick={() => setStep(1)}>
             Vorige
@@ -732,11 +947,72 @@ export function Importeren() {
       </>
     );
   } else if (step === 3) {
+    const hasCats = cols.includes('category') || cols.includes('subcategory');
+    body = (
+      <>
+        <StepTitle title="Koppel de categorieën" sub={hasCats ? 'Dit zijn de categorieën die Saldo in het bestand vond.' : undefined} />
+        {!hasCats ? (
+          <div className="im-notice im-notice--info anim-in" style={delay(60)}>
+            <Icon name="info" size={18} stroke={2.2} />
+            <div>
+              <strong>Geen categorie-kolom.</strong> Je koos geen kolom Categorie, dus er is niets te koppelen. Saldo categoriseert de transacties met je regels en suggesties.
+            </div>
+          </div>
+        ) : statsErrNow ? (
+          <Alert message={statsErrNow.message} retryOff={!online} onRetry={() => setStatsTry((n) => n + 1)} />
+        ) : !statsNow ? (
+          online && (
+            <p className="im-checking">
+              <Spin text="Bezig met de categorieën lezen…" />
+            </p>
+          )
+        ) : (
+          <>
+            <div className="im-notice im-notice--info anim-in" style={delay(60)} role="status">
+              <Icon name="info" size={18} stroke={2.2} />
+              <div>
+                <strong>De koppeling aan de categorieën van Saldo komt in een volgende stap van deze versie.</strong>
+                <p className="im-notice-sub">Nu komen de transacties zonder categorie binnen. Je regels en suggesties kunnen ze daarna categoriseren.</p>
+              </div>
+            </div>
+            <section className="im-card im-card--table anim-in" style={delay(90)} aria-label="Categorieën in het bestand">
+              <div className="im-th im-catrow only-desktop" aria-hidden="true">
+                <span>Categorie in het bestand</span>
+                <span>Transacties</span>
+                <span>Totaal</span>
+              </div>
+              {statsNow.categories.map((c, i) => (
+                <div className="im-tr im-catrow" key={i}>
+                  <div className="im-catrow-src">
+                    <CatPath c={c} />
+                  </div>
+                  <div className="im-catrow-n">
+                    <span className="mono">{num(c.rows)}</span>
+                    <span className="only-phone"> transacties</span>
+                  </div>
+                  <div className={'im-catrow-sum mono' + (c.total > 0 ? ' pos' : '')}>{eur(c.total, c.total > 0)}</div>
+                </div>
+              ))}
+            </section>
+          </>
+        )}
+        <ActionBar note={nothingSaved}>
+          <button type="button" className="im-btn im-btn--ghost" onClick={() => setStep(2)}>
+            Vorige
+          </button>
+          <button type="button" className="im-btn im-btn--primary" onClick={() => setStep(4)}>
+            Volgende
+            <Icon name="chevron" size={16} stroke={2.4} />
+          </button>
+        </ActionBar>
+      </>
+    );
+  } else if (step === 4) {
     const c = current?.counts;
     const overlap = c?.overlap ?? 0;
     body = (
       <>
-        <StepTitle title="Controleer voor je importeert" sub={'Dit is wat er in je ' + (acc?.name ?? 'rekening') + ' komt.'} />
+        <StepTitle title="Controleer voor je importeert" sub={'Dit is wat er in je ' + targetNames + ' komt.'} />
         {currentErr ? (
           <Alert message={currentErr.message} retryOff={!online} onRetry={() => setCheckTry((n) => n + 1)} />
         ) : !current || !c ? (
@@ -753,7 +1029,13 @@ export function Importeren() {
               <Stat n={c.invalid} label="onleesbaar" cls={c.invalid ? 'warn' : ''} />
             </div>
             <p className="im-range anim-in" style={delay(70)}>
-              {plural(c.rows, 'rij', 'rijen')} in het bestand · <AccPill a={acc} />
+              {plural(c.rows, 'rij', 'rijen')} in het bestand ·{' '}
+              {targets.map((a, i) => (
+                <Fragment key={a?.id ?? i}>
+                  {i > 0 && ' '}
+                  <AccPill a={a} />
+                </Fragment>
+              ))}
             </p>
             {c.present > 0 && <p className="im-help">Een rij die al in Saldo staat, komt er geen tweede keer in.</p>}
             {overlap > 0 && (
@@ -787,7 +1069,7 @@ export function Importeren() {
           </Alert>
         )}
         <ActionBar note={nothingSaved}>
-          <button type="button" className="im-btn im-btn--ghost" disabled={busy === 'import'} onClick={() => setStep(2)}>
+          <button type="button" className="im-btn im-btn--ghost" disabled={busy === 'import'} onClick={() => setStep(3)}>
             Vorige
           </button>
           <button type="button" className="im-btn im-btn--primary" disabled={!online || !!busy || !c || !c.new} aria-busy={busy === 'import' || undefined} onClick={runImport}>
@@ -803,9 +1085,12 @@ export function Importeren() {
         </ActionBar>
       </>
     );
-  } else if (step === 4 && result) {
-    const b = result.batch;
-    const done = accountOf(b.accountId);
+  } else if (step === 5 && result) {
+    const imported = result.batches.reduce((n, b) => n + b.imported, 0);
+    const present = result.batches.reduce((n, b) => n + b.present, 0);
+    const invalid = result.batches.reduce((n, b) => n + b.invalid, 0);
+    const first = result.batches[0];
+    const done = first && accountOf(first.accountId);
     body = (
       <>
         <section className="im-card im-done anim-in" style={delay(40)} aria-labelledby="im-step-h">
@@ -813,40 +1098,44 @@ export function Importeren() {
             <Icon name="check" size={28} stroke={2.8} />
           </span>
           <h2 id="im-step-h" tabIndex={-1}>
-            {plural(b.imported, 'transactie', 'transacties')} geïmporteerd
+            {plural(imported, 'transactie', 'transacties')} geïmporteerd
           </h2>
           <p className="im-done-sub">
-            In je {done?.name ?? 'rekening'}. Bewaard als batch {b.id}.
+            {result.batches.length === 1
+              ? 'In je ' + (done?.name ?? 'rekening') + '. Bewaard als batch ' + first.id + '.'
+              : 'In ' + result.batches.length + ' rekeningen. Bewaard als batch ' + result.batches.map((b) => b.id).join(' en ') + '.'}
           </p>
-          <BatchRow b={b} account={done} today={today} />
+          {result.batches.map((b) => (
+            <BatchRow key={b.id} b={b} account={accountOf(b.accountId)} today={today} />
+          ))}
         </section>
-        {(b.present > 0 || b.invalid > 0) && (
+        {(present > 0 || invalid > 0) && (
           <section className="im-card anim-in" style={delay(80)} aria-label="Wat er gebeurde">
             <ul className="im-done-facts">
-              {b.present > 0 && (
+              {present > 0 && (
                 <li>
                   <span className="im-done-fact-icon" aria-hidden="true">
                     <Icon name="close" size={16} stroke={2.2} />
                   </span>
                   <span>
-                    <strong>{num(b.present)}</strong> {b.present === 1 ? 'rij stond' : 'rijen stonden'} al in Saldo en {b.present === 1 ? 'is' : 'zijn'} overgeslagen.
+                    <strong>{num(present)}</strong> {present === 1 ? 'rij stond' : 'rijen stonden'} al in Saldo en {present === 1 ? 'is' : 'zijn'} overgeslagen.
                   </span>
                 </li>
               )}
-              {b.invalid > 0 && (
+              {invalid > 0 && (
                 <li>
                   <span className="im-done-fact-icon" aria-hidden="true">
                     <Icon name="warning" size={16} stroke={2.2} />
                   </span>
                   <span>
-                    <strong>{num(b.invalid)}</strong> onleesbare {b.invalid === 1 ? 'rij' : 'rijen'} overgeslagen.
+                    <strong>{num(invalid)}</strong> onleesbare {invalid === 1 ? 'rij' : 'rijen'} overgeslagen.
                   </span>
                 </li>
               )}
             </ul>
           </section>
         )}
-        <RowErrors errors={result.errors ?? []} invalid={b.invalid} />
+        <RowErrors errors={result.errors ?? []} invalid={invalid} />
         <section className="im-sec anim-in" style={delay(120)} aria-labelledby="im-next-h">
           <div className="im-sec-head">
             <h3 className="label" id="im-next-h">
@@ -854,11 +1143,11 @@ export function Importeren() {
             </h3>
           </div>
           <div className="im-nexts">
-            <Link className="im-next" to={'/transacties?rekening=' + b.accountId}>
+            <Link className="im-next" to={result.batches.length === 1 ? '/transacties?rekening=' + first.accountId : '/transacties'}>
               <Tile icon="list" bg="var(--c1)" />
               <span className="im-next-main">
                 <span className="im-next-name">Transacties bekijken</span>
-                <span className="im-next-sub">De transacties van je {done?.name ?? 'rekening'}</span>
+                <span className="im-next-sub">{result.batches.length === 1 ? 'De transacties van je ' + (done?.name ?? 'rekening') : 'De transacties van al je rekeningen'}</span>
               </span>
               <span className="im-chev">
                 <Icon name="chevron" size={16} stroke={2.2} />
@@ -903,7 +1192,7 @@ export function Importeren() {
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = '';
-          if (f) read(f);
+          if (f) read(f, {});
         }}
       />
       <p className="visually-hidden" role="status">
@@ -918,7 +1207,7 @@ export function Importeren() {
           </>
         ) : (
           <>
-            <Stepper cur={step} onGo={step < 4 && !busy ? setStep : undefined} />
+            <Stepper cur={step} onGo={step < 5 && !busy ? setStep : undefined} />
             <div className="im-body">{body}</div>
           </>
         )}

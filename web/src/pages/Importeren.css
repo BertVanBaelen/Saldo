@@ -434,3 +434,62 @@
   .im-nexts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .im-next:hover .im-next-name { color: var(--greenText); }
 }
+
+/* Stap 2 · notation and accounts from a column (0.5-2) */
+.im-grid2--tight { gap: 12px; }
+.im-det .field { min-width: 0; }
+.im-mapacc { display: flex; flex-direction: column; gap: 8px; }
+.im-mapacc-th { display: none; }
+.im-mapacc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name n" "sel sel";
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+.im-mapacc-name { grid-area: name; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+.im-mapacc-n { grid-area: n; font-size: 13px; color: var(--muted); }
+.im-mapacc-row > .im-arrow { display: none; }
+.im-mapacc-sel { grid-area: sel; min-width: 0; }
+@media (min-width: 1024px) {
+  .im-mapacc-th, .im-mapacc-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px 20px minmax(0, 1.2fr);
+    grid-template-areas: "name n arrow sel";
+    gap: 0 12px;
+  }
+  .im-mapacc-th { padding: 0 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .im-mapacc-row > .im-arrow { display: flex; grid-area: arrow; }
+  .im-mapacc-n { text-align: right; }
+}
+
+/* Stap 3 · categories of the file, read-only until 0.5-3 maps them */
+.im-catrow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "src src" "n sum";
+  gap: 4px 8px;
+}
+.im-catrow-src { grid-area: src; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.im-path { font-size: 15px; overflow-wrap: anywhere; }
+.im-path-parent { color: var(--muted); }
+.im-path-leaf { font-weight: 500; }
+.im-catrow-n { grid-area: n; font-size: 13px; color: var(--muted); }
+.im-catrow-sum { grid-area: sum; font-size: 13px; color: var(--muted); }
+.im-catrow-sum::before { content: "· "; font-family: var(--font); }
+.im-catrow-sum.pos { color: var(--greenText); }
+@media (min-width: 1024px) {
+  .im-catrow {
+    grid-template-columns: minmax(0, 1.4fr) 88px 128px;
+    grid-template-areas: "src n sum";
+    gap: 0 14px;
+  }
+  .im-catrow-n, .im-catrow-sum { text-align: right; font-size: 14px; color: var(--text); }
+  .im-catrow-sum::before { content: none; }
+  .im-th.im-catrow > span:nth-child(1) { grid-area: src; }
+  .im-th.im-catrow > span:nth-child(2) { grid-area: n; text-align: right; }
+  .im-th.im-catrow > span:nth-child(3) { grid-area: sum; text-align: right; }
+}

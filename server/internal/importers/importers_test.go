@@ -19,7 +19,7 @@ import (
 
 const today = "2026-06-15"
 
-var simple = Mapping{Date: 0, ValueDate: NoColumn, Amount: 1, Counterparty: 2, CounterpartyIBAN: NoColumn, Communication: 3, Account: NoColumn, Currency: NoColumn}
+var simple = Mapping{Date: 0, ValueDate: NoColumn, Amount: 1, Counterparty: 2, CounterpartyIBAN: NoColumn, Communication: 3, Account: NoColumn, Currency: NoColumn, Note: NoColumn, Category: NoColumn, Subcategory: NoColumn, AccountName: NoColumn, CounterpartyFallback: NoColumn}
 
 func invalidMessage(t *testing.T, err error) string {
 	t.Helper()
@@ -38,7 +38,7 @@ var argentaHeader = []string{"Rekening", "Boekdatum", "Valutadatum", "Referentie
 // argentaMapping is the suggestion for the 11 Argenta columns. Referentie (3),
 // Beschrijving (4) and Verrichtingsdatum (7) stay unmapped.
 var argentaMapping = Mapping{Account: 0, Date: 1, ValueDate: 2, Amount: 5, Currency: 6,
-	CounterpartyIBAN: 8, Counterparty: 9, Communication: 10}
+	CounterpartyIBAN: 8, Counterparty: 9, Communication: 10, Note: NoColumn, Category: NoColumn, Subcategory: NoColumn, AccountName: NoColumn, CounterpartyFallback: NoColumn}
 
 func TestArgentaFixture(t *testing.T) {
 	data, err := os.ReadFile("testdata/argenta-synthetic.csv")
@@ -104,7 +104,7 @@ func TestArgentaPresetDelimiters(t *testing.T) {
 // TestCurrencyAndAccount checks the guards on the Munt and Rekening columns;
 // their errors never repeat the cell.
 func TestCurrencyAndAccount(t *testing.T) {
-	m := Mapping{Date: 0, ValueDate: NoColumn, Amount: 1, Counterparty: NoColumn, CounterpartyIBAN: NoColumn, Communication: NoColumn, Account: 2, Currency: 3}
+	m := Mapping{Date: 0, ValueDate: NoColumn, Amount: 1, Counterparty: NoColumn, CounterpartyIBAN: NoColumn, Communication: NoColumn, Account: 2, Currency: 3, Note: NoColumn, Category: NoColumn, Subcategory: NoColumn, AccountName: NoColumn, CounterpartyFallback: NoColumn}
 	data := "Datum;Bedrag;Rekening;Munt\n" +
 		"02/01/2026;1;BE68 5390 0754 7034;EUR\n" + // 2 ok
 		"02/01/2026;1;be68539007547034;eur\n" + // 3 ok, lower case
@@ -139,27 +139,27 @@ func TestPresetAndSuggestion(t *testing.T) {
 		want       Mapping
 	}{
 		{"generic english, comma", "Date,Amount,Payee,Description\n2026-01-02,12.50,A,B\n", "",
-			Mapping{0, NoColumn, 1, 2, NoColumn, 3, NoColumn, NoColumn}},
+			Mapping{0, NoColumn, 1, 2, NoColumn, 3, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"accents, case and punctuation", "BEDRAG (EUR);Omschrijving;Date d'exécution\n1;x;02/01/2026\n", "",
-			Mapping{2, NoColumn, 0, NoColumn, NoColumn, 1, NoColumn, NoColumn}},
+			Mapping{2, NoColumn, 0, NoColumn, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"value date only becomes the date", "Valutadatum;Bedrag\n02/01/2026;1\n", "",
-			Mapping{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
+			Mapping{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"booking date wins, value date kept", "Valutadatum;Bedrag;Boekingsdatum\n02/01/2026;1;02/01/2026\n", "",
-			Mapping{2, 0, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
+			Mapping{2, 0, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"argenta-like but comma separated", "Boekingsdatum,Bedrag,Naam tegenpartij,Mededeling\n02/01/2026,1,a,b\n", "",
-			Mapping{0, NoColumn, 1, 2, NoColumn, 3, NoColumn, NoColumn}},
+			Mapping{0, NoColumn, 1, 2, NoColumn, 3, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"argenta-like without mededeling", "Boekingsdatum;Bedrag;Naam tegenpartij\n02/01/2026;1;a\n", "",
-			Mapping{0, NoColumn, 1, 2, NoColumn, NoColumn, NoColumn, NoColumn}},
+			Mapping{0, NoColumn, 1, 2, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"argenta core headers missing: generic, own account and currency suggested", "Rekening;Mededeling;Verrichtingsdatum;Bedrag;Munt;Naam tegenpartij\nx;b;02/01/2026;1;EUR;a\n", "",
-			Mapping{2, NoColumn, 3, 5, NoColumn, 1, 0, 4}},
+			Mapping{2, NoColumn, 3, 5, NoColumn, 1, 0, 4, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"argenta, other column order, comma separated", "Mededeling,Munt,Naam tegenpartij,Bedrag,Referentie,Valutadatum,Boekdatum\nb,EUR,a,1,r,02/01/2026,02/01/2026\n", PresetArgenta,
-			Mapping{6, 5, 3, 2, NoColumn, 0, NoColumn, 1}},
+			Mapping{6, 5, 3, 2, NoColumn, 0, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"english own account and currency", "Date,Amount,Account,Currency,Counterparty account\n2026-01-02,1,x,EUR,y\n", "",
-			Mapping{0, NoColumn, 1, NoColumn, 4, NoColumn, 2, 3}},
+			Mapping{0, NoColumn, 1, NoColumn, 4, NoColumn, 2, 3, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"rekening tegenpartij alone is not the own account", "Datum;Bedrag;Rekening tegenpartij\n02/01/2026;1;x\n", "",
-			Mapping{0, NoColumn, 1, NoColumn, 2, NoColumn, NoColumn, NoColumn}},
+			Mapping{0, NoColumn, 1, NoColumn, 2, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 		{"nothing recognised", "foo;bar\n1;2\n", "",
-			Mapping{NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
+			Mapping{NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -230,8 +230,8 @@ func TestFileErrors(t *testing.T) {
 		{"utf-16 be, no bom", []byte("\x00D\x00;\x00a\x00\n"), "UTF-16"},
 		{"control characters", []byte("\x01\x02\x03\x04;\x05\n\x06;\x07\n"), "geen tekstbestand"},
 		{"no delimiter", []byte("Datum\n02/01/2026\n"), "scheidingsteken"},
-		{"too large", big, "groter dan 5 MB"},
-		{"too many rows", []byte(many.String()), "meer dan 20000 regels"},
+		{"too large", big, "groter dan 20 MB"},
+		{"too many rows", []byte(many.String()), "meer dan 100000 regels"},
 		{"too many columns", []byte(strings.Repeat("a;", MaxColumns) + "a\n1\n"), "kolommen"},
 		{"broken header", []byte("Datum;\"Bed\"rag\n02/01/2026;1\n"), "kopregel"},
 	}
@@ -281,6 +281,7 @@ func TestTooManyFieldsInADataLine(t *testing.T) {
 		"plain":                 "Datum;Bedrag\n02/01/2026;1\n" + wide + "\n",
 		"after a bare quote":    "Datum;Bedrag\n02/01/2026;1\"\n" + wide + "\n",
 		"after a quote error":   "Datum;Bedrag\n\"02/01/2026\"x;1\n" + wide + "\n",
+		"after leading spaces":  "Datum;Bedrag\n02/01/2026;1\n" + strings.Repeat("; \"a\"", MaxColumns+1) + "\n",
 		"just over, at the end": "Datum;Bedrag\n02/01/2026;1\n" + strings.Repeat(";", MaxColumns+1) + "\n",
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -292,7 +293,7 @@ func TestTooManyFieldsInADataLine(t *testing.T) {
 			if msg := invalidMessage(t, err); !strings.Contains(msg, "kolommen") {
 				t.Fatalf("message %q", msg)
 			}
-			if n := after.TotalAlloc - before.TotalAlloc; n > 40<<20 {
+			if n := after.TotalAlloc - before.TotalAlloc; n > 5*MaxFileBytes {
 				t.Errorf("allocated %d MB", n>>20)
 			}
 		})
@@ -316,14 +317,14 @@ func TestReadUpload(t *testing.T) {
 func TestMappingChecks(t *testing.T) {
 	data := []byte("Datum;Bedrag;Naam\n02/01/2026;1;A\n")
 	for _, m := range []Mapping{
-		{NoColumn, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
-		{0, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
-		{0, NoColumn, 3, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
-		{0, NoColumn, 1, -2, NoColumn, NoColumn, NoColumn, NoColumn},
-		{0, NoColumn, 1, 1, NoColumn, NoColumn, NoColumn, NoColumn},
-		{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, 0, NoColumn},
-		{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, 3},
-		{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, 2, 2},
+		{NoColumn, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
+		{0, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
+		{0, NoColumn, 3, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
+		{0, NoColumn, 1, -2, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
+		{0, NoColumn, 1, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
+		{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, 0, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
+		{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, 3, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
+		{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, 2, 2, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn},
 		{},
 	} {
 		if _, err := Parse(data, m, today); err == nil {
@@ -390,13 +391,15 @@ func TestDates(t *testing.T) {
 		{"02/06/26", ""},
 		{"2026/06/02", ""},
 		{"02/06-2026", ""},
-		{"02/06/2026 10:00", ""},
+		{"2026-06-02 00:00:00.000", "2026-06-02"}, // Bilance: the time is ignored
+		{"02/06/2026 10:00", "2026-06-02"},
+		{"02/06/2026 10", ""},
 		{"20260602", ""},
 		{"", ""},
 		{"vandaag", ""},
 	}
 	for _, c := range cases {
-		got, msg := checkDate(c.in, today)
+		got, msg := checkDate(c.in, today, "")
 		if got != c.want || (c.want == "") == (msg == "") {
 			t.Errorf("checkDate(%q) = %q, %q; want %q", c.in, got, msg, c.want)
 		}
@@ -492,7 +495,7 @@ func TestFileDecimal(t *testing.T) {
 		}
 	}
 	// Through Parse: other rows decide "1.234".
-	p, err := Parse([]byte("Datum;Bedrag\n02/01/2026;1.234\n02/01/2026;-3,50\n"), Mapping{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}, today)
+	p, err := Parse([]byte("Datum;Bedrag\n02/01/2026;1.234\n02/01/2026;-3,50\n"), Mapping{0, NoColumn, 1, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}, today)
 	if err != nil || len(p.Rows) != 2 || p.Rows[0].Tx.Amount != 123400 {
 		t.Fatalf("%+v %v", p, err)
 	}
@@ -501,7 +504,7 @@ func TestFileDecimal(t *testing.T) {
 func TestTextCapsAndIBAN(t *testing.T) {
 	long := strings.Repeat("é", MaxCommunicationRunes+20)
 	data := "Datum;Bedrag;Naam;Mededeling;IBAN\n02/01/2026;1;" + strings.Repeat("n", MaxCounterpartyRunes+5) + ";" + long + "; be68 5390-0754 7034 \n"
-	p, err := Parse([]byte(data), Mapping{0, NoColumn, 1, 2, 4, 3, NoColumn, NoColumn}, today)
+	p, err := Parse([]byte(data), Mapping{0, NoColumn, 1, 2, 4, 3, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}, today)
 	if err != nil || len(p.Rows) != 1 {
 		t.Fatalf("%+v %v", p, err)
 	}
@@ -517,7 +520,7 @@ func TestTextCapsAndIBAN(t *testing.T) {
 }
 
 func TestHeadersAreUniqueKeys(t *testing.T) {
-	p, err := Parse([]byte("Datum;Bedrag;;Naam;Naam\n02/01/2026;1;x;A;B\n"), Mapping{0, NoColumn, 1, 3, NoColumn, 4, NoColumn, NoColumn}, today)
+	p, err := Parse([]byte("Datum;Bedrag;;Naam;Naam\n02/01/2026;1;x;A;B\n"), Mapping{0, NoColumn, 1, 3, NoColumn, 4, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn}, today)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -595,4 +598,107 @@ func check(data []byte) {
 	}
 	m.ValueDate, m.Counterparty, m.CounterpartyIBAN, m.Communication, m.Account, m.Currency = NoColumn, NoColumn, NoColumn, NoColumn, NoColumn, NoColumn
 	_, _ = Parse(data, m, today)
+}
+
+// A Bilance export (spike S2, all values invented): ", " between fields,
+// quoted text, dates with a time, amounts like -170.00€, two category columns.
+const bilanceHeader = "Titel, Datum, Bedrag, Categorie, Subcategorie, Tag(s), Betalingskenmerk, Handelaar, Rekening(en), Notitie\n"
+
+const cardText = "Voorbeeld Winkel |.| 02-06-2026 |.| 14:35 |.| Antwerpen |.| BE |.| 0000********0000 |.| 5411 |.| Jan Voorbeeld"
+
+func TestBilance(t *testing.T) {
+	file := bilanceHeader +
+		`"Voorbeeld Winkel", 2026-06-02 00:00:00.000, -170.00€, "Eten & Drinken", "Boodschappen", , "` + cardText + `", "Voorbeeld   Winkel  Antwerpen", "Zichtrekening", "Voor het weekend"` + "\n" +
+		`"Loon Test", 2026-06-03 00:00:00.000, +1250.00€, "Inkomen", "Loon, premies", , "+++123/4567/89012+++", , "Spaarrekening", ` + "\n" +
+		`"Kaart Test", 2026-06-04 00:00:00.000, abc€, "Wonen", "Huur, hypotheek", , "` + cardText + `", "Kaart Test", "Zichtrekening", ` + "\n" +
+		`"Kaart Raar", 2026-06-05 00:00:00.000, -5.00€, , , , "Raar Winkel |.| geen datum |.| Jan Voorbeeld", "Raar Winkel", "Zichtrekening, Contant", ` + "\n"
+	in, err := Inspect([]byte(file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Mapping{Date: 1, ValueDate: NoColumn, Amount: 2, Counterparty: 7, CounterpartyIBAN: NoColumn, Communication: 6, Account: NoColumn, Currency: NoColumn,
+		Note: 9, Category: 3, Subcategory: 4, AccountName: 8, CounterpartyFallback: 0}
+	if in.Preset != PresetBilance || in.Delimiter != ',' || in.Encoding != EncodingUTF8 || in.Mapping != want || in.TotalRows != 4 {
+		t.Fatalf("Inspect = %+v", in)
+	}
+	for _, row := range in.Sample { // the sample goes to the browser
+		for _, c := range row {
+			if strings.Contains(c, "Jan Voorbeeld") || strings.Contains(c, "0000****") {
+				t.Fatalf("card holder or number in the sample: %q", c)
+			}
+		}
+	}
+	if in.Sample[0][6] != "Voorbeeld Winkel 02-06-2026 Antwerpen" {
+		t.Errorf("sample card = %q", in.Sample[0][6])
+	}
+
+	p, err := Parse([]byte(file), in.Mapping, today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Rows) != 2 || len(p.Errors) != 2 {
+		t.Fatalf("rows %d errors %+v", len(p.Rows), p.Errors)
+	}
+	r := p.Rows[0]
+	if r.Line != 2 || r.Tx.BookingDate != "2026-06-02" || r.Tx.Amount != -17000 || r.Tx.CounterpartyName != "Voorbeeld Winkel Antwerpen" ||
+		r.Tx.Communication != "Voorbeeld Winkel 02-06-2026 Antwerpen" || r.Note != "Voor het weekend" ||
+		r.AccountName != "Zichtrekening" || r.Category != "Eten & Drinken" || r.Subcategory != "Boodschappen" || r.Account != "" {
+		t.Fatalf("row 0 = %+v", r)
+	}
+	// The card holder and number stay in the raw payload only.
+	if !bytes.Contains(r.Tx.Raw, []byte("Jan Voorbeeld")) {
+		t.Error("raw payload lost the original cell")
+	}
+	r = p.Rows[1]
+	if r.Tx.Amount != 125000 || r.Tx.CounterpartyName != "Loon Test" || r.Tx.Communication != "+++123/4567/89012+++" ||
+		r.AccountName != "Spaarrekening" || r.Subcategory != "Loon, premies" || r.Note != "" {
+		t.Fatalf("row 1 = %+v", r)
+	}
+	// Bad amount, and a cell with two accounts: row errors, never the cell text.
+	for i, line := range []int{4, 5} {
+		e := p.Errors[i]
+		if e.Line != line || strings.Contains(e.Message, "Jan Voorbeeld") || strings.Contains(e.Message, "0000") {
+			t.Errorf("error %d = %+v", i, e)
+		}
+	}
+	if p.Errors[0].Message != "Bedrag is ongeldig." || !strings.Contains(p.Errors[1].Message, "meer dan één rekening") {
+		t.Errorf("errors = %+v", p.Errors)
+	}
+	if len(p.Accounts) != 2 || p.Accounts[0] != (AccountCount{"Spaarrekening", 1}) || p.Accounts[1] != (AccountCount{"Zichtrekening", 1}) ||
+		len(p.Categories) != 2 || p.Categories[0] != (CategoryCount{"Eten & Drinken", "Boodschappen", 1, -17000}) {
+		t.Errorf("accounts %+v categories %+v", p.Accounts, p.Categories)
+	}
+}
+
+// A card string of another shape keeps its merchant only.
+func TestCardSafe(t *testing.T) {
+	for in, want := range map[string]string{
+		cardText: "Voorbeeld Winkel 02-06-2026 Antwerpen",
+		"Voorbeeld Winkel |.| geen datum |.| Jan Voorbeeld":                         "Voorbeeld Winkel",
+		"Voorbeeld Winkel |.| 02-06-2026 |.| 14:35 |.| Antwerpen |.| Jan Voorbeeld": "Voorbeeld Winkel",
+		"+++123/4567/89012+++": "+++123/4567/89012+++",
+	} {
+		if got := cardSafe(in); got != want {
+			t.Errorf("cardSafe(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// The overrides replace what is detected.
+func TestOptions(t *testing.T) {
+	data := []byte("Datum;Bedrag\n02/06/2026;1.234\n")
+	m := Mapping{Date: 0, ValueDate: NoColumn, Amount: 1, Counterparty: NoColumn, CounterpartyIBAN: NoColumn, Communication: NoColumn, Account: NoColumn, Currency: NoColumn,
+		Note: NoColumn, Category: NoColumn, Subcategory: NoColumn, AccountName: NoColumn, CounterpartyFallback: NoColumn}
+	p, err := Parse(data, m, today, Options{DateFormat: "mdy", Decimal: ','})
+	if err != nil || len(p.Rows) != 1 || p.Rows[0].Tx.BookingDate != "2026-02-06" || p.Rows[0].Tx.Amount != 123400 {
+		t.Fatalf("%+v %v", p, err)
+	}
+	if p, _ := Parse(data, m, today, Options{Decimal: '.'}); len(p.Rows) != 0 || len(p.Errors) != 1 {
+		t.Fatalf("a dot decimal read 1.234 as %+v", p.Rows)
+	}
+	// Forced Windows-1252 reads UTF-8 bytes as separate characters; a forced delimiter wins.
+	in, err := Inspect([]byte("Datum,Bedrag\n02/06/2026,é\n"), Options{Encoding: EncodingWindows1252, Delimiter: ','})
+	if err != nil || in.Encoding != EncodingWindows1252 || in.Delimiter != ',' || in.Sample[0][1] != "Ã©" {
+		t.Fatalf("%+v %v", in, err)
+	}
 }

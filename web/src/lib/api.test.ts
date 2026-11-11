@@ -35,8 +35,11 @@ describe('api client', () => {
     const fetch = respond(200, { fileName: 'export.csv' });
     vi.stubGlobal('fetch', fetch);
     const file = new File(['a;b\n1;2\n'], 'export.csv', { type: 'text/csv' });
-    const mapping = { date: 0, valueDate: null, amount: 1, counterparty: null, counterpartyIban: null, communication: null, account: 2, currency: 3 };
-    await api.previewImport(file, { accountId: 4, mapping });
+    const mapping = {
+      date: 0, valueDate: null, amount: 1, counterparty: null, counterpartyFallback: null, counterpartyIban: null, communication: null,
+      note: null, category: null, subcategory: null, account: 2, accountName: null, currency: 3,
+    };
+    await api.previewImport(file, { target: 4, mapping });
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe('/api/imports/preview');
     expect(init.method).toBe('POST');
@@ -49,6 +52,13 @@ describe('api client', () => {
     await api.previewImport(file);
     const first = fetch.mock.calls[1][1].body as FormData;
     expect([...first.keys()]).toEqual(['file']);
+
+    // Accounts from a column go as a map of names, the overrides as a JSON field of their own.
+    await api.previewImport(file, { target: { Zicht: 4 }, mapping, settings: { delimiter: ',', decimal: '.' } });
+    const third = fetch.mock.calls[2][1].body as FormData;
+    expect(third.get('accountId')).toBeNull();
+    expect(JSON.parse(third.get('accountMap') as string)).toEqual({ Zicht: 4 });
+    expect(JSON.parse(third.get('settings') as string)).toEqual({ delimiter: ',', decimal: '.' });
   });
 
   it('sends no Content-Type without a body', async () => {

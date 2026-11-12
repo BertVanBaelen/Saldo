@@ -1,0 +1,46 @@
+/* Shared select (Select.tsx). The trigger is an .input (border, height, focus, [aria-invalid] come from there);
+   the list copies the filter chips' option rows (Transacties .tx-pop / .tx-opt). Tokens only, so light and dark follow. */
+
+.select-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-width: 0; text-align: left;
+}
+.select-trigger:disabled { opacity: 0.6; background: var(--bg); }
+.select-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-chev { flex: none; color: var(--muted); transition: transform 160ms ease; }
+.select-trigger[aria-expanded="true"] .select-chev { transform: rotate(180deg); }
+
+/* The list: portal on <body>, placed by Select.tsx (left, top, min/max width, max-height), above the sheet backdrop (40) */
+.select-list {
+  position: fixed; z-index: 50;
+  width: max-content;
+  overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--pop);
+  animation: sFade 120ms ease-out both;
+}
+.select-group { display: flex; flex-direction: column; gap: 2px; }
+.select-heading {
+  padding: 10px 10px 4px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted);
+}
+
+.select-opt {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 6px 10px 6px 12px;
+  border-radius: 10px;
+  font-size: 15px; font-weight: 500;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.select-opt:hover, .select-opt[data-active] { background: var(--bg); }
+.select-opt[aria-selected="true"] { background: var(--soft); font-weight: 600; }
+.select-opt[aria-selected="true"][data-active] { background: var(--softChip); }
+.select-opt[aria-disabled="true"] { opacity: 0.45; cursor: default; background: transparent; }
+.select-opt-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-opt-check { width: 18px; flex: none; display: flex; color: var(--greenText); }

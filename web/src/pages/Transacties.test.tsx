@@ -1,11 +1,33 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderAt, stubApi, TRANSACTIONS } from '../test/helpers';
 import { ApiError } from '../lib/api';
 import type { Transaction } from '../lib/types';
 import { amountClass, catView, groupByDay, period } from './Transacties';
 
 const days = () => Array.from(document.querySelectorAll<HTMLElement>('.tx-day'));
+
+/**
+ * The element, in the microtask right after the commit that adds it. React's scheduler is made to yield after every
+ * task, like a busy machine, so no post-paint effect has run yet: what the test checks next has to hold in that
+ * commit, not a tick later.
+ */
+function shown<T extends HTMLElement>(find: () => T | null) {
+  let now = performance.now();
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => (now += 10));
+  return new Promise<T>((resolve) => {
+    const check = () => {
+      const el = find();
+      if (!el) return;
+      seen.disconnect();
+      clock.mockRestore();
+      resolve(el);
+    };
+    const seen = new MutationObserver(check);
+    seen.observe(document.body, { childList: true, subtree: true });
+    check();
+  });
+}
 
 describe('Transacties · grouping by day', () => {
   it('groups rows by booking date, newest day first, keeping the order within a day', () => {
@@ -62,7 +84,8 @@ describe('Transacties · grouping by day', () => {
       transactions: (q) => (q.before === 'c2' ? { items: TRANSACTIONS.slice(4), next: null } : q.uncategorised ? { items: [], next: null } : { items: TRANSACTIONS.slice(0, 4), next: 'c2' }),
     });
     renderAt('/transacties');
-    fireEvent.click(await screen.findByRole('button', { name: 'Oudere transacties laden' }));
+    // Clicked in the commit that shows the first page: its answer must still count.
+    fireEvent.click(await shown(() => screen.queryByRole('button', { name: 'Oudere transacties laden' })));
     expect(await screen.findByText('CM Ziekenfonds', { selector: '.tx-name' })).toBeTruthy();
     expect(api.transactions).toHaveBeenCalledWith(expect.objectContaining({ before: 'c2' }));
     expect(screen.queryByRole('button', { name: 'Oudere transacties laden' })).toBeNull();
@@ -107,15 +130,19 @@ describe('Transacties · grouping by day', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Oudere transacties laden' })).toBeNull());
   });
 
-  it('opens a read-only detail sheet on the phone', async () => {
+  it('opens the detail sheet on the phone, Escape closes it', async () => {
     stubApi();
     renderAt('/transacties');
     fireEvent.click((await screen.findByText('Colruyt Laagste Prijzen', { selector: '.tx-name' })).closest('button')!);
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('woensdag 18 november 2026')).toBeTruthy();
     expect(within(dialog).getByText('Geboekt')).toBeTruthy();
-    expect(within(dialog).getByText('Categorie kiezen, splitsen en notities komen in versie 0.4.')).toBeTruthy();
+    expect(await within(dialog).findByText('Via regel ‘Colruyt’')).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Sluiten' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByText('Colruyt Laagste Prijzen', { selector: '.tx-name' }).closest('button')!);
+    await screen.findByRole('dialog');
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

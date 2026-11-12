@@ -1,15 +1,19 @@
 package ledger
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/bank"
+	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
 )
 
 // NewTransaction is a bank transaction ready to be stored on an account.
@@ -19,6 +23,17 @@ type NewTransaction struct {
 	ImportBatch  int64 // the CSV import that brought it, 0 otherwise
 	DedupeKey    string
 	Occurrence   int
+	// The category it is stored with; 0 and "" for none. tagByRules
+	// leaves a row that already has one alone (a manual one carried over
+	// from its pending row, or a future import with CategoryOrigin
+	// "import").
+	CategoryID     int64
+	CategoryOrigin string
+	RuleID         int64
+	Note           string // "" for none
+	// ImportPair is the two parts of the file's category on an imported row
+	// (nil for none), kept so a changed mapping can be re-applied (0.5-3).
+	ImportPair *[2]string
 	bank.Transaction
 }
 
@@ -71,12 +86,15 @@ func InsertTransactions(ctx context.Context, db execer, rows []NewTransaction) (
 		res, err := db.ExecContext(ctx, `
 			INSERT INTO transactions (account_id, amount, currency, booking_date, value_date,
 			    counterparty_name, counterparty_iban, communication, status, external_id,
-			    dedupe_key, occurrence, source_connection_id, import_batch_id, raw_payload)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			    dedupe_key, occurrence, source_connection_id, import_batch_id, raw_payload,
+			    category_id, category_origin, rule_id, note, import_category, import_subcategory)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (account_id, dedupe_key, occurrence) DO NOTHING`,
 			r.AccountID, r.Amount, currencyOr(r.Currency), r.BookingDate, nullIfEmpty(r.ValueDate),
 			r.CounterpartyName, nullIfEmpty(r.CounterpartyIBAN), r.Communication, r.Status,
-			nullIfEmpty(r.EntryReference), r.DedupeKey, r.Occurrence, nullIfZero(r.ConnectionID), nullIfZero(r.ImportBatch), nullIfEmpty(string(r.Raw)))
+			nullIfEmpty(r.EntryReference), r.DedupeKey, r.Occurrence, nullIfZero(r.ConnectionID), nullIfZero(r.ImportBatch), nullIfEmpty(string(r.Raw)),
+			nullIfZero(r.CategoryID), nullIfEmpty(r.CategoryOrigin), nullIfZero(r.RuleID), nullIfEmpty(r.Note),
+			pairPart(r.ImportPair, 0), pairPart(r.ImportPair, 1))
 		if err != nil {
 			return inserted, err
 		}
@@ -101,6 +119,13 @@ func nullIfEmpty(s string) any {
 	return s
 }
 
+func pairPart(p *[2]string, i int) any {
+	if p == nil {
+		return nil
+	}
+	return p[i]
+}
+
 func nullIfZero(n int64) any {
 	if n == 0 {
 		return nil
@@ -118,8 +143,10 @@ func nullIfZero(n int64) any {
 // Booked rows are never deleted or changed. Call it only after the whole
 // fetch succeeded: a failed or partial fetch must change nothing.
 //
-// A category or note set on a deleted pending row goes with it; none can be
-// set today. Carrying it over to the booked row is for 0.4 to decide.
+// A deleted pending row hands its note, and a manual category, to the booked
+// row of the same fetch that replaces it (carryOver). New rows get the
+// category of the first matching rule of the account (tagByRules); stored
+// rows are never re-evaluated here.
 func StoreFetch(ctx context.Context, tx *sql.Tx, accountID, connectionID int64, from string, rows []NewTransaction) (int, error) {
 	type slot struct {
 		key string
@@ -137,30 +164,32 @@ func StoreFetch(ctx context.Context, tx *sql.Tx, accountID, connectionID int64, 
 	}
 
 	// Rows before from were not asked for, so their absence says nothing.
-	q, err := tx.QueryContext(ctx, `SELECT id, dedupe_key, occurrence FROM transactions
+	q, err := tx.QueryContext(ctx, `SELECT id, dedupe_key, occurrence, amount, counterparty_name, booking_date,
+		    COALESCE(category_id, 0), COALESCE(category_origin, ''), COALESCE(note, '')
+		FROM transactions
 		WHERE account_id = ? AND source_connection_id = ? AND status = 'pending' AND booking_date >= ?`,
 		accountID, connectionID, from)
 	if err != nil {
 		return 0, err
 	}
-	var stale []int64
+	var stale []pendingRow
 	for q.Next() {
-		var id int64
+		var p pendingRow
 		var s slot
-		if err := q.Scan(&id, &s.key, &s.occ); err != nil {
+		if err := q.Scan(&p.id, &s.key, &s.occ, &p.amount, &p.counterparty, &p.date, &p.category, &p.origin, &p.note); err != nil {
 			q.Close()
 			return 0, err
 		}
 		if !reported[s] {
-			stale = append(stale, id)
+			stale = append(stale, p)
 		}
 	}
 	q.Close()
 	if err := q.Err(); err != nil {
 		return 0, err
 	}
-	for _, id := range stale {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM transactions WHERE id = ?`, id); err != nil {
+	for _, p := range stale {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM transactions WHERE id = ?`, p.id); err != nil {
 			return 0, err
 		}
 	}
@@ -191,7 +220,113 @@ func StoreFetch(ctx context.Context, tx *sql.Tx, accountID, connectionID int64, 
 		}
 		keep = append(keep, r)
 	}
+	if err := carryOver(ctx, tx, stale, keep); err != nil {
+		return 0, err
+	}
+	if err := tagByRules(ctx, tx, accountID, keep); err != nil {
+		return 0, err
+	}
 	return InsertTransactions(ctx, tx, keep)
+}
+
+// pendingRow is a stored pending row that a fetch deletes.
+type pendingRow struct {
+	id, amount, category int64
+	counterparty, date   string
+	origin, note         string
+}
+
+// carryWindow is how far a booked row's date may lie from its pending row's.
+const carryWindow = 7 * 24 * time.Hour
+
+// carryOver hands what the user set on a deleted pending row to the booked
+// row of the same fetch that replaces it (plan 0.4-3): its note, and its
+// category with origin manual when the pending row's was manual. Nothing
+// else (a rule's category comes back through tagByRules). Only a booked row
+// that is going to be inserted qualifies, never a stored one. Pairs have the
+// same signed amount, an equal normalised counterparty and dates at most 7
+// days apart; they are made one to one, the closest dates first (then the
+// lower pending id, then the earlier booked row).
+func carryOver(ctx context.Context, tx *sql.Tx, stale []pendingRow, rows []NewTransaction) error {
+	type pair struct {
+		p, b int
+		gap  time.Duration
+	}
+	var pairs []pair
+	carries := false
+	for _, p := range stale {
+		carries = carries || p.note != "" || p.origin == "manual" && p.category != 0
+	}
+	if !carries {
+		return nil
+	}
+	isNew := map[int]bool{}
+	for pi, p := range stale {
+		pd, err := time.Parse(time.DateOnly, p.date)
+		if err != nil {
+			continue
+		}
+		for bi, b := range rows {
+			if b.Status != bank.StatusBooked || b.Amount != p.amount ||
+				categorise.Normalise(b.CounterpartyName) != categorise.Normalise(p.counterparty) {
+				continue
+			}
+			bd, err := time.Parse(time.DateOnly, b.BookingDate)
+			gap := bd.Sub(pd).Abs()
+			if err != nil || gap > carryWindow {
+				continue
+			}
+			fresh, seen := isNew[bi]
+			if !seen {
+				var exists bool
+				if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM transactions
+					WHERE account_id = ? AND dedupe_key = ? AND occurrence = ?)`, b.AccountID, b.DedupeKey, b.Occurrence).Scan(&exists); err != nil {
+					return err
+				}
+				fresh = !exists
+				isNew[bi] = fresh
+			}
+			if fresh {
+				pairs = append(pairs, pair{pi, bi, gap})
+			}
+		}
+	}
+	slices.SortStableFunc(pairs, func(x, y pair) int {
+		return cmp.Or(cmp.Compare(x.gap, y.gap), cmp.Compare(stale[x.p].id, stale[y.p].id), cmp.Compare(x.b, y.b))
+	})
+	usedP, usedB := map[int]bool{}, map[int]bool{}
+	for _, x := range pairs {
+		if usedP[x.p] || usedB[x.b] {
+			continue
+		}
+		usedP[x.p], usedB[x.b] = true, true
+		p, b := stale[x.p], &rows[x.b]
+		b.Note = p.note
+		if p.origin == "manual" && p.category != 0 {
+			b.CategoryID, b.CategoryOrigin, b.RuleID = p.category, "manual", 0
+		}
+	}
+	return nil
+}
+
+// tagByRules gives each new row of an account without a category the
+// category of the first rule that matches it (origin "rule"), pending rows
+// too. It runs before the insert, inside the caller's transaction.
+func tagByRules(ctx context.Context, tx *sql.Tx, accountID int64, rows []NewTransaction) error {
+	rules, err := categorise.RulesFor(ctx, tx, accountID)
+	if err != nil || len(rules) == 0 {
+		return err
+	}
+	for i, r := range rows {
+		if r.CategoryID != 0 {
+			continue
+		}
+		if m := categorise.Match(rules, categorise.Candidate{Counterparty: r.CounterpartyName,
+			CounterpartyIBAN: r.CounterpartyIBAN, Communication: r.Communication, Amount: r.Amount}); m != nil {
+			rows[i].CategoryID, rows[i].CategoryOrigin, rows[i].RuleID = m.CategoryID, "rule", m.ID
+		}
+	}
+	return nil
 }
 
 // importAllowance is the sync's side of the CSV import (0.3-6): a bank row

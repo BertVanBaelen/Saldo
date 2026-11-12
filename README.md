@@ -17,7 +17,7 @@ Status on 9 Nov 2026: **version 0.2 is released and the first real bank link wor
 | [`web/`](web/README.md) | The React web app (PWA) | [docs/api.md](docs/api.md) |
 | [`saldo/`](saldo/DOCS.md), `Dockerfile`, `repository.yaml` | The Home Assistant add-on and its image | [saldo/DOCS.md](saldo/DOCS.md) |
 | `.github/workflows/` | CI (Go, web, secret scan, image) and release to `ghcr.io` | – |
-| `scripts/dev.ps1` | Runs the server (demo mode) and the web app together | – |
+| `scripts/dev.ps1`, [`fixtures/csv/`](fixtures/csv/README.md) | Runs the server (demo mode) and the web app together (`-Fresh` to reset, `-Stop` to stop); invented CSV files for the import wizard | [docs/local-testing.md](docs/local-testing.md) |
 | `.claude/launch.json` | Starts the mockup server for a preview pane | – |
 
 How they connect:

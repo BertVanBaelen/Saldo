@@ -171,6 +171,28 @@ func TestOutsideDemoModeEverythingButHealthIs401(t *testing.T) {
 		{"DELETE", "/api/users/invitations/1", ""},
 		{"POST", "/api/users/1/password-reset", ""},
 		{"GET", "/api/auth/token/../../me", ""},
+		{"GET", "/api/categories", ""},
+		{"POST", "/api/categories", `{"name":"x","type":"expense"}`},
+		{"PATCH", "/api/categories/1", `{"name":"x"}`},
+		{"DELETE", "/api/categories/1?moveTo=none", ""},
+		{"GET", "/api/rules", ""},
+		{"POST", "/api/rules", `{"counterparty":"x","categoryId":1}`},
+		{"POST", "/api/rules/apply", ""},
+		{"PATCH", "/api/rules/1", `{"priority":1}`},
+		{"DELETE", "/api/rules/1", ""},
+		{"POST", "/api/rules/preview", `{"counterparty":"x"}`},
+		{"POST", "/api/rules/1/apply", ""},
+		{"PUT", "/api/rules/order", `{"ids":[1]}`},
+		{"GET", "/api/suggestions", ""},
+		{"POST", "/api/suggestions/confirm", `{"counterpartyKey":"x","categoryId":1}`},
+		{"POST", "/api/suggestions/dismiss", `{"counterpartyKey":"x","categoryId":1}`},
+		{"GET", "/api/suggestions/backfill", ""},
+		{"POST", "/api/suggestions/backfill", `{"items":[{"counterpartyKey":"x","categoryId":1}]}`},
+		{"PATCH", "/api/transactions/1", `{"note":"x"}`},
+		{"GET", "/api/transactions/1/similar", ""},
+		{"POST", "/api/transactions/1/similar", ""},
+		{"PUT", "/api/transactions/1/split", `{"parts":[]}`},
+		{"DELETE", "/api/transactions/1/split", ""},
 	}
 	for _, c := range calls {
 		r := do(t, h, c.method, c.path, c.body)
@@ -329,7 +351,8 @@ func TestTransactions(t *testing.T) {
 	b, _ := json.Marshal(first)
 	equalJSON(t, string(b), `{
 		"accountId": 1, "bookingDate": "2026-11-18", "amount": -2499, "counterparty": "Bol.com",
-		"communication": "Bestelling 4471-2210", "status": "pending", "category": null, "transfer": false
+		"communication": "Bestelling 4471-2210", "status": "pending", "category": null, "transfer": false,
+		"categoryOrigin": null, "ruleId": null, "note": null, "splits": null
 	}`)
 	second := decode[ledger.Transaction](t, string(page.Items[1]))
 	if second.Category == nil || *second.Category != (ledger.Category{ID: 2, Name: "Boodschappen", Colour: "c2"}) {

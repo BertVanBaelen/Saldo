@@ -88,6 +88,9 @@ export function Meer() {
   const [leaving, setLeaving] = useState(false);
   const accounts = useAsync((signal) => api.accounts(signal), [dataVersion]);
   const connections = useAsync((signal) => api.connections(signal), [dataVersion]);
+  // A failed call keeps the plain line.
+  const suggestions = useAsync((signal) => api.suggestions(signal), [dataVersion]);
+  const nSugg = suggestions.data?.length ?? 0;
   const bank = connectionsSub(connections.data);
   const current = THEMES.find((t) => t.id === theme) || THEMES[0];
 
@@ -102,7 +105,7 @@ export function Meer() {
   const geld: Item[] = [
     { to: '/rekeningen', icon: 'card', tile: 'var(--soft)', ink: 'var(--greenText)', name: 'Rekeningen', sub: accountsSub(accounts.data) },
     { to: '/bankkoppelingen', icon: 'link', tile: 'var(--c1)', name: 'Bankkoppelingen', sub: bank.sub, tone: bank.tone },
-    { to: '/categorieen', icon: 'tag', tile: 'var(--c3)', name: 'Categorieën en regels', sub: 'Categorieën, regels en suggesties' },
+    { to: '/categorieen', icon: 'tag', tile: 'var(--c3)', name: 'Categorieën en regels', sub: nSugg ? nSugg + (nSugg === 1 ? ' suggestie' : ' suggesties') + ' om te bevestigen' : 'Categorieën, regels en suggesties' },
     { to: '/importeren', icon: 'upload', tile: 'var(--c4)', name: 'Importeren', sub: 'CSV-bestand, bv. de export uit Argenta' },
   ];
   const app: Item[] = [

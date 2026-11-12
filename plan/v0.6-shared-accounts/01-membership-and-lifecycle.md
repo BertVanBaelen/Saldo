@@ -23,3 +23,7 @@ One account per IBAN, shared by its holders, with clear roles.
 
 ## Done when
 Partner joins your shared account through her own bank link, without duplicate transactions, and each lifecycle action works.
+
+## Carried over from 0.4 (10 Nov 2026)
+- **User rules stop applying** when a personal account gets a second member (a user rule applies only to an account with exactly one member). Add a "convert my user rules to account rules" action for its owner, so those rules do not silently go dead.
+- **Rule visibility:** a user rule's `ruleId` must not be shown to the new member (the API returns a rule id only when the viewer can see that rule). The category it set stays; the new member sees "set by a rule" without the rule.

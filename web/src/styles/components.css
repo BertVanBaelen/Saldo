@@ -530,6 +530,22 @@ a.card { text-decoration: none; }
 @media (min-width: 1024px) {
   .toast { bottom: 28px; left: calc(50% + var(--sidebar-w) / 2); }
 }
+/* A toast with a link: it wraps, stays 6 s (the timer in AppContext) and is not a pill. */
+.toast--action {
+  white-space: normal;
+  width: max-content;
+  max-width: min(calc(100vw - 32px), 460px);
+  text-align: center;
+  border-radius: 20px;
+  animation-name: sToastLong;
+  animation-duration: 6s;
+}
+.toast-link { color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
+@keyframes sToastLong {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  4%, 90% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0); }
+}
 
 .sheet-backdrop {
   position: fixed; inset: 0;

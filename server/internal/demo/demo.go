@@ -1,6 +1,6 @@
 // Package demo seeds an empty database with the demo story (analysis section
 // 12, analysis/concepts/demo-data.md) for demo mode: two users, five
-// accounts, two bank connections, the shared category tree and about a year
+// accounts, two bank connections, the default category tree and about a year
 // of transactions fetched through the fake bank provider.
 package demo
 
@@ -16,6 +16,7 @@ import (
 
 	"github.com/BertVanBaelen/Saldo/server/internal/bank"
 	"github.com/BertVanBaelen/Saldo/server/internal/bank/fake"
+	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 )
 
@@ -41,25 +42,6 @@ type user struct {
 var users = []user{
 	{Bert, "Bert", "bert@jouw-domein.be", "admin", "2026-06-03T08:00:00Z"},
 	{Partner, "Partner", "partner@jouw-domein.be", "user", "2026-06-04T18:30:00Z"},
-}
-
-type category struct {
-	name   string
-	kind   string
-	colour string
-}
-
-// categories is the shared default tree; ids follow this order.
-var categories = []category{
-	{"Wonen", "expense", "c1"},
-	{"Boodschappen", "expense", "c2"},
-	{"Vrije tijd", "expense", "c3"},
-	{"Vervoer", "expense", "c4"},
-	{"Abonnementen", "expense", "c5"},
-	{"Overig", "expense", "c6"},
-	{"Salaris", "income", "soft"},
-	{"Terugbetaling", "income", "soft"},
-	{"Bijdrage", "income", "soft"},
 }
 
 type connection struct {
@@ -193,11 +175,9 @@ func seed(ctx context.Context, tx *sql.Tx, p bank.Provider) (int, error) {
 			return 0, err
 		}
 	}
-	for i, c := range categories {
-		if err := exec(`INSERT INTO categories (id, name, type, colour, sort_order) VALUES (?, ?, ?, ?, ?)`,
-			i+1, c.name, c.kind, c.colour, i+1); err != nil {
-			return 0, err
-		}
+	// The demo uses the default tree; its history stays on the top categories.
+	if err := categorise.SeedDefaults(ctx, tx); err != nil {
+		return 0, err
 	}
 	for _, m := range manualAccounts {
 		if err := insertAccount(ctx, tx, m.account, "manual", ""); err != nil {
@@ -285,7 +265,7 @@ func seed(ctx context.Context, tx *sql.Tx, p bank.Provider) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if err := categorise(ctx, tx); err != nil {
+	if err := categoriseHistory(ctx, tx); err != nil {
 		return 0, err
 	}
 	return n, nil
@@ -306,7 +286,7 @@ func share(accountID int64) any {
 	return nil
 }
 
-func categorise(ctx context.Context, tx *sql.Tx) error {
+func categoriseHistory(ctx context.Context, tx *sql.Tx) error {
 	for _, c := range categorised {
 		for _, name := range c.counterparties {
 			q := `UPDATE transactions SET category_id = (SELECT id FROM categories WHERE name = ? AND parent_id IS NULL),

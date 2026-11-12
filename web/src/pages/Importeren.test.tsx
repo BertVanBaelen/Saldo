@@ -1,13 +1,38 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, NETWORK_MESSAGE } from '../lib/api';
-import { MAX_IMPORT_BYTES, type ImportCounts, type ImportPreview, type RowError } from '../lib/imports';
+import { MAX_IMPORT_BYTES, type ImportBatch, type ImportCounts, type ImportPreview, type RowError } from '../lib/imports';
 import { ACCOUNTS, GEDEELD, IMPORT_COUNTS, IMPORT_ERRORS, IMPORT_PREVIEW, importResult, NEW_MANUAL, renderAt, SPAAR, stubApi, ZICHT } from '../test/helpers';
+import { choose as pick } from '../test/select';
 import { CHECK_DELAY_MS, UNSURE } from './Importeren';
 
+/** The select that says what a file column becomes. */
+const col = (name: string) => screen.getByRole('combobox', { name: 'Kolom ‘' + name + '’ wordt' });
 const csv = (name = 'export-zicht.csv') => new File(['Boekingsdatum;Bedrag\n02/11/2026;-8,40\n'], name, { type: 'text/csv' });
 const status = () => document.querySelector('.im-page > [role="status"]')!.textContent;
 const MAPPING = IMPORT_PREVIEW.mapping;
+
+/**
+ * The element, in the microtask right after the commit that adds it. React's scheduler is made to yield after every
+ * task, like a busy machine, so no post-paint effect has run yet: what the test checks next has to hold in that
+ * commit, not a tick later.
+ */
+function shown<T extends HTMLElement>(find: () => T | null) {
+  let now = performance.now();
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => (now += 10));
+  return new Promise<T>((resolve) => {
+    const check = () => {
+      const el = find();
+      if (!el) return;
+      seen.disconnect();
+      clock.mockRestore();
+      resolve(el);
+    };
+    const seen = new MutationObserver(check);
+    seen.observe(document.body, { childList: true, subtree: true });
+    check();
+  });
+}
 
 async function choose(file: File) {
   await screen.findByRole('button', { name: 'Bestand kiezen' });
@@ -27,7 +52,7 @@ async function toCheck(file = csv(), n = 29) {
   await toColumns(file);
   fireEvent.click(screen.getByRole('radio', { name: /Zichtrekening/ }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Volgende' })).toHaveProperty('disabled', false));
-  fireEvent.click(screen.getByRole('button', { name: 'Volgende' }));
+  onward();
   await screen.findByRole('button', { name: 'Importeer ' + n + ' transacties' });
 }
 
@@ -53,9 +78,19 @@ const goOnline = () => {
 /** Long enough for a debounced check to have been sent, if the page would send one. */
 const quiet = () => new Promise((r) => setTimeout(r, CHECK_DELAY_MS + 150));
 const next = () => screen.getByRole('button', { name: 'Volgende' }) as HTMLButtonElement;
+/** From the columns step through the categories step to the check. */
+const onward = () => {
+  fireEvent.click(next());
+  fireEvent.click(next());
+};
+/** From the check step back to the columns step. */
+const backToColumns = () => {
+  fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+};
 
 describe('Importeren · start', () => {
-  it('lists the history with file, account, count and date, and offers no undo', async () => {
+  it('lists the history with file, account, count and date, and an undo per import', async () => {
     stubApi();
     renderAt('/importeren');
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
@@ -66,8 +101,7 @@ describe('Importeren · start', () => {
     const old = screen.getByText('spaarrekening-2025.csv').closest('.im-batch') as HTMLElement;
     expect(within(old).getByText('CSV-bestand · batch 2 · 30 december 2025')).toBeTruthy();
     expect(within(old).getByText('Spaarrekening')).toBeTruthy();
-    expect(screen.queryByText(/ongedaan/i)).toBeNull();
-    expect(screen.queryByText(/Bilance/)).toBeNull();
+    expect(within(row).getByRole('button', { name: 'Ongedaan maken: argenta-zicht-oktober.csv' })).toBeTruthy();
   });
 
   it('says so when there is no import yet', async () => {
@@ -92,11 +126,11 @@ describe('Importeren · start', () => {
     expect(screen.getByText(/Op je rekeningen kan je alleen lezen/)).toBeTruthy();
   });
 
-  it('refuses a file over 5 MiB and an empty file before uploading anything', async () => {
+  it('refuses a file over 20 MiB and an empty file before uploading anything', async () => {
     const api = stubApi();
     renderAt('/importeren');
     await choose(new File([new Uint8Array(MAX_IMPORT_BYTES + 1)], 'groot.csv', { type: 'text/csv' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('Dit bestand is groter dan 5 MB.');
+    expect((await screen.findByRole('alert')).textContent).toContain('Dit bestand is groter dan 20 MB.');
     await choose(new File([], 'leeg.csv', { type: 'text/csv' }));
     expect((await screen.findByRole('alert')).textContent).toContain('Dit bestand is leeg.');
     expect(api.previewImport).not.toHaveBeenCalled();
@@ -123,8 +157,66 @@ describe('Importeren · start', () => {
   });
 });
 
+describe('Importeren · undo', () => {
+  const batch = (over: Partial<ImportBatch>): ImportBatch => ({ id: 1, source: 'bilance', fileName: 'bilance.csv', accountId: ZICHT.id, createdAt: '2026-11-12T20:30:00+01:00', imported: 24, present: 0, invalid: 0, undoneAt: null, run: 1, ...over });
+
+  it('groups the batches of one file import, mutes one that added nothing and says when one was undone', async () => {
+    stubApi({
+      imports: [
+        batch({ id: 9, run: 8 }),
+        batch({ id: 8, run: 8, accountId: SPAAR.id, imported: 4 }),
+        batch({ id: 5, run: 5, source: 'argenta', fileName: 'argenta-nog-eens.csv', imported: 0, present: 31 }),
+        batch({ id: 3, run: 3, source: 'argenta', fileName: 'argenta-oud.csv', imported: 42, undoneAt: '2026-11-13T09:00:00+01:00' }),
+      ],
+    });
+    renderAt('/importeren');
+    const run = (await screen.findByText('bilance.csv')).closest('.im-batch') as HTMLElement;
+    expect(within(run).getByText('Bilance-export · batch 8 en 9 · 12 november')).toBeTruthy();
+    expect(within(run).getByText('2 rekeningen')).toBeTruthy();
+    expect(within(run).getByText('28 transacties')).toBeTruthy();
+    expect(within(run).getByRole('button', { name: 'Alles ongedaan maken: bilance.csv' })).toBeTruthy();
+    const empty = screen.getByText('argenta-nog-eens.csv').closest('.im-batch') as HTMLElement;
+    expect(within(empty).getByText('Niets nieuws toegevoegd')).toBeTruthy();
+    expect(within(empty).queryByRole('button')).toBeNull();
+    const gone = screen.getByText('argenta-oud.csv').closest('.im-batch') as HTMLElement;
+    expect(within(gone).getByText('Ongedaan gemaakt op 13 november')).toBeTruthy();
+    expect(within(gone).queryByRole('button')).toBeNull();
+  });
+
+  it('shows what goes before it asks, then undoes and reloads the history', async () => {
+    const api = stubApi();
+    renderAt('/importeren');
+    fireEvent.click(await screen.findByRole('button', { name: 'Ongedaan maken: argenta-zicht-oktober.csv' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Batch 3 ongedaan maken?' }));
+    expect(api.undoPreview).toHaveBeenCalledWith(3, expect.any(AbortSignal));
+    expect(await dialog.findByText(/42 transacties worden verwijderd/)).toBeTruthy();
+    expect(dialog.getByText(/uit je Zichtrekening, inclusief hun categorie, splitsingen en notities\. 3 daarvan heb je zelf aangepast\./)).toBeTruthy();
+    expect(dialog.getByText(/Categorieën die bij het importeren zijn aangemaakt en categorieën die op bestaande transacties zijn overgenomen, blijven staan/)).toBeTruthy();
+    expect(api.undoImport).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole('button', { name: 'Ongedaan maken' }));
+    await waitFor(() => expect(api.undoImport).toHaveBeenCalledWith(3));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.querySelector('.toast')?.textContent).toBe('Ongedaan gemaakt · 42 transacties verwijderd');
+    await waitFor(() => expect(api.imports).toHaveBeenCalledTimes(2));
+  });
+
+  it('undoes the import from the result step', async () => {
+    const api = stubApi({ accounts: [ZICHT] });
+    renderAt('/importeren');
+    await toCheck();
+    fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
+    await screen.findByRole('heading', { name: '29 transacties geïmporteerd' });
+    fireEvent.click(screen.getByRole('button', { name: 'Ongedaan maken: export-zicht.csv' }));
+    fireEvent.click(await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Ongedaan maken' }));
+    await screen.findByRole('heading', { name: 'Import ongedaan gemaakt' });
+    expect(api.undoImport).toHaveBeenCalledWith(12);
+    expect(screen.getByText(/De 29 transacties zijn weer weg uit je Zichtrekening/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Ongedaan maken/ })).toBeNull();
+  });
+});
+
 describe('Importeren · wizard', () => {
-  it('goes through file, columns, check and result', async () => {
+  it('goes through file, columns, categories, check and result', async () => {
     const api = stubApi();
     renderAt('/importeren');
     const file = csv();
@@ -133,12 +225,12 @@ describe('Importeren · wizard', () => {
     expect(screen.getAllByText('Bezig met uploaden…').length).toBeGreaterThan(0);
 
     // Step 1: what the server read; the heading has the focus.
-    const h1 = await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    const h1 = await shown(() => screen.queryByRole('heading', { name: 'Welk bestand importeer je?' }));
     expect(document.activeElement).toBe(h1);
     expect(api.previewImport).toHaveBeenCalledTimes(1);
     expect(api.previewImport.mock.calls[0][0]).toBe(file);
     expect(api.previewImport.mock.calls[0][1]).toEqual({});
-    expect(screen.getByText('Stap 1 van 4')).toBeTruthy();
+    expect(screen.getByText('Stap 1 van 5')).toBeTruthy();
     const steps = screen.getByRole('navigation', { name: 'Stappen van de import' });
     expect(within(steps).getAllByRole('listitem')[0].getAttribute('aria-current')).toBe('step');
     expect(screen.getByText('Lijkt een Argenta-export')).toBeTruthy();
@@ -148,10 +240,10 @@ describe('Importeren · wizard', () => {
     // Step 2: the suggested mapping, every field can be changed; no account chosen among three.
     const h2 = await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
     expect(document.activeElement).toBe(h2);
-    expect((screen.getByLabelText('Kolom ‘Boekdatum’ wordt') as HTMLSelectElement).value).toBe('date');
-    expect((screen.getByLabelText('Kolom ‘Rekening’ wordt') as HTMLSelectElement).value).toBe('account');
-    expect((screen.getByLabelText('Kolom ‘Munt’ wordt') as HTMLSelectElement).value).toBe('currency');
-    expect((screen.getByLabelText('Kolom ‘Referentie’ wordt') as HTMLSelectElement).value).toBe('');
+    expect(col('Boekdatum').textContent).toBe('Datum');
+    expect(col('Rekening').textContent).toBe('Rekening van het bestand');
+    expect(col('Munt').textContent).toBe('Munt');
+    expect(col('Referentie').textContent).toBe('Negeren');
     expect(screen.getByText('-8,40 · 2.784,50 · -64,12')).toBeTruthy();
     expect(screen.getByText(/dienen als controle/)).toBeTruthy();
     expect(screen.getByText('Kies een rekening.')).toBeTruthy();
@@ -164,13 +256,19 @@ describe('Importeren · wizard', () => {
     expect(status()).toBe('');
     fireEvent.click(next());
 
-    // Step 3: one check with the final mapping and account; counts and the unreadable rows, by line.
-    const h3 = await screen.findByRole('heading', { name: 'Controleer voor je importeert' });
+    // Step 3: no category column, so nothing to map; still a visible step.
+    const h3 = await screen.findByRole('heading', { name: 'Koppel de categorieën' });
     expect(document.activeElement).toBe(h3);
+    expect(screen.getByText('Geen categorie-kolom.')).toBeTruthy();
+    fireEvent.click(next());
+
+    // Step 4: one check with the final mapping and account; counts and the unreadable rows, by line.
+    const h4 = await screen.findByRole('heading', { name: 'Controleer voor je importeert' });
+    expect(document.activeElement).toBe(h4);
     await waitFor(() => expect(status()).toBe('29 nieuwe transacties van 31 rijen'));
     expect(api.previewImport).toHaveBeenCalledTimes(2);
     expect(api.previewImport.mock.calls[1][0]).toBe(file);
-    expect(api.previewImport.mock.calls[1][1]).toEqual({ accountId: SPAAR.id, mapping: MAPPING });
+    expect(api.previewImport.mock.calls[1][1]).toEqual({ target: SPAAR.id, mapping: MAPPING });
     expect(screen.getByText('Dit is wat er in je Spaarrekening komt.')).toBeTruthy();
     const stats = document.querySelector('.im-stats') as HTMLElement;
     expect([...stats.querySelectorAll('.im-stat')].map((s) => s.textContent)).toEqual(['29nieuw', '1al in Saldo', '1onleesbaar']);
@@ -179,15 +277,15 @@ describe('Importeren · wizard', () => {
     const alertsBefore = api.alerts.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
 
-    // Step 4: the result, links onward, no undo.
-    const h4 = await screen.findByRole('heading', { name: '29 transacties geïmporteerd' });
-    expect(document.activeElement).toBe(h4);
-    expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal));
-    expect(screen.getByText('In je Spaarrekening. Bewaard als batch 12.')).toBeTruthy();
-    expect(screen.getByText('Stap 4 van 4')).toBeTruthy();
+    // Step 5: the result, links onward, undo.
+    const h5 = await shown(() => screen.queryByRole('heading', { name: '29 transacties geïmporteerd' }));
+    expect(document.activeElement).toBe(h5);
+    expect(api.importFile).toHaveBeenCalledWith(file, SPAAR.id, MAPPING, expect.any(AbortSignal), undefined, undefined, undefined);
+    expect(screen.getByText('In je Spaarrekening. Bewaard als batch 12. Je kan de hele import in één keer ongedaan maken.')).toBeTruthy();
+    expect(screen.getByText('Stap 5 van 5')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Transacties bekijken/ }).getAttribute('href')).toBe('/transacties?rekening=' + SPAAR.id);
     expect(screen.getByRole('button', { name: /Nog een bestand importeren/ })).toBeTruthy();
-    expect(screen.queryByText(/ongedaan/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ongedaan maken: export-zicht.csv' })).toBeTruthy();
     // The uncategorised badge and the history load again.
     await waitFor(() => expect(api.alerts.mock.calls.length).toBeGreaterThan(alertsBefore));
     expect(api.imports).toHaveBeenCalledTimes(2);
@@ -212,12 +310,12 @@ describe('Importeren · wizard', () => {
     renderAt('/importeren');
     await toColumns();
 
-    fireEvent.change(screen.getByLabelText('Kolom ‘Boekdatum’ wordt'), { target: { value: '' } });
+    pick(col('Boekdatum'), 'Negeren');
     expect(screen.getByText('Kies nog een kolom voor Datum.')).toBeTruthy();
     expect(next().disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText('Kolom ‘Boekdatum’ wordt'), { target: { value: 'date' } });
-    fireEvent.change(screen.getByLabelText('Kolom ‘Referentie’ wordt'), { target: { value: 'amount' } });
+    pick(col('Boekdatum'), 'Datum');
+    pick(col('Referentie'), 'Bedrag');
     expect(screen.getByText('Elke soort mag maar bij één kolom staan.')).toBeTruthy();
     expect(screen.getAllByText('Ook gekozen bij een andere kolom')).toHaveLength(2);
     expect(next().disabled).toBe(true);
@@ -236,15 +334,15 @@ describe('Importeren · wizard', () => {
     await toColumns();
     await quiet();
     expect(pending).toHaveLength(0);
-    fireEvent.click(next());
+    onward();
     await waitFor(() => expect(pending).toHaveLength(1));
     expect(status()).toBe('Bezig met controleren…');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+    backToColumns();
     expect(pending[0].signal?.aborted).toBe(true);
     await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
-    fireEvent.change(screen.getByLabelText('Kolom ‘Mededeling’ wordt'), { target: { value: '' } });
-    fireEvent.click(next());
+    pick(col('Mededeling'), 'Negeren');
+    onward();
     await waitFor(() => expect(pending).toHaveLength(2));
     expect(pending[1].mapping).toEqual({ ...MAPPING, communication: null });
 
@@ -260,12 +358,13 @@ describe('Importeren · wizard', () => {
     const api = stubApi({ accounts: [ZICHT] });
     renderAt('/importeren');
     await toColumns();
-    const options = within(screen.getByLabelText('Kolom ‘Referentie’ wordt')).getAllByRole('option').map((o) => o.textContent);
+    fireEvent.click(col('Referentie'));
+    const options = within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent);
     expect(options).toContain('Rekening van het bestand');
     expect(options).toContain('Munt');
-    fireEvent.click(screen.getByRole('button', { name: 'Volgende' }));
+    onward();
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });
-    expect(api.previewImport.mock.calls.at(-1)?.[1]).toEqual({ accountId: ZICHT.id, mapping: expect.objectContaining({ account: 0, currency: 6 }) });
+    expect(api.previewImport.mock.calls.at(-1)?.[1]).toEqual({ target: ZICHT.id, mapping: expect.objectContaining({ account: 0, currency: 6 }) });
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
     await screen.findByRole('heading', { name: '29 transacties geïmporteerd' });
     expect(api.importFile.mock.calls[0][2]).toMatchObject({ account: 0, currency: 6 });
@@ -276,16 +375,16 @@ describe('Importeren · wizard', () => {
     renderAt('/importeren');
     await toColumns();
     fireEvent.click(screen.getByRole('radio', { name: /Zichtrekening/ }));
-    fireEvent.change(screen.getByLabelText('Kolom ‘Munt’ wordt'), { target: { value: '' } });
-    fireEvent.change(screen.getByLabelText('Kolom ‘Rekening’ wordt'), { target: { value: '' } });
+    pick(col('Munt'), 'Negeren');
+    pick(col('Rekening'), 'Negeren');
     fireEvent.click(screen.getByRole('radio', { name: /Spaarrekening/ }));
     await quiet();
     expect(api.previewImport).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(next());
+    onward();
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });
     expect(api.previewImport).toHaveBeenCalledTimes(2);
-    expect(api.previewImport.mock.calls[1][1]).toEqual({ accountId: SPAAR.id, mapping: { ...MAPPING, currency: null, account: null } });
+    expect(api.previewImport.mock.calls[1][1]).toEqual({ target: SPAAR.id, mapping: { ...MAPPING, currency: null, account: null } });
 
     // Back and forward without a change keeps the counts it has.
     fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
@@ -295,12 +394,12 @@ describe('Importeren · wizard', () => {
     expect(api.previewImport).toHaveBeenCalledTimes(2);
 
     // A changed account or mapping is checked again, once.
-    fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+    backToColumns();
     fireEvent.click(screen.getByRole('radio', { name: /Zichtrekening/ }));
-    fireEvent.change(screen.getByLabelText('Kolom ‘Munt’ wordt'), { target: { value: 'currency' } });
-    fireEvent.click(next());
+    pick(col('Munt'), 'Munt');
+    onward();
     await waitFor(() => expect(api.previewImport).toHaveBeenCalledTimes(3));
-    expect(api.previewImport.mock.calls[2][1]).toEqual({ accountId: ZICHT.id, mapping: { ...MAPPING, account: null } });
+    expect(api.previewImport.mock.calls[2][1]).toEqual({ target: ZICHT.id, mapping: { ...MAPPING, account: null } });
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });
     await quiet();
     expect(api.previewImport).toHaveBeenCalledTimes(3);
@@ -341,7 +440,7 @@ describe('Importeren · wizard', () => {
     answerCheck(api, { rows: 31, new: 0, present: 0, invalid: 31, overlap: 0 }, [{ line: 2, message }]);
     renderAt('/importeren');
     await toColumns();
-    fireEvent.click(next());
+    onward();
     await screen.findByRole('button', { name: 'Importeer 0 transacties' });
     expect(screen.getByText('Er komt niets bij: elke rij staat al in Saldo of is onleesbaar.')).toBeTruthy();
     expect(screen.getByText(message)).toBeTruthy();
@@ -358,7 +457,7 @@ describe('Importeren · wizard', () => {
     answerCheck(api, { ...IMPORT_COUNTS, new: 1500, overlap }, IMPORT_ERRORS);
     renderAt('/importeren');
     await toColumns();
-    fireEvent.click(next());
+    onward();
     await screen.findByRole('button', { name: 'Importeer 1.500 transacties' });
     // A polite status message, not an alert, with the consequence in a second line.
     const note = screen.getAllByRole('status').find((s) => s.textContent?.includes(text))!;
@@ -391,7 +490,7 @@ describe('Importeren · wizard', () => {
     renderAt('/importeren');
     await toColumns();
     goOffline();
-    fireEvent.click(next());
+    onward();
     await screen.findByRole('heading', { name: 'Controleer voor je importeert' });
     expect(screen.getByText('De controle gaat verder zodra je verbinding hebt.')).toBeTruthy();
     expect(screen.queryByText('Bezig met controleren…')).toBeNull();
@@ -415,7 +514,7 @@ describe('Importeren · wizard', () => {
     });
     renderAt('/importeren');
     await toColumns();
-    fireEvent.click(next());
+    onward();
     await waitFor(() => expect(signals).toHaveLength(1));
     expect(status()).toBe('Bezig met controleren…');
 
@@ -436,14 +535,14 @@ describe('Importeren · wizard', () => {
     renderAt('/importeren');
     await toColumns();
     expect(screen.queryByRole('alert')).toBeNull();
-    fireEvent.click(next());
+    onward();
     expect((await screen.findByRole('alert')).textContent).toContain(NETWORK_MESSAGE);
 
     // Back in the columns step there is no error and no retry that would do nothing; coming back asks again.
-    fireEvent.click(screen.getByRole('button', { name: 'Vorige' }));
+    backToColumns();
     await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
     expect(screen.queryByRole('alert')).toBeNull();
-    fireEvent.click(next());
+    onward();
     await waitFor(() => expect(api.previewImport).toHaveBeenCalledTimes(3));
     await screen.findByRole('alert');
 
@@ -458,9 +557,9 @@ describe('Importeren · wizard', () => {
     const api = stubApi({ accounts: [ZICHT] });
     renderAt('/importeren');
     await toColumns();
-    for (const name of ['Rekening', 'Munt']) fireEvent.change(screen.getByLabelText('Kolom ‘' + name + '’ wordt'), { target: { value: '' } });
+    for (const name of ['Rekening', 'Munt']) pick(col(name), 'Negeren');
     expect(screen.queryByText(/Kies nog een kolom/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Volgende' }));
+    onward();
     await screen.findByRole('button', { name: 'Importeer 29 transacties' });
     expect(api.previewImport.mock.calls.at(-1)?.[1]?.mapping).toEqual({ ...MAPPING, account: null, currency: null });
     fireEvent.click(screen.getByRole('button', { name: 'Importeer 29 transacties' }));
@@ -497,7 +596,7 @@ describe('Importeren · wizard', () => {
 
   it.each([
     [400, 'Dit is geen CSV-bestand dat Saldo kan lezen.'],
-    [413, 'Het bestand is groter dan 5 MB.'],
+    [413, 'Het bestand is groter dan 20 MB.'],
     [415, 'Kies een CSV-bestand.'],
   ])('shows the message of a %i when reading the file', async (code, message) => {
     const api = stubApi();
@@ -617,5 +716,250 @@ describe('Importeren · wizard', () => {
     await waitFor(() => expect(signal).toBeDefined());
     view.unmount();
     expect(signal!.aborted).toBe(true);
+  });
+});
+
+describe('Importeren · Bilance', () => {
+  const HEADERS = ['Titel', 'Datum', 'Bedrag', 'Categorie', 'Subcategorie', 'Tag(s)', 'Betalingskenmerk', 'Handelaar', 'Rekening(en)', 'Notitie'];
+  const BILANCE: ImportPreview = {
+    ...IMPORT_PREVIEW,
+    fileName: 'bilance.csv',
+    delimiter: ',',
+    headers: HEADERS,
+    preset: 'bilance',
+    mapping: { ...IMPORT_PREVIEW.mapping, account: null, valueDate: null, currency: null, counterpartyIban: null, date: 1, amount: 2, counterparty: 7, counterpartyFallback: 0,
+      communication: 6, category: 3, subcategory: 4, accountName: 8, note: 9 },
+    sample: [['Voorbeeld Winkel', '2026-11-02 00:00:00.000', '-170.00€', 'Eten & Drinken', 'Boodschappen', '', 'Voorbeeld Winkel 02-11-2026 Antwerpen', 'Voorbeeld Winkel Antwerpen', 'Zichtrekening', '']],
+  };
+  const NAMES = { accounts: [{ name: 'Spaarrekening', rows: 4 }, { name: 'Zichtrekening', rows: 26 }],
+    // The first pair has a saved target (Boodschappen), the second a suggestion by name (Wonen › Energie), the last none.
+    categories: [
+      { category: 'Eten & Drinken', subcategory: 'Boodschappen', rows: 12, total: -45000, saved: { categoryId: 2 }, suggestion: 2 },
+      { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', rows: 3, total: -30000, saved: null, suggestion: 10 },
+      { category: '', subcategory: '', rows: 1, total: -500, saved: null, suggestion: null },
+    ] };
+
+  /** The server answers a Bilance file: the suggestion, the names and categories with a mapping, counts with the accounts too. */
+  function bilanceApi() {
+    const api = stubApi({ accounts: [ZICHT, SPAAR] });
+    api.previewImport.mockImplementation(async (file, o = {}) => ({
+      ...BILANCE,
+      fileName: file.name,
+      ...(o.mapping ? NAMES : {}),
+      ...(o.mapping && o.target !== undefined ? { counts: { rows: 30, new: 28, present: 1, invalid: 1, overlap: 0 }, errors: IMPORT_ERRORS } : {}),
+    }));
+    return api;
+  }
+
+  it('reaches the check with the account names mapped, lists the category pairs read-only, and sends the map', async () => {
+    const api = bilanceApi();
+    renderAt('/importeren');
+    const file = csv('bilance.csv');
+    await choose(file);
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    expect(screen.getByText('Lijkt een Bilance-export')).toBeTruthy();
+    expect(screen.getByText('Komma ( , )')).toBeTruthy();
+    fireEvent.click(next());
+
+    // Columns: the preset's mapping, the account names to map (nothing is picked among two accounts).
+    await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
+    expect(col('Rekening(en)').textContent).toBe('Rekeningnaam');
+    expect(col('Subcategorie').textContent).toBe('Subcategorie');
+    expect(col('Titel').textContent).toBe('Tegenpartij als die leeg is');
+    expect(await screen.findByText('Naam in het bestand')).toBeTruthy();
+    expect([...document.querySelectorAll('.im-mapacc-name')].map((n) => n.textContent)).toEqual(['Spaarrekening', 'Zichtrekening']);
+    expect(screen.getByText('Koppel elke rekeningnaam aan een rekening.')).toBeTruthy();
+    expect(next().disabled).toBe(true);
+    expect(api.previewImport).toHaveBeenCalledTimes(2); // the file, then the names and categories
+    expect(api.previewImport.mock.calls[1][1]).toEqual({ mapping: BILANCE.mapping });
+    pick(screen.getByRole('combobox', { name: 'Rekening in Saldo voor Spaarrekening' }), 'Spaarrekening');
+    pick(screen.getByRole('combobox', { name: 'Rekening in Saldo voor Zichtrekening' }), 'Zichtrekening');
+    await waitFor(() => expect(next().disabled).toBe(false));
+    fireEvent.click(next());
+
+    // Categories: the pairs as the file has them, the saved target labelled Opgeslagen and the suggestion Voorstel,
+    // both shown in their select; a pair without a category stays fixed on "Niet categoriseren".
+    await screen.findByRole('heading', { name: 'Koppel de categorieën' });
+    expect(await screen.findByText('Energie, nutsvoorzieningen')).toBeTruthy();
+    expect(screen.getAllByText(/Wonen >/)).toHaveLength(1);
+    expect(screen.getByText('Zonder categorie')).toBeTruthy();
+    const rows = [...document.querySelectorAll('.im-tr.im-catrow')].map((r) => r.querySelector('.im-badge')?.textContent ?? '');
+    expect(rows).toEqual(['Opgeslagen', 'Voorstel', '']);
+    expect(screen.getByRole('combobox', { name: 'Categorie in Saldo voor Eten & Drinken › Boodschappen' }).textContent).toBe('Boodschappen');
+    expect(screen.getByRole('combobox', { name: 'Categorie in Saldo voor Wonen › Energie, nutsvoorzieningen' }).textContent).toBe('Wonen › Energie');
+    expect(api.previewImport).toHaveBeenCalledTimes(2); // the same mapping: nothing asked again
+    fireEvent.click(next());
+
+    // Check and result: the map of names and the choice per pair go with both, one batch per account.
+    await screen.findByRole('button', { name: 'Importeer 28 transacties' });
+    const target = { Spaarrekening: SPAAR.id, Zichtrekening: ZICHT.id };
+    const choices = [
+      { category: 'Eten & Drinken', subcategory: 'Boodschappen', action: 'map', categoryId: 2 },
+      { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', action: 'map', categoryId: 10 },
+      { category: '', subcategory: '', action: 'skip' },
+    ];
+    expect(api.previewImport.mock.calls[2][1]).toEqual({ target, mapping: BILANCE.mapping, categories: choices });
+    expect(screen.getByText('Dit is wat er in je Spaarrekening en Zichtrekening komt.')).toBeTruthy();
+    api.importFile.mockResolvedValueOnce({
+      batches: [
+        { id: 7, source: 'bilance', fileName: 'bilance.csv', accountId: ZICHT.id, createdAt: '2026-11-18T20:00:00+01:00', imported: 24, present: 1, invalid: 1, undoneAt: null },
+        { id: 8, source: 'bilance', fileName: 'bilance.csv', accountId: SPAAR.id, createdAt: '2026-11-18T20:00:00+01:00', imported: 4, present: 0, invalid: 0, undoneAt: null },
+      ],
+      errors: [],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Importeer 28 transacties' }));
+    await screen.findByRole('heading', { name: '28 transacties geïmporteerd' });
+    expect(api.importFile.mock.calls[0][1]).toEqual(target);
+    expect(api.importFile.mock.calls[0][5]).toEqual(choices);
+    expect(screen.getByText('In 2 rekeningen. Bewaard als batch 7 en 8. Je kan de hele import in één keer ongedaan maken.')).toBeTruthy();
+    // One row for the run, one undo for both batches.
+    expect(screen.getByText('Bilance-export · batch 7 en 8 · vandaag')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Alles ongedaan maken: bilance.csv' })).toBeTruthy();
+  });
+
+  it('maps a pair by hand, a whole main category at once, and a new category, and sends those choices', async () => {
+    const api = bilanceApi();
+    api.previewImport.mockImplementation(async (file, o = {}) => ({
+      ...BILANCE,
+      fileName: file.name,
+      ...(o.mapping
+        ? {
+            accounts: [{ name: 'Zichtrekening', rows: 30 }],
+            categories: [
+              { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', rows: 3, total: -30000, saved: null, suggestion: 10 },
+              { category: 'Wonen', subcategory: 'Huur, hypotheek', rows: 2, total: -200000, saved: null, suggestion: null },
+              { category: 'Winkelen', subcategory: 'Overig', rows: 5, total: -9000, saved: null, suggestion: null },
+            ],
+          }
+        : {}),
+      ...(o.mapping && o.target !== undefined ? { counts: { rows: 30, new: 28, present: 1, invalid: 1, overlap: 0, categorised: 5 }, errors: [] } : {}),
+    }));
+    renderAt('/importeren');
+    await choose(csv('bilance.csv'));
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    fireEvent.click(next());
+    await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
+    await screen.findByText('Naam in het bestand');
+    pick(screen.getByRole('combobox', { name: 'Rekening in Saldo voor Zichtrekening' }), 'Zichtrekening');
+    await waitFor(() => expect(next().disabled).toBe(false));
+    fireEvent.click(next());
+    await screen.findByRole('heading', { name: 'Koppel de categorieën' });
+    const sel = (label: string) => screen.getByRole('combobox', { name: 'Categorie in Saldo voor ' + label });
+
+    // A pair by hand: the other pair sharing the target is named as merged.
+    pick(sel('Wonen › Huur, hypotheek'), 'Wonen › Energie');
+    expect(screen.getByText('Samen met Wonen › Energie, nutsvoorzieningen')).toBeTruthy();
+    // A new category: its name starts with the pair's own, and is sent with parent, type and icon.
+    pick(sel('Winkelen › Overig'), /Nieuwe categorie/);
+    fireEvent.change(screen.getByLabelText('Naam'), { target: { value: 'Webwinkels' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Tas' }));
+    // The next step is blocked by an empty name.
+    fireEvent.change(screen.getByLabelText('Naam'), { target: { value: ' ' } });
+    expect(screen.getByText('Geef de nieuwe categorie een naam.')).toBeTruthy();
+    expect(next().disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Naam'), { target: { value: 'Webwinkels' } });
+
+    // Per hoofdcategorie: Wonen takes one target for both pairs.
+    fireEvent.click(screen.getByRole('switch', { name: 'Per hoofdcategorie koppelen' }));
+    pick(sel('Wonen'), 'Wonen');
+    fireEvent.click(next());
+    await screen.findByRole('button', { name: 'Importeer 28 transacties' });
+    expect(document.body.textContent).toContain('5 nieuwe rijen krijgen een categorie, 23 blijven zonder categorie.');
+    const sent = api.previewImport.mock.calls.at(-1)?.[1]?.categories;
+    expect(sent).toEqual([
+      { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', action: 'map', categoryId: 1 },
+      { category: 'Wonen', subcategory: 'Huur, hypotheek', action: 'map', categoryId: 1 },
+      { category: 'Winkelen', subcategory: 'Overig', action: 'create', new: { name: 'Webwinkels', parentId: null, type: 'expense', icon: 'bag' } },
+    ]);
+  });
+
+  it('reads the file again with the delimiter or encoding the user picks, and sends the settings on', async () => {
+    const api = bilanceApi();
+    renderAt('/importeren');
+    await choose(csv('bilance.csv'));
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    pick(screen.getByRole('combobox', { name: 'Scheidingsteken' }), 'Puntkomma ( ; )');
+    await waitFor(() => expect(api.previewImport).toHaveBeenCalledTimes(2));
+    expect(api.previewImport.mock.calls[1][1]).toEqual({ settings: { delimiter: ';' } });
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    fireEvent.click(next());
+    await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
+    pick(screen.getByRole('combobox', { name: 'Decimaalteken' }), 'Punt · 1,234.56');
+    await waitFor(() => expect(api.previewImport.mock.calls.at(-1)?.[1]).toEqual({ mapping: BILANCE.mapping, settings: { delimiter: ';', decimal: '.' } }));
+  });
+
+  it('suggests the first synced date as cutoff, and lists the probable duplicates side by side, skipped until included', async () => {
+    const api = stubApi({ accounts: [ZICHT] });
+    const streaming = { name: 'Streaming', icon: 'tv', colour: 'c5' };
+    const dup = (line: number, who: string, existing: string, takes: boolean) => ({
+      line, accountId: ZICHT.id, date: '2026-10-18', amount: -1199, counterparty: who, note: '', source: ['Winkelen', 'Overig'] as [string, string], category: streaming, takes,
+      existing: { id: line, date: '2026-10-17', amount: -1199, counterparty: existing, communication: '', category: takes ? null : { name: 'Abonnementen', icon: 'repeat', colour: 'c5' }, imported: false },
+    });
+    // The answer of the server: with the cutoff the two rows are skipped by date, without it they are probable duplicates.
+    api.previewImport.mockImplementation(async (file, o = {}) => ({
+      ...BILANCE,
+      fileName: file.name,
+      ...(o.mapping ? { accounts: [{ name: 'Zichtrekening', rows: 30 }], categories: [] } : {}),
+      ...(o.mapping && o.target !== undefined
+        ? {
+            counts: o.cutoffs
+              ? { rows: 30, new: 20, present: 2, invalid: 1, afterCutoff: 7, probable: 0, categoryTaken: 0 }
+              : { rows: 30, new: 25, present: 2, invalid: 1, afterCutoff: 0, probable: 2, categoryTaken: 1, categorised: 20 },
+            duplicates: o.cutoffs ? { total: 0, items: [] } : { total: 2, items: [dup(3, 'SPOTIFY AB', 'Spotify', true), dup(4, 'Bakkerij', 'Bakkerij De Graankorrel', false)] },
+            cutoffs: [{ accountId: ZICHT.id, suggested: '2025-11-01' }],
+            errors: [],
+          }
+        : {}),
+    }));
+    renderAt('/importeren');
+    await choose(csv('bilance.csv'));
+    await screen.findByRole('heading', { name: 'Welk bestand importeer je?' });
+    fireEvent.click(next());
+    await screen.findByRole('heading', { name: 'Wat staat in welke kolom?' });
+    await waitFor(() => expect(next().disabled).toBe(false));
+    onward();
+
+    // The suggestion is the default: the check asked again with that date, and the rows after it are counted, not listed.
+    await screen.findByRole('button', { name: 'Importeer 20 transacties' });
+    expect(api.previewImport.mock.calls.at(-1)?.[1]?.cutoffs).toEqual({ [ZICHT.id]: '2025-11-01' });
+    const date = screen.getByLabelText('Afkapdatum', { selector: 'input' }) as HTMLInputElement;
+    expect(date.value).toBe('2025-11-01');
+    expect(screen.getByText('Voorstel')).toBeTruthy();
+    expect(screen.getByText('na afkapdatum').previousSibling?.textContent).toBe('7');
+    expect(screen.queryByText('Waarschijnlijke dubbels')).toBeNull();
+
+    // No cutoff: the duplicates appear, each with the file's row and the stored row; nothing is imported for them yet.
+    fireEvent.click(screen.getByRole('button', { name: 'Geen afkapdatum' }));
+    await screen.findByRole('button', { name: 'Importeer 25 transacties' });
+    expect(api.previewImport.mock.calls.at(-1)?.[1]?.cutoffs).toBeUndefined();
+    expect(date.value).toBe('');
+    const rows = [...document.querySelectorAll('.im-dup')] as HTMLElement[];
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText('In het bestand')).toBeTruthy();
+    expect(within(rows[0]).getByText('SPOTIFY AB')).toBeTruthy();
+    expect(within(rows[0]).getByText('Al in Saldo · van de bank')).toBeTruthy();
+    expect(within(rows[0]).getByText('Spotify')).toBeTruthy();
+    expect(within(rows[0]).getByText('Niet gecategoriseerd')).toBeTruthy();
+    expect(within(rows[0]).getByText('krijgt Streaming')).toBeTruthy();
+    expect(within(rows[1]).getByText('Abonnementen')).toBeTruthy(); // its own category stays: nothing is taken over
+    expect(within(rows[0]).getByRole('button', { name: 'Toch importeren' }).getAttribute('aria-pressed')).toBe('false');
+    const section = screen.getByRole('heading', { name: 'Waarschijnlijke dubbels' }).closest('section') as HTMLElement;
+    expect(within(section).getByText('2 overgeslagen')).toBeTruthy();
+    expect(document.body.textContent).toContain('1 bestaande transactie krijgt de categorie uit het bestand');
+
+    // Including a row imports it (without asking the server again); including all does the same for every row.
+    const calls = api.previewImport.mock.calls.length;
+    fireEvent.click(within(rows[0]).getByRole('button', { name: 'Toch importeren' }));
+    expect(within(rows[0]).getByRole('button', { name: 'Wordt geïmporteerd' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Importeer 26 transacties' })).toBeTruthy();
+    expect(within(section).getByText('1 overgeslagen')).toBeTruthy();
+    expect(screen.queryByText('krijgt Streaming')).toBeNull();
+    expect(document.body.textContent).not.toContain('bestaande transactie krijgt');
+    fireEvent.click(screen.getByRole('button', { name: 'Alles opnemen' }));
+    expect(screen.getByRole('button', { name: 'Importeer 27 transacties' })).toBeTruthy();
+    expect(api.previewImport).toHaveBeenCalledTimes(calls);
+    fireEvent.click(screen.getByRole('button', { name: 'Importeer 27 transacties' }));
+    await screen.findByRole('heading', { name: /transacties geïmporteerd/ });
+    expect(api.importFile.mock.calls[0][6]).toEqual({ include: [3, 4], cutoffs: undefined });
   });
 });

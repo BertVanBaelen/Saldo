@@ -2,7 +2,7 @@
 // e-mails and the add-on log: first admin (/setup), invitation (/uitnodiging), new password (/nieuw-wachtwoord).
 // Bare pages without navigation. Design: finance-mockup/js/screens/inloggen.js; spec: analysis/screens/inloggen.md;
 // contract: docs/api.md, "Sign-in".
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useOnline } from '../app/AppContext';
 import { Icon, Logo, type IconName } from '../components/Icon';
@@ -171,7 +171,8 @@ export function SignIn() {
   useTitle(challenge ? 'Code' : 'Inloggen');
 
   // Focus the first field of a step after moving between the steps (not on load: on a phone that opens the keyboard).
-  useEffect(() => {
+  // A layout effect, so focus moves in the commit that swaps the step, not after paint.
+  useLayoutEffect(() => {
     if (!moved.current) return;
     (challenge ? codeRef : pwRef).current?.focus();
   }, [challenge]);

@@ -4,9 +4,12 @@ import type {
   Account,
   AccountPatch,
   Alert,
+  BackfillPreview,
+  BackfillResult,
   BalancePoint,
   ApiErrorBody,
   BankLinkResult,
+  CategoryPatch,
   Connection,
   Device,
   EnableBanking,
@@ -15,17 +18,30 @@ import type {
   LoginChallenge,
   Me,
   NewAccount,
+  NewCategory,
   Preferences,
   Redeem,
   RemovedLink,
+  Rule,
+  RuleApplyResult,
+  RuleInput,
+  RulePreview,
+  SimilarPreview,
+  SimilarResult,
+  SplitPartInput,
+  Suggestion,
+  SuggestionConfirmed,
   SyncStatus,
   TokenInfo,
+  Transaction,
   TransactionPage,
+  TransactionPatch,
   TransactionQuery,
+  TreeCategory,
   User,
   UserList,
 } from './types';
-import { importForm, type ImportBatch, type ImportMapping, type ImportPreview, type ImportResult } from './imports';
+import { importForm, type UndoPreview, type CategoryChoice, type ImportBatch, type ImportExtras, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -138,6 +154,36 @@ export const api = {
   /** Manual accounts only. */
   deleteAccount: (id: number) => request<null>('DELETE', '/api/accounts/' + id),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
+  updateTransaction: (id: number, patch: TransactionPatch) => request<Transaction>('PATCH', '/api/transactions/' + id, { body: patch }),
+  /** What "apply to similar" would do for the row's current category; writes nothing. */
+  similarPreview: (id: number, signal?: AbortSignal) => request<SimilarPreview>('GET', '/api/transactions/' + id + '/similar', { signal }),
+  /** Keeps the row's category, creates (or reuses) the rule for its counterparty and applies it. */
+  applySimilar: (id: number) => request<SimilarResult>('POST', '/api/transactions/' + id + '/similar', { body: {} }),
+  /** 2 to 10 parts that add up to the amount; replaces earlier parts. */
+  splitTransaction: (id: number, parts: SplitPartInput[]) => request<Transaction>('PUT', '/api/transactions/' + id + '/split', { body: { parts } }),
+  /** Removes the parts; the row gets its earlier category back. */
+  unsplitTransaction: (id: number) => request<Transaction>('DELETE', '/api/transactions/' + id + '/split'),
+  categories: (signal?: AbortSignal) => request<TreeCategory[]>('GET', '/api/categories', { signal }),
+  createCategory: (body: NewCategory) => request<TreeCategory>('POST', '/api/categories', { body }),
+  updateCategory: (id: number, patch: CategoryPatch) => request<TreeCategory>('PATCH', '/api/categories/' + id, { body: patch }),
+  /** Removes it for everyone; its transactions, rules and suggestions go to `moveTo` (same type) or are cleared. */
+  deleteCategory: (id: number, moveTo: number | 'none') => request<null>('DELETE', '/api/categories/' + id + '?moveTo=' + moveTo),
+  /** The rules the viewer can see, in evaluation order (names the rule behind a category). */
+  rules: (signal?: AbortSignal) => request<Rule[]>('GET', '/api/rules', { signal }),
+  createRule: (body: RuleInput) => request<Rule>('POST', '/api/rules', { body }),
+  updateRule: (id: number, patch: RuleInput) => request<Rule>('PATCH', '/api/rules/' + id, { body: patch }),
+  deleteRule: (id: number) => request<null>('DELETE', '/api/rules/' + id),
+  /** The live preview of a draft; `ruleId` is the rule being edited. Writes nothing. */
+  previewRule: (body: RuleInput & { ruleId?: number }, signal?: AbortSignal) => request<RulePreview>('POST', '/api/rules/preview', { body, signal }),
+  applyRule: (id: number) => request<RuleApplyResult>('POST', '/api/rules/' + id + '/apply'),
+  /** Every rule the viewer can edit, top first; answers the full list of GET /api/rules. */
+  reorderRules: (ids: number[]) => request<Rule[]>('PUT', '/api/rules/order', { body: { ids } }),
+  suggestions: (signal?: AbortSignal) => request<Suggestion[]>('GET', '/api/suggestions', { signal }),
+  confirmSuggestion: (counterpartyKey: string, categoryId: number) =>
+    request<SuggestionConfirmed>('POST', '/api/suggestions/confirm', { body: { counterpartyKey, categoryId } }),
+  backfillPreview: (signal?: AbortSignal) => request<BackfillPreview>('GET', '/api/suggestions/backfill', { signal }),
+  applyBackfill: (items: { counterpartyKey: string; categoryId: number }[]) => request<BackfillResult>('POST', '/api/suggestions/backfill', { body: { items } }),
+  dismissSuggestion: (counterpartyKey: string, categoryId: number) => request<null>('POST', '/api/suggestions/dismiss', { body: { counterpartyKey, categoryId } }),
   alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),
   /** Removes the viewer's bank link; `delete` also deletes the accounts only it feeds and only the viewer holds. */
@@ -146,13 +192,18 @@ export const api = {
   sync: () => request<{ started: boolean; running?: boolean }>('POST', '/api/sync'),
   syncStatus: (signal?: AbortSignal) => request<SyncStatus>('GET', '/api/sync', { signal }),
 
-  // CSV import (multipart): the preview has counts only when both accountId and mapping are sent.
-  previewImport: (file: File, opts: { accountId?: number; mapping?: ImportMapping } = {}, signal?: AbortSignal) =>
-    request<ImportPreview>('POST', '/api/imports/preview', { form: importForm(file, opts.accountId, opts.mapping), signal }),
-  importFile: (file: File, accountId: number, mapping: ImportMapping, signal?: AbortSignal) =>
-    request<ImportResult>('POST', '/api/imports', { form: importForm(file, accountId, mapping), signal }),
+  // CSV import (multipart): the preview lists the file's account names and category pairs when a mapping is sent,
+  // and has counts when an account (or the map of account names) is sent with it.
+  previewImport: (file: File, opts: { target?: ImportTarget; mapping?: ImportMapping; settings?: ImportSettings; categories?: CategoryChoice[]; cutoffs?: ImportExtras['cutoffs'] } = {}, signal?: AbortSignal) =>
+    request<ImportPreview>('POST', '/api/imports/preview', { form: importForm(file, opts.target, opts.mapping, opts.settings, opts.categories, { cutoffs: opts.cutoffs }), signal }),
+  importFile: (file: File, target: ImportTarget, mapping: ImportMapping, signal?: AbortSignal, settings?: ImportSettings, categories?: CategoryChoice[], extras?: ImportExtras) =>
+    request<ImportResult>('POST', '/api/imports', { form: importForm(file, target, mapping, settings, categories, extras), signal }),
   /** Batches of the accounts the viewer holds, newest first. */
   imports: (signal?: AbortSignal) => request<ImportBatch[]>('GET', '/api/imports', { signal }),
+  /** What undoing the file import of this batch removes: every batch of the run (all accounts), counted. */
+  undoPreview: (id: number, signal?: AbortSignal) => request<UndoPreview>('GET', '/api/imports/' + id + '/undo-preview?run=1', { signal }),
+  /** Removes the transactions of every batch of the file import this batch belongs to, in one go. */
+  undoImport: (id: number) => request<{ batches: number; removed: number }>('POST', '/api/imports/' + id + '/undo?run=1'),
 
   // Bank link: the viewer's Enable Banking app, the consent at the bank and the way back from it.
   enableBanking: (signal?: AbortSignal) => request<EnableBanking>('GET', '/api/bank/enablebanking', { signal }),

@@ -23,6 +23,7 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/auth"
 	"github.com/BertVanBaelen/Saldo/server/internal/bank/fake"
 	"github.com/BertVanBaelen/Saldo/server/internal/banklink"
+	"github.com/BertVanBaelen/Saldo/server/internal/categorise"
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
 	"github.com/BertVanBaelen/Saldo/server/internal/config"
 	"github.com/BertVanBaelen/Saldo/server/internal/db"
@@ -84,6 +85,10 @@ func serve() error {
 	}
 	defer database.Close()
 	if _, err := db.Migrate(ctx, database, db.Migrations(), filepath.Join(cfg.StateDir, "backups"), log); err != nil {
+		return err
+	}
+	// The default category tree, once, on a database without categories.
+	if err := categorise.SeedDefaults(ctx, database); err != nil {
 		return err
 	}
 

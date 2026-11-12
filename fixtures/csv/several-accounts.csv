@@ -1,0 +1,12 @@
+Rekening;Boekdatum;Valutadatum;Referentie;Beschrijving;Bedrag;Munt;Verrichtingsdatum;Rekening tegenpartij;Naam tegenpartij;Mededeling
+BE68 5390 0754 7034;02/06/2025;02/06/2025;20250602-0001;Inkomende overschrijving;2.850,00;EUR;02/06/2025;BE62 5100 0754 7061;Werkgever NV;Loon juni 2025
+BE71 0961 2345 6769;03/06/2025;03/06/2025;20250603-0001;Europese domiciliëring;-145,00;EUR;03/06/2025;;Luminus;Voorschot energie juni 2025
+BE62 5100 0754 7061;04/06/2025;05/06/2025;20250604-0001;Betaling met bankkaart;-72,16;EUR;03/06/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+BE68 5390 0754 7034;06/06/2025;07/06/2025;20250606-0001;Betaling met bankkaart;-44,05;EUR;05/06/2025;;Delhaize;Bancontact · Delhaize Gent
+BE71 0961 2345 6769;09/06/2025;09/06/2025;20250609-0001;Europese domiciliëring;-42,98;EUR;09/06/2025;;Proximus;Internet en tv juni 2025
+BE62 5100 0754 7061;11/06/2025;12/06/2025;20250611-0001;Betaling met bankkaart;-29,30;EUR;10/06/2025;;Lidl;Bancontact · Lidl Gent
+BE68 5390 0754 7034;13/06/2025;13/06/2025;20250613-0001;Europese domiciliëring;-13,99;EUR;13/06/2025;;Netflix;Netflix.com
+BE71 0961 2345 6769;16/06/2025;17/06/2025;20250616-0001;Betaling met bankkaart;-19,60;EUR;15/06/2025;;NMBS;Treinticket Gent – Brussel
+BE62 5100 0754 7061;19/06/2025;20/06/2025;20250619-0001;Betaling met bankkaart;-24,00;EUR;18/06/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+BE68 5390 0754 7034;23/06/2025;24/06/2025;20250623-0001;Betaling met bankkaart;-11,40;EUR;22/06/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+BE71 0961 2345 6769;27/06/2025;27/06/2025;20250627-0001;Europese domiciliëring;-11,99;EUR;27/06/2025;;Spotify;Spotify Premium

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Connection } from '../lib/types';
 import { connectionsSub } from './Meer';
-import { CONNECTIONS } from '../test/helpers';
+import { screen, waitFor } from '@testing-library/react';
+import { ApiError } from '../lib/api';
+import { CONNECTIONS, renderAt, stubApi } from '../test/helpers';
 
 const conn = (c: Partial<Connection>): Connection => ({ ...CONNECTIONS[0], ...c });
 const now = Date.parse('2026-11-18T20:00:00+01:00');
@@ -28,5 +30,29 @@ describe('Meer · bankkoppelingen summary on real data', () => {
     expect(connectionsSub([pending], now)).toEqual({ sub: 'Argenta · koppelen niet afgerond', tone: 'warn' });
     const unsynced = conn({ status: 'stale', lastSync: null, daysLeft: null, validUntil: null });
     expect(connectionsSub([unsynced], now)).toEqual({ sub: 'Argenta · gekoppeld', tone: 'warn' });
+  });
+});
+
+describe('Meer · Categorieën en regels line', () => {
+  const sugg = { counterpartyKey: 'bakkerij de graankorrel', counterparty: 'Bakkerij De Graankorrel', categoryId: 2, confidence: 92, level: 'high' as const, seen: 11, open: 1 };
+  const line = async () => (await screen.findByRole('link', { name: /^Categorieën en regels/ })).querySelector('.mr-row-sub')?.textContent;
+
+  it('counts the suggestions to confirm, singular and plural', async () => {
+    stubApi({ suggestions: [sugg, { ...sugg, counterpartyKey: 'x' }] });
+    const { unmount } = renderAt('/meer');
+    await waitFor(async () => expect(await line()).toBe('2 suggesties om te bevestigen'));
+    unmount();
+    stubApi({ suggestions: [sugg] });
+    renderAt('/meer');
+    await waitFor(async () => expect(await line()).toBe('1 suggestie om te bevestigen'));
+  });
+
+  it('keeps the plain line without suggestions or when they cannot load', async () => {
+    const api = stubApi();
+    api.suggestions.mockRejectedValue(new ApiError(500, 'internal', 'Er ging iets mis.'));
+    renderAt('/meer');
+    await waitFor(() => expect(api.suggestions).toHaveBeenCalled());
+    expect(await line()).toBe('Categorieën, regels en suggesties');
+    expect(screen.getByRole('heading', { name: 'Meer' })).toBeTruthy();
   });
 });

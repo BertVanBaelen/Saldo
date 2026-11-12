@@ -285,6 +285,7 @@
     border: 1px solid transparent;
     vertical-align: middle;
   }
+  .tx-cat-ico { vertical-align: -2px; margin-right: 4px; }
   .tx-cat--uncat { border: 1px dashed var(--muted); color: var(--muted); }
   .tx-catcell { min-width: 0; }
 
@@ -525,19 +526,14 @@
 .tx-part { display: grid; grid-template-columns: minmax(0, 1fr) 96px 44px; gap: 8px; align-items: center; }
 .tx-part-cat { position: relative; min-width: 0; }
 .tx-part-dot {
-  position: absolute; left: 12px; top: 16px;
-  width: 12px; height: 12px; border-radius: 50%;
+  position: absolute; left: 9px; top: 13px;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
   pointer-events: none;
 }
 .tx-part-dot--empty { border: 1.5px dashed var(--muted); }
-.tx-select {
-  appearance: none; -webkit-appearance: none;
-  padding: 0 30px 0 32px;
-  border-color: var(--line);
-  font-size: 14px;
-  text-overflow: ellipsis;
-}
-.tx-part-cat svg { position: absolute; right: 10px; top: 14px; color: var(--muted); pointer-events: none; }
+.tx-opt-ico { flex: none; color: var(--muted); }
+.tx-select { padding: 0 10px 0 34px; border-color: var(--line); font-size: 14px; } /* left room for the dot; the Select draws its own chevron */
 .tx-money { position: relative; }
 .tx-money span { position: absolute; left: 11px; top: 12px; font-family: var(--mono); font-size: 14px; color: var(--muted); pointer-events: none; }
 .tx-money-input { padding: 0 10px 0 26px; text-align: right; font-family: var(--mono); font-size: 15px; border-color: var(--line); }
@@ -632,8 +628,7 @@
   .tx-list-skel .tx-skel--head { margin-left: 12px; }
 }
 
-/* Read-only detail until version 0.4: the edit actions show, dimmed, with a note */
-.tx-soon { display: flex; flex-direction: column; gap: 10px; }
-.tx-soon .tx-action[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
-.tx-soon-note { display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 1.45; color: var(--muted); }
-.tx-soon-note svg { flex: none; }
+/* Detail (0.4-3): category list failed to load, the preview line while it loads */
+.tx-cats-err { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tx-cats-err .tx-src-btn { flex: none; }
+.tx-skel--line { display: inline-block; width: 80%; height: 12px; vertical-align: middle; }

@@ -37,7 +37,7 @@ From Telefoon-Transacties and Desktop-Transacties. Mockup: `finance-mockup/trans
 - Amount Mono 36 (desktop 34) in the row colour, status pill "Geboekt" / "In behandeling" (`--bg`, muted 13/600).
 - Facts (96 px label column, 14 px): "Datum" ("woensdag 18 november 2026"), "Mededeling", "Categorie" (600).
 - Pending: muted note "Nog in behandeling. Telt mee in de totalen zodra de bank ze boekt."
-- Internal transfer to savings: green note "Overschrijving naar je spaarrekening. Telt als gespaard, niet als uitgave." and **no** category picker.
+- Internal transfer to savings: green note "Overschrijving naar je spaarrekening. Telt als gespaard, niet als uitgave." and **no** category picker. The server allows a category on a transfer (decision of 10 Nov 2026), but the picker stays hidden for a transfer without a category until 0.6-3 designs it.
 - Otherwise "Kies een categorie": six pills Wonen, Boodschappen, Vrije tijd, Vervoer, Abonnementen, Overig (40 px, desktop 38; 2 px border in the pastel; selected: pastel fill, `--text` border, check icon). Picking applies at once to the row and the count.
 - Checkbox "Toepassen op vergelijkbare en regel maken" with "Ook 14 andere transacties van Colruyt Laagste Prijzen krijgen deze categorie." (or "Nieuwe transacties van … krijgen deze categorie." when there are none). Unchecked each time a transaction is opened.
 - Two outline buttons "Splitsen" and "Is een overschrijving" (not designed further; mockup shows a toast).

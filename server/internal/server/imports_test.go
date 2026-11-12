@@ -120,9 +120,9 @@ func TestImport(t *testing.T) {
 	if r.status != http.StatusOK {
 		t.Fatalf("preview: %d %s", r.status, r.body)
 	}
-	equalJSON(t, r.body, `{"fileName": "export.csv", "delimiter": ";",
+	equalJSON(t, r.body, `{"fileName": "export.csv", "delimiter": ";", "encoding": "utf-8", "accounts": [], "categories": [],
 		"headers": ["Boekingsdatum", "Valutadatum", "Bedrag", "Naam tegenpartij", "Rekening tegenpartij", "Mededeling"],
-		"mapping": {"date":0,"valueDate":1,"amount":2,"counterparty":3,"counterpartyIban":4,"communication":5,"account":null,"currency":null},
+		"mapping": {"date":0,"valueDate":1,"amount":2,"counterparty":3,"counterpartyIban":4,"communication":5,"account":null,"currency":null,"note":null,"category":null,"subcategory":null,"accountName":null,"counterpartyFallback":null},
 		"preset": null, "totalRows": 4,
 		"sample": [["10/11/2026", "10/11/2026", "-3,50", "Koffiehuis Test", "", "Bancontact"],
 		           ["10/11/2026", "10/11/2026", "-3,50", "Koffiehuis Test", "", "Bancontact"],
@@ -134,16 +134,16 @@ func TestImport(t *testing.T) {
 		t.Errorf("preview counts %+v", c)
 	}
 	got := e.importOK(e.bert, bankAccount, file)
-	if b := got.Batch; b.Imported != 4 || b.Present != 0 || b.Invalid != 0 || b.Source != "csv" || b.FileName != "export.csv" ||
+	if b := got.Batches[0]; b.Imported != 4 || b.Present != 0 || b.Invalid != 0 || b.Source != "csv" || b.FileName != "export.csv" ||
 		b.AccountID != bankAccount || !strings.HasSuffix(b.CreatedAt, "+01:00") || len(got.Errors) != 0 {
 		t.Errorf("import %+v", got)
 	}
 	if n := e.count(`SELECT COUNT(*) FROM transactions WHERE import_batch_id = ? AND source_connection_id IS NULL AND status = 'booked'
-		AND category_id IS NULL AND raw_payload LIKE '%Koffiehuis Test%'`, got.Batch.ID); n != 2 {
+		AND category_id IS NULL AND raw_payload LIKE '%Koffiehuis Test%'`, got.Batches[0].ID); n != 2 {
 		t.Errorf("stored coffees: %d", n)
 	}
 	if e.count(`SELECT COUNT(*) FROM import_batches WHERE id = ? AND created_by = ? AND length(file_hash) = 64
-		AND rows_imported = 4 AND rows_duplicate = 0 AND rows_skipped = 0`, got.Batch.ID, e.bert) != 1 {
+		AND rows_imported = 4 AND rows_duplicate = 0 AND rows_skipped = 0`, got.Batches[0].ID, e.bert) != 1 {
 		t.Error("batch row")
 	}
 
@@ -151,7 +151,7 @@ func TestImport(t *testing.T) {
 	if c := e.previewCounts(e.bert, bankAccount, file); c != (countsBody{Rows: 4, Present: 4}) {
 		t.Errorf("preview of the same file %+v", c)
 	}
-	if b := e.importOK(e.bert, bankAccount, file).Batch; b.Imported != 0 || b.Present != 4 {
+	if b := e.importOK(e.bert, bankAccount, file).Batches[0]; b.Imported != 0 || b.Present != 4 {
 		t.Errorf("same file again %+v", b)
 	}
 	if e.count(`SELECT COUNT(*) FROM import_batches`) != 2 || e.count(`SELECT COUNT(*) FROM transactions`) != txsBefore+4 {
@@ -165,7 +165,7 @@ func TestImport(t *testing.T) {
 		t.Errorf("preview of the overlap %+v", c)
 	}
 	got = e.importOK(e.bert, bankAccount, overlap)
-	if b := got.Batch; b.Imported != 1 || b.Present != 1 || b.Invalid != 2 || len(got.Errors) != 2 || got.Errors[0].Line != 3 || got.Errors[1].Line != 5 {
+	if b := got.Batches[0]; b.Imported != 1 || b.Present != 1 || b.Invalid != 2 || len(got.Errors) != 2 || got.Errors[0].Line != 3 || got.Errors[1].Line != 5 {
 		t.Errorf("overlap %+v", got)
 	}
 
@@ -174,7 +174,7 @@ func TestImport(t *testing.T) {
 		t.Errorf("manual account preview %+v", c)
 	}
 	r = e.upload(e.bert, "/api/imports", importForm(file, manual, csvMapping)...)
-	if b := decode[importBody](t, r.body).Batch; r.status != http.StatusCreated || b.Imported != 4 {
+	if b := decode[importBody](t, r.body).Batches[0]; r.status != http.StatusCreated || b.Imported != 4 {
 		t.Errorf("manual account %d %s", r.status, r.body)
 	}
 	// Only the preview's counts carry overlap.
@@ -254,8 +254,10 @@ func TestImportBadFiles(t *testing.T) {
 		{"empty", "/api/imports/preview", importForm("", 0, ""), 400},
 		{"header only", "/api/imports/preview", importForm(csvHeader, 0, ""), 400},
 		{"account without mapping", "/api/imports/preview", importForm(ok, account, ""), 400},
-		{"mapping without account", "/api/imports/preview", importForm(ok, 0, csvMapping), 400},
 		{"no amount", "/api/imports", importForm(ok, account, `{"date":0}`), 400},
+		{"unknown delimiter", "/api/imports/preview", append(importForm(ok, 0, ""), formPart{"settings", "", `{"delimiter":"|"}`}), 400},
+		{"unknown setting", "/api/imports/preview", append(importForm(ok, 0, ""), formPart{"settings", "", `{"x":"y"}`}), 400},
+		{"accounts twice", "/api/imports/preview", append(importForm(ok, account, csvMapping), formPart{"accountMap", "", `{"A":1}`}), 400},
 		{"duplicate column", "/api/imports", importForm(ok, account, `{"date":0,"amount":0}`), 400},
 		{"out of range", "/api/imports", importForm(ok, account, `{"date":0,"amount":6}`), 400},
 		{"unknown mapping key", "/api/imports", importForm(ok, account, `{"date":0,"amount":2,"x":1}`), 400},
@@ -285,7 +287,7 @@ func TestImportBadFiles(t *testing.T) {
 			}
 		}
 	}
-	if msg := expectError(t, e.upload(e.bert, "/api/imports/preview", importForm(big, 0, "")...), http.StatusRequestEntityTooLarge, "too_large"); !strings.Contains(msg, "5 MB") {
+	if msg := expectError(t, e.upload(e.bert, "/api/imports/preview", importForm(big, 0, "")...), http.StatusRequestEntityTooLarge, "too_large"); !strings.Contains(msg, "20 MB") {
 		t.Errorf("too large: %q", msg)
 	}
 	// Not multipart.
@@ -310,7 +312,7 @@ func TestImportBadFiles(t *testing.T) {
 	// A path in the file name is dropped.
 	r = e.upload(e.bert, "/api/imports", formPart{"file", `C:\fakepath\Rekening.csv`, csvHeader + csvSalary},
 		formPart{"accountId", "", strconv.FormatInt(account, 10)}, formPart{"mapping", "", csvMapping})
-	if b := decode[importBody](t, r.body).Batch; b.FileName != "Rekening.csv" || b.Source != "csv" {
+	if b := decode[importBody](t, r.body).Batches[0]; b.FileName != "Rekening.csv" || b.Source != "csv" {
 		t.Errorf("file name %q", b.FileName)
 	}
 }
@@ -320,10 +322,10 @@ func TestImportManyRows(t *testing.T) {
 	e := newBankEnv(t)
 	account := decode[ledger.Account](t, e.as(e.bert, "POST", "/api/accounts", `{"name":"Spaarpot","type":"savings"}`).body).ID
 	file := csvHeader + strings.Repeat(csvCoffee, importers.MaxRows)
-	if b := e.importOK(e.bert, account, file).Batch; b.Imported != importers.MaxRows {
+	if b := e.importOK(e.bert, account, file).Batches[0]; b.Imported != importers.MaxRows {
 		t.Errorf("imported %d", b.Imported)
 	}
-	if b := e.importOK(e.bert, account, file).Batch; b.Imported != 0 || b.Present != importers.MaxRows {
+	if b := e.importOK(e.bert, account, file).Batches[0]; b.Imported != 0 || b.Present != importers.MaxRows {
 		t.Errorf("again: %+v", b)
 	}
 }
@@ -524,10 +526,10 @@ func TestImportArgenta(t *testing.T) {
 		return r.body
 	}
 
-	equalJSON(t, send("/api/imports/preview", file, "", 200), `{"fileName": "export.csv", "delimiter": ";",
+	equalJSON(t, send("/api/imports/preview", file, "", 200), `{"fileName": "export.csv", "delimiter": ";", "encoding": "utf-8", "accounts": [], "categories": [],
 		"headers": ["Rekening", "Boekdatum", "Valutadatum", "Referentie", "Beschrijving", "Bedrag", "Munt", "Verrichtingsdatum",
 		            "Rekening tegenpartij", "Naam tegenpartij", "Mededeling"],
-		"mapping": `+mapping+`, "preset": "argenta", "totalRows": 3,
+		"mapping": `+echoed(mapping)+`, "preset": "argenta", "totalRows": 3,
 		"sample": [["BE68 •••• •••• 7034", "02/11/2026", "02/11/2026", "TEST-REF-1", "Betaling", "-64,12", "EUR", "01/11/2026", "BE71 •••• •••• 6769", "Voorbeeldwinkel", "Aankoop fictief"],
 		           ["BE71 •••• •••• 6769", "03/11/2026", "03/11/2026", "TEST-REF-2", "Betaling", "-8,41", "EUR", "03/11/2026", "", "Andere Winkel", "Fictief"],
 		           ["BE68 •••• •••• 7034", "04/11/2026", "04/11/2026", "TEST-REF-3", "Betaling", "-9,97", "GBP", "04/11/2026", "", "Londen Test", "Fictief"]],
@@ -543,7 +545,7 @@ func TestImportArgenta(t *testing.T) {
 	}
 	equalJSON(t, mustJSON(t, p.Errors), errs)
 	got := decode[importBody](t, send("/api/imports", file, mapping, 201))
-	if b := got.Batch; b.Source != "argenta" || b.Imported != 1 || b.Present != 0 || b.Invalid != 2 {
+	if b := got.Batches[0]; b.Source != "argenta" || b.Imported != 1 || b.Present != 0 || b.Invalid != 2 {
 		t.Errorf("import %+v", b)
 	}
 	equalJSON(t, mustJSON(t, got.Errors), errs)
@@ -617,7 +619,7 @@ func TestImportMixedFile(t *testing.T) {
 		t.Error("a refused file stored something")
 	}
 	// One account in the file: nothing to check against, it goes in.
-	if b := decode[importBody](t, e.upload(e.bert, "/api/imports", importForm(header+own+bad, account, mapping)...).body).Batch; b.Imported != 1 || b.Invalid != 1 {
+	if b := decode[importBody](t, e.upload(e.bert, "/api/imports", importForm(header+own+bad, account, mapping)...).body).Batches[0]; b.Imported != 1 || b.Invalid != 1 {
 		t.Errorf("single account %+v", b)
 	}
 	for i, b := range append(bodies, e.logs.String(), e.query(`SELECT detail FROM audit_log`)) {
@@ -636,4 +638,101 @@ func mustJSON(t *testing.T, v any) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// echoed is a mapping as the preview answers it: the fields added in 0.5-2 are null.
+func echoed(mapping string) string {
+	return strings.TrimSuffix(mapping, "}") + `,"note":null,"category":null,"subcategory":null,"accountName":null,"counterpartyFallback":null}`
+}
+
+// TestImportBilance covers a Bilance export (all values invented): the
+// preset, accounts from a column mapped to two accounts of the viewer, the
+// category pairs listed, the note stored, and the card holder and masked card
+// number kept out of every stored field and every answer except raw_payload.
+func TestImportBilance(t *testing.T) {
+	e := newBankEnv(t)
+	account := func(name string) int64 {
+		return decode[ledger.Account](t, e.as(e.bert, "POST", "/api/accounts", `{"name":"`+name+`","type":"current"}`).body).ID
+	}
+	zicht, spaar := account("Zicht"), account("Spaar")
+	const card = "Voorbeeld Winkel |.| 02-11-2026 |.| 14:35 |.| Antwerpen |.| BE |.| 0000********0000 |.| 5411 |.| Jan Voorbeeld"
+	file := "Titel, Datum, Bedrag, Categorie, Subcategorie, Tag(s), Betalingskenmerk, Handelaar, Rekening(en), Notitie\n" +
+		`"Voorbeeld Winkel", 2026-11-02 00:00:00.000, -170.00€, "Eten & Drinken", "Boodschappen", , "` + card + `", "Voorbeeld   Winkel Antwerpen", "Zichtrekening", "Voor het weekend"` + "\n" +
+		`"Loon Test", 2026-11-03 00:00:00.000, +2850.00€, "Inkomen", "Loon, premies", , "+++123/4567/89012+++", "Werkgever Test", "Spaarrekening", ` + "\n" +
+		`"Kaart Test", 2026-11-04 00:00:00.000, abc€, "Wonen", "Huur, hypotheek", , "` + card + `", "Kaart Test", "Zichtrekening", ` + "\n"
+	mapped := fmt.Sprintf(`{"Zichtrekening":%d,"Spaarrekening":%d}`, zicht, spaar)
+	send := func(user int64, path, accountMap string, withMapping bool) response {
+		t.Helper()
+		parts := []formPart{{"file", "bilance.csv", file}}
+		if withMapping {
+			parts = append(parts, formPart{"mapping", "", `{"date":1,"amount":2,"counterparty":7,"communication":6,"category":3,"subcategory":4,"accountName":8,"note":9,"counterpartyFallback":0}`})
+		}
+		if accountMap != "" {
+			parts = append(parts, formPart{"accountMap", "", accountMap})
+		}
+		return e.upload(user, path, parts...)
+	}
+	noCardText := func(body string) {
+		t.Helper()
+		if strings.Contains(body, "Jan Voorbeeld") || strings.Contains(body, "0000****") {
+			t.Errorf("card holder or number in an answer: %s", body)
+		}
+	}
+
+	// File only: the preset and the suggested mapping, the card text reduced in the sample.
+	r := send(e.bert, "/api/imports/preview", "", false)
+	noCardText(r.body)
+	p := decode[previewBody](t, r.body)
+	if r.status != 200 || p.Preset == nil || *p.Preset != "bilance" || p.Mapping.AccountName == nil || *p.Mapping.AccountName != 8 ||
+		p.Sample[0][6] != "Voorbeeld Winkel 02-11-2026 Antwerpen" {
+		t.Fatalf("preview %d %s", r.status, r.body)
+	}
+	// Mapping only: the names and category pairs to map, and the unreadable row; no counts.
+	r = send(e.bert, "/api/imports/preview", "", true)
+	noCardText(r.body)
+	p = decode[previewBody](t, r.body)
+	if len(p.Accounts) != 2 || p.Accounts[0] != (accountNameBody{"Spaarrekening", 1}) || len(p.Categories) != 2 || p.Categories[1] != (categoryBody{Category: "Inkomen", Subcategory: "Loon, premies", Rows: 1, Total: 285000}) ||
+		p.Counts != nil || len(p.Errors) != 1 || p.Errors[0].Line != 4 {
+		t.Fatalf("mapping preview %s", r.body)
+	}
+	// With the names mapped: the counts of the import.
+	r = send(e.bert, "/api/imports/preview", mapped, true)
+	noCardText(r.body)
+	if c := decode[previewBody](t, r.body).Counts; r.status != 200 || c == nil || *c != (countsBody{Rows: 3, New: 2, Invalid: 1}) {
+		t.Fatalf("counts %s", r.body)
+	}
+	// A name without an account, and an account of someone else, store nothing.
+	expectError(t, send(e.bert, "/api/imports", fmt.Sprintf(`{"Zichtrekening":%d}`, zicht), true), http.StatusBadRequest, "invalid")
+	expectError(t, send(e.partner, "/api/imports", mapped, true), http.StatusNotFound, "not_found")
+	if e.count(`SELECT COUNT(*) FROM import_batches`) != 0 {
+		t.Fatal("a refused import left a batch")
+	}
+
+	r = send(e.bert, "/api/imports", mapped, true)
+	noCardText(r.body)
+	got := decode[importBody](t, r.body)
+	if r.status != http.StatusCreated || len(got.Batches) != 2 || got.Batches[0].AccountID != zicht || got.Batches[1].AccountID != spaar ||
+		got.Batches[0].Source != "bilance" || got.Batches[0].Imported != 1 || got.Batches[0].Invalid != 1 || got.Batches[1].Imported != 1 {
+		t.Fatalf("import %d %s", r.status, r.body)
+	}
+	if e.count(`SELECT COUNT(*) FROM transactions WHERE account_id = ? AND amount = -17000 AND booking_date = '2026-11-02' AND note = 'Voor het weekend'
+		AND counterparty_name = 'Voorbeeld Winkel Antwerpen' AND communication = 'Voorbeeld Winkel 02-11-2026 Antwerpen'`, zicht) != 1 ||
+		e.count(`SELECT COUNT(*) FROM transactions WHERE account_id = ? AND amount = 285000 AND note IS NULL AND communication = '+++123/4567/89012+++'`, spaar) != 1 {
+		t.Error("rows not stored as expected")
+	}
+	// The card holder and number live in raw_payload only.
+	if e.count(`SELECT COUNT(*) FROM transactions WHERE counterparty_name || communication || COALESCE(note, '') LIKE '%Jan Voorbeeld%'
+		OR counterparty_name || communication || COALESCE(note, '') LIKE '%0000****%'`) != 0 ||
+		e.count(`SELECT COUNT(*) FROM transactions WHERE raw_payload LIKE '%Jan Voorbeeld%'`) != 1 {
+		t.Error("card holder or number stored outside raw_payload")
+	}
+}
+
+// The overrides of the parse settings reach the parser and come back in the answer.
+func TestImportSettings(t *testing.T) {
+	e := newBankEnv(t)
+	r := e.upload(e.bert, "/api/imports/preview", append(importForm(csvHeader+csvCoffee, 0, ""), formPart{"settings", "", `{"delimiter":";","encoding":"windows-1252","dateFormat":"dmy","decimal":","}`})...)
+	if p := decode[previewBody](t, r.body); r.status != 200 || p.Encoding != "windows-1252" || p.Delimiter != ";" {
+		t.Fatalf("%d %s", r.status, r.body)
+	}
 }

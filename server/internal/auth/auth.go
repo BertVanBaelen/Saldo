@@ -56,6 +56,8 @@ const (
 	EventBankLinkRemoved    = "bank_link_removed"
 	EventAccountDeleted     = "account_deleted"
 	EventImportDone         = "import_done"
+	EventImportUndone       = "import_undone"
+	EventCategoryRemoved    = "category_removed"
 )
 
 // Store runs sign-in on the database.

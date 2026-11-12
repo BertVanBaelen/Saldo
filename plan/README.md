@@ -24,9 +24,9 @@ flowchart LR
 |---|---|---|---|---|---|
 | [0.1](v0.1-mockup/README.md) | Mockup | click through the screens with demo data: the frozen design reference | 12, 13.6 | done | done |
 | [0.2](v0.2-foundation/README.md) | Foundation and first bank link | install the add-on, sign in on your domain on trusted devices, and see your real Argenta accounts and transactions | S1, M0, 6, 7 | 1 S · 3 M · 2 L | built, to verify |
-| [0.3](v0.3-bank-sync/README.md) | Bank sync | rely on a nightly sync without duplicates, consent reminders, Transacties, Rekeningen, manual accounts and a CSV import | M1 | 1 S · 4 M · 1 L | in progress |
+| [0.3](v0.3-bank-sync/README.md) | Bank sync | rely on a nightly sync without duplicates, consent reminders, Transacties, Rekeningen, manual accounts and a CSV import | M1 | 1 S · 4 M · 1 L | released (0.3.0), verifying |
 | [0.4](v0.4-categorisation/README.md) | Categorisation | have rules categorise transactions and fix the rest in a tap | M2 | 1 S · 3 M | planned |
-| [0.5](v0.5-bilance-import/README.md) | Bilance import | bring in your full Bilance history, mapped to your categories, without duplicates | S2, M6 | 2 S · 4 M | planned |
+| [0.5](v0.5-bilance-import/README.md) | Bilance import | bring in your full Bilance history, mapped to your categories, without duplicates | S2, M6 | 2 S · 4 M | built, to verify |
 | [0.6](v0.6-shared-accounts/README.md) | Shared accounts | share the joint account with Partner, each seeing only your own accounts | M3 | 2 S · 2 M · 1 L | planned |
 | [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 1 S · 2 M | planned |
 | [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend | M5 | 1 S · 2 M · 3 L | planned |
@@ -38,8 +38,73 @@ flowchart LR
 
 **Real data:** from 0.2-6 on, Saldo holds your real bank data on the live add-on. The fake bank provider serves the demo story for tests and local development only; CI never calls a real bank. Nothing real is ever committed: the repository is public.
 
+## Next up
+Written 10 Nov 2026, after 0.3.0 was released. The order is the one set on 3 Nov; this section says what to do now, which phases come next and what each needs, and what 0.3 left behind. No dates, as before.
+
+### Now: verify 0.3 while 0.4 starts
+| # | Check | Holds up |
+|---|---|---|
+| 1 | Two weeks of nightly syncs without duplicates on the live add-on | closing 0.3 |
+| 2 | A real consent expiry, with the reminders at 14 and 3 days. It only happens when the first real consent runs out, so it can take months. **Proposal:** close 0.3 on check 1 and keep this as a standing check that holds nothing up. | nothing (proposal) |
+| 3 | The first import from a real Argenta export, and the Referentie comparison ([0.3-6, to verify with real data](v0.3-bank-sync/06-csv-import.md#to-verify-with-real-data)) | the 0.5 import phases |
+| 4 | Click through Start, Transacties, Rekeningen and Importeren on both phones: the account page and the import wizard were only checked by tests and a demo API | closing 0.3 |
+| 5 | A Home Assistant backup before installing 0.3.0 (migrations 0003 and 0004; 0003 merges older duplicate balances of the same day) | installing |
+
+Done: CI passed on main for 0.3.0 (including `go test -race` and `govulncheck`, which the development machine cannot run: no `gcc`), and the release workflow published the image and the tag `v0.3.0`.
+
+### The next phases
+Sizes are in the version READMEs. "Needs" lists the phases that must be done first; anything not listed can start now.
+
+**0.4 · Categorisation** (CAT-1 to CAT-6): [version README](v0.4-categorisation/README.md)
+| Phase | Title | Size | Needs |
+|---|---|---|---|
+| [0.4-1](v0.4-categorisation/01-category-tree.md) | Category tree | S | 0.3-3 (done): start here |
+| [0.4-2](v0.4-categorisation/02-rules-engine.md) | Rules engine | M | 0.4-1 |
+| [0.4-3](v0.4-categorisation/03-categorise-in-transacties.md) | Categorise in Transacties (change, "apply to similar", notes, split) | M | 0.4-2 |
+| [0.4-4](v0.4-categorisation/04-categories-and-rules-screen.md) | Categorieën en regels screen | M | 0.4-3 |
+
+**0.5 · Bilance import** (PLAT-1, IMP-1 to IMP-5): [version README](v0.5-bilance-import/README.md)
+| Phase | Title | Size | Needs |
+|---|---|---|---|
+| [0.5-1](v0.5-bilance-import/01-spike-bilance-csv.md) | Spike S2 · Bilance CSV | S | nothing: do it now, in parallel with 0.4 (it needs the header and a few anonymised rows of your real Bilance export) |
+| [0.5-2](v0.5-bilance-import/02-import-wizard.md) | Import wizard and Bilance preset | M | 0.3-6 (done), 0.5-1 |
+| [0.5-3](v0.5-bilance-import/03-category-mapping.md) | Category mapping | M | 0.5-2, 0.4-1 |
+| [0.5-4](v0.5-bilance-import/04-overlap-and-duplicates.md) | Overlap and duplicates | M | 0.5-2 |
+| [0.5-5](v0.5-bilance-import/05-batches-and-undo.md) | Batches and undo | S | 0.5-4 |
+| [0.5-6](v0.5-bilance-import/06-learning-and-backfill.md) | Learning and backfill | M | 0.5-3, 0.4-4 |
+
+**0.6 · Shared accounts** (SHARE-1 to SHARE-6): [version README](v0.6-shared-accounts/README.md)
+| Phase | Title | Size | Needs |
+|---|---|---|---|
+| [0.6-1](v0.6-shared-accounts/01-membership-and-lifecycle.md) | Membership and lifecycle | L | 0.3-1, 0.3-4 (done) |
+| [0.6-2](v0.6-shared-accounts/02-privacy.md) | Privacy suite for every endpoint | M | 0.6-1 |
+| [0.6-3](v0.6-shared-accounts/03-transfers-and-saved.md) | Transfer detection and saved | M | 0.6-2 |
+| [0.6-4](v0.6-shared-accounts/04-scope-and-sums.md) | Scope filter and sums | S | 0.6-3 |
+| [0.6-5](v0.6-shared-accounts/05-contributions.md) | Contributions | S | 0.6-4 |
+
+The phases of 0.6 depend on 0.3 only, and nothing in 0.4 or 0.5 depends on 0.6. So the order is a choice, not a technical limit: if Partner should be using Saldo sooner, 0.6 can go before 0.4 and 0.5 without breaking anything. After that: **0.7 Overview** (3 phases), **0.8 Planning** (6 phases, the heaviest with 3 L, and it needs the 12+ months of history from 0.5), **0.9 Notifications** (5 phases), **1.0 Release** (4 phases); see the table above.
+
+### Carried over from 0.3
+Each item is also written in the phase file that will do it, under "Carried over from 0.3".
+
+| Item | Goes to |
+|---|---|
+| Fuzzy duplicates (booking date ±1 day, similar counterparty); 0.3 only skips exact matches | [0.5-4](v0.5-bilance-import/04-overlap-and-duplicates.md) |
+| **Conflict:** 0.5-4 suggests an import cutoff at the first synced date, which would block importing the rows after a failed sync, the very fallback 0.3-6 was built for. Offer the cutoff only for Bilance files, never for the generic CSV. | [0.5-4](v0.5-bilance-import/04-overlap-and-duplicates.md) |
+| Manual override of delimiter, encoding, date format and decimal separator (shown in the mockup, cut from 0.3-6) | [0.5-2](v0.5-bilance-import/02-import-wizard.md) |
+| `import_batches` and the history list already exist, and a re-import already adds nothing: 0.5-5 shrinks to undo. Deleting a batch also deletes the categories set on its rows, so say so in the confirmation. | [0.5-5](v0.5-bilance-import/05-batches-and-undo.md) |
+| A `Referentie` mapping field (only if the real check shows it equals the sync's `external_id`) and `Beschrijving` as a fallback for an empty `Mededeling` | [0.5-2](v0.5-bilance-import/02-import-wizard.md), after check 3 |
+| The "Overschrijvingen naar deze rekening" card on a manual account | [0.6-3](v0.6-shared-accounts/03-transfers-and-saved.md) |
+| The Start hero and the forecast block link to Planning | [0.8-6](v0.8-planning/06-planning-screen.md) |
+
+Small items, to do when the area is touched: `ValidIBAN` does not check the length per country; the empty-body message of `PATCH /api/accounts/{id}` does not mention the IBAN; `Munt` written as "€" is refused (accept it only if a real export shows it); the sync toast reads "Gesynchroniseerd" because the server sends no count of new transactions; a booked CSV row and its pending sync twin both count in the Transacties total until the next sync clears the pending one; the web app has no lint step; `plan/v0.1-mockup/07-missing-designs.md` still lists Importeren as never opened in a browser.
+
+### Proposed working agreement
+- **Real data first.** The first 0.3-6 preset was a guess and was wrong (the real Argenta header has `Boekdatum`, a `Referentie` and a `Munt` column), and the delimiter and the row formats are still unverified. Spike S2 comes before the Bilance wizard for the same reason, and every version README would get a "To verify with real data" list like 0.3-6 has.
+
 ## Release policy
 - From 0.2 on, every version ends with a tagged add-on release `0.N.0`: CI builds the multi-arch images (amd64, aarch64), pushes them to `ghcr.io`, and Home Assistant offers the update from the repository URL. Fixes in between are `0.N.x`.
+- The release is triggered by the `version` in `saldo/config.yaml` on main: once CI passes there, the release workflow publishes the image, tags `v<version>` and takes the notes from `saldo/CHANGELOG.md`. Merging work without releasing needs a `-dev` suffix on the version (0.3.0 was released before its exit criteria were met).
 - A database backup is taken before every update that migrates the schema (Home Assistant backup, encrypted).
 - Version 0.1 (the mockup) is not an add-on; it is served by `finance-mockup/serve.ps1`.
 - 1.0.0 follows the full security review (1.0-2) and the restore test (1.0-3).
@@ -90,6 +155,7 @@ Feature ids are stable; phase files list the features they deliver. **[S]** = sh
 | CAT-3 | Change a category, "apply to similar and create a rule", notes | 0.4-3 |
 | CAT-4 | Split a transaction over categories [S] | 0.4-3 |
 | CAT-5 | Categorieën en regels screen with suggestions to confirm | 0.4-4 |
+| CAT-6 | Category icons | 0.4-1, 0.4-4 |
 
 ### 0.5 · Bilance import
 | Id | Feature | Phase |

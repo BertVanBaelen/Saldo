@@ -19,6 +19,7 @@ coverage/
 *.db-wal
 *.db-shm
 /server/data/
+/server/data-demo/
 *.sqlite
 *.pem
 *.key

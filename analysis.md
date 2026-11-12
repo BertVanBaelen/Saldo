@@ -55,12 +55,13 @@ Priority: **M** = must, **S** = should, **C** = could.
 - Generic **CSV import** as fallback and for history (Argenta export, and the Bilance export, which is also a CSV file), see 4.6. Version 0.3 delivers the basic import. The category mapping wizard arrives with the Bilance import in version 0.5.
 
 ### 4.2 Categorisation (M)
-- One **category tree shared by all users** (names and types only, no amounts). Start from a sensible Dutch default set, editable. Types: income, expense. Internal transfers are not categorised, they are recognised (5.2).
+- One **category tree shared by all users** (names and types only, no amounts). Start from a sensible Dutch default set, editable. Types: income, expense. Internal transfers are recognised (5.2) and may still carry a category; sums leave them out at query time, never by category.
 - **Rules** match on counterparty name or IBAN, communication text (regex) and amount range, with priorities. Rules belong to an **account** (rules of a shared account are shared by its members with edit access) or to a **user** (applies to that user's personal accounts only).
 - **Precedence:** manual choice, then the highest-priority matching rule, then the learned suggestion. Re-running rules **never overwrites a manual choice**.
-- **Learning:** build rules and suggestions from historical data, mapping a counterparty to its most frequent category. Show a confidence level. Low-confidence suggestions are shown for confirmation, not applied silently.
+- **Learning:** build rules and suggestions from historical data, mapping a counterparty to its most frequent category. Show a confidence level (0.5-6: the winner's share of the rows seen, smoothed so that a share earned on few rows counts for less; *high* is offered as a rule, *low* only for confirmation). Low-confidence suggestions are shown for confirmation, not applied silently. **Backfill:** the suggestions for transactions that still have no category can be applied in one step, but only after a preview and for the groups the user ticks; it never overwrites a category and makes no rule.
 - **Manual override**, with the option "apply to similar transactions and create a rule".
-- Splitting one transaction over several categories **[S]**.
+- Splitting one transaction over several categories **[S]**: booked transactions only (a pending amount may still change), 2 to 10 parts that add up exactly to the amount. Sums and category counts use the parts.
+- A **manual category and the note** on a pending transaction carry over to its booked transaction when the bank books it (same account and amount, same counterparty, within 7 days).
 
 ### 4.3 Shared account and transfers (M)
 - Recognise **internal transfers** between accounts the *same user* can see, and exclude them from income and expenses in that user's combined views.
@@ -97,10 +98,10 @@ Priority: **M** = must, **S** = should, **C** = could.
   - **Create a new category** with that name.
   - **Merge** several source categories into one app category, for example many detailed Bilance categories into one.
   - **Leave uncategorised**, so the rules and learning (4.2) decide.
-- Bilance subcategories or category paths (for example `Parent > Child`) are mapped on the **full path** by default. The wizard also offers "map by parent" to map all children of a parent at once, since the exact column layout and category format of the Bilance CSV are still unverified **[verify]**.
+- The real Bilance export has two category columns, `Categorie` and `Subcategorie` (verified in spike S2, see [0.5-1](plan/v0.5-bilance-import/01-spike-bilance-csv.md)), not a path such as `Parent > Child`. A source category is the **pair** (Categorie, Subcategorie), stored as two parts and never as one joined string, because names contain commas, ampersands and even ` / ` (`Energie, nutsvoorzieningen`, `Eten & Drinken`). The wizard maps on the pair by default and also offers "map by parent" to map all subcategories of one `Categorie` at once. Layout points the sample did not show (incomes, amounts of 1 000 or more, transfers between own accounts) are still **[verify]**.
 - **Mappings are saved** per source ("Bilance") and reused on the next import, so a later file needs no new mapping. You can edit a mapping afterwards.
 - Changing a mapping can be **re-applied** to the already imported transactions of that import.
-- **Overlap with synced data:** the bank API only returns recent history, so a Bilance file usually overlaps with transactions already synced. The wizard suggests an **import cutoff** (the first synced date of the target account). Rows that look like an existing transaction (booking date within one day, same amount, similar counterparty) are shown as **probable duplicates** and skipped by default. For a skipped duplicate, the Bilance category can be applied to the existing transaction if that one is still uncategorised.
+- **Overlap with synced data:** the bank API only returns recent history, so a Bilance file usually overlaps with transactions already synced. The wizard suggests an **import cutoff** (the first synced date of the target account; rows dated on or after it are skipped, and the user can change or clear it) for a Bilance file, never for the generic CSV import, which is also the fallback after a failed sync. Rows that look like an existing transaction (booking date within one day, same amount, similar counterparty) are shown as **probable duplicates** and skipped by default. For a skipped duplicate, the Bilance category can be applied to the existing transaction if that one is still uncategorised.
 - Every import is a **batch**. You can undo a whole batch, and re-importing the same file does not create duplicates (dedupe key from 6.3).
 - Imported categories feed the learning in 4.2 as training data, once they are mapped.
 
@@ -282,8 +283,8 @@ Money is stored in cents. Every table that holds financial data is reached only 
 | `transaction_split` *(v1.2)* | transaction, category, amount (cents). The parts add up to the transaction amount [S] |
 | `balance_snapshot` | account, balance (cents), date, origin (bank or manual) |
 | `category` | name, parent, type (income or expense), colour *(v1.2)*, shared by all users |
-| `category_mapping` | source, source category (full path), target category or "leave uncategorised" |
-| `category_suggestion` *(v1.2)* | owner (account or user), counterparty key, category, confidence, times seen, state (open, confirmed, dismissed) |
+| `category_mapping` | source, source category (two parts: Categorie and Subcategorie), target category or "leave uncategorised" |
+| `category_suggestion` *(v1.2)* | owner (user; stored per user as built in 0.4-4, the `account_id` column stays unused), counterparty key, category, confidence, times seen, decision (confirmed, dismissed). Open suggestions are computed on read and never stored; only the user's decision is |
 | `import_batch` | source, file name, file hash, account, created by, created at, undone at, row counts (imported, skipped, duplicates) |
 | `rule` | owner (account or user), priority, match conditions, category |
 | `recurring_item` | owner (account or user), account *(v1.2)*, counterparty, description, amount rule (fixed or average), frequency, expected day and month, end date, kind (income, expense, transfer, saving), state (suggested, confirmed, ignored) *(v1.2, so an ignored suggestion stays ignored)* |
@@ -303,7 +304,7 @@ Not stored: transfer pairing and forecasts. They are computed per viewer (5.2, 5
 
 | # | Item | Impact | Action |
 |---|---|---|---|
-| 1 | **Bilance export:** Bilance exports to **CSV**. The exact columns, category format, dates and amounts are **unverified** | History import | Export a real file and inspect it (spike S2) |
+| 1 | **Bilance export:** Bilance exports to **CSV**. Spike S2 (10 Nov 2026) settled the layout from one real one-day export: columns, two category columns, ISO dates, amounts with a trailing `€` ([0.5-1](plan/v0.5-bilance-import/01-spike-bilance-csv.md)). Still open: incomes, amounts of 1 000 or more, transfers between own accounts, splits, tags, the size of a full export and whether it has the same header | History import | Check the open points on a full export before 0.5-2 is final |
 | 2 | **Enable Banking terms** in restricted mode and linking each person's own accounts | Partner sync | Each of you registers an app. Verify with Argenta (spike S1) |
 | 3 | History depth from the API is probably about 90 days | Long history | Rely on import for old data. Store everything from the first sync onward |
 | 4 | Consent expires about every 180 days, with no refresh | Sync stops silently | Expiry reminders (in-app and email) and clear status in the UI |
@@ -313,7 +314,7 @@ Not stored: transfer pairing and forecasts. They are computed per viewer (5.2, 5
 | 7 | **Data leaking between users:** IBAN matching on join, transfer detection, search, exports | Privacy | Every query is scoped to the viewer's accounts. Add automated tests that user A never sees user B's accounts, balances, counterparties or transfers |
 | 8 | Savings balances are manual | Possibly stale numbers | Show the "last updated" date |
 | 9 | Learning from Bilance history needs the Bilance import | Early categorisation is weaker | Start with rules; the Bilance import now comes right after categorisation (version 0.5), with backfill of suggestions |
-| 10 | The category structure and column layout of the Bilance CSV are unverified | Import wizard design | Build the wizard around "distinct values in a column". Verify the real file in spike S2 |
+| 10 | The category structure of the Bilance CSV is settled by spike S2: two columns, `Categorie` and `Subcategorie`, two levels, names with commas and `&`. The wizard maps on the distinct (Categorie, Subcategorie) pairs. Not settled: whether a full export holds other layouts (transfers, splits, tags, a cell with several accounts) | Import wizard design | Keep the wizard built around the distinct values in the file; check the open points of 0.5-1 on a full export |
 | 11 | Bilance history overlaps with bank-synced transactions | Duplicates, double counting | Import cutoff and probable-duplicate detection (4.6) |
 | 12 | The forecast is only as good as the confirmed recurring items. Quarterly and yearly items need 12+ months of history, and the bank API gives about 90 days | Wrong "left or short" | The Bilance import (12+ months) comes before planning. Recurring items can also be added by hand. Show the per-month breakdown, mark unconfirmed items clearly, test with real history |
 | 13 | A public endpoint holds banking data, from the first development version on | Attack surface | Hardening as in section 7 and a written security baseline check **before the first real bank link** (version 0.2); the full security review before 1.0 (13.4) |
@@ -336,7 +337,7 @@ Each milestone ends with something you can use. Spikes are short checks, not fea
 | **M0 + first link** | 0.2 | Add-on, CI and images, database, web app shell, sign-in with email code and trusted devices, security baseline, then the first real bank link and first sync | You sign in on your domain and see your real Argenta accounts and transactions |
 | **M1** | 0.3 | **Bank sync** for daily use: nightly sync, dedupe, pending, consent reminders, Transacties, Rekeningen and account detail, manual accounts, Start with balances, basic **CSV import** | Your transactions re-sync every night without duplicates and you are warned before a consent expires |
 | **M2** | 0.4 | **Categorisation:** categories, rules, manual override, split | A month of transactions is categorised with few manual fixes |
-| **S2 + M6** | 0.5 | Spike S2 (inspect the Bilance CSV), then the **Bilance history import** with the category mapping wizard, import batches with undo, overlap handling, learned category suggestions, backfill | Your Bilance history is in, mapped to your categories, without duplicates |
+| **S2 + M6** | 0.5 | Spike S2 (inspect the Bilance CSV; done 10 Nov 2026), then the **Bilance history import** with the category mapping wizard, import batches with undo, overlap handling, learned category suggestions, backfill | Your Bilance history is in, mapped to your categories, without duplicates |
 | **M3** | 0.6 | **Shared account and transfers:** account membership, privacy tests for every endpoint, transfer detection, scope filter, contributions | Your partner links the shared account, joins it, and sees only her accounts |
 | **M4** | 0.7 | **Overview of past months:** period picker, categories, trends | You can answer "what did we spend per category last quarter" |
 | **M5** | 0.8 | **Planning and forecast:** recurring items, budgets, one-offs, projection per account | The core question in section 1 is answered for the next 3 months, per account |
@@ -412,7 +413,7 @@ Each milestone ends with something you can use. Spikes are short checks, not fea
 
 ### 13.1 Checks before building (spikes S1 and S2)
 - **S1, Enable Banking** (first phase of version 0.2): register your own app in restricted mode, link your Argenta zichtrekening and the shared account in one consent, and fetch accounts, balances and transactions with a throwaway read-only script. Record: history depth, whether the shared account IBAN is returned, `entry_reference` stability, what a second consent does to the first, whether redirect URLs must be HTTPS, and how often a user-present "Sync now" may call the API. Ask your partner to repeat it with her own app. Nothing from the script is committed.
-- **S2, Bilance** (first phase of version 0.5, can be done any time before): export your history from Bilance as a CSV file and note the columns, category format, date and amount formats. Only an anonymised sample (no real names, IBANs or amounts that identify you) is ever committed.
+- **S2, Bilance** (first phase of version 0.5, can be done any time before): export your history from Bilance as a CSV file and note the columns, category format, date and amount formats. Done on 10 Nov 2026 for one real one-day export, see [0.5-1](plan/v0.5-bilance-import/01-spike-bilance-csv.md); a full export is still to check before 0.5-2 for incomes, amounts of 1 000 or more, transfers between own accounts, splits, tags, its size and its header. Only an anonymised sample (no real names, IBANs or amounts that identify you) is ever committed.
 
 ### 13.2 Repository layout
 This folder is the repository (`github.com/BertVanBaelen/Saldo`, public). The preparation stays where it is; the code is added next to it in version 0.2:
@@ -450,7 +451,7 @@ Saldo/
 
 ### 13.6 Order of work
 1. Mockup (section 12): frozen on 3 Nov 2026 as a design reference. The screens it has guide the React app; the screens and states it does not finish (Planning's edit forms and per-account months, some design notes) are designed directly in the React app, in the same style, in the phase that builds them.
-2. Spike S1 can start right away. Spike S2 can be done any time before the Bilance import.
+2. Spike S1 can start right away. Spike S2 is done (10 Nov 2026).
 3. Version 0.2 (foundation and the first real bank link), then 0.3 to 1.0 as in section 10 and [`plan/`](plan/README.md). Each screen phase ends with a short review with your partner on the real app.
 
 ## 14. Glossary (Dutch UI terms)

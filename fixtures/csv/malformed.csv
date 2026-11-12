@@ -1,0 +1,12 @@
+Rekening;Boekdatum;Valutadatum;Referentie;Beschrijving;Bedrag;Munt;Verrichtingsdatum;Rekening tegenpartij;Naam tegenpartij;Mededeling
+;01/07/2025;01/07/2025;20250701-0001;Doorlopende opdracht;-1.005,00;EUR;01/07/2025;BE71 0961 2345 6769;Immo Verhaeghe;Huur juli 2025
+;03/07/2025;04/07/2025;20250703-0001;Betaling met bankkaart;-59,40;EUR;02/07/2025;;Colruyt Laagste Prijzen;Bancontact · Colruyt Gent-Dampoort
+;07/07/2025;08/07/2025;20250707-0001;Betaling met bankkaart;-23,50;EUR;06/07/2025;;Delhaize
+;31/06/2025;01/07/2025;20250708-0001;Betaling met bankkaart;-17,80;EUR;30/06/2025;;Lidl;Bancontact · Lidl Gent
+;09/07/2025;10/07/2025;20250709-0001;Betaling met bankkaart;twaalf euro;EUR;08/07/2025;;Kinepolis;Kinepolis Gent · 2 tickets
+;10/07/2025;11/07/2025;20250710-0001;Betaling met bankkaart;-14,50;EUR;09/07/2025;;Frituur 't Pleintje;Bancontact "Frituur 't Pleintje
+;15/07/2025;16/07/2025;20250715-0001;Betaling met bankkaart;-28,90;EUR;14/07/2025;;Lidl;Bancontact · Lidl Gent
+;18/07/2025;18/07/2025;20250718-0001;Europese domiciliëring;-13,99;EUR;18/07/2025;;Netflix;Netflix.com
+;01/01/2027;01/01/2027;20270101-0001;Doorlopende opdracht;-100,00;EUR;01/01/2027;;Immo Verhaeghe;Huur januari 2027
+;22/07/2025;23/07/2025;20250722-0001;Betaling met bankkaart;-16,20;EUR;21/07/2025;;Apotheek Peeters;Bancontact · Apotheek Peeters Gent
+;28/07/2025;28/07/2025;20250728-0001;Inkomende overschrijving;2.850,00;EUR;28/07/2025;BE62 5100 0754 7061;Werkgever NV;Loon juli 2025

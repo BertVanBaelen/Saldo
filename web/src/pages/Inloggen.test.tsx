@@ -7,6 +7,28 @@ import { ME, renderAt, renderRoot, stubApi } from '../test/helpers';
 const where = () => screen.getByTestId('location').textContent;
 const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
+/**
+ * The element, in the microtask right after the commit that adds it. React's scheduler is made to yield after every
+ * task, like a busy machine, so no post-paint effect has run yet: what the test checks next has to hold in that
+ * commit, not a tick later.
+ */
+function shown<T extends HTMLElement>(find: () => T | null) {
+  let now = performance.now();
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => (now += 10));
+  return new Promise<T>((resolve) => {
+    const check = () => {
+      const el = find();
+      if (!el) return;
+      seen.disconnect();
+      clock.mockRestore();
+      resolve(el);
+    };
+    const seen = new MutationObserver(check);
+    seen.observe(document.body, { childList: true, subtree: true });
+    check();
+  });
+}
+
 /** /api/me answers 401 until the code is verified. */
 function signedOut() {
   let signedIn = false;
@@ -48,7 +70,7 @@ describe('Inloggen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Verder' }));
 
     // Step 2: the code, sent to the masked address.
-    expect(await screen.findByRole('heading', { level: 1, name: 'Vul je code in' })).toBeTruthy();
+    expect(await shown(() => screen.queryByRole('heading', { level: 1, name: 'Vul je code in' }))).toBeTruthy();
     expect(auth.login).toHaveBeenCalledWith('bert@example.com', 'paard batterij nietje correct');
     expect(screen.getByText('b•••@example.com')).toBeTruthy();
     const code = screen.getByLabelText('Code uit de e-mail') as HTMLInputElement;

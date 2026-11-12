@@ -112,6 +112,15 @@ export interface Category {
   colour: CategoryColour;
 }
 
+/** Who set the category: the user, a rule, a learned suggestion or a Bilance import. */
+export type CategoryOrigin = 'manual' | 'rule' | 'suggestion' | 'import';
+
+/** One part of a split transaction: signed cents like the transaction itself. */
+export interface Split {
+  category: Category;
+  amount: number;
+}
+
 export interface Transaction {
   id: number;
   accountId: number;
@@ -122,8 +131,194 @@ export interface Transaction {
   communication: string;
   status: 'pending' | 'booked';
   category: Category | null;
+  /** `null` when there is no category, and for a split row. */
+  categoryOrigin: CategoryOrigin | null;
+  /** The rule that set the category, only when the viewer can see that rule. */
+  ruleId: number | null;
+  /** Visible to everyone with access to the account. */
+  note: string | null;
+  /** The parts of a split row (then `category` is `null`), else `null`. */
+  splits: Split[] | null;
   /** A transfer between the viewer's own accounts: shown in text colour, not as an expense. */
   transfer: boolean;
+}
+
+/** An item of GET /api/categories: the flat tree with the viewer's own transaction count. */
+export interface TreeCategory {
+  id: number;
+  name: string;
+  type: 'expense' | 'income';
+  colour: CategoryColour;
+  /** A name of CATEGORY_ICONS; `null` (or an unknown name) shows as `tag`. */
+  icon: string | null;
+  parentId: number | null;
+  count: number;
+}
+
+/** An item of GET /api/rules (docs/api.md, "Rules"). */
+export interface Rule {
+  id: number;
+  /** `null`: a user rule of the viewer. */
+  accountId: number | null;
+  priority: number;
+  counterparty: string | null;
+  counterpartyExact: boolean;
+  /** Masked like every IBAN. */
+  counterpartyIban: string | null;
+  communication: string | null;
+  communicationRegex: boolean;
+  /** Cents, compared with the absolute amount. */
+  amountMin: number | null;
+  amountMax: number | null;
+  categoryId: number;
+  permission: Permission;
+}
+
+/** POST /api/categories: a top category (`type`, optional `colour`) or a subcategory (`parentId` only). */
+export interface NewCategory {
+  name: string;
+  type?: TreeCategory['type'];
+  colour?: CategoryColour;
+  parentId?: number;
+  /** A name of CATEGORY_ICONS; the server answers 400 for an unknown one. */
+  icon?: string;
+}
+
+/** PATCH /api/categories/{id}: `parentId: null` makes it a top category. */
+export interface CategoryPatch {
+  name?: string;
+  parentId?: number | null;
+  type?: TreeCategory['type'];
+  colour?: CategoryColour;
+  /** `null` or `''` clears it (shows as `tag`). */
+  icon?: string | null;
+}
+
+/**
+ * Body of POST /api/rules, PATCH /api/rules/{id} and POST /api/rules/preview. On a PATCH a field left out
+ * stays and `null` clears a condition; `accountId` never changes.
+ */
+export interface RuleInput {
+  accountId?: number | null;
+  priority?: number;
+  counterparty?: string | null;
+  counterpartyExact?: boolean;
+  counterpartyIban?: string | null;
+  communication?: string | null;
+  communicationRegex?: boolean;
+  amountMin?: number | null;
+  amountMax?: number | null;
+  /** Optional in a preview only. */
+  categoryId?: number | null;
+}
+
+/** POST /api/rules/preview: what a draft rule would do; writes nothing. */
+export interface RulePreview {
+  /** Rows that match the conditions, whatever their category. */
+  matches: number;
+  /** Rows whose category applying the rule would change (0 without a category). */
+  changes: number;
+  skipped: SkippedCounts;
+}
+
+/** POST /api/rules/{id}/apply */
+export interface RuleApplyResult {
+  updated: number;
+  skipped: SkippedCounts;
+}
+
+export type SuggestionLevel = 'high' | 'low';
+
+/** An item of GET /api/suggestions: the category the viewer chose most often for a counterparty. */
+export interface Suggestion {
+  counterpartyKey: string;
+  /** The spelling of the newest open row. */
+  counterparty: string;
+  categoryId: number;
+  /** 0–100, smoothed: the winner's rows over all rows plus 2. */
+  confidence: number;
+  /** `high`: offered as a rule; `low`: only for confirmation. */
+  level: SuggestionLevel;
+  /** The viewer's categorised rows of this counterparty. */
+  seen: number;
+  /** Rows of this counterparty that wait for a category. */
+  open: number;
+}
+
+/** POST /api/suggestions/confirm: the rows categorised, and the rule Saldo made or found (null: nothing to report). */
+export interface SuggestionConfirmed {
+  updated: number;
+  /** `created`: a new rule; else an equal one was reused, or (`conflict`) the viewer's rule for this counterparty has another category and stays as it is. */
+  rule: { id: number; created: boolean; conflict: boolean } | null;
+}
+
+/** A group of GET /api/suggestions/backfill: what one counterparty's waiting rows would get. Examples hold date and amount only. */
+export interface BackfillGroup {
+  counterpartyKey: string;
+  counterparty: string;
+  category: { id: number; name: string; icon: string | null; colour: CategoryColour };
+  level: SuggestionLevel;
+  confidence: number;
+  rows: number;
+  examples: { date: string; amount: number }[];
+}
+
+/** GET /api/suggestions/backfill. `rows` would be categorised, `left` stay without; one apply takes at most `limit` rows and `groupLimit` groups. */
+export interface BackfillPreview {
+  groups: BackfillGroup[];
+  rows: number;
+  left: number;
+  limit: number;
+  groupLimit: number;
+}
+
+/** POST /api/suggestions/backfill: `stale` groups no longer matched what Saldo proposes and were skipped. */
+export interface BackfillResult {
+  categorised: number;
+  groups: number;
+  stale: number;
+}
+
+/** Rows that match a rule but stay as they are, by reason. */
+export interface SkippedCounts {
+  manual: number;
+  import: number;
+  split: number;
+  /** Eligible, but a different rule outranks this one. */
+  rule: number;
+}
+
+/** GET /api/transactions/{id}/similar: what "apply to similar" would do. */
+export interface SimilarPreview {
+  /** `""` when the row has no counterparty name: nothing to compare. */
+  counterparty: string;
+  /** `user`: a rule of the viewer; `account`: a rule of the account. */
+  scope: 'user' | 'account';
+  /** Other stored rows the rule would change. */
+  count: number;
+  skipped: SkippedCounts;
+}
+
+/** POST /api/transactions/{id}/similar */
+export interface SimilarResult {
+  transaction: Transaction;
+  rule: Rule;
+  ruleCreated: boolean;
+  /** Other rows whose category changed. */
+  updated: number;
+  skipped: SkippedCounts;
+}
+
+/** A part sent to PUT /api/transactions/{id}/split: signed like the transaction. */
+export interface SplitPartInput {
+  categoryId: number;
+  amount: number;
+}
+
+/** PATCH /api/transactions/{id}: at least one field; `note` `null` or `""` clears it. */
+export interface TransactionPatch {
+  categoryId?: number;
+  note?: string | null;
 }
 
 export interface TransactionPage {

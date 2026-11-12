@@ -22,3 +22,9 @@ Money moving between your own accounts is not income or spending.
 
 ## Done when
 Your transfer to savings and to the shared account no longer show up as expenses in the sums of Alles.
+
+## Carried over from 0.4 (10 Nov 2026)
+- Transfers between your own accounts may carry a category (from a rule, "apply to similar" or a manual pick); 0.4 has no "skip transfers" guard (user decision). Detect and sum transfers **at query time** (IBAN match, the per-user override), never by category: do not rely on categories to spot transfers.
+
+## Carried over from 0.3
+- The mockup's "Overschrijvingen naar deze rekening" card on a manual account (the transfers recognised by its registered IBAN) was left out of 0.3-4. It needs an endpoint that lists the recognised transfers: build it with the detection here.

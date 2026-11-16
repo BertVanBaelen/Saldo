@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.0-dev
+- Shared accounts (in progress, see plan/v0.6-shared-accounts).
+
 ## 0.5.1
 - Category icons are emoji now: choose one from a built-in grid with Dutch search ("auto", "huis", "kat"), or type or paste any emoji of your own (the phone's emoji keyboard works, a second emoji replaces the first). **The update rewrites icon values:** the 49 line icons of 0.4 and 0.5 become their emoji (the house is 🏠, the cart 🛒), any other value is cleared and shows a tag (🏷️). Ids, names, rules, splits and transactions are not touched. Take a Home Assistant backup first; the add-on also keeps a database copy before it migrates.
 - Category colours: 16 pastels (ten new: Mint, Limoen, Turquoise, Koraal, Perzik, Lila, Oudroze, Zand, Olijf, Denim) and "Eigen kleur" for any colour of your own, in light and dark mode with readable text. Income categories can be recoloured too (they stay green until you change them). The update adds one empty column to the categories table; no existing colour changes.

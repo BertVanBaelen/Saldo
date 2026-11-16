@@ -22,3 +22,6 @@ See whether both partners paid their part into the shared account.
 
 ## Done when
 Both contributions show as received on Start in the month they arrive.
+
+## What exists (16 Nov 2026)
+`account_access.contribution_share` exists (nullable, 0 to 100) and the default category tree has the income category "Bijdrage". Step 4 (required monthly contribution) waits for the forecast (0.8-4) and is not built here.

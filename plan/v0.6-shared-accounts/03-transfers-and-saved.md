@@ -28,3 +28,7 @@ Your transfer to savings and to the shared account no longer show up as expenses
 
 ## Carried over from 0.3
 - The mockup's "Overschrijvingen naar deze rekening" card on a manual account (the transfers recognised by its registered IBAN) was left out of 0.3-4. It needs an endpoint that lists the recognised transfers: build it with the detection here.
+
+
+## What exists (16 Nov 2026)
+`ledger/transactions.go` `visibleTx` already flags a transfer per viewer by counterparty IBAN (an account the viewer can see) and honours `transfer_overrides`. Missing: the opposite-amount match on another visible account within about 3 days, the labels "Gespaard" and "Naar gedeelde rekening", the endpoint to mark "Is / Is geen overschrijving", the manual account card, and "never uses the other user's accounts" table tests. Sums belong to 0.7; here only the flag and labels.

@@ -21,3 +21,6 @@ The scope switch every later screen relies on, with sums that never pretend to b
 
 ## Done when
 Switching scope filters Transacties and Start correctly for both users, and no sum carries a state.
+
+## What exists (16 Nov 2026)
+`ScopeSwitch` (web), `Scope` on the transactions endpoint and the per-user preference (`PUT /api/me/preferences`) exist. Check which list endpoints still ignore the scope, the empty states of a scope without accounts, and the Start sums; reports follow in 0.7.

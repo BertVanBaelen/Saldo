@@ -113,7 +113,7 @@ func (s *Server) resolve(w http.ResponseWriter, r *http.Request) (session, error
 		return session{}, apperr.ErrNotFound
 	}
 	if s.opts.Demo {
-		return session{user: DemoViewer}, nil
+		return session{user: demoViewerOf(r)}, nil
 	}
 	c, err := r.Cookie(deviceCookie)
 	if err != nil {
@@ -199,3 +199,25 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 
 // Unwrap lets http.ResponseController reach the underlying writer.
 func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
+// demoCookie holds "partner" when the demo acts as Partner; anything else is Bert.
+const demoCookie = "saldo_demo_as"
+
+func demoViewerOf(r *http.Request) int64 {
+	if c, err := r.Cookie(demoCookie); err == nil && c.Value == "partner" {
+		return DemoPartner
+	}
+	return DemoViewer
+}
+
+// demoAs switches the demo between its two users (demo mode only, route not
+// registered otherwise): GET /api/demo/as/bert or /partner, then reload.
+func (s *Server) demoAs(w http.ResponseWriter, r *http.Request) {
+	who := r.PathValue("who")
+	if who != "bert" && who != "partner" {
+		writeError(w, http.StatusNotFound, "not_found", "Onbekende demogebruiker.")
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: demoCookie, Value: who, Path: "/", SameSite: http.SameSiteLaxMode})
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -109,6 +109,21 @@ describe('Rekening · a bank account', () => {
     expect(within(card('Synchronisatie')).getByText('Foutcode ASPSP_ERROR · laatste poging vandaag 04:02')).toBeTruthy();
   });
 
+  it('shows what the last sync got from the bank and kept', async () => {
+    const syncReport = { at: ZICHT.lastSync!, from: '2026-11-02', fetched: 12, added: 0, newest: '2026-11-18', balanceDate: '2026-11-18', idTail: 'a3f9' };
+    stubApi({ accounts: [{ ...ZICHT, syncReport }, SPAAR, GEDEELD] });
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(within(card('Synchronisatie')).getByText('Laatste synchronisatie: de bank gaf 12 transacties vanaf 2 november, 0 nieuw (nieuwste 18 november), saldo van 18 november · bank-id …a3f9')).toBeTruthy();
+  });
+
+  it('shows no sync line before the first sync', async () => {
+    stubApi({ accounts: [{ ...ZICHT, syncReport: null }, SPAAR, GEDEELD] });
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(within(card('Synchronisatie')).queryByText(/Laatste synchronisatie:/)).toBeNull();
+  });
+
   it('says when the last consent left the account out', async () => {
     stubApi({ accounts: [{ ...ZICHT, syncStatus: 'failed', syncError: 'not_shared', lastAttempt: ZICHT.lastSync } as typeof ZICHT, SPAAR, GEDEELD] });
     renderAt('/rekeningen/1');

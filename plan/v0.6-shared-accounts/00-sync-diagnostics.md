@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.6 Shared accounts](README.md) |
-| Status | planned |
+| Status | built (16 Nov 2026), to verify on the live add-on |
 | Size | S |
 | Follows | [0.5.1-1](../v0.5.1-category-look/01-sync-two-accounts.md) |
 

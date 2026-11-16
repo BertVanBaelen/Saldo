@@ -1,8 +1,9 @@
 // Account helpers shared by the screens: scope filter, icon, colour, states and sync lines.
 // Every current account is judged on its own buffer; sums are information only (analysis/concepts/scope.md).
-import type { Account, AccountColour, AccountState, Member, Scope } from './types';
+import type { Account, AccountColour, AccountState, Member, Scope, SyncReport } from './types';
 import type { IconName } from '../components/Icon';
-import { dateShort, momentLabel } from './format';
+import { plural } from './categories';
+import { dateShort, momentLabel, MONTHS, toDate } from './format';
 
 export const COLOURS: { key: AccountColour; label: string }[] = [
   { key: 'green', label: 'Groen' },
@@ -81,6 +82,24 @@ export function syncProblem(a: Account, today: string): string | null {
   if (a.syncError === 'not_shared') return 'Niet gedeeld bij de laatste toestemming. Autoriseer opnieuw en vink deze rekening aan.';
   if (!a.syncError) return attempt ? attempt[0].toUpperCase() + attempt.slice(1) : null;
   return 'Foutcode ' + a.syncError + (attempt ? ' · ' + attempt : '');
+}
+
+const dayMonth = (d: string) => toDate(d).getDate() + ' ' + MONTHS[toDate(d).getMonth()];
+
+/**
+ * What a sync got and kept, in one plain sentence, so "the bank gave nothing" and "Saldo kept nothing" can be told apart:
+ * "Laatste synchronisatie: de bank gaf 12 transacties vanaf 2 november, 0 nieuw (nieuwste 18 november), saldo van 18 november · bank-id …a3f9".
+ * `short`: "De bank gaf 12 transacties, 0 nieuw · bank-id …a3f9".
+ */
+export function syncReportLine(r: SyncReport, short = false): string {
+  const got = r.fetched === 0 ? 'geen transacties terug' : plural(r.fetched, 'transactie', 'transacties');
+  const id = r.idTail ? ' · bank-id …' + r.idTail : '';
+  const added = r.fetched ? ', ' + r.added + ' nieuw' : '';
+  if (short) return 'De bank gaf ' + got + added + id;
+  const range = r.from ? ' vanaf ' + dayMonth(r.from) : ' uit de volledige geschiedenis';
+  const newest = r.fetched && r.newest ? ' (nieuwste ' + dayMonth(r.newest) + ')' : '';
+  const balance = r.balanceDate ? ', saldo van ' + dayMonth(r.balanceDate) : '';
+  return 'Laatste synchronisatie: de bank gaf ' + got + range + added + newest + balance + id;
 }
 
 /** "Stand van zondag 04:02" for a balance whose sync is stale or failed; null when it is current. */

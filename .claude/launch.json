@@ -10,7 +10,7 @@
     {
       "name": "saldo-demo",
       "runtimeExecutable": "pwsh",
-      "runtimeArgs": ["-NoProfile", "-File", "scripts/dev.ps1", "-Fresh"],
+      "runtimeArgs": ["-NoProfile", "-File", "scripts/dev.ps1"],
       "port": 5180
     }
   ]

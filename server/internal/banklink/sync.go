@@ -249,14 +249,18 @@ func (s *Service) fromDate(ctx context.Context, account int64, today string) (st
 }
 
 // storeAccount stores one account's complete fetch and its bank balance in
-// one database transaction.
+// one database transaction, with a report of what the bank returned and what
+// was kept (account_sources.last_*, shown as Account.SyncReport).
 func (s *Service) storeAccount(ctx context.Context, connection int64, src source, from string, txs []bank.Transaction, bals []bank.Balance, today, ts string) error {
+	newest := ""
 	for i := range txs {
 		// A pending row often has no booking date yet; it is listed on its
 		// value date until the bank books it.
 		if txs[i].BookingDate == "" {
 			txs[i].BookingDate = cmp.Or(txs[i].ValueDate, today)
 		}
+		// The first 10 characters: a bank may send a time with the date.
+		newest = max(newest, txs[i].BookingDate[:min(len(txs[i].BookingDate), len(time.DateOnly))])
 	}
 	rows := ledger.Keyed(src.account, src.iban, connection, txs)
 	// The bank lists newest first; storing oldest first keeps a day's order,
@@ -268,21 +272,32 @@ func (s *Service) storeAccount(ctx context.Context, connection int64, src source
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := ledger.StoreFetch(ctx, tx, src.account, connection, from, rows); err != nil {
+	added, err := ledger.StoreFetch(ctx, tx, src.account, connection, from, rows)
+	if err != nil {
 		return err
 	}
+	balanceDate := ""
 	if b, ok := pickBalance(bals); ok {
+		balanceDate = cmp.Or(b.Date, today)
 		if _, err := tx.ExecContext(ctx, `INSERT INTO balance_snapshots (account_id, balance, date, origin) VALUES (?, ?, ?, 'bank')
 			ON CONFLICT (account_id, date, origin) DO UPDATE SET balance = excluded.balance, created_at = excluded.created_at`,
-			src.account, b.Amount, cmp.Or(b.Date, today)); err != nil {
+			src.account, b.Amount, balanceDate); err != nil {
 			return err
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE account_sources SET status = 'ok', last_sync_at = ?, last_attempt_at = ?, last_error = NULL
-		WHERE account_id = ? AND connection_id = ?`, ts, ts, src.account, connection); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE account_sources SET status = 'ok', last_sync_at = ?, last_attempt_at = ?, last_error = NULL,
+		last_from = ?, last_fetched = ?, last_added = ?, last_newest = ?, last_balance_date = ?, last_external_tail = ?
+		WHERE account_id = ? AND connection_id = ?`,
+		ts, ts, from, len(txs), added, newest, balanceDate, src.external[max(0, len(src.external)-4):],
+		src.account, connection); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.log.Info("bank sync account", "connection", connection, "account", src.account,
+		"from", from, "fetched", len(txs), "added", added, "newest", newest)
+	return nil
 }
 
 // pickBalance chooses the balance the account shows and the forecast starts

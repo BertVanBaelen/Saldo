@@ -42,6 +42,21 @@ export interface Member {
   me: boolean;
 }
 
+/** What the last successful sync of a bank account got from the bank and kept (GET /api/accounts). */
+export interface SyncReport {
+  at: string;
+  /** The date asked from; `null` = the longest history the bank gives. */
+  from: string | null;
+  fetched: number;
+  added: number;
+  /** Newest booking date the bank returned. */
+  newest: string | null;
+  /** Date of the balance stored. */
+  balanceDate: string | null;
+  /** Last 4 characters of the bank's id for the account. */
+  idTail: string;
+}
+
 export interface Account {
   id: number;
   name: string;
@@ -66,6 +81,8 @@ export interface Account {
   syncError?: string | null;
   /** When the bank was last asked for the account, success or not; `null` for manual accounts. */
   lastAttempt?: string | null;
+  /** The last successful sync of a bank account; `null` before the first one. */
+  syncReport?: SyncReport | null;
   permission: Permission;
   role: MemberRole;
   members: Member[];

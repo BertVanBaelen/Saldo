@@ -50,6 +50,15 @@ Every account the viewer can see.
     "syncStatus": "ok",
     "syncError": null,
     "lastAttempt": "2026-11-18T04:02:00+01:00",
+    "syncReport": {
+      "at": "2026-11-18T04:02:00+01:00",
+      "from": "2026-11-02",
+      "fetched": 12,
+      "added": 0,
+      "newest": "2026-11-18",
+      "balanceDate": "2026-11-18",
+      "idTail": "a3f9"
+    },
     "permission": "edit",
     "role": "manager",
     "members": []
@@ -62,6 +71,7 @@ Every account the viewer can see.
 - `state` (current accounts only, else `null`): `ok` (balance ≥ buffer), `buffer` (0 ≤ balance < buffer), `neg` (balance < 0).
 - `lastSync`, `syncStatus` (`ok` | `stale` | `failed` | `unlinked`) and `bank` only for `source: bank`, else `null`; `balanceDate` is the date of the latest balance (for manual accounts the last manual update; `null` while there is none, with `balance: 0`). `unlinked`: a bank account whose link was removed with "keep history" (no source, nothing syncs it, `lastSync: null`, no bank alerts); linking the IBAN again re-attaches it.
 - `syncError` (only while `syncStatus` is `failed`, else `null`) is the code of the last failed sync of this account, never an error text: `not_shared` (the last consent did not include the account: authorise again and tick it), `store_failed` (the fetch worked but storing it failed; the cause is in the server log), `session_expired`, `timeout`, `http_<status>` or the provider's own code in capitals (`ASPSP_ERROR`). `lastAttempt` is when the bank was last asked for the account (ISO time, `null` for manual accounts). Every member of a shared account sees both.
+- `syncReport` (0.6-0, bank accounts only; `null` for manual and unlinked accounts and before the first successful sync after the upgrade) says what the last **successful** sync of the account asked the bank for and what Saldo kept, so a silent sync can be told from a broken one without logs. `at` is that sync's time; `from` the first date asked (`null` = the longest history the bank gives); `fetched` the transactions the bank returned; `added` those that were new to Saldo (`fetched: 0` is the bank's side, `fetched: 20, added: 0` is storing or dedupe); `newest` the newest booking date returned (`null` without rows; a pending row counts on its value date); `balanceDate` the date of the balance stored (`null` when the bank gave none); `idTail` the last 4 characters of the provider's account id that was fetched (two accounts of one link must differ). A failed sync leaves the old report in place. When an account has several sources, the report is that of the one that synced most recently. Every member of a shared account sees it. The server also logs one INFO line `bank sync account` per account per sync (`connection`, `account`, `from`, `fetched`, `added`, `newest`).
 - `permission`: `read` | `edit`; `role`: `manager` | `member` (the viewer's own).
 - `members` (shared accounts): `[{"name": "Partner", "initial": "P", "role": "member", "permission": "edit", "me": false}]`, including the viewer with `"me": true`; `[]` for personal accounts.
 

@@ -29,7 +29,7 @@ Windows PowerShell works too (`powershell -File scripts/dev.ps1`). Ctrl+C in the
 `SALDO_DEMO=1` (set by the script):
 
 - Seeds the demo story: you are **Bert**; Partner exists but you never see their own account. Bert has Zichtrekening (Argenta, bank), Spaarrekening and Reserve (manual savings) and the Gedeelde rekening shared with Partner; about a year of transactions, from November 2025 to 18 November 2026 (342 in all, Partner's own account included).
-- Acts as Bert on every request, **without signing in**, and refuses to start on a database that holds non-demo data (that is why it has its own folder).
+- Acts as Bert on every request, **without signing in** (open `http://localhost:5180/api/demo/as/partner` to act as Partner instead, `/api/demo/as/bert` to go back; it sets a cookie and exists in demo mode only), and refuses to start on a database that holds non-demo data (that is why it has its own folder).
 - The date is fixed at **18 November 2026** ("vandaag" in the app). A CSV file may not hold rows dated after it. The history on Importeren shows the real date of an import, not the demo date.
 - "Nu synchroniseren" only records a sync: no new transactions arrive, and a second press within 15 minutes answers "Je hebt net gesynchroniseerd. Probeer het over 15 minuten opnieuw."
 - **The demo IBANs are invalid on purpose** (wrong check digits, so they can never be a real account). Consequences for importing: a `Rekening` cell in a CSV cannot hold a demo account's IBAN, because the importer refuses a row whose account is not a valid IBAN ("De rekening in het bestand is geen geldig IBAN."). So the files for the demo bank account leave that cell empty, and the files that test the account check carry a valid documentation IBAN and go into a manual account that you create with that IBAN (step "Rekeningen" below). The server also refuses a demo IBAN on a new manual account.
@@ -201,7 +201,7 @@ When you are done, `pwsh -File scripts/dev.ps1 -Stop`; `-Fresh` brings the demo 
 
 ## Category look and picker (0.5.1)
 
-Start with `pwsh -File scripts/dev.ps1 -Fresh` (the `saldo-demo` entry of `.claude/launch.json` does this too, and wipes the demo on every start). About eight minutes, best at phone width (375 px) and again in dark mode.
+Start with `pwsh -File scripts/dev.ps1 -Fresh` (the `saldo-demo` entry of `.claude/launch.json` starts the same demo without wiping it). About eight minutes, best at phone width (375 px) and again in dark mode.
 
 1. **Pick in two steps.** Transacties, open Bol.com (−€ 24,99, pending). Under "Kies een categorie" you see six tiles in two columns (emoji in the category colour, a chevron on those with subcategories) and the link "Toon inkomsten". Tap Wonen: "‹ Terug", "Wonen", then "Alleen Wonen", Huur, Energie, Internet en tv, Verzekeringen. Tap Energie: it saves at once, "Categorie" reads "Wonen › Energie", the strip says "Zelf gekozen", and the list stays on step 2 with a check on Energie. "‹ Terug" returns to the tiles with Wonen marked.
 2. **Pick a main category alone.** Open Bakkerij De Graankorrel, tap Wonen and then "Alleen Wonen": it saves as Wonen. Tap "Overig": it saves at once (no subcategories). "Toon inkomsten" shows Salaris, Terugbetaling, Bijdrage and Overig inkomen.

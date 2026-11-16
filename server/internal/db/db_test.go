@@ -653,3 +653,102 @@ func TestMigration0010AddsTintWithoutTouchingRows(t *testing.T) {
 		t.Errorf("want one backup before 0010, found %v", files)
 	}
 }
+
+// Migration 0011 only adds nullable account_sources.last_* columns. On a
+// database made by the 0.5.1 code (migrations up to 0010) holding a connection
+// with two synced accounts, no row is lost, the sources keep their sync state
+// and the new columns are NULL (no report until the next successful sync).
+func TestMigration0011AddsSyncReportWithoutTouchingRows(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	full := Migrations()
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(full, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() < "0011" {
+			b, err := fs.ReadFile(full, e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			old[e.Name()] = &fstest.MapFile{Data: b}
+		}
+	}
+	if len(old) != 10 {
+		t.Fatalf("%d migrations before 0011, want 10", len(old))
+	}
+	backups := filepath.Join(t.TempDir(), "backups")
+	if _, err := Migrate(ctx, db, old, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO users (id, email, display_name) VALUES (1, 'a@example.com', 'A')`,
+		`INSERT INTO accounts (id, type, source, iban, name) VALUES
+		     (1, 'current', 'bank', 'BE68539007547034', 'Zicht'), (2, 'current', 'bank', 'BE71096123456769', 'Gezin')`,
+		`INSERT INTO provider_connections (id, user_id, provider, aspsp_name, application_id, status)
+		 VALUES (1, 1, 'enablebanking', 'Argenta', 'app', 'active')`,
+		`INSERT INTO account_sources (account_id, connection_id, priority, external_account_id, status, last_sync_at, last_attempt_at)
+		 VALUES (1, 1, 'primary', 'a1', 'ok', '2026-11-16T03:00:00Z', '2026-11-16T03:00:00Z'),
+		        (2, 1, 'primary', 'a2', 'ok', '2026-11-16T03:00:00Z', '2026-11-16T03:00:00Z')`,
+		`INSERT INTO transactions (id, account_id, amount, booking_date, status, dedupe_key)
+		 VALUES (1, 1, -500, '2026-11-10', 'booked', 'hash:1'), (2, 2, -700, '2026-11-11', 'booked', 'hash:2')`,
+		`INSERT INTO balance_snapshots (account_id, balance, date, origin) VALUES (1, 1000, '2026-11-15', 'bank'), (2, 2000, '2026-11-15', 'bank')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	counts := func() string {
+		t.Helper()
+		var out string
+		for _, tbl := range []string{"accounts", "provider_connections", "account_sources", "transactions", "balance_snapshots"} {
+			var n int
+			if err := db.QueryRow(`SELECT COUNT(*) FROM ` + tbl).Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			out += tbl + "=" + strconv.Itoa(n) + " "
+		}
+		return out
+	}
+	state := func() string {
+		t.Helper()
+		var s string
+		if err := db.QueryRow(`SELECT group_concat(account_id || '|' || external_account_id || '|' || status || '|' || last_sync_at, ';')
+			FROM (SELECT * FROM account_sources ORDER BY account_id)`).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	beforeCounts, beforeState := counts(), state()
+	applied, err := Migrate(ctx, db, full, backups, nil)
+	if err != nil || !slices.Contains(applied, 11) {
+		t.Fatalf("applied %v, %v", applied, err)
+	}
+	if got := counts(); got != beforeCounts {
+		t.Errorf("row counts changed: %s, was %s", got, beforeCounts)
+	}
+	if got := state(); got != beforeState {
+		t.Errorf("source state changed by the migration: %s, was %s", got, beforeState)
+	}
+	var reported int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM account_sources WHERE last_from IS NOT NULL OR last_fetched IS NOT NULL
+		OR last_added IS NOT NULL OR last_newest IS NOT NULL OR last_balance_date IS NOT NULL OR last_external_tail IS NOT NULL`).Scan(&reported); err != nil || reported != 0 {
+		t.Errorf("%d sources have a report after the migration, want none (%v)", reported, err)
+	}
+	if _, err := db.Exec(`UPDATE account_sources SET last_from = '', last_fetched = 2, last_added = 1, last_newest = '2026-11-10',
+		last_balance_date = '2026-11-15', last_external_tail = 'a1' WHERE account_id = 1`); err != nil {
+		t.Errorf("the report columns are not writable: %v", err)
+	}
+	if again, err := Migrate(ctx, db, full, backups, nil); err != nil || len(again) != 0 {
+		t.Errorf("second run applied %v, %v", again, err)
+	}
+	if files, _ := filepath.Glob(filepath.Join(backups, "*before-0011*")); len(files) != 1 {
+		t.Errorf("want one backup before 0011, found %v", files)
+	}
+}

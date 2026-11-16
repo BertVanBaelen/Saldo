@@ -57,3 +57,11 @@ func dateOf(stored string) (string, bool) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// ptrIfSet is nil for "", else a pointer to s.
+func ptrIfSet(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}

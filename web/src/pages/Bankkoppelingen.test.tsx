@@ -41,6 +41,15 @@ describe('Bankkoppelingen', () => {
     expect(c.getAllByText(/Synchronisatie mislukt/)).toHaveLength(1);
   });
 
+  it('shows per account what its last sync got from the bank, each its own', async () => {
+    const report = { at: ZICHT.lastSync!, from: '2026-11-02', fetched: 12, added: 0, newest: '2026-11-18', balanceDate: '2026-11-18', idTail: 'a3f9' };
+    stubApi({ accounts: [{ ...ZICHT, syncReport: report }, { ...GEDEELD, syncReport: { ...report, fetched: 0, idTail: 'b7c2' } }] });
+    renderAt('/bankkoppelingen');
+    const c = within(await screen.findByText('Argenta', { selector: '.bk-conn-name' }).then((n) => n.closest('article') as HTMLElement));
+    expect(c.getByText('De bank gaf 12 transacties, 0 nieuw · bank-id …a3f9')).toBeTruthy();
+    expect(c.getByText('De bank gaf geen transacties terug · bank-id …b7c2')).toBeTruthy();
+  });
+
   it('shows each status in the mockup’s words', async () => {
     stubApi({
       connections: [

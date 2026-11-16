@@ -2,6 +2,8 @@
 
 ## 0.6.0-dev
 - Shared accounts (in progress, see plan/v0.6-shared-accounts).
+- Sync diagnostics: after every sync, Rekening and Bankkoppelingen say per bank account what the bank returned and what Saldo kept (for example "de bank gaf 12 transacties vanaf 2 november, 0 nieuw (nieuwste 18 november), saldo van 18 november · bank-id …a3f9"), so an account that does not sync explains itself. The update adds six empty columns to the account sources table; no data changes.
+- Demo only: open `/api/demo/as/partner` to act as Partner (and `/api/demo/as/bert` to go back).
 
 ## 0.5.1
 - Category icons are emoji now: choose one from a built-in grid with Dutch search ("auto", "huis", "kat"), or type or paste any emoji of your own (the phone's emoji keyboard works, a second emoji replaces the first). **The update rewrites icon values:** the 49 line icons of 0.4 and 0.5 become their emoji (the house is 🏠, the cart 🛒), any other value is cleared and shows a tag (🏷️). Ids, names, rules, splits and transactions are not touched. Take a Home Assistant backup first; the add-on also keeps a database copy before it migrates.

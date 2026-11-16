@@ -85,6 +85,7 @@
 .bk-acc-name { font-size: 15px; font-weight: 500; }
 .bk-acc-sub { font-size: 12px; line-height: 1.4; color: var(--muted); }
 .bk-acc-sub .mono { font-size: 12px; white-space: nowrap; }
+.bk-acc-sub--line { display: block; }
 .bk-acc-sub--neg { display: block; color: var(--negText); }
 
 /* Notices inside a card: warn (consent, stale, pending) and neg (failed, stopped) */

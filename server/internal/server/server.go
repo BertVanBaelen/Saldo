@@ -20,8 +20,12 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/ratelimit"
 )
 
-// DemoViewer is the user demo mode acts as (Bert).
-const DemoViewer int64 = 1
+// DemoViewer is the user demo mode acts as (Bert); DemoPartner is the other
+// demo user, reached with GET /api/demo/as/partner (demo mode only).
+const (
+	DemoViewer  int64 = 1
+	DemoPartner int64 = 2
+)
 
 // SyncCooldown is the minimum time between two "Sync now" calls of a user.
 const SyncCooldown = 15 * time.Minute
@@ -120,6 +124,9 @@ func (s *Server) routes() {
 	m := s.mux
 	m.HandleFunc("GET /api/health", s.health)
 	m.HandleFunc("GET /healthz", s.health)
+	if s.opts.Demo {
+		m.HandleFunc("GET /api/demo/as/{who}", s.demoAs)
+	}
 	m.HandleFunc("GET /api/me", s.getMe)
 	m.HandleFunc("PATCH /api/me", s.patchMe)
 	m.HandleFunc("PUT /api/me/preferences", s.putPreferences)

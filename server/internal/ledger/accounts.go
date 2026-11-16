@@ -41,12 +41,28 @@ type Account struct {
 	SyncError *string `json:"syncError"`
 	// LastAttempt is the last sync attempt of any of its sources, nil when
 	// none was made.
-	LastAttempt *string  `json:"lastAttempt"`
-	Permission  string   `json:"permission"`
-	Role        string   `json:"role"`
-	Members     []Member `json:"members"`
+	LastAttempt *string `json:"lastAttempt"`
+	// SyncReport is what the last successful sync of a bank account asked for
+	// and got; nil for other accounts and before the first successful sync.
+	SyncReport *SyncReport `json:"syncReport"`
+	Permission string      `json:"permission"`
+	Role       string      `json:"role"`
+	Members    []Member    `json:"members"`
 
 	sources []int64 // connections that feed this account
+}
+
+// SyncReport tells a silent sync from a broken one: "fetched 0" is the bank's
+// side, "fetched 20, added 0" is storing or dedupe, and an IDTail that is the
+// other account's means the wrong account was fetched.
+type SyncReport struct {
+	At          string  `json:"at"`
+	From        *string `json:"from"` // the date asked, nil for the longest history
+	Fetched     int     `json:"fetched"`
+	Added       int     `json:"added"`
+	Newest      *string `json:"newest"` // newest booking date returned, nil without rows
+	BalanceDate *string `json:"balanceDate"`
+	IDTail      string  `json:"idTail"` // last 4 characters of the provider account id
 }
 
 // Member is one member of a shared account.
@@ -198,6 +214,7 @@ type source struct {
 	hasSync    bool
 	failed     string    // the source's error code while its status is failed
 	attempt    time.Time // its last attempt
+	report     *SyncReport
 }
 
 // loadSync sets lastSync and syncStatus of bank accounts. The account follows
@@ -206,7 +223,9 @@ type source struct {
 func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, index map[int64]int, now time.Time) error {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT s.account_id, s.connection_id, s.priority, s.status, COALESCE(s.last_sync_at, ''),
-		       c.status, COALESCE(c.valid_until, ''), COALESCE(s.last_error, ''), COALESCE(s.last_attempt_at, '')
+		       c.status, COALESCE(c.valid_until, ''), COALESCE(s.last_error, ''), COALESCE(s.last_attempt_at, ''),
+		       s.last_fetched, COALESCE(s.last_added, 0), COALESCE(s.last_from, ''), COALESCE(s.last_newest, ''),
+		       COALESCE(s.last_balance_date, ''), COALESCE(s.last_external_tail, '')
 		FROM account_sources s
 		JOIN provider_connections c ON c.id = s.connection_id
 		WHERE s.account_id IN (SELECT account_id FROM account_access WHERE user_id = ?)
@@ -220,7 +239,11 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 		var accountID int64
 		var src source
 		var priority, status, lastSync, connStatus, validUntil, lastError, lastAttempt string
-		if err := rows.Scan(&accountID, &src.connection, &priority, &status, &lastSync, &connStatus, &validUntil, &lastError, &lastAttempt); err != nil {
+		var fetched sql.NullInt64
+		var added int
+		var from, newest, balanceDate, tail string
+		if err := rows.Scan(&accountID, &src.connection, &priority, &status, &lastSync, &connStatus, &validUntil, &lastError, &lastAttempt,
+			&fetched, &added, &from, &newest, &balanceDate, &tail); err != nil {
 			return err
 		}
 		src.primary = priority == "primary"
@@ -233,6 +256,10 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 		}
 		if t, err := time.Parse(time.RFC3339, lastAttempt); err == nil {
 			src.attempt = t
+		}
+		if at, _, ok := formatTimestamp(lastSync); ok && fetched.Valid {
+			src.report = &SyncReport{At: at, From: ptrIfSet(from), Fetched: int(fetched.Int64), Added: added,
+				Newest: ptrIfSet(newest), BalanceDate: ptrIfSet(balanceDate), IDTail: tail}
 		}
 		byAccount[accountID] = append(byAccount[accountID], src)
 	}
@@ -260,13 +287,17 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 			ts, _, _ := formatTimestamp(last.UTC().Format(time.RFC3339))
 			a.LastSync = &ts
 		}
-		var attempt time.Time
+		var attempt, reported time.Time
 		for _, src := range srcs {
 			if status == "failed" && a.SyncError == nil && src.failed != "" {
 				a.SyncError = ptr(src.failed)
 			}
 			if src.attempt.After(attempt) {
 				attempt = src.attempt
+			}
+			// The report of the source that synced most recently.
+			if src.report != nil && (a.SyncReport == nil || src.lastSync.After(reported)) {
+				a.SyncReport, reported = src.report, src.lastSync
 			}
 		}
 		if !attempt.IsZero() {

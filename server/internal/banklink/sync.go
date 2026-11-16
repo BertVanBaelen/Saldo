@@ -156,11 +156,24 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 	if err != nil {
 		return err
 	}
+	// An account the current consent does not list (left out at the bank on
+	// a new consent) is not fetched; it says so instead of looking fine.
+	if _, err := s.db.ExecContext(ctx, `UPDATE account_sources SET status = 'failed', last_attempt_at = ?, last_error = 'not_shared'
+		WHERE connection_id = ? AND external_account_id IS NULL`, ts, c.id); err != nil {
+		return err
+	}
 	failed := ""
+	// A database failure of one account is recorded on it and returned after
+	// the other accounts had their turn: one account never stops the rest.
+	var storeErr error
 	for _, src := range sources {
 		from, err := s.fromDate(ctx, src.account, today)
 		if err != nil {
-			return err
+			if err := s.storeFailed(ctx, c.id, src.account, ts, err, &storeErr); err != nil {
+				return err
+			}
+			failed = cmp.Or(failed, "store_failed")
+			continue
 		}
 		txs, err := client.FetchTransactions(ctx, sess, src.external, from, today)
 		var bals []bank.Balance
@@ -179,13 +192,16 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 			continue
 		}
 		if err := s.storeAccount(ctx, c.id, src, from, txs, bals, today, ts); err != nil {
-			return err
+			if err := s.storeFailed(ctx, c.id, src.account, ts, err, &storeErr); err != nil {
+				return err
+			}
+			failed = cmp.Or(failed, "store_failed")
 		}
 	}
 	if failed != "" {
 		_, err = s.db.ExecContext(context.WithoutCancel(ctx), `UPDATE provider_connections
 			SET sync_status = 'failed', last_attempt_at = ?, last_error = ? WHERE id = ?`, ts, failed, c.id)
-		return err
+		return errors.Join(storeErr, err)
 	}
 	_, err = s.db.ExecContext(ctx, `UPDATE provider_connections
 		SET last_sync_at = ?, last_attempt_at = ?, sync_status = 'ok', last_error = NULL WHERE id = ?`, ts, ts, c.id)
@@ -214,11 +230,15 @@ func (s *Service) sources(ctx context.Context, connection int64) ([]source, erro
 
 // fromDate is where the account's sync starts: nothing (the longest history
 // the bank gives, analysis 4.1) while the account has no transactions, else
-// overlapDays before the newest one.
+// overlapDays before the newest one. Rows dated after today do not count: a
+// pending row the bank lists on a value date far ahead would shrink every
+// later window to today. date() reads a date that came with a time and skips
+// one that is no date at all.
 func (s *Service) fromDate(ctx context.Context, account int64, today string) (string, error) {
 	var newest string
-	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(booking_date), '') FROM transactions WHERE account_id = ?`,
-		account).Scan(&newest); err != nil || newest == "" {
+	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(date(booking_date)), '') FROM transactions
+		WHERE account_id = ? AND date(booking_date) <= ?`,
+		account, today).Scan(&newest); err != nil || newest == "" {
 		return "", err
 	}
 	t, err := time.Parse(time.DateOnly, newest)
@@ -315,6 +335,20 @@ func (s *Service) accountFailed(ctx context.Context, connection, account int64, 
 		SET status = 'failed', last_attempt_at = ?, last_error = ? WHERE account_id = ? AND connection_id = ?`,
 		ts, code, account, connection)
 	return err
+}
+
+// storeFailed records a database failure of one account as store_failed and
+// keeps the first such error in first. A cancelled sync is not the account's
+// failure: its error is returned, which stops the sync.
+func (s *Service) storeFailed(ctx context.Context, connection, account int64, ts string, err error, first *error) error {
+	if ctx.Err() != nil {
+		return err
+	}
+	if ferr := s.accountFailed(ctx, connection, account, ts, "store_failed"); ferr != nil {
+		return errors.Join(err, ferr)
+	}
+	*first = cmp.Or(*first, err)
+	return nil
 }
 
 // broken records a sync that failed for the whole connection: a lapsed

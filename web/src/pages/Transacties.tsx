@@ -4,12 +4,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
+import { CatEmoji } from '../components/CatIcon';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, ScopeSwitch, useIsDesktop, useTitle } from '../components/ui';
 import { accColour, inScope, isShared } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
-import { categoryIcon } from '../lib/categoryIcons';
 import { cap, dateShort, dayHeading, eur, MONTHS, toDate } from '../lib/format';
 import type { Account, Transaction, TransactionPage } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -89,7 +89,7 @@ function CatChip({ t, icon }: { t: Transaction; icon: string | null | undefined 
   }
   return (
     <span className={'tx-cat' + (cv.uncat ? ' tx-cat--uncat' : '')} style={cv.uncat ? undefined : { background: cv.bg, color: cv.fg }}>
-      {!cv.uncat && <Icon name={categoryIcon(icon)} size={12} stroke={2.4} className="tx-cat-ico" />}
+      {!cv.uncat && <CatEmoji icon={icon} className="tx-cat-ico" />}
       {cv.name}
     </span>
   );

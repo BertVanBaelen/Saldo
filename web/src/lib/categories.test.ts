@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { catColours, categoryLabel, groupTree, plural, ruleConditions, ruleLabel, skippedText, splitState, toParts } from './categories';
 import type { Rule, TreeCategory } from './types';
 
@@ -31,11 +31,48 @@ const rule = (over: Partial<Rule>): Rule => ({
   ...over,
 });
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe('catColours', () => {
   it('uses the pastel with the right text colour', () => {
-    expect(catColours('c2')).toEqual({ bg: 'var(--c2)', fg: 'var(--onPastel)' });
-    expect(catColours('c6')).toEqual({ bg: 'var(--c6)', fg: 'var(--onC6)' });
-    expect(catColours('soft')).toEqual({ bg: 'var(--soft)', fg: 'var(--greenText)' });
+    expect(catColours('c2')).toEqual({ bg: 'var(--c2)', fg: 'var(--onPastel)', line: 'var(--c2)' });
+    expect(catColours('c6')).toEqual({ bg: 'var(--c6)', fg: 'var(--onC6)', line: 'var(--c6)' });
+    expect(catColours('soft')).toEqual({ bg: 'var(--soft)', fg: 'var(--greenText)', line: 'var(--softChip)' });
+  });
+
+  it('knows the sixteen palette keys', () => {
+    for (let i = 7; i <= 16; i++) expect(catColours(('c' + i) as 'c7')).toEqual({ bg: 'var(--c' + i + ')', fg: 'var(--onPastel)', line: 'var(--c' + i + ')' });
+  });
+
+  it('turns a custom hex into a clamped pastel with the same readable text', () => {
+    const bg = 'oklch(from #12ab34 clamp(var(--tint-l-min), l, var(--tint-l-max)) min(c, var(--tint-c-max)) h)';
+    expect(catColours('#12ab34')).toEqual({ bg, fg: 'var(--onPastel)', line: bg });
+    // Unitless: relative colour syntax with percentages or hsl() is not supported.
+    expect(bg).not.toMatch(/%|hsl/);
+  });
+
+  it('mixes the hex with the surface when relative colours are not supported (older Safari)', async () => {
+    vi.stubGlobal('CSS', { supports: () => false });
+    vi.resetModules();
+    const { catColours: fallback } = await import('./categories');
+    const bg = 'color-mix(in srgb, #12ab34 40%, var(--surface))';
+    expect(fallback('#12ab34')).toEqual({ bg, fg: 'var(--text)', line: bg });
+    // Palette keys do not depend on it.
+    expect(fallback('c2')).toEqual({ bg: 'var(--c2)', fg: 'var(--onPastel)', line: 'var(--c2)' });
+  });
+
+  it('keeps the relative colour when CSS.supports says yes', async () => {
+    vi.stubGlobal('CSS', { supports: () => true });
+    vi.resetModules();
+    const { catColours: modern } = await import('./categories');
+    expect(modern('#12ab34').bg).toMatch(/^oklch\(from #12ab34 /);
+  });
+
+  it('falls back to the c6 look for anything that is not a palette key or #rrggbb', () => {
+    const grey = { bg: 'var(--c6)', fg: 'var(--onC6)', line: 'var(--c6)' };
+    for (const bad of ['#fff', '#12AB34', '#12ab3', '#12ab34ff', 'red', 'c17', 'c0', 'c7);color:red', '']) {
+      expect(catColours(bad as 'c1'), bad).toEqual(grey);
+    }
   });
 });
 

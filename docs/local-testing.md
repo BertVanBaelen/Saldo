@@ -81,6 +81,8 @@ Open **Bankkoppelingen** (or the Zichtrekening account page from step 3) and pre
 
 ## Added in 0.4: categorisation
 
+> **Changed in 0.5.1:** the category picker is now two steps (see the last section). Where the steps below say "tap <main category>" or mention the pills and the dropdown "Alle categorieën": tap the tile of the main category; when it has subcategories (Wonen, Boodschappen, Vrije tijd, Vervoer and Abonnementen have), a list opens and "Alleen <naam>" picks the main category itself, while "Overig" has none and picks at once. The dropdown "Alle categorieën" no longer exists in the detail (the Transacties filter keeps its own). Category icons are emoji.
+
 Categories, rules and suggestions. The detail in Transacties (a side panel on a wide screen, a bottom sheet at phone width) is no longer read-only: you pick the category, apply it to similar transactions and make a rule, add a note and split a booked transaction. **Categorieën en regels** (Meer) manages the category tree, the rules and the suggestions. The two parts below each start from a fresh demo, so run `scripts/dev.ps1 -Stop` and then `scripts/dev.ps1 -Fresh` before each of them. At phone width the detail and the editors open as bottom sheets that close after saving; on a wide screen the editors are a side panel. The dropdowns (Plaats, Categorie, Geldt voor, Prioriteit, "Naar een andere categorie", "Alle categorieën" in the detail, and the account and the columns in Importeren) are one designed component, not the browser's own select: a button that opens its list as a menu under the field, and the arrow keys, Home, End, Enter and Escape work.
 
 ### Categorise in Transacties (about fifteen minutes)
@@ -196,3 +198,17 @@ Import `fixtures/csv/bilance-tweede.csv` and map the same three account names. *
 - **Not in the demo:** a real Bilance export (an income over € 1 000, a cell with several accounts and a split were not in the sample; see the plan of 0.5-1) and the read-only members of a shared account.
 
 When you are done, `pwsh -File scripts/dev.ps1 -Stop`; `-Fresh` brings the demo story back.
+
+## Category look and picker (0.5.1)
+
+Start with `pwsh -File scripts/dev.ps1 -Fresh` (the `saldo-demo` entry of `.claude/launch.json` does this too, and wipes the demo on every start). About eight minutes, best at phone width (375 px) and again in dark mode.
+
+1. **Pick in two steps.** Transacties, open Bol.com (−€ 24,99, pending). Under "Kies een categorie" you see six tiles in two columns (emoji in the category colour, a chevron on those with subcategories) and the link "Toon inkomsten". Tap Wonen: "‹ Terug", "Wonen", then "Alleen Wonen", Huur, Energie, Internet en tv, Verzekeringen. Tap Energie: it saves at once, "Categorie" reads "Wonen › Energie", the strip says "Zelf gekozen", and the list stays on step 2 with a check on Energie. "‹ Terug" returns to the tiles with Wonen marked.
+2. **Pick a main category alone.** Open Bakkerij De Graankorrel, tap Wonen and then "Alleen Wonen": it saves as Wonen. Tap "Overig": it saves at once (no subcategories). "Toon inkomsten" shows Salaris, Terugbetaling, Bijdrage and Overig inkomen.
+3. **Split.** Open a booked row (Frituur 't Pleintje), "Splitsen": each part has a button "Kies een categorie" that opens the same picker under the part; choosing closes it and the button reads the choice (for example "Wonen › Energie").
+4. **Emoji icon.** Meer, Categorieën en regels, open Wonen. "Pictogram" has a search field ("auto", "huis", "kat" find emoji) and a grid in groups; tap one and "Opslaan". The list and the picker show it. "Eigen emoji" takes one emoji you type or paste (a flag, a family, a keycap); a second emoji replaces the first, letters show "Kies één emoji".
+5. **Colours.** In the same editor "Kleur" has 16 named pastels and "Eigen kleur" (a colour picker; Saldo turns it into a soft tint, dark enough text in dark mode). Choose Koraal: the subcategories follow. Open an income category (Salaris): it has "Groen" first (its default) next to the pastels, so it can go back to green. Choose an own colour for Boodschappen and look at Transacties, the detail, a split row and the import mapping: the same tint everywhere, in light and dark.
+6. **Why a sync failed.** Rekeningen, open Zichtrekening: when an account's sync failed, its Synchronisatie card says "Foutcode …" or "Niet gedeeld bij de laatste toestemming. Autoriseer opnieuw en vink deze rekening aan." Bankkoppelingen shows "Synchronisatie mislukt · …" under an account that failed. The demo never fails a sync, so this is covered by tests only; look for it on the live add-on.
+
+Known limits: Safari 16.4 to 17.x may not understand the formula of "Eigen kleur" and then shows a plain tint with readable text (a fallback), the preset pastels always work; the Transacties filter and the import mapping keep their dropdown (with emoji).
+

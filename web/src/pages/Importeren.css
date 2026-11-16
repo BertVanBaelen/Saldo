@@ -553,10 +553,6 @@
   border: 1px dashed var(--dashed);
   font-size: 14px; color: var(--muted);
 }
-.im-opt-ico {
-  display: inline-flex; align-items: center; justify-content: center; flex: none;
-  width: 22px; height: 22px; border-radius: 50%;
-}
 .im-newed {
   display: flex; flex-direction: column; gap: 10px;
   padding: 12px; margin-top: 2px;

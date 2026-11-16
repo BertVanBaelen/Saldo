@@ -1,0 +1,17 @@
+.emoji-picker { display: flex; flex-direction: column; gap: 10px; }
+.emoji-search, .emoji-own { width: 100%; }
+.emoji-grid { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.emoji-group-title { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.emoji-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+.emoji-tile {
+  height: 44px; padding: 0;
+  border-radius: 12px;
+  border: 3px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 1px var(--line);
+  transition: border-color 160ms ease;
+}
+.emoji-tile[aria-checked="true"] { border-color: var(--text); }
+.emoji-own-row { display: flex; flex-direction: column; gap: 4px; }
+.emoji-hint { font-size: 13px; color: var(--muted); }

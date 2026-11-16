@@ -325,7 +325,7 @@ func noteProbable(ctx context.Context, tx *sql.Tx, b *Batch, line int, note stri
 			return c, nil
 		}
 		c := &CategoryRef{}
-		if err := tx.QueryRowContext(ctx, `SELECT name, COALESCE(icon, ''), colour FROM categories WHERE id = ?`, id).Scan(&c.Name, &c.Icon, &c.Colour); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT name, COALESCE(icon, ''), `+effectiveColour("")+` FROM categories WHERE id = ?`, id).Scan(&c.Name, &c.Icon, &c.Colour); err != nil {
 			return nil, err
 		}
 		cats[id] = c

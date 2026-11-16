@@ -184,7 +184,7 @@ describe('categorisation calls', () => {
   });
 
   it('reads the category tree and the rules', async () => {
-    const tree = [{ id: 1, name: 'Wonen', type: 'expense', colour: 'c1', icon: 'home', parentId: null, count: 0 }];
+    const tree = [{ id: 1, name: 'Wonen', type: 'expense', colour: 'c1', icon: '🏠', parentId: null, count: 0 }];
     const get = respond(200, tree);
     vi.stubGlobal('fetch', get);
     await expect(api.categories()).resolves.toEqual(tree);

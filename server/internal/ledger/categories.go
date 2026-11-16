@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode"
@@ -58,7 +59,45 @@ type CategoryInput struct {
 
 const maxCategoryName = 60
 
-var expenseColours = []string{"c1", "c2", "c3", "c4", "c5", "c6"}
+// paletteColours are the 16 pastels of a category (c1..c16); income tops also
+// take "soft", and any top takes a custom #rrggbb.
+var paletteColours = []string{"c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10", "c11", "c12", "c13", "c14", "c15", "c16"}
+
+var hexColour = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+// legacyColour tells whether a colour fits the CHECK list of categories.colour.
+func legacyColour(v string) bool {
+	switch v {
+	case "c1", "c2", "c3", "c4", "c5", "c6", "soft":
+		return true
+	}
+	return false
+}
+
+// colourColumns splits an API colour (the effective colour: c1..c16, soft or a
+// lowercase #rrggbb) into the two stored columns. A legacy key is stored as
+// colour with no tint; c7..c16 and a hex are stored as tint with colour 'c6'
+// as placeholder. Every write of a category colour goes through here, so the
+// two columns never disagree.
+// shortcut: two columns because the CHECK on colour cannot be widened without
+// a table rebuild (foreign keys would cascade-delete rules and splits),
+// rebuild in 1.0-3 and drop tint.
+func colourColumns(v string) (colour string, tint *string) {
+	if legacyColour(v) {
+		return v, nil
+	}
+	return "c6", &v
+}
+
+// effectiveColour is the SQL expression of the colour the API shows, for the
+// categories table under alias ("" for none). Every read of a category colour
+// uses it: a missed read shows a tinted category as the c6 placeholder.
+func effectiveColour(alias string) string {
+	if alias != "" {
+		alias += "."
+	}
+	return "COALESCE(" + alias + "tint, " + alias + "colour)"
+}
 
 // Categories lists the tree in tree order: the expense tops, each followed by
 // its subcategories, then the income tops likewise. Count is the number of
@@ -66,7 +105,7 @@ var expenseColours = []string{"c1", "c2", "c3", "c4", "c5", "c6"}
 // once under each category it has a part in, not under its own (hidden)
 // category.
 func (s *Store) Categories(ctx context.Context, viewer int64) ([]TreeCategory, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.id, c.name, c.type, c.colour, c.parent_id, c.sort_order, c.icon,
+	rows, err := s.db.QueryContext(ctx, `SELECT c.id, c.name, c.type, `+effectiveColour("c")+`, c.parent_id, c.sort_order, c.icon,
 		       (SELECT COUNT(*) FROM transactions t JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?1
 		        WHERE t.category_id = c.id AND NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id))
 		     + (SELECT COUNT(DISTINCT s.transaction_id) FROM transaction_splits s
@@ -149,7 +188,7 @@ type stored struct {
 
 func loadCategory(ctx context.Context, tx *sql.Tx, id int64) (stored, error) {
 	var c stored
-	err := tx.QueryRowContext(ctx, `SELECT id, name, parent_id, type, colour, icon,
+	err := tx.QueryRowContext(ctx, `SELECT id, name, parent_id, type, `+effectiveColour("c")+`, icon,
 		(SELECT COUNT(*) FROM categories k WHERE k.parent_id = c.id) FROM categories c WHERE id = ?`, id).
 		Scan(&c.id, &c.name, &c.parent, &c.typ, &c.colour, &c.icon, &c.children)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -190,31 +229,34 @@ func unique(ctx context.Context, tx *sql.Tx, name string, parent *int64, self in
 	return nil
 }
 
-// iconOf checks the icon of a create or change body: a name of the fixed list,
-// or null or "" for none. Not sent on a change means unchanged (the caller).
+// iconOf checks the icon of a create or change body: one emoji, or null or ""
+// for none. Not sent on a change means unchanged (the caller).
 func iconOf(in Opt[string]) (*string, error) {
-	if in.Null || in.V == "" {
+	v := strings.TrimSpace(in.V)
+	if in.Null || v == "" {
 		return nil, nil
 	}
-	if !categorise.ValidIcon(in.V) {
+	if !categorise.ValidIcon(v) {
 		return nil, apperr.Invalid("Kies een icoon uit de lijst.")
 	}
-	return &in.V, nil
+	return &v, nil
 }
 
-// topColour checks the colour of a top category of a type ("" = default).
+// topColour checks the colour of a top category of a type ("" = default) and
+// returns it normalised (hex in lower case). Any top takes c1..c16 or a
+// #rrggbb; "soft" is the income green and only income tops take it.
 func topColour(typ, colour string) (string, error) {
 	switch {
-	case typ == "income" && (colour == "" || colour == "soft"):
+	case colour == "" && typ == "income":
 		return "soft", nil
-	case typ == "income":
-		return "", apperr.Invalid("Inkomsten zijn altijd groen.")
 	case colour == "":
 		return "c6", nil
-	case slices.Contains(expenseColours, colour):
+	case colour == "soft" && typ == "income", slices.Contains(paletteColours, colour):
 		return colour, nil
+	case hexColour.MatchString(colour):
+		return strings.ToLower(colour), nil
 	}
-	return "", apperr.Invalid("Kies een van de zes kleuren.")
+	return "", apperr.Invalid("Kies een kleur uit het palet of een eigen kleur (#rrggbb).")
 }
 
 func validType(t string) error {
@@ -277,9 +319,10 @@ func createCategoryIn(ctx context.Context, tx *sql.Tx, in CategoryInput) (int64,
 		return 0, err
 	}
 	var id int64
-	err = tx.QueryRowContext(ctx, `INSERT INTO categories (name, parent_id, type, colour, icon, sort_order)
-		VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2))
-		RETURNING id`, name, parent, typ, colour, icon).Scan(&id)
+	col, tint := colourColumns(colour)
+	err = tx.QueryRowContext(ctx, `INSERT INTO categories (name, parent_id, type, colour, tint, icon, sort_order)
+		VALUES (?1, ?2, ?3, ?4, ?6, ?5, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2))
+		RETURNING id`, name, parent, typ, col, icon, tint).Scan(&id)
 	return id, err
 }
 
@@ -348,13 +391,14 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 		return TreeCategory{}, err
 	}
 	moved := (parent == nil) != (c.parent == nil) || parent != nil && *parent != *c.parent
-	if _, err := tx.ExecContext(ctx, `UPDATE categories SET name = ?1, parent_id = ?2, type = ?3, colour = ?4, icon = ?7,
+	col, tint := colourColumns(colour)
+	if _, err := tx.ExecContext(ctx, `UPDATE categories SET name = ?1, parent_id = ?2, type = ?3, colour = ?4, tint = ?8, icon = ?7,
 		sort_order = CASE WHEN ?5 THEN (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2 AND id <> ?6)
 		                  ELSE sort_order END
-		WHERE id = ?6`, name, parent, typ, colour, moved, id, icon); err != nil {
+		WHERE id = ?6`, name, parent, typ, col, moved, id, icon, tint); err != nil {
 		return TreeCategory{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE categories SET type = ?, colour = ? WHERE parent_id = ?`, typ, colour, id); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE categories SET type = ?, colour = ?, tint = ? WHERE parent_id = ?`, typ, col, tint, id); err != nil {
 		return TreeCategory{}, err
 	}
 	if err := tx.Commit(); err != nil {

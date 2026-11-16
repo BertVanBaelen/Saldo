@@ -366,11 +366,11 @@ func TestBankLinkAndSync(t *testing.T) {
 			{"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE68 •••• •••• 7034", "colour": "green", "buffer": 0, "balance": 0,
 				"balanceDate": null, "state": "ok", "bank": "Argenta", "lastSync": null,
-				"syncStatus": "stale", "permission": "edit", "role": "manager", "members": []},
+				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "permission": "edit", "role": "manager", "members": []},
 			{"id": 2, "name": "Gezinsrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE71 •••• •••• 6769", "colour": "green", "buffer": 0, "balance": 0,
 				"balanceDate": null, "state": "ok", "bank": "Argenta", "lastSync": null,
-				"syncStatus": "stale", "permission": "edit", "role": "manager", "members": []}
+				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "permission": "edit", "role": "manager", "members": []}
 		],
 		"skipped": []
 	}`)
@@ -389,11 +389,11 @@ func TestBankLinkAndSync(t *testing.T) {
 			{"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE68 •••• •••• 7034", "colour": "green", "buffer": 0, "balance": 196882,
 				"balanceDate": "2026-11-17", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T20:00:00+01:00",
-				"syncStatus": "ok", "permission": "edit", "role": "manager", "members": []},
+				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "permission": "edit", "role": "manager", "members": []},
 			{"id": 2, "name": "Gezinsrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE71 •••• •••• 6769", "colour": "green", "buffer": 0, "balance": 94608,
 				"balanceDate": "2026-11-17", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T20:00:00+01:00",
-				"syncStatus": "ok", "permission": "edit", "role": "manager", "members": []}
+				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "permission": "edit", "role": "manager", "members": []}
 		],
 		"skipped": []
 	}`)

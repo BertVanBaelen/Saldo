@@ -9,7 +9,7 @@ import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useTitle } from '../components/ui';
-import { accColour, accountState, isCurrent, isShared, manager, others, STATE_CHIP, staleNote, syncLine } from '../lib/accounts';
+import { accColour, accountState, isCurrent, isShared, manager, others, STATE_CHIP, staleNote, syncLine, syncProblem } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { dateRelative, dateShort, dateYear, eur, momentLabel, names, parseMoney, toDate } from '../lib/format';
 import type { Account, BalancePoint, Connection, Transaction } from '../lib/types';
@@ -545,7 +545,7 @@ function SyncCard({ a, conn, onRemove }: { a: Account; conn: Connection | undefi
         </span>
         <span className="rkd-sync-status-text">
           <strong>{statusText}</strong>
-          <small>Elke nacht rond 04:00, of nu met de knop.</small>
+          <small>{syncProblem(a, today) ?? 'Elke nacht rond 04:00, of nu met de knop.'}</small>
         </span>
       </div>
       {conn ? (

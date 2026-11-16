@@ -2,11 +2,11 @@
 // only the groups the user ticks are applied, and only rows that have no category yet.
 import { useEffect, useState } from 'react';
 import { useApp } from '../app/AppContext';
+import { CatEmoji } from '../components/CatIcon';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { api, errorMessage, isAbort } from '../lib/api';
 import { catColours, plural } from '../lib/categories';
-import { categoryIcon } from '../lib/categoryIcons';
 import { dateShort, eur } from '../lib/format';
 import type { BackfillPreview, BackfillResult } from '../lib/types';
 
@@ -97,7 +97,7 @@ export function BackfillSheet({ onClose, onDone }: Props) {
                       <strong>{g.counterparty}</strong>
                       <span className="ct-bf-line">
                         <span className="ct-chip" style={{ background: lk.bg, color: lk.fg }}>
-                          <Icon name={categoryIcon(g.category.icon)} size={13} stroke={2.4} className="ct-chip-ico" />
+                          <CatEmoji icon={g.category.icon} className="ct-chip-ico" />
                           {g.category.name}
                         </span>
                         <span className={'ct-conf ct-conf--' + (g.level === 'high' ? 'hoog' : 'laag')}>

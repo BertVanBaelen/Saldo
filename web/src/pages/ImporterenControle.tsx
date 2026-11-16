@@ -3,10 +3,9 @@
 // analysis/screens/importeren.md. The server decides what is a probable duplicate and where the suggested cutoff lies;
 // this file shows them and keeps the user's choices (which lines to import anyway, a date or none per account).
 import { useId, useState } from 'react';
+import { CatIcon } from '../components/CatIcon';
 import { Icon } from '../components/Icon';
 import { delay } from '../components/ui';
-import { catColours } from '../lib/categories';
-import { categoryIcon } from '../lib/categoryIcons';
 import { dateFull, dateShort, eur } from '../lib/format';
 import type { CategoryRef, ProbableDuplicate } from '../lib/imports';
 import type { Account, CategoryColour } from '../lib/types';
@@ -95,12 +94,9 @@ export function CutoffCard({ account, suggested, value, named, onChange }: Cutof
 }
 
 function CatText({ c }: { c: CategoryRef }) {
-  const { bg, fg } = catColours(c.colour as CategoryColour);
   return (
     <span className="im-dup-catname">
-      <span className="im-opt-ico" style={{ background: bg, color: fg }} aria-hidden="true">
-        <Icon name={categoryIcon(c.icon)} size={12} stroke={2.4} />
-      </span>
+      <CatIcon icon={c.icon} colour={c.colour as CategoryColour} />
       {c.name}
     </span>
   );

@@ -5,14 +5,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
+import { CatIcon } from '../components/CatIcon';
 import { Icon, type IconName } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useIsDesktop, useTitle } from '../components/ui';
 import { api, ApiError, errorMessage } from '../lib/api';
-import { catColours, plural, ruleConditions, ruleLabel } from '../lib/categories';
+import { plural, ruleConditions, ruleLabel } from '../lib/categories';
 import type { Rule, Suggestion, TreeCategory } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
-import { categoryIcon } from '../lib/categoryIcons';
 import { BackfillSheet } from './CategorieenBackfill';
 import { CatChip, CatEditor, DelEditor, Info, OwnerChip, ReadOnlyChip, RuleEditor, RuleView } from './CategorieenEditors';
 import './Categorieen.css';
@@ -293,7 +293,6 @@ export function Categorieen() {
     const selId = desktop && (shown.kind === 'cat' || shown.kind === 'del') ? shown.id : null;
     const kids = (id: number) => list.filter((c) => c.parentId === id);
     const row = (c: TreeCategory, sub: boolean) => {
-      const lk = catColours(c.colour);
       const k = kids(c.id).length;
       const n = sub ? c.count : c.count + kids(c.id).reduce((s, x) => s + x.count, 0);
       const subline = sub ? '' : k ? plural(k, 'subcategorie', 'subcategorieën') : c.type === 'expense' ? 'Geen subcategorieën' : '';
@@ -310,9 +309,7 @@ export function Categorieen() {
             open({ kind: 'cat', id: c.id }, 'cat-' + c.id);
           }}
         >
-          <span className={'ct-cav' + (sub ? ' ct-cav--sub' : '')} style={{ background: lk.bg, color: lk.fg }}>
-            <Icon name={categoryIcon(c.icon)} size={sub ? 13 : 16} stroke={2.2} />
-          </span>
+          <CatIcon icon={c.icon} colour={c.colour} size={sub ? 'sm' : 'lg'} className={sub ? 'ct-cav--sub' : undefined} />
           <span className="ct-crow-main">
             <span className="ct-crow-name">{c.name}</span>
             {subline && (

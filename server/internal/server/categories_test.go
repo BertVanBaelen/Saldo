@@ -140,7 +140,7 @@ func TestCategoryCreateAndUpdate(t *testing.T) {
 		{"POST", "/api/categories", `{"name":"x","parentId":999}`},                   // unknown parent
 		{"POST", "/api/categories", `{"name":"x","parentId":1,"colour":"c2"}`},       // colour on a sub
 		{"POST", "/api/categories", `{"name":"x","parentId":1,"type":"income"}`},     // type on a sub
-		{"POST", "/api/categories", `{"name":"x","type":"income","colour":"c1"}`},    // income is green
+		{"POST", "/api/categories", `{"name":"x","type":"income","colour":"red"}`},   // not a colour
 		{"POST", "/api/categories", `{"name":"x","type":"expense","colour":"soft"}`}, // not an expense colour
 		{"POST", "/api/categories", `{"name":"x","type":"savings"}`},                 // no such type
 		{"POST", "/api/categories", `{"name":"x"}`},                                  // no type
@@ -155,7 +155,7 @@ func TestCategoryCreateAndUpdate(t *testing.T) {
 		{"PATCH", "/api/categories/11", `{"parentId":11}`},          // under itself
 		{"PATCH", "/api/categories/11", `{"parentId":12}`},          // under a sub
 		{"PATCH", "/api/categories/11", `{"name":"Energie"}`},       // a sibling's name
-		{"PATCH", "/api/categories/7", `{"colour":"c2"}`},           // income stays green
+		{"PATCH", "/api/categories/7", `{"colour":"red"}`},          // not a colour
 		{"PATCH", "/api/categories/" + id(top), `{"name":"Wonen"}`}, // a top's name
 	}
 	for _, c := range bad {
@@ -604,16 +604,16 @@ func TestCategoryAndRuleWritesRefuseCrossOrigin(t *testing.T) {
 	}
 }
 
-// CAT-6: the icon is a name of the fixed list; null or "" clears it, leaving
+// CAT-6, 0.5.1-2: the icon is one emoji; null or "" clears it, leaving
 // it out of a change keeps it, and a sub category may carry one.
 func TestCategoryIcons(t *testing.T) {
 	p := newPair(t)
 	list := decode[[]ledger.TreeCategory](t, p.bert("GET", "/api/categories", "").body)
-	if list[0].Icon == nil || *list[0].Icon != "home" || list[1].Icon == nil || *list[1].Icon != "home" {
+	if list[0].Icon == nil || *list[0].Icon != "🏠" || list[1].Icon == nil || *list[1].Icon != "🏠" {
 		t.Errorf("seeded icons: %v, %v", list[0].Icon, list[1].Icon)
 	}
-	top := p.created(p.bert("POST", "/api/categories", `{"name":"Huisdieren","type":"expense","icon":"paw"}`))
-	if top.Icon == nil || *top.Icon != "paw" {
+	top := p.created(p.bert("POST", "/api/categories", `{"name":"Huisdieren","type":"expense","icon":"🐾"}`))
+	if top.Icon == nil || *top.Icon != "🐾" {
 		t.Fatalf("created: %+v", top)
 	}
 	sub := p.created(p.bert("POST", "/api/categories", `{"name":"Voeding","parentId":`+strconv.FormatInt(top.ID, 10)+`}`))
@@ -622,17 +622,270 @@ func TestCategoryIcons(t *testing.T) {
 	}
 	path := "/api/categories/" + strconv.FormatInt(top.ID, 10)
 	expectError(t, p.bert("PATCH", path, `{"icon":"unicorn"}`), http.StatusBadRequest, "invalid")
+	expectError(t, p.bert("PATCH", path, `{"icon":"home"}`), http.StatusBadRequest, "invalid")
+	expectError(t, p.bert("PATCH", path, `{"icon":"🐾 🐾"}`), http.StatusBadRequest, "invalid")
+	expectError(t, p.bert("PATCH", path, `{"icon":"7"}`), http.StatusBadRequest, "invalid")
 	expectError(t, p.bert("POST", "/api/categories", `{"name":"x","type":"expense","icon":"Paw"}`), http.StatusBadRequest, "invalid")
-	if c := decode[ledger.TreeCategory](t, p.bert("PATCH", path, `{"name":"Dieren"}`).body); c.Icon == nil || *c.Icon != "paw" {
+	if c := decode[ledger.TreeCategory](t, p.bert("PATCH", path, `{"name":"Dieren"}`).body); c.Icon == nil || *c.Icon != "🐾" {
 		t.Errorf("icon left out of a change must stay: %+v", c)
 	}
-	if c := decode[ledger.TreeCategory](t, p.bert("PATCH", path, `{"icon":"bag"}`).body); c.Icon == nil || *c.Icon != "bag" {
+	if c := decode[ledger.TreeCategory](t, p.bert("PATCH", path, `{"icon":"👜"}`).body); c.Icon == nil || *c.Icon != "👜" {
 		t.Errorf("changed: %+v", c)
 	}
 	for _, body := range []string{`{"icon":null}`, `{"icon":""}`} {
-		p.bert("PATCH", path, `{"icon":"bag"}`)
+		p.bert("PATCH", path, `{"icon":"👜"}`)
 		if c := decode[ledger.TreeCategory](t, p.bert("PATCH", path, body).body); c.Icon != nil {
 			t.Errorf("%s did not clear: %v", body, *c.Icon)
 		}
+	}
+}
+
+// storedColour is the colour and tint columns of a category as stored ("-" for
+// a NULL tint).
+func (p *pair) storedColour(id int64) string {
+	p.t.Helper()
+	var s string
+	if err := p.db.QueryRow(`SELECT colour || '|' || COALESCE(tint, '-') FROM categories WHERE id = ?`, id).Scan(&s); err != nil {
+		p.t.Fatal(err)
+	}
+	return s
+}
+
+// The colour of a category is c1..c16, soft (income) or a custom #rrggbb that
+// the server lowercases; anything else is a 400. c7..c16 and a hex are stored
+// as tint with colour c6 as placeholder, a legacy key as colour with no tint.
+func TestCategoryColourValidation(t *testing.T) {
+	p := newPair(t)
+	n := 0
+	create := func(typ, colour string) response {
+		n++
+		return p.bert("POST", "/api/categories", `{"name":"Kleurproef `+strconv.Itoa(n)+`","type":"`+typ+`","colour":`+colour+`}`)
+	}
+	ok := []struct{ typ, in, want, stored string }{
+		{"expense", `"c1"`, "c1", "c1|-"},
+		{"expense", `"c6"`, "c6", "c6|-"},
+		{"expense", `"c7"`, "c7", "c6|c7"},
+		{"expense", `"c16"`, "c16", "c6|c16"},
+		{"expense", `"#a1b2c3"`, "#a1b2c3", "c6|#a1b2c3"},
+		{"expense", `"#A1B2C3"`, "#a1b2c3", "c6|#a1b2c3"},
+		{"expense", `"#AbCdEf"`, "#abcdef", "c6|#abcdef"},
+		{"expense", `""`, "c6", "c6|-"},
+		{"expense", `null`, "c6", "c6|-"},
+		{"income", `"soft"`, "soft", "soft|-"},
+		{"income", `""`, "soft", "soft|-"},
+		{"income", `"c3"`, "c3", "c3|-"},
+		{"income", `"c9"`, "c9", "c6|c9"},
+		{"income", `"#00FF88"`, "#00ff88", "c6|#00ff88"},
+	}
+	for _, c := range ok {
+		got := p.created(create(c.typ, c.in))
+		if got.Colour != c.want || got.Type != c.typ {
+			t.Errorf("%s %s: %+v, want colour %s", c.typ, c.in, got, c.want)
+		}
+		if s := p.storedColour(got.ID); s != c.stored {
+			t.Errorf("%s %s stored as %s, want %s", c.typ, c.in, s, c.stored)
+		}
+	}
+	for _, in := range []string{
+		`"c0"`, `"c17"`, `"C1"`, `"#fff"`, `"#ffff"`, `"red"`, `"#aabbccdd"`, `"#ggg000"`, `"a1b2c3"`, `"#a1b2c3 "`, `" #a1b2c3"`, `"#a1b2c"`, `7`,
+	} {
+		for _, typ := range []string{"expense", "income"} {
+			if r := create(typ, in); r.status == http.StatusBadRequest {
+				expectError(t, r, http.StatusBadRequest, "invalid")
+			} else {
+				t.Errorf("%s colour %s: status %d %s, want 400", typ, in, r.status, r.body)
+			}
+		}
+	}
+	// soft is the income green: an expense top refuses it.
+	expectError(t, create("expense", `"soft"`), http.StatusBadRequest, "invalid")
+	// A change validates the same way and stores the same columns; a refused one changes nothing.
+	for _, bad := range []string{`"#fff"`, `"red"`, `"#aabbccdd"`, `"c17"`} {
+		expectError(t, p.bert("PATCH", "/api/categories/2", `{"colour":`+bad+`}`), http.StatusBadRequest, "invalid")
+	}
+	if s := p.storedColour(2); s != "c2|-" {
+		t.Errorf("category 2 stored as %s after refused changes", s)
+	}
+	r := p.bert("PATCH", "/api/categories/2", `{"colour":"#ABCDEF"}`)
+	if c := decode[ledger.TreeCategory](t, r.body); r.status != http.StatusOK || c.Colour != "#abcdef" || p.storedColour(2) != "c6|#abcdef" {
+		t.Errorf("PATCH hex: %d %s, stored %s", r.status, r.body, p.storedColour(2))
+	}
+	// A subcategory still cannot be given a colour, whatever it is.
+	expectError(t, p.bert("PATCH", "/api/categories/11", `{"colour":"#abcdef"}`), http.StatusBadRequest, "invalid")
+	expectError(t, p.bert("POST", "/api/categories", `{"name":"x","parentId":1,"colour":"c7"}`), http.StatusBadRequest, "invalid")
+}
+
+// An income top category takes the palette and a hex too, and its colour can be
+// changed later.
+func TestIncomeCategoryColours(t *testing.T) {
+	p := newPair(t)
+	patch := func(id, colour string) ledger.TreeCategory {
+		t.Helper()
+		r := p.bert("PATCH", "/api/categories/"+id, `{"colour":"`+colour+`"}`)
+		if r.status != http.StatusOK {
+			t.Fatalf("PATCH %s %s: %d %s", id, colour, r.status, r.body)
+		}
+		return decode[ledger.TreeCategory](t, r.body)
+	}
+	for _, c := range []struct{ in, want, stored string }{
+		{"c2", "c2", "c2|-"}, {"c12", "c12", "c6|c12"}, {"#FFAA00", "#ffaa00", "c6|#ffaa00"}, {"soft", "soft", "soft|-"},
+	} {
+		if got := patch("7", c.in); got.Colour != c.want || got.Type != "income" || p.storedColour(7) != c.stored {
+			t.Errorf("income top %s: %+v, stored %s, want %s %s", c.in, got, p.storedColour(7), c.want, c.stored)
+		}
+	}
+}
+
+// Recolouring a top category recolours its subcategories, tint and colour
+// together: palette to hex and back to a legacy key clears the tint.
+func TestCategoryColourCascade(t *testing.T) {
+	p := newPair(t)
+	list := func() map[int64]string {
+		t.Helper()
+		out := map[int64]string{}
+		for _, c := range decode[[]ledger.TreeCategory](t, p.bert("GET", "/api/categories", "").body) {
+			out[c.ID] = c.Colour
+		}
+		return out
+	}
+	subs := []int64{11, 12, 13, 14}
+	step := func(colour, stored string) {
+		t.Helper()
+		r := p.bert("PATCH", "/api/categories/1", `{"colour":"`+colour+`"}`)
+		if r.status != http.StatusOK {
+			t.Fatalf("PATCH %s: %d %s", colour, r.status, r.body)
+		}
+		want := strings.ToLower(colour)
+		l := list()
+		for _, id := range append([]int64{1}, subs...) {
+			if l[id] != want || p.storedColour(id) != stored {
+				t.Errorf("after %s: category %d is %s (stored %s), want %s (%s)", colour, id, l[id], p.storedColour(id), want, stored)
+			}
+		}
+		if l[2] != "c2" || p.storedColour(2) != "c2|-" {
+			t.Errorf("after %s: another top changed to %s", colour, l[2])
+		}
+	}
+	step("c8", "c6|c8")
+	step("#112233", "c6|#112233")
+	step("#ABCDEF", "c6|#abcdef")
+	step("c2", "c2|-")
+	step("c6", "c6|-")
+	if n := p.count(`SELECT COUNT(*) FROM categories WHERE tint IS NOT NULL`); n != 0 {
+		t.Errorf("%d categories keep a tint after recolouring back to a legacy key", n)
+	}
+}
+
+// A subcategory made under a tinted parent, and a category moved under one,
+// take the parent's effective colour (tint included); a type change resets to
+// the default colour of the new type and clears the tint.
+func TestCategoryColourFollowsParentAndType(t *testing.T) {
+	p := newPair(t)
+	patch := func(path, body string) ledger.TreeCategory {
+		t.Helper()
+		r := p.bert("PATCH", path, body)
+		if r.status != http.StatusOK {
+			t.Fatalf("PATCH %s %s: %d %s", path, body, r.status, r.body)
+		}
+		return decode[ledger.TreeCategory](t, r.body)
+	}
+	patch("/api/categories/4", `{"colour":"#10a0f0"}`)
+	sub := p.created(p.bert("POST", "/api/categories", `{"name":"Onder tint","parentId":4}`))
+	if sub.Colour != "#10a0f0" || p.storedColour(sub.ID) != "c6|#10a0f0" {
+		t.Errorf("sub under a tinted parent: %+v, stored %s", sub, p.storedColour(sub.ID))
+	}
+	// Move: a sub of a legacy-coloured parent under the tinted one, then under a palette c9 parent.
+	if c := patch("/api/categories/12", `{"parentId":4}`); c.Colour != "#10a0f0" || p.storedColour(12) != "c6|#10a0f0" {
+		t.Errorf("moved under a hex parent: %+v, stored %s", c, p.storedColour(12))
+	}
+	patch("/api/categories/5", `{"colour":"c9"}`)
+	if c := patch("/api/categories/12", `{"parentId":5}`); c.Colour != "c9" || p.storedColour(12) != "c6|c9" {
+		t.Errorf("moved under a c9 parent: %+v, stored %s", c, p.storedColour(12))
+	}
+	// And under a legacy-coloured parent again: the tint is gone.
+	if c := patch("/api/categories/12", `{"parentId":3}`); c.Colour != "c3" || p.storedColour(12) != "c3|-" {
+		t.Errorf("moved under a c3 parent: %+v, stored %s", c, p.storedColour(12))
+	}
+	// A sub moved to the top keeps its colour (tint included).
+	id := strconv.FormatInt(sub.ID, 10)
+	if c := patch("/api/categories/"+id, `{"parentId":null}`); c.ParentID != nil || c.Colour != "#10a0f0" || p.storedColour(sub.ID) != "c6|#10a0f0" {
+		t.Errorf("moved to the top: %+v, stored %s", c, p.storedColour(sub.ID))
+	}
+	// A type change resets the colour to the default of the new type and clears the tint.
+	if c := patch("/api/categories/"+id, `{"type":"income"}`); c.Type != "income" || c.Colour != "soft" || p.storedColour(sub.ID) != "soft|-" {
+		t.Errorf("to income: %+v, stored %s", c, p.storedColour(sub.ID))
+	}
+	patch("/api/categories/"+id, `{"colour":"#abcdef"}`)
+	if c := patch("/api/categories/"+id, `{"type":"expense"}`); c.Type != "expense" || c.Colour != "c6" || p.storedColour(sub.ID) != "c6|-" {
+		t.Errorf("to expense: %+v, stored %s", c, p.storedColour(sub.ID))
+	}
+	// Changing the type and sending a hex in the same body keeps the hex.
+	if c := patch("/api/categories/"+id, `{"type":"income","colour":"#ABCDEF"}`); c.Colour != "#abcdef" || p.storedColour(sub.ID) != "c6|#abcdef" {
+		t.Errorf("type and hex together: %+v, stored %s", c, p.storedColour(sub.ID))
+	}
+	// Renaming leaves a tinted colour alone.
+	if c := patch("/api/categories/"+id, `{"name":"Nieuwe naam"}`); c.Colour != "#abcdef" || p.storedColour(sub.ID) != "c6|#abcdef" {
+		t.Errorf("rename: %+v, stored %s", c, p.storedColour(sub.ID))
+	}
+	// Every sub still has its parent's type and effective colour.
+	if n := p.count(`SELECT COUNT(*) FROM categories c JOIN categories p ON p.id = c.parent_id
+		WHERE c.type <> p.type OR COALESCE(c.tint, c.colour) <> COALESCE(p.tint, p.colour)`); n != 0 {
+		t.Errorf("%d subcategories differ from their parent", n)
+	}
+}
+
+// A custom colour reaches every place a category colour is shown: the tree,
+// the transaction list, the parts of a split and the backfill preview.
+func TestCategoryHexColourShowsEverywhere(t *testing.T) {
+	p := newPair(t)
+	const hex = "#a1b2c3"
+	if r := p.bert("PATCH", "/api/categories/1", `{"colour":"`+hex+`"}`); r.status != http.StatusOK {
+		t.Fatalf("recolour: %d %s", r.status, r.body)
+	}
+	// A row in subcategory 11, a split row with parts in 11 and 12, and a
+	// learned counterparty (16 rows in 11) with one row that still waits.
+	single := p.addRow(1, "Hexproef Enkel", -500, "booked", 11, "manual")
+	split := p.addRow(1, "Hexproef Split", -900, "booked", nil, nil)
+	p.exec(`INSERT INTO transaction_splits (transaction_id, category_id, amount) VALUES (?, 11, -400), (?, 12, -500)`, split, split)
+	for range 16 {
+		p.addRow(1, "Hexproef Leer", -350, "booked", 11, "manual")
+	}
+	p.addRow(1, "Hexproef Leer", -360, "booked", nil, nil)
+
+	for _, c := range decode[[]ledger.TreeCategory](t, p.bert("GET", "/api/categories", "").body) {
+		if (c.ID == 1 || c.ParentID != nil && *c.ParentID == 1) && c.Colour != hex {
+			t.Errorf("GET /api/categories: category %d is %s, want %s", c.ID, c.Colour, hex)
+		}
+	}
+	items := decode[ledger.Page](t, p.bert("GET", "/api/transactions?q=Hexproef", "").body).Items
+	var sawSingle, sawSplit bool
+	for _, it := range items {
+		switch it.ID {
+		case single:
+			sawSingle = true
+			if it.Category == nil || it.Category.Colour != hex {
+				t.Errorf("transaction list: category %+v, want colour %s", it.Category, hex)
+			}
+		case split:
+			sawSplit = true
+			if len(it.Splits) != 2 || it.Splits[0].Category.Colour != hex || it.Splits[1].Category.Colour != hex {
+				t.Errorf("split parts: %+v, want colour %s", it.Splits, hex)
+			}
+		}
+	}
+	if !sawSingle || !sawSplit {
+		t.Fatalf("the rows are missing from the list: single %v, split %v", sawSingle, sawSplit)
+	}
+	// The answers of a change and of a split carry the colour as well.
+	open := p.addRow(1, "Hexproef Open", -100, "booked", nil, nil)
+	if got := p.tx(p.bert, "PATCH", txPath(open, ""), `{"categoryId":11}`); got.Category == nil || got.Category.Colour != hex {
+		t.Errorf("PATCH answer: %+v", got.Category)
+	}
+	if got := p.tx(p.bert, "PUT", txPath(open, "/split"), `{"parts":[{"categoryId":11,"amount":-60},{"categoryId":12,"amount":-40}]}`); len(got.Splits) != 2 || got.Splits[0].Category.Colour != hex || got.Splits[1].Category.Colour != hex {
+		t.Errorf("PUT split answer: %+v", got.Splits)
+	}
+	g := p.backfillGroup(p.backfill(p.bert), "hexproef leer")
+	if g == nil || g.Category.ID != 11 || g.Category.Colour != hex {
+		t.Errorf("backfill group category: %+v", g)
 	}
 }

@@ -1,14 +1,14 @@
 // Importeren, step 3 (phase 0.5-3): where every category pair of the file goes in Saldo's own category tree.
-// Design: finance-mockup/js/screens/importeren.js (Stap 3), with the shared Select and IconPicker.
+// Design: finance-mockup/js/screens/importeren.js (Stap 3), with the shared Select and EmojiPicker.
 // The saved mapping and a suggestion by name are pre-selected and labelled, so they are seen before anything is sent.
 import { useId, useMemo, type ReactNode } from 'react';
 import { Icon } from '../components/Icon';
-import { IconPicker } from '../components/IconPicker';
+import { CatIcon } from '../components/CatIcon';
+import { EmojiPicker } from '../components/EmojiPicker';
 import { Select, type SelectOption } from '../components/Select';
 import { delay, ErrorState, SkelList } from '../components/ui';
 import { api } from '../lib/api';
 import { catColours, groupTree } from '../lib/categories';
-import { categoryIcon } from '../lib/categoryIcons';
 import { eur } from '../lib/format';
 import { defaultPick, inGroup, mergesOf, pairKey, parentDefault, pickOf, type CategoryPicks, type FileCategory, type Pick, type PickOrigin } from '../lib/imports';
 import type { TreeCategory } from '../lib/types';
@@ -82,12 +82,7 @@ function Badge({ origin }: { origin: Unit['origin'] }) {
 
 /** The icon of a category in its main category's pastel, drawn before its name in the list. */
 function Dot({ c }: { c: TreeCategory }) {
-  const { bg, fg } = catColours(c.colour);
-  return (
-    <span className="im-opt-ico" style={{ background: bg, color: fg }} aria-hidden="true">
-      <Icon name={categoryIcon(c.icon)} size={12} stroke={2.4} />
-    </span>
-  );
+  return <CatIcon icon={c.icon} colour={c.colour} />;
 }
 
 interface Props {
@@ -308,7 +303,7 @@ function CategoryTable({ cats, tree, state, onChange, source }: Props & { tree: 
                           <span className="field-label" id={uid + '-i' + i}>
                             Icoon
                           </span>
-                          <IconPicker
+                          <EmojiPicker
                             value={u.pick.icon || null}
                             colour={byId.get(u.pick.parent)?.colour ?? 'c6'}
                             labelledBy={uid + '-i' + i}

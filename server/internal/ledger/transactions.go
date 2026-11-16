@@ -178,7 +178,7 @@ const visibleRule = `(SELECT r.id FROM rules r WHERE r.id = tx.rule_id
 func (s *Store) items(ctx context.Context, viewer int64, where []string, args []any, limit int) ([]Transaction, error) {
 	query := visibleTx + `
 		SELECT tx.id, tx.account_id, tx.booking_date, tx.amount, tx.counterparty_name, tx.communication,
-		       tx.status, c.id, c.name, c.colour, tx.category_origin, ` + visibleRule + `, tx.note, tx.is_transfer
+		       tx.status, c.id, c.name, ` + effectiveColour("c") + `, tx.category_origin, ` + visibleRule + `, tx.note, tx.is_transfer
 		FROM tx LEFT JOIN categories c ON c.id = tx.category_id
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY tx.booking_date DESC, tx.id DESC
@@ -224,7 +224,7 @@ func (s *Store) splits(ctx context.Context, items []Transaction) error {
 		at[t.ID] = i
 		ids[i] = t.ID
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT s.transaction_id, c.id, c.name, c.colour, s.amount
+	rows, err := s.db.QueryContext(ctx, `SELECT s.transaction_id, c.id, c.name, `+effectiveColour("c")+`, s.amount
 		FROM transaction_splits s JOIN categories c ON c.id = s.category_id
 		WHERE s.transaction_id IN (?`+strings.Repeat(", ?", len(ids)-1)+`) ORDER BY s.id`, ids...)
 	if err != nil {

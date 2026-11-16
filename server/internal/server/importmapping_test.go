@@ -95,7 +95,7 @@ func TestImportCategoryMapping(t *testing.T) {
 
 	// A created category rolls back with an import that fails after it: Partner
 	// may not import into Bert's account.
-	create := `[` + pair("Eten & Drinken", "Boodschappen", `"action":"create","new":{"name":"Markt","icon":"cart","parentId":`+id(boodschappen, 10)+`}`) + `]`
+	create := `[` + pair("Eten & Drinken", "Boodschappen", `"action":"create","new":{"name":"Markt","icon":"🛒","parentId":`+id(boodschappen, 10)+`}`) + `]`
 	expectError(t, send("/api/imports", file1, create, e.partner), http.StatusNotFound, "not_found")
 	if e.count(`SELECT COUNT(*) FROM categories WHERE name = 'Markt'`) != 0 {
 		t.Fatal("a failed import left its new category")
@@ -105,7 +105,7 @@ func TestImportCategoryMapping(t *testing.T) {
 	choices := `[` + strings.Join([]string{
 		pair("Wonen", "Huur, hypotheek", `"action":"map","categoryId":`+id(huur, 10)),
 		pair("Wonen", "Onderhoud woning", `"action":"map","categoryId":`+id(huur, 10)), // merged into Huur
-		pair("Eten & Drinken", "Boodschappen", `"action":"create","new":{"name":"Markt","icon":"cart","parentId":`+id(boodschappen, 10)+`}`),
+		pair("Eten & Drinken", "Boodschappen", `"action":"create","new":{"name":"Markt","icon":"🛒","parentId":`+id(boodschappen, 10)+`}`),
 		pair("Winkelen", "Overig", `"action":"skip"`),
 	}, ",") + `]`
 	p = decode[previewBody](t, send("/api/imports/preview", file1, choices, e.bert).body)
@@ -146,7 +146,7 @@ func TestImportCategoryMapping(t *testing.T) {
 			t.Errorf("%s: %q, want %q", who, g, want)
 		}
 	}
-	if e.count(`SELECT COUNT(*) FROM categories WHERE id = ? AND parent_id = ? AND icon = 'cart' AND colour = (SELECT colour FROM categories WHERE id = ?)`,
+	if e.count(`SELECT COUNT(*) FROM categories WHERE id = ? AND parent_id = ? AND icon = '🛒' AND colour = (SELECT colour FROM categories WHERE id = ?)`,
 		markt, boodschappen, boodschappen) != 1 {
 		t.Error("the created category is not a subcategory with its parent's colour and the chosen icon")
 	}

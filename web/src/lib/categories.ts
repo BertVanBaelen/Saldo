@@ -2,9 +2,35 @@
 import { eur, eur0, parseMoney } from './format';
 import type { Category, CategoryColour, Rule, SkippedCounts, SplitPartInput, TreeCategory } from './types';
 
-/** Background and text colour of a category pastel (`c1` … `c6`, `soft` for income). */
-export function catColours(colour: CategoryColour): { bg: string; fg: string } {
-  return { bg: 'var(--' + colour + ')', fg: colour === 'soft' ? 'var(--greenText)' : colour === 'c6' ? 'var(--onC6)' : 'var(--onPastel)' };
+const PALETTE = /^(?:c(?:[1-9]|1[0-6])|soft)$/;
+const HEX = /^#[0-9a-f]{6}$/;
+
+// Older Safari (16.4 to 17.x) can drop the channel-keyword clamp of relative colours. Checked once; without
+// `CSS.supports` (jsdom) it counts as supported.
+const RELATIVE_COLOUR = typeof CSS === 'undefined' || typeof CSS.supports !== 'function' || CSS.supports('color', 'oklch(from #fff clamp(0.5, l, 0.9) min(c, 0.1) h)');
+
+/**
+ * Background, text colour and outline (`line`, for a chip that is not selected) of a category colour:
+ * a palette key (`c1` … `c16`, `soft` for income) or a custom `#rrggbb`. Anything else shows as the grey `c6`.
+ *
+ * A custom hex is turned into a pastel in light mode and a mid-tone in dark mode by CSS relative colours:
+ * lightness and chroma are clamped to the `--tint-*` tokens of the theme, so the same dark text stays readable.
+ * Needs relative colour syntax: Chrome 119, Safari 16.4 or Firefox 128. The values are unitless numbers:
+ * `hsl(from …)` and percentages do not work here. jsdom cannot evaluate it, so the lead checks it in a browser.
+ */
+export function catColours(colour: CategoryColour): { bg: string; fg: string; line: string } {
+  if (HEX.test(colour)) {
+    if (!RELATIVE_COLOUR) {
+      // No relative colours: a plain mix with the surface keeps the dark text readable in both themes.
+      const bg = `color-mix(in srgb, ${colour} 40%, var(--surface))`;
+      return { bg, fg: 'var(--text)', line: bg };
+    }
+    const bg = `oklch(from ${colour} clamp(var(--tint-l-min), l, var(--tint-l-max)) min(c, var(--tint-c-max)) h)`;
+    return { bg, fg: 'var(--onPastel)', line: bg };
+  }
+  const key = PALETTE.test(colour) ? colour : 'c6';
+  const bg = 'var(--' + key + ')';
+  return { bg, fg: key === 'soft' ? 'var(--greenText)' : key === 'c6' ? 'var(--onC6)' : 'var(--onPastel)', line: key === 'soft' ? 'var(--softChip)' : bg };
 }
 
 export interface TreeGroup {

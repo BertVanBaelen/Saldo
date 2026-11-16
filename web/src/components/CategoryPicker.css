@@ -1,0 +1,72 @@
+/* The two-step category picker (phase 0.5.1-4) */
+.cat-pick { display: flex; flex-direction: column; gap: 8px; }
+
+/* Step 1: a grid of main categories */
+/* 116 px: two columns on a 375 px phone (grid is 335 px), so "Boodschappen" and "Abonnementen" never break mid-word. */
+.cat-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; }
+.cat-pick-tile {
+  position: relative; min-height: 76px; min-width: 0; padding: 10px 6px 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 14px; border: 2px solid var(--line);
+  background: var(--surface); color: var(--text);
+  font-size: 13px; font-weight: 600; text-align: center;
+  transition: background 160ms ease;
+}
+.cat-pick-tile .cat-pick-name { max-width: 100%; overflow-wrap: anywhere; line-height: 1.2; }
+.cat-pick-end { position: absolute; top: 6px; right: 6px; color: var(--muted); }
+.cat-pick-tile[aria-pressed="true"] .cat-pick-end { color: inherit; }
+.cat-pick-cur { font-size: 13px; font-weight: 600; color: var(--muted); }
+
+/* Step 2: the main category itself, then its subcategories */
+.cat-pick-head { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.cat-pick-back {
+  height: 44px; padding: 0 12px 0 8px;
+  display: inline-flex; align-items: center; gap: 2px;
+  border: none; border-radius: 10px;
+  background: transparent; color: var(--greenText);
+  font-size: 14px; font-weight: 600;
+}
+.cat-pick-title { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.cat-pick-rows { display: flex; flex-direction: column; gap: 6px; }
+.cat-pick-row {
+  min-height: 48px; padding: 6px 12px;
+  display: flex; align-items: center; gap: 12px;
+  border-radius: 12px; border: 2px solid var(--line);
+  background: var(--surface); color: var(--text);
+  font-size: 14px; font-weight: 500; text-align: left;
+}
+.cat-pick-row .cat-pick-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cat-pick-row strong { font-weight: 600; }
+.cat-pick-row[aria-pressed="true"] { border-color: var(--text); }
+
+.cat-pick-tile[aria-disabled="true"], .cat-pick-row[aria-disabled="true"] { opacity: 0.6; }
+.cat-pick-tile[aria-busy="true"], .cat-pick-row[aria-busy="true"] { opacity: 1; }
+
+/* Type toggle, error, empty state */
+.cat-pick-link {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px;
+  border: none; background: transparent;
+  font-size: 14px; font-weight: 600;
+  color: var(--greenText); text-decoration: none;
+}
+.cat-pick-link:hover { text-decoration: underline; }
+.cat-pick-note {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px;
+  padding: 10px 12px; border-radius: 12px;
+  background: var(--bg); color: var(--muted);
+  font-size: 13px; line-height: 1.45;
+}
+.cat-pick-retry {
+  flex: none; min-height: 44px; padding: 0 14px;
+  border: none; border-radius: 10px;
+  background: var(--soft); color: var(--greenText);
+  font-size: 14px; font-weight: 600;
+}
+.cat-pick-skel { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; }
+.cat-pick-skel span {
+  height: 76px; border-radius: 14px;
+  background: linear-gradient(90deg, var(--skel) 0%, var(--skel2) 50%, var(--skel) 100%);
+  background-size: 640px 100%;
+  animation: sShimmer 1.1s linear infinite;
+}

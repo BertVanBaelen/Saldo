@@ -40,6 +40,18 @@
   --c5: #FFE58A;
   --c6: #E2E8E4;
   --onC6: #121A16;
+  --c7: #BDEBD3;
+  --c8: #DCEFA0;
+  --c9: #A6E8E2;
+  --c10: #FFB5A6;
+  --c11: #FFD0BA;
+  --c12: #E8C4F4;
+  --c13: #F2B6C0;
+  --c14: #E8D8B8;
+  --c15: #CBD497;
+  --c16: #A8BEE0;
+  /* A custom category colour is clamped to these (unitless, for oklch(from #hex ...) in catColours) */
+  --tint-l-min: 0.84; --tint-l-max: 0.93; --tint-c-max: 0.12;
   --track: #EAEFEC;
   --dashed: #8A958F;
   /* Skeleton shimmer and account colours (8 choices, analysis/concepts/account.md) */
@@ -102,6 +114,18 @@
     --c5: #E8CB55;
     --c6: #3A4741;
     --onC6: #E7EEEA;
+    --c7: #6DD3A0;
+    --c8: #B6D84E;
+    --c9: #4FCFC4;
+    --c10: #F58A78;
+    --c11: #F2A582;
+    --c12: #CF8FE8;
+    --c13: #E48A9E;
+    --c14: #CDB98A;
+    --c15: #A8B453;
+    --c16: #7F9CD0;
+    /* A custom category colour is clamped to these (unitless, for oklch(from #hex ...) in catColours) */
+    --tint-l-min: 0.68; --tint-l-max: 0.80; --tint-c-max: 0.13;
     --track: #222B27;
     --dashed: #5F6B65;
   --skel: #1F2824;
@@ -151,6 +175,18 @@
   --c5: #E8CB55;
   --c6: #3A4741;
   --onC6: #E7EEEA;
+  --c7: #6DD3A0;
+  --c8: #B6D84E;
+  --c9: #4FCFC4;
+  --c10: #F58A78;
+  --c11: #F2A582;
+  --c12: #CF8FE8;
+  --c13: #E48A9E;
+  --c14: #CDB98A;
+  --c15: #A8B453;
+  --c16: #7F9CD0;
+  /* A custom category colour is clamped to these (unitless, for oklch(from #hex ...) in catColours) */
+  --tint-l-min: 0.68; --tint-l-max: 0.80; --tint-c-max: 0.13;
   --track: #222B27;
   --dashed: #5F6B65;
   --skel: #1F2824;

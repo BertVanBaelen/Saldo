@@ -163,3 +163,66 @@ func TestImportDuplicatesAndCutoff(t *testing.T) {
 		})
 	}
 }
+
+// The category refs of the duplicate list (the incoming row's mapped category
+// and the stored row's own) show the effective colour of a custom-coloured
+// category, and an import can create a category with a custom colour.
+func TestImportDuplicatesShowCategoryHexColour(t *testing.T) {
+	e := newBankEnv(t)
+	if err := categorise.SeedDefaults(context.Background(), e.db); err != nil {
+		t.Fatal(err)
+	}
+	account := decode[ledger.Account](t, e.as(e.bert, "POST", "/api/accounts", `{"name":"Zicht","type":"current"}`).body).ID
+	cat := func(name string) int64 { return int64(e.count(`SELECT id FROM categories WHERE name = ?`, name)) }
+	streaming, boodschappen := cat("Streaming"), cat("Boodschappen")
+	const hexA, hexB = "#a1b2c3", "#0a1b2c"
+	top := func(sub int64) int64 {
+		return int64(e.count(`SELECT COALESCE(parent_id, id) FROM categories WHERE id = ?`, sub))
+	}
+	for id, hex := range map[int64]string{top(streaming): hexA, top(boodschappen): hexB} {
+		if r := e.as(e.bert, "PATCH", fmt.Sprintf("/api/categories/%d", id), `{"colour":"`+strings.ToUpper(hex)+`"}`); r.status != http.StatusOK {
+			t.Fatalf("recolour %d: %d %s", id, r.status, r.body)
+		}
+	}
+	if _, err := e.db.Exec(`INSERT INTO transactions (account_id, amount, booking_date, counterparty_name, status, dedupe_key, category_id, category_origin)
+		VALUES (?, -1199, '2026-11-05', 'Spotify', 'booked', 'k1', NULL, NULL), (?, -3000, '2026-11-07', 'Bakkerij Test', 'booked', 'k2', ?, 'manual')`,
+		account, account, boodschappen); err != nil {
+		t.Fatal(err)
+	}
+	file := bilanceHead +
+		bilanceRow("2026-11-06", "-11.99", "Abonnementen", "Streaming", "SPOTIFY AB") +
+		bilanceRow("2026-11-07", "-30.00", "Eten & Drinken", "Boodschappen", "Bakkerij Test Gent") +
+		bilanceRow("2026-11-20", "-9.00", "Winkelen", "Overig", "Nieuwe winkel")
+	choices := `[{"category":"Abonnementen","subcategory":"Streaming","action":"map","categoryId":` + fmt.Sprint(streaming) + `},
+		{"category":"Eten & Drinken","subcategory":"Boodschappen","action":"map","categoryId":` + fmt.Sprint(boodschappen) + `},
+		{"category":"Winkelen","subcategory":"Overig","action":"create","new":{"name":"Hexwinkel","type":"expense","colour":"#ABCDEF"}}]`
+	parts := append(importForm(file, account, bilanceMap), formPart{"categories", "", choices})
+	parts[0].fileName = "bilance.csv"
+	r := e.upload(e.bert, "/api/imports/preview", parts...)
+	if r.status != http.StatusOK {
+		t.Fatalf("preview: %d %s", r.status, r.body)
+	}
+	p := decode[previewBody](t, r.body)
+	if p.Duplicates == nil || len(p.Duplicates.Items) != 2 {
+		t.Fatalf("duplicates: %+v", p.Duplicates)
+	}
+	for _, d := range p.Duplicates.Items {
+		switch d.Counterparty {
+		case "SPOTIFY AB":
+			if d.Category == nil || d.Category.Colour != hexA {
+				t.Errorf("incoming Streaming: %+v, want colour %s", d.Category, hexA)
+			}
+		default:
+			if d.Category == nil || d.Category.Colour != hexB || d.Existing.Category == nil || d.Existing.Category.Colour != hexB {
+				t.Errorf("incoming and stored Boodschappen: %+v %+v, want colour %s", d.Category, d.Existing.Category, hexB)
+			}
+		}
+	}
+	if r := e.upload(e.bert, "/api/imports", parts...); r.status != http.StatusCreated {
+		t.Fatalf("import: %d %s", r.status, r.body)
+	}
+	var stored string
+	if err := e.db.QueryRow(`SELECT colour || '|' || COALESCE(tint, '-') FROM categories WHERE name = 'Hexwinkel'`).Scan(&stored); err != nil || stored != "c6|#abcdef" {
+		t.Errorf("created through the import: %q, %v; %d categories", stored, err, e.count(`SELECT COUNT(*) FROM categories`))
+	}
+}

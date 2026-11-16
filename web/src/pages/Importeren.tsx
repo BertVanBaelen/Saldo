@@ -12,6 +12,7 @@ import { Select } from '../components/Select';
 import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
 import { accColour, accountIcon, syncLine } from '../lib/accounts';
 import { api, ApiError, errorMessage, isAbort } from '../lib/api';
+import { catColours } from '../lib/categories';
 import { isoDate, MONTHS, toDate } from '../lib/format';
 import {
   buildChoices,
@@ -37,7 +38,7 @@ import {
   type ImportTarget,
   type RowError,
 } from '../lib/imports';
-import type { Account } from '../lib/types';
+import type { Account, CategoryColour } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { CategoryStep } from './ImporterenCategories';
 import { CutoffCard, DuplicatesSection } from './ImporterenControle';
@@ -119,9 +120,10 @@ interface Failure {
 
 // ---------- Small pieces ----------
 
-function Tile({ icon, bg, fg }: { icon: IconName; bg: string; fg?: string }) {
+function Tile({ icon, colour }: { icon: IconName; colour: CategoryColour }) {
+  const { bg, fg } = catColours(colour);
   return (
-    <span className="im-tile" style={{ background: bg, color: fg || (bg === 'var(--c6)' ? 'var(--onC6)' : 'var(--onPastel)') }} aria-hidden="true">
+    <span className="im-tile" style={{ background: bg, color: fg }} aria-hidden="true">
       <Icon name={icon} size={18} stroke={2} />
     </span>
   );
@@ -215,7 +217,7 @@ function BatchRow({ batches, accountOf, today, online, onUndo }: { batches: Impo
   }
   return (
     <div className={'im-batch' + (live.length ? '' : undone ? ' is-undone' : ' is-quiet')}>
-      <Tile icon="file" bg={b.source === 'argenta' ? 'var(--c1)' : b.source === 'bilance' ? 'var(--c4)' : 'var(--c6)'} />
+      <Tile icon="file" colour={b.source === 'argenta' ? 'c1' : b.source === 'bilance' ? 'c4' : 'c6'} />
       <div className="im-batch-main">
         <span className="im-batch-name">{b.fileName}</span>
         <span className="im-batch-sub">
@@ -672,7 +674,7 @@ export function Importeren() {
     intro = (
       <section className="card im-intro anim-in" style={delay(30)} aria-labelledby="im-intro-h">
         <div className="im-intro-head">
-          <Tile icon="upload" bg="var(--c4)" />
+          <Tile icon="upload" colour="c4" />
           <div className="im-intro-text">
             <h2 id="im-intro-h">Eerst een rekening</h2>
             <p>Je hebt nog geen rekening. Een import komt altijd in een rekening terecht. Koppel eerst je bank of maak een handmatige rekening.</p>
@@ -680,7 +682,7 @@ export function Importeren() {
         </div>
         <div className="im-choices">
           <Link className="im-choice" to="/bankkoppelingen">
-            <Tile icon="bank" bg="var(--c1)" />
+            <Tile icon="bank" colour="c1" />
             <span className="im-choice-main">
               <span className="im-choice-name">Bank koppelen</span>
               <span className="im-choice-sub">Je bank geeft de recente maanden. Daarna importeer je wat ouder is.</span>
@@ -690,7 +692,7 @@ export function Importeren() {
             </span>
           </Link>
           <Link className="im-choice" to="/rekeningen">
-            <Tile icon="card" bg="var(--soft)" fg="var(--greenText)" />
+            <Tile icon="card" colour="soft" />
             <span className="im-choice-main">
               <span className="im-choice-name">Handmatige rekening maken</span>
               <span className="im-choice-sub">Voor een spaarrekening of een rekening zonder koppeling</span>
@@ -706,7 +708,7 @@ export function Importeren() {
     intro = (
       <section className="card im-intro anim-in" style={delay(30)} aria-labelledby="im-intro-h">
         <div className="im-intro-head">
-          <Tile icon="upload" bg="var(--c4)" />
+          <Tile icon="upload" colour="c4" />
           <div className="im-intro-text">
             <h2 id="im-intro-h">Breng je geschiedenis mee</h2>
             <p>Importeer een CSV-bestand, zoals de export uit Bilance of Argenta. Je ziet eerst wat er bijkomt: er wordt niets bewaard tot je bevestigt.</p>
@@ -782,7 +784,7 @@ export function Importeren() {
       <>
         <StepTitle title="Welk bestand importeer je?" sub="Saldo las het bestand en herkende hoe het is opgebouwd. Er wordt nog niets bewaard." />
         <div className="im-file anim-in" style={delay(60)}>
-          <Tile icon="file" bg="var(--c4)" />
+          <Tile icon="file" colour="c4" />
           <span className="im-file-main">
             <span className="im-file-name">{info.fileName}</span>
             <span className="im-file-meta">
@@ -1292,7 +1294,7 @@ export function Importeren() {
           </div>
           <div className="im-nexts">
             <Link className="im-next" to={result.batches.length === 1 ? '/transacties?rekening=' + first.accountId : '/transacties'}>
-              <Tile icon="list" bg="var(--c1)" />
+              <Tile icon="list" colour="c1" />
               <span className="im-next-main">
                 <span className="im-next-name">Transacties bekijken</span>
                 <span className="im-next-sub">{result.batches.length === 1 ? 'De transacties van je ' + (done?.name ?? 'rekening') : 'De transacties van al je rekeningen'}</span>
@@ -1310,7 +1312,7 @@ export function Importeren() {
                 input.current?.click();
               }}
             >
-              <Tile icon="upload" bg="var(--c4)" />
+              <Tile icon="upload" colour="c4" />
               <span className="im-next-main">
                 <span className="im-next-name">Nog een bestand importeren</span>
                 <span className="im-next-sub">Bv. een oudere export van dezelfde rekening</span>

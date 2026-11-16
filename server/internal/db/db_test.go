@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 	"testing/fstest"
 )
@@ -428,5 +429,227 @@ func TestMigration0006MergesDuplicateSuggestions(t *testing.T) {
 	}
 	if files, _ := filepath.Glob(filepath.Join(backups, "*before-0006*")); len(files) != 1 {
 		t.Errorf("want one backup before 0006, found %v", files)
+	}
+}
+
+// Migration 0009 turns the line-icon names of categories into emoji and
+// clears any other plain-ASCII value; it changes nothing else. On a database
+// at version 8 holding rules, splits, mappings and transactions that point at
+// categories, every row count and every id stays.
+func TestMigration0009TurnsIconNamesIntoEmoji(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	full := Migrations()
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(full, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() < "0009" {
+			b, err := fs.ReadFile(full, e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			old[e.Name()] = &fstest.MapFile{Data: b}
+		}
+	}
+	if len(old) != 8 {
+		t.Fatalf("%d migrations before 0009, want 8", len(old))
+	}
+	backups := filepath.Join(t.TempDir(), "backups")
+	if _, err := Migrate(ctx, db, old, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO users (id, email, display_name) VALUES (1, 'a@example.com', 'A')`,
+		`INSERT INTO accounts (id, type, source, iban, name) VALUES (1, 'current', 'bank', 'BE00TEST0000001', 'Rekening')`,
+		`INSERT INTO categories (id, name, parent_id, type, colour, sort_order, icon) VALUES
+		     (1, 'Wonen', NULL, 'expense', 'c1', 1, 'home'),
+		     (2, 'Huur', 1, 'expense', 'c1', 1, 'home'),
+		     (3, 'Energie', 1, 'expense', 'c1', 2, 'bolt'),
+		     (4, 'Salaris', NULL, 'income', 'soft', 3, 'salary'),
+		     (5, 'Overig', NULL, 'expense', 'c6', 4, 'dots'),
+		     (6, 'Mijn dieren', NULL, 'expense', 'c2', 5, 'paw'),
+		     (7, 'Vreemd', NULL, 'expense', 'c3', 6, 'unicorn'),
+		     (8, 'Hoofdletter', NULL, 'expense', 'c3', 7, 'Home'),
+		     (9, 'Zonder', NULL, 'expense', 'c4', 8, NULL),
+		     (10, 'Al emoji', NULL, 'expense', 'c5', 9, '🏠')`,
+		`INSERT INTO rules (id, user_id, priority, counterparty_match, category_id) VALUES (1, 1, 1, 'Winkel', 3), (2, 1, 2, 'Baas', 4)`,
+		`INSERT INTO transactions (id, account_id, amount, booking_date, counterparty_name, status, dedupe_key, category_id, category_origin)
+		 VALUES (1, 1, -1250, '2026-11-02', 'Winkel', 'booked', 'hash:1', 3, 'rule'),
+		        (2, 1, -5000, '2026-11-03', 'Splitsing', 'booked', 'hash:2', NULL, NULL),
+		        (3, 1, 200000, '2026-11-04', 'Baas', 'booked', 'hash:3', 4, 'rule')`,
+		`INSERT INTO transaction_splits (id, transaction_id, category_id, amount) VALUES (1, 2, 2, -3000), (2, 2, 6, -2000)`,
+		`INSERT INTO category_mappings (id, user_id, source, source_category, source_subcategory, category_id)
+		 VALUES (1, 1, 'bank', 'Huis', 'Huur', 2), (2, 1, 'bank', 'Dier', '', 6), (3, 1, 'bank', 'Rest', '', NULL)`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	counts := func() string {
+		t.Helper()
+		var out string
+		for _, tbl := range []string{"categories", "rules", "transaction_splits", "category_mappings", "transactions"} {
+			var n int
+			if err := db.QueryRow(`SELECT COUNT(*) FROM ` + tbl).Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			out += tbl + "=" + strconv.Itoa(n) + " "
+		}
+		return out
+	}
+	rest := func() string {
+		t.Helper()
+		var out string
+		for _, q := range []string{
+			`SELECT group_concat(id || '|' || name || '|' || COALESCE(parent_id, '-') || '|' || type || '|' || colour || '|' || sort_order, ';') FROM categories`,
+			`SELECT group_concat(id || '|' || category_id, ';') FROM rules`,
+			`SELECT group_concat(id || '|' || transaction_id || '|' || category_id || '|' || amount, ';') FROM transaction_splits`,
+			`SELECT group_concat(id || '|' || COALESCE(category_id, '-'), ';') FROM category_mappings`,
+			`SELECT group_concat(id || '|' || COALESCE(category_id, '-'), ';') FROM transactions`,
+		} {
+			var s string
+			if err := db.QueryRow(q).Scan(&s); err != nil {
+				t.Fatal(err)
+			}
+			out += s + "\n"
+		}
+		return out
+	}
+	beforeCounts, beforeRest := counts(), rest()
+	applied, err := Migrate(ctx, db, full, backups, nil)
+	if err != nil || !slices.Contains(applied, 9) {
+		t.Fatalf("applied %v, %v", applied, err)
+	}
+	if got := counts(); got != beforeCounts {
+		t.Errorf("row counts changed: %s, was %s", got, beforeCounts)
+	}
+	if got := rest(); got != beforeRest {
+		t.Errorf("rows changed by the migration:\nbefore %s\nafter  %s", beforeRest, got)
+	}
+	var icons string
+	if err := db.QueryRow(`SELECT group_concat(id || '=' || COALESCE(icon, '-'), ' ') FROM (SELECT * FROM categories ORDER BY id)`).Scan(&icons); err != nil {
+		t.Fatal(err)
+	}
+	want := "1=🏠 2=🏠 3=⚡ 4=💼 5=📦 6=🐾 7=- 8=- 9=- 10=🏠"
+	if icons != want {
+		t.Errorf("icons after 0009: %s\nwant %s", icons, want)
+	}
+	if again, err := Migrate(ctx, db, full, backups, nil); err != nil || len(again) != 0 {
+		t.Errorf("second run applied %v, %v", again, err)
+	}
+	if files, _ := filepath.Glob(filepath.Join(backups, "*before-0009*")); len(files) != 1 {
+		t.Errorf("want one backup before 0009, found %v", files)
+	}
+}
+
+// Migration 0010 only adds the nullable categories.tint column. On a database
+// made by the 0.5.0 code (migrations up to 0009) holding categories, rules,
+// splits, mappings and transactions, every colour stays, tint is NULL and no
+// dependent table loses a row (a table rebuild would have cascade-deleted them).
+func TestMigration0010AddsTintWithoutTouchingRows(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	full := Migrations()
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(full, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() < "0010" {
+			b, err := fs.ReadFile(full, e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			old[e.Name()] = &fstest.MapFile{Data: b}
+		}
+	}
+	if len(old) != 9 {
+		t.Fatalf("%d migrations before 0010, want 9", len(old))
+	}
+	backups := filepath.Join(t.TempDir(), "backups")
+	if _, err := Migrate(ctx, db, old, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO users (id, email, display_name) VALUES (1, 'a@example.com', 'A')`,
+		`INSERT INTO accounts (id, type, source, iban, name) VALUES (1, 'current', 'bank', 'BE00TEST0000001', 'Rekening')`,
+		`INSERT INTO categories (id, name, parent_id, type, colour, sort_order, icon) VALUES
+		     (1, 'Wonen', NULL, 'expense', 'c1', 1, '🏠'),
+		     (2, 'Huur', 1, 'expense', 'c1', 1, '🏠'),
+		     (3, 'Energie', 1, 'expense', 'c1', 2, '⚡'),
+		     (4, 'Salaris', NULL, 'income', 'soft', 3, '💼'),
+		     (5, 'Overig', NULL, 'expense', 'c6', 4, '📦'),
+		     (6, 'Mijn dieren', NULL, 'expense', 'c2', 5, '🐾')`,
+		`INSERT INTO rules (id, user_id, priority, counterparty_match, category_id) VALUES (1, 1, 1, 'Winkel', 3), (2, 1, 2, 'Baas', 4)`,
+		`INSERT INTO transactions (id, account_id, amount, booking_date, counterparty_name, status, dedupe_key, category_id, category_origin)
+		 VALUES (1, 1, -1250, '2026-11-02', 'Winkel', 'booked', 'hash:1', 3, 'rule'),
+		        (2, 1, -5000, '2026-11-03', 'Splitsing', 'booked', 'hash:2', NULL, NULL)`,
+		`INSERT INTO transaction_splits (id, transaction_id, category_id, amount) VALUES (1, 2, 2, -3000), (2, 2, 6, -2000)`,
+		`INSERT INTO category_mappings (id, user_id, source, source_category, source_subcategory, category_id)
+		 VALUES (1, 1, 'bank', 'Huis', 'Huur', 2), (2, 1, 'bank', 'Dier', '', 6)`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	counts := func() string {
+		t.Helper()
+		var out string
+		for _, tbl := range []string{"categories", "rules", "transaction_splits", "category_mappings", "transactions"} {
+			var n int
+			if err := db.QueryRow(`SELECT COUNT(*) FROM ` + tbl).Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			out += tbl + "=" + strconv.Itoa(n) + " "
+		}
+		return out
+	}
+	colours := func() string {
+		t.Helper()
+		var s string
+		if err := db.QueryRow(`SELECT group_concat(id || '|' || colour || '|' || icon, ';') FROM (SELECT * FROM categories ORDER BY id)`).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	beforeCounts, beforeColours := counts(), colours()
+	applied, err := Migrate(ctx, db, full, backups, nil)
+	if err != nil || !slices.Contains(applied, 10) {
+		t.Fatalf("applied %v, %v", applied, err)
+	}
+	if got := counts(); got != beforeCounts {
+		t.Errorf("row counts changed: %s, was %s", got, beforeCounts)
+	}
+	if got := colours(); got != beforeColours {
+		t.Errorf("colours changed by the migration: %s, was %s", got, beforeColours)
+	}
+	var tinted int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM categories WHERE tint IS NOT NULL`).Scan(&tinted); err != nil || tinted != 0 {
+		t.Errorf("%d categories have a tint after the migration, want none (%v)", tinted, err)
+	}
+	// The new column is writable and the old CHECK on colour is untouched.
+	if _, err := db.Exec(`UPDATE categories SET tint = '#aabbcc' WHERE id = 1`); err != nil {
+		t.Errorf("tint is not writable: %v", err)
+	}
+	if _, err := db.Exec(`UPDATE categories SET colour = 'c7' WHERE id = 1`); err == nil {
+		t.Error("colour accepted c7: the CHECK must stay as it was")
+	}
+	if again, err := Migrate(ctx, db, full, backups, nil); err != nil || len(again) != 0 {
+		t.Errorf("second run applied %v, %v", again, err)
+	}
+	if files, _ := filepath.Glob(filepath.Join(backups, "*before-0010*")); len(files) != 1 {
+		t.Errorf("want one backup before 0010, found %v", files)
 	}
 }

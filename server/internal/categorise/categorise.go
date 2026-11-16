@@ -46,16 +46,16 @@ type Sub struct{ Name, Icon string }
 // categorieen.js, TREE). Expense tops come first: their ids are 1..6, the
 // income tops 7..10, then the subcategories in this order.
 var Defaults = []Default{
-	{"Wonen", "expense", "c1", "home", []Sub{{"Huur", "home"}, {"Energie", "bolt"}, {"Internet en tv", "wifi"}, {"Verzekeringen", "shield"}}},
-	{"Boodschappen", "expense", "c2", "cart", []Sub{{"Supermarkt", "cart"}, {"Bakker", "food"}}},
-	{"Vrije tijd", "expense", "c3", "ticket", []Sub{{"Uitgaan", "beer"}, {"Sport", "sport"}, {"Cultuur", "film"}, {"Vakantie", "plane"}}},
-	{"Vervoer", "expense", "c4", "car", []Sub{{"Brandstof", "fuel"}, {"Openbaar vervoer", "bus"}, {"Onderhoud", "wrench"}}},
-	{"Abonnementen", "expense", "c5", "repeat", []Sub{{"Streaming", "tv"}, {"Telefoon", "phone"}}},
-	{"Overig", "expense", "c6", "dots", nil},
-	{"Salaris", "income", "soft", "salary", nil},
-	{"Terugbetaling", "income", "soft", "refund", nil},
-	{"Bijdrage", "income", "soft", "piggy", nil},
-	{"Overig inkomen", "income", "soft", "wallet", nil},
+	{"Wonen", "expense", "c1", "🏠", []Sub{{"Huur", "🏠"}, {"Energie", "⚡"}, {"Internet en tv", "📶"}, {"Verzekeringen", "🛡️"}}},
+	{"Boodschappen", "expense", "c2", "🛒", []Sub{{"Supermarkt", "🛒"}, {"Bakker", "🍽️"}}},
+	{"Vrije tijd", "expense", "c3", "🎟️", []Sub{{"Uitgaan", "🍺"}, {"Sport", "🏋️"}, {"Cultuur", "🎬"}, {"Vakantie", "✈️"}}},
+	{"Vervoer", "expense", "c4", "🚗", []Sub{{"Brandstof", "⛽"}, {"Openbaar vervoer", "🚌"}, {"Onderhoud", "🔧"}}},
+	{"Abonnementen", "expense", "c5", "🔁", []Sub{{"Streaming", "📺"}, {"Telefoon", "📱"}}},
+	{"Overig", "expense", "c6", "📦", nil},
+	{"Salaris", "income", "soft", "💼", nil},
+	{"Terugbetaling", "income", "soft", "↩️", nil},
+	{"Bijdrage", "income", "soft", "🐷", nil},
+	{"Overig inkomen", "income", "soft", "👛", nil},
 }
 
 // seededKey marks in app_settings that the defaults were offered once.

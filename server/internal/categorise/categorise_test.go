@@ -4,12 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"io/fs"
-	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/db"
@@ -336,54 +335,123 @@ func TestDefaultIcons(t *testing.T) {
 		}
 		for _, i := range icons {
 			if !ValidIcon(i) {
-				t.Errorf("%s: icon %q is not on the list", df.Name, i)
+				t.Errorf("%s: icon %q is not an emoji", df.Name, i)
 			}
 		}
 	}
-	// Migration 0007 gives an existing install the same icons: undo them, run
-	// its backfill, compare. A renamed category stays without.
-	exec(t, d, `UPDATE categories SET icon = NULL`)
-	exec(t, d, `INSERT INTO categories (name, type, colour) VALUES ('Mijn eigen', 'expense', 'c1')`)
+}
+
+// A 0.5.0 database (migrations up to 0008) holds the default tree with line
+// icon names; migration 0009 must leave exactly the emoji of Defaults, keep a
+// renamed category's own name icon as an emoji only when it is on the list,
+// and clear any other ASCII value.
+func TestMigration0009MatchesDefaults(t *testing.T) {
+	ctx := context.Background()
+	d, err := db.Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { d.Close() })
+	old := fstest.MapFS{}
+	var last fs.DirEntry
+	entries, err := fs.ReadDir(db.Migrations(), ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.Compare(e.Name(), "0009") < 0 {
+			b, err := fs.ReadFile(db.Migrations(), e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			old[e.Name()] = &fstest.MapFile{Data: b}
+			last = e
+		}
+	}
+	if last == nil || !strings.HasPrefix(last.Name(), "0008") {
+		t.Fatalf("migrations before 0009 end at %v", last)
+	}
+	if _, err := db.Migrate(ctx, d, old, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	// The 0.5.0 tree: the default rows without icon, then the backfill of
+	// 0007 (which ran on an empty table when the migrations were applied).
+	id := 0
+	add := func(name string, parent any, typ, colour string, order int) {
+		id++
+		exec(t, d, `INSERT INTO categories (id, name, parent_id, type, colour, sort_order) VALUES (?, ?, ?, ?, ?, ?)`, id, name, parent, typ, colour, order)
+	}
+	for i, df := range Defaults {
+		add(df.Name, nil, df.Type, df.Colour, i+1)
+	}
+	for i, df := range Defaults {
+		for j, s := range df.Subs {
+			add(s.Name, i+1, df.Type, df.Colour, j+1)
+		}
+	}
 	b, err := fs.ReadFile(db.Migrations(), "0007_category_icons.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, backfill, _ := strings.Cut(string(b), "ALTER TABLE categories ADD COLUMN icon TEXT;")
 	exec(t, d, backfill)
-	if n := count(t, d, `SELECT COUNT(*) FROM categories WHERE icon IS NULL`); n != 1 {
-		t.Errorf("%d categories without icon after the backfill, want 1 (the renamed one)", n)
+	if n := count(t, d, `SELECT COUNT(*) FROM categories WHERE icon IS NULL OR icon NOT GLOB '[a-z]*'`); n != 0 {
+		t.Fatalf("%d categories without a line icon name before 0009", n)
 	}
-	for i, df := range Defaults {
-		if count(t, d, `SELECT COUNT(*) FROM categories WHERE id = ? AND icon = ?`, i+1, df.Icon) != 1 {
-			t.Errorf("backfill: %s is not %s", df.Name, df.Icon)
+	exec(t, d, `INSERT INTO categories (name, type, colour, icon) VALUES ('Mijn eigen', 'expense', 'c1', 'paw'), ('Vreemd', 'expense', 'c1', 'unicorn'), ('Zonder', 'expense', 'c1', NULL)`)
+
+	if _, err := db.Migrate(ctx, d, db.Migrations(), "", nil); err != nil {
+		t.Fatal(err)
+	}
+	check := func(i int, name, icon string) {
+		t.Helper()
+		if count(t, d, `SELECT COUNT(*) FROM categories WHERE id = ? AND icon = ?`, i, icon) != 1 {
+			t.Errorf("0009: %s is not %s", name, icon)
 		}
 	}
-	id := len(Defaults)
+	for i, df := range Defaults {
+		check(i+1, df.Name, df.Icon)
+	}
+	id = len(Defaults)
 	for _, df := range Defaults {
 		for _, s := range df.Subs {
 			id++
-			if count(t, d, `SELECT COUNT(*) FROM categories WHERE id = ? AND icon = ?`, id, s.Icon) != 1 {
-				t.Errorf("backfill: %s is not %s", s.Name, s.Icon)
-			}
+			check(id, s.Name, s.Icon)
+		}
+	}
+	check(id+1, "Mijn eigen", "🐾")
+	for n := id + 2; n <= id+3; n++ {
+		if count(t, d, `SELECT COUNT(*) FROM categories WHERE id = ? AND icon IS NULL`, n) != 1 {
+			t.Errorf("category %d has an icon after 0009, want NULL", n)
 		}
 	}
 }
 
-// The list of names is kept in two places; they must not drift apart.
-func TestCategoryIconsMatchTheWeb(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "categoryIcons.ts"))
-	if err != nil {
-		t.Fatal(err)
+func TestValidIcon(t *testing.T) {
+	for _, ok := range []string{
+		"🏠", "✈️", "✈", "👨‍👩‍👧", "🇧🇪", "👨🏽‍👩🏽‍👧🏽‍👦🏽", "1️⃣", "1⃣", "#️⃣", "*️⃣", "🏷️", "©", "™️", "↩️", "€",
+	} {
+		if !ValidIcon(ok) {
+			t.Errorf("ValidIcon(%q) = false, want true", ok)
+		}
 	}
-	var web []string
-	_, list, _ := strings.Cut(string(b), "CATEGORY_ICONS = [")
-	list, _, _ = strings.Cut(list, "]")
-	for _, m := range regexp.MustCompile(`["']([a-z]+)["']`).FindAllStringSubmatch(list, -1) {
-		web = append(web, m[1])
+	for _, bad := range []string{
+		"", " ", " 🏠", "🏠 ", "home", "a", "A", "1", "#", "*", "12", "1 ", "🏠 🏠", "🏠\n", "🏠\x00", "\t🏠",
+		"\u0085", "\x7f", "🏠a", ".", "!",
+		strings.Repeat("🏠", 17), "\xff\xfe", "🏠\xff",
+	} {
+		if ValidIcon(bad) {
+			t.Errorf("ValidIcon(%q) = true, want false", bad)
+		}
 	}
-	slices.Sort(web)
-	want := slices.Sorted(slices.Values(CategoryIcons))
-	if !slices.Equal(web, want) {
-		t.Errorf("web/src/lib/categoryIcons.ts lists %v, the server %v", web, want)
+	// 64 bytes is the limit: sixteen 4-byte emoji (a skin-toned ZWJ family is 41 bytes).
+	if !ValidIcon(strings.Repeat("🏠", 16)) {
+		t.Error("64 bytes refused")
+	}
+	if len("👨🏽‍👩🏽‍👧🏽‍👦🏽") != 41 {
+		t.Error("the family is no longer 41 bytes")
+	}
+	if ValidIcon(strings.Repeat("🏠", 16) + "©") {
+		t.Error("66 bytes accepted")
 	}
 }

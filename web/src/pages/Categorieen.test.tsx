@@ -185,9 +185,93 @@ describe('Categorieën en regels · Categorieën', () => {
     dialog = await sheetFor('Categorie toevoegen');
     fireEvent.change(dialog.getByRole('textbox', { name: 'Naam' }), { target: { value: 'Huurinkomsten' } });
     choose(dialog.getByRole('combobox', { name: 'Plaats' }), 'Hoofdcategorie bij Inkomsten');
-    expect(dialog.getByText('Inkomsten zijn altijd groen.')).toBeTruthy();
+    // Income takes the same colour control with Groen (soft) as the default; untouched, it is not sent.
+    expect(within(dialog.getByRole('radiogroup', { name: 'Kleur' })).getByRole('radio', { checked: true }).getAttribute('aria-label')).toBe('Groen');
     fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
     await waitFor(() => expect(api.createCategory).toHaveBeenLastCalledWith({ name: 'Huurinkomsten', type: 'income' }));
+  });
+
+  it('offers sixteen named swatches and an own colour', async () => {
+    stub();
+    renderAt('/categorieen');
+    const dialog = await sheetFor('Categorie toevoegen');
+    const swatches = within(dialog.getByRole('radiogroup', { name: 'Kleur' })).getAllByRole('radio');
+    expect(swatches.map((s) => s.getAttribute('aria-label'))).toEqual([
+      'Lichtblauw', 'Abrikoos', 'Roze', 'Lavendel', 'Geel', 'Grijs', 'Mint', 'Limoen', 'Turquoise', 'Koraal', 'Perzik', 'Lila', 'Oudroze', 'Zand', 'Olijf', 'Denim',
+    ]);
+    const own = dialog.getByLabelText('Eigen kleur') as HTMLInputElement;
+    expect(own.type).toBe('color');
+    expect(own.tabIndex).toBe(0);
+  });
+
+  it('creates a category with a palette swatch beyond the first six', async () => {
+    const api = stub();
+    renderAt('/categorieen');
+    const dialog = await sheetFor('Categorie toevoegen');
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Naam' }), { target: { value: 'Huisdieren' } });
+    fireEvent.click(within(dialog.getByRole('radiogroup', { name: 'Kleur' })).getByRole('radio', { name: 'Koraal' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.createCategory).toHaveBeenCalledWith({ name: 'Huisdieren', type: 'expense', colour: 'c10' }));
+  });
+
+  it('creates a category with an own colour, shown in the preview and sent as the hex', async () => {
+    const api = stub();
+    renderAt('/categorieen');
+    const dialog = await sheetFor('Categorie toevoegen');
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Naam' }), { target: { value: 'Huisdieren' } });
+    fireEvent.change(dialog.getByLabelText('Eigen kleur'), { target: { value: '#12AB34' } });
+    const group = dialog.getByRole('radiogroup', { name: 'Kleur' });
+    expect(within(group).queryByRole('radio', { checked: true })).toBeNull();
+    const preview = document.querySelector('.ct-preview-strip .ct-chip') as HTMLElement;
+    expect(preview.getAttribute('style')).toContain('--tint-l-min');
+    expect(preview.getAttribute('style')).toContain('#12ab34');
+    // The first swatch is the way back into the group by keyboard.
+    expect(within(group).getByRole('radio', { name: 'Lichtblauw' }).tabIndex).toBe(0);
+    fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.createCategory).toHaveBeenCalledWith({ name: 'Huisdieren', type: 'expense', colour: '#12ab34' }));
+  });
+
+  it('recolours an income top category, with a palette swatch and with an own colour', async () => {
+    desktop();
+    const api = stub();
+    renderAt('/categorieen');
+    fireEvent.click(await screen.findByRole('button', { name: /^Terugbetaling/ }));
+    await waitFor(() => expect((panel().getByRole('textbox', { name: 'Naam' }) as HTMLInputElement).value).toBe('Terugbetaling'));
+    fireEvent.click(within(panel().getByRole('radiogroup', { name: 'Kleur' })).getByRole('radio', { name: 'Mint' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.updateCategory).toHaveBeenLastCalledWith(8, { colour: 'c7' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /^Loon/ }));
+    await waitFor(() => expect((panel().getByRole('textbox', { name: 'Naam' }) as HTMLInputElement).value).toBe('Loon'));
+    fireEvent.change(panel().getByLabelText('Eigen kleur'), { target: { value: '#ff8800' } });
+    fireEvent.click(panel().getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.updateCategory).toHaveBeenLastCalledWith(7, { colour: '#ff8800' }));
+  });
+
+  it('offers Groen to an income category only, so it can go back to green', async () => {
+    desktop();
+    stub();
+    renderAt('/categorieen');
+    fireEvent.click(await screen.findByRole('button', { name: /^Loon/ }));
+    await waitFor(() => expect((panel().getByRole('textbox', { name: 'Naam' }) as HTMLInputElement).value).toBe('Loon'));
+    const income = within(panel().getByRole('radiogroup', { name: 'Kleur' }));
+    expect(income.getByRole('radio', { name: 'Groen' }).getAttribute('aria-checked')).toBe('true');
+    expect(income.getAllByRole('radio')).toHaveLength(17);
+    fireEvent.click(income.getByRole('radio', { name: 'Mint' }));
+    expect(income.getByRole('radio', { name: 'Groen' }).getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(income.getByRole('radio', { name: 'Groen' }));
+    expect(income.getByRole('radio', { name: 'Groen' }).getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('does not offer Groen to an expense category', async () => {
+    desktop();
+    stub();
+    renderAt('/categorieen');
+    fireEvent.click(await screen.findByRole('button', { name: /^Wonen/ }));
+    await waitFor(() => expect((panel().getByRole('textbox', { name: 'Naam' }) as HTMLInputElement).value).toBe('Wonen'));
+    const expense = within(panel().getByRole('radiogroup', { name: 'Kleur' }));
+    expect(expense.queryByRole('radio', { name: 'Groen' })).toBeNull();
+    expect(expense.getAllByRole('radio')).toHaveLength(16);
   });
 
   it('renames, moves and recolours in the desktop panel, sending only what changed', async () => {

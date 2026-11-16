@@ -1,0 +1,11 @@
+/* The emoji font stack for every place a category icon is drawn */
+.cat-ico, .cat-emoji, .emoji-tile {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  line-height: 1;
+}
+.cat-ico {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  border-radius: 50%;
+}
+.cat-ico--sm { width: 24px; height: 24px; font-size: 13px; }
+.cat-ico--lg { width: 32px; height: 32px; font-size: 17px; }

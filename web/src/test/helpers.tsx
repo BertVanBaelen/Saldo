@@ -116,8 +116,8 @@ const cat = (id: number, name: string, colour: TreeCategory['colour'], parentId:
   count: 0,
 });
 export const CATEGORIES: TreeCategory[] = [
-  cat(1, 'Wonen', 'c1', null, 'expense', 'home'),
-  cat(10, 'Energie', 'c1', 1, 'expense', 'bolt'),
+  cat(1, 'Wonen', 'c1', null, 'expense', '🏠'),
+  cat(10, 'Energie', 'c1', 1, 'expense', '⚡'),
   cat(2, 'Boodschappen', 'c2'),
   cat(3, 'Vrije tijd', 'c3'),
   cat(4, 'Vervoer', 'c4'),

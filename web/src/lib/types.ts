@@ -62,6 +62,10 @@ export interface Account {
   lastSync: string | null;
   /** `unlinked`: the bank link was removed with "keep history"; nothing syncs the account any more. */
   syncStatus: 'ok' | 'stale' | 'failed' | 'unlinked' | null;
+  /** Why the last sync of the account failed (a code, never an error text) while `syncStatus` is `failed`, else `null`. */
+  syncError?: string | null;
+  /** When the bank was last asked for the account, success or not; `null` for manual accounts. */
+  lastAttempt?: string | null;
   permission: Permission;
   role: MemberRole;
   members: Member[];
@@ -103,8 +107,11 @@ export interface RemovedLink {
   kept: number[];
 }
 
-/** `c1` … `c6` are the category pastels, `soft` is used for income. */
-export type CategoryColour = 'c1' | 'c2' | 'c3' | 'c4' | 'c5' | 'c6' | 'soft';
+/** The palette keys of tokens.css: `c1` … `c16` are the category pastels, `soft` is the income default. */
+export type PaletteColour = 'c1' | 'c2' | 'c3' | 'c4' | 'c5' | 'c6' | 'c7' | 'c8' | 'c9' | 'c10' | 'c11' | 'c12' | 'c13' | 'c14' | 'c15' | 'c16' | 'soft';
+
+/** A category colour: a palette key or a custom `#rrggbb` (lower case, as the server returns it). */
+export type CategoryColour = PaletteColour | `#${string}`;
 
 export interface Category {
   id: number;
@@ -149,7 +156,7 @@ export interface TreeCategory {
   name: string;
   type: 'expense' | 'income';
   colour: CategoryColour;
-  /** A name of CATEGORY_ICONS; `null` (or an unknown name) shows as `tag`. */
+  /** One emoji (docs/api.md, "Categories"); `null` shows as the default `🏷️`. */
   icon: string | null;
   parentId: number | null;
   count: number;
@@ -180,7 +187,7 @@ export interface NewCategory {
   type?: TreeCategory['type'];
   colour?: CategoryColour;
   parentId?: number;
-  /** A name of CATEGORY_ICONS; the server answers 400 for an unknown one. */
+  /** One emoji; the server answers 400 for anything else. */
   icon?: string;
 }
 
@@ -190,7 +197,7 @@ export interface CategoryPatch {
   parentId?: number | null;
   type?: TreeCategory['type'];
   colour?: CategoryColour;
-  /** `null` or `''` clears it (shows as `tag`). */
+  /** One emoji; `null` or `''` clears it (shows as the default `🏷️`). */
   icon?: string | null;
 }
 

@@ -72,6 +72,17 @@ export function syncLine(a: Account, today: string): { text: string; tone: Tone;
   return { text: bank + ' · ' + when, tone: '', manual: false };
 }
 
+/**
+ * Why a bank account's sync failed, from `syncError` and `lastAttempt` (GET /api/accounts): "Niet gedeeld …" or "Foutcode ASPSP_ERROR · laatste poging vandaag 04:02". null when it did not fail.
+ */
+export function syncProblem(a: Account, today: string): string | null {
+  if (a.source !== 'bank' || a.syncStatus !== 'failed') return null;
+  const attempt = a.lastAttempt ? 'laatste poging ' + momentLabel(a.lastAttempt, today) : '';
+  if (a.syncError === 'not_shared') return 'Niet gedeeld bij de laatste toestemming. Autoriseer opnieuw en vink deze rekening aan.';
+  if (!a.syncError) return attempt ? attempt[0].toUpperCase() + attempt.slice(1) : null;
+  return 'Foutcode ' + a.syncError + (attempt ? ' · ' + attempt : '');
+}
+
 /** "Stand van zondag 04:02" for a balance whose sync is stale or failed; null when it is current. */
 export function staleNote(a: Account, today: string): string | null {
   if (a.source !== 'bank' || a.syncStatus === 'ok' || a.syncStatus === null) return null;

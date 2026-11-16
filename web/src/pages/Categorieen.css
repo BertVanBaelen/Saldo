@@ -111,12 +111,8 @@
 .ct-crow + .ct-crow { border-top: 1px solid var(--line); }
 .ct-crow + .ct-crow--sub { border-top: none; }
 .ct-crow--sub { min-height: 46px; padding: 6px 0; }
-.ct-cav {
-  width: 32px; height: 32px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; flex: none;
-}
 /* A subcategory's smaller circle sits under the centre of the parent's; the name lines up with the parent's name */
-.ct-cav--sub { width: 24px; height: 24px; margin: 0 4px; }
+.ct-cav--sub { margin: 0 4px; }
 .ct-crow-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ct-crow-name { font-size: 15px; font-weight: 600; }
 .ct-crow--sub .ct-crow-name { font-weight: 400; }
@@ -150,7 +146,8 @@
   border-radius: var(--r-pill);
   transition: background 300ms ease;
 }
-.ct-chip-ico { vertical-align: -2px; margin-right: 4px; }
+.ct-ed-emoji { font-size: 20px; }
+.ct-chip-ico { font-size: 13px; margin-right: 4px; }
 .ct-chip-parent { font-weight: 500; opacity: 0.75; }
 
 .ct-owner {
@@ -358,7 +355,8 @@
 }
 .ct-money-input { padding: 0 12px 0 32px; font-family: var(--mono); }
 
-/* Six pastels, radiogroup */
+/* Sixteen pastels as a radiogroup, then the custom colour (a native colour input in a swatch) */
+.ct-swatch-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ct-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .ct-swatch {
   width: 44px; height: 44px; padding: 0;
@@ -368,7 +366,12 @@
   box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 1px var(--line);
   transition: border-color 160ms ease;
 }
-.ct-swatch[aria-checked="true"] { border-color: var(--text); }
+.ct-swatch[aria-checked="true"], .ct-swatch--custom.is-on { border-color: var(--text); }
+.ct-swatch--custom { position: relative; cursor: pointer; color: #fff; background: conic-gradient(#ff6b6b, #ffd93d, #6bcb77, #4d96ff, #c77dff, #ff6b6b); }
+.ct-swatch--custom svg { filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6)); }
+.ct-swatch--custom.is-on svg { filter: none; }
+.ct-swatch--custom:focus-within { outline: 2px solid var(--text); outline-offset: 2px; }
+.ct-swatch-input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
 
 .ct-preview-strip {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;

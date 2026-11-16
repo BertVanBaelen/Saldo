@@ -22,20 +22,26 @@ const MaxBuffer = 100_000_000
 
 // Account is an account as the viewer sees it (docs/api.md).
 type Account struct {
-	ID          int64    `json:"id"`
-	Name        string   `json:"name"`
-	Type        string   `json:"type"`
-	Source      string   `json:"source"`
-	Kind        string   `json:"kind"`
-	IBAN        *string  `json:"iban"`
-	Colour      string   `json:"colour"`
-	Buffer      int64    `json:"buffer"`
-	Balance     int64    `json:"balance"`
-	BalanceDate *string  `json:"balanceDate"`
-	State       *string  `json:"state"`
-	Bank        *string  `json:"bank"`
-	LastSync    *string  `json:"lastSync"`
-	SyncStatus  *string  `json:"syncStatus"`
+	ID          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Type        string  `json:"type"`
+	Source      string  `json:"source"`
+	Kind        string  `json:"kind"`
+	IBAN        *string `json:"iban"`
+	Colour      string  `json:"colour"`
+	Buffer      int64   `json:"buffer"`
+	Balance     int64   `json:"balance"`
+	BalanceDate *string `json:"balanceDate"`
+	State       *string `json:"state"`
+	Bank        *string `json:"bank"`
+	LastSync    *string `json:"lastSync"`
+	SyncStatus  *string `json:"syncStatus"`
+	// SyncError is the error code of the failed source while syncStatus is
+	// "failed" (for example "not_shared" or a provider code), else nil.
+	SyncError *string `json:"syncError"`
+	// LastAttempt is the last sync attempt of any of its sources, nil when
+	// none was made.
+	LastAttempt *string  `json:"lastAttempt"`
 	Permission  string   `json:"permission"`
 	Role        string   `json:"role"`
 	Members     []Member `json:"members"`
@@ -190,6 +196,8 @@ type source struct {
 	usable     bool // source and consent are fine
 	lastSync   time.Time
 	hasSync    bool
+	failed     string    // the source's error code while its status is failed
+	attempt    time.Time // its last attempt
 }
 
 // loadSync sets lastSync and syncStatus of bank accounts. The account follows
@@ -198,7 +206,7 @@ type source struct {
 func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, index map[int64]int, now time.Time) error {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT s.account_id, s.connection_id, s.priority, s.status, COALESCE(s.last_sync_at, ''),
-		       c.status, COALESCE(c.valid_until, '')
+		       c.status, COALESCE(c.valid_until, ''), COALESCE(s.last_error, ''), COALESCE(s.last_attempt_at, '')
 		FROM account_sources s
 		JOIN provider_connections c ON c.id = s.connection_id
 		WHERE s.account_id IN (SELECT account_id FROM account_access WHERE user_id = ?)
@@ -211,14 +219,20 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 	for rows.Next() {
 		var accountID int64
 		var src source
-		var priority, status, lastSync, connStatus, validUntil string
-		if err := rows.Scan(&accountID, &src.connection, &priority, &status, &lastSync, &connStatus, &validUntil); err != nil {
+		var priority, status, lastSync, connStatus, validUntil, lastError, lastAttempt string
+		if err := rows.Scan(&accountID, &src.connection, &priority, &status, &lastSync, &connStatus, &validUntil, &lastError, &lastAttempt); err != nil {
 			return err
 		}
 		src.primary = priority == "primary"
 		src.usable = status == "ok" && connStatus == "active" && !consentLapsed(validUntil, now)
 		if t, err := time.Parse(time.RFC3339, lastSync); err == nil {
 			src.lastSync, src.hasSync = t, true
+		}
+		if status == "failed" {
+			src.failed = lastError
+		}
+		if t, err := time.Parse(time.RFC3339, lastAttempt); err == nil {
+			src.attempt = t
 		}
 		byAccount[accountID] = append(byAccount[accountID], src)
 	}
@@ -245,6 +259,19 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 		if !last.IsZero() {
 			ts, _, _ := formatTimestamp(last.UTC().Format(time.RFC3339))
 			a.LastSync = &ts
+		}
+		var attempt time.Time
+		for _, src := range srcs {
+			if status == "failed" && a.SyncError == nil && src.failed != "" {
+				a.SyncError = ptr(src.failed)
+			}
+			if src.attempt.After(attempt) {
+				attempt = src.attempt
+			}
+		}
+		if !attempt.IsZero() {
+			ts, _, _ := formatTimestamp(attempt.UTC().Format(time.RFC3339))
+			a.LastAttempt = &ts
 		}
 	}
 	return nil

@@ -4,26 +4,40 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
-import { IconPicker } from '../components/IconPicker';
+import { CatEmoji } from '../components/CatIcon';
+import { EmojiPicker } from '../components/EmojiPicker';
 import { Select } from '../components/Select';
 import { accColour, isShared, manager, others } from '../lib/accounts';
 import { api, ApiError, errorMessage, isAbort } from '../lib/api';
 import { catColours, categoryLabel, plural, ruleConditions, skippedText } from '../lib/categories';
-import { categoryIcon } from '../lib/categoryIcons';
+import { categoryEmoji, sameEmoji } from '../lib/emoji';
 import { names, parseMoney } from '../lib/format';
-import type { Account, CategoryColour, CategoryPatch, Rule, RuleInput, RulePreview, Suggestion, TreeCategory } from '../lib/types';
+import type { Account, CategoryColour, CategoryPatch, PaletteColour, Rule, RuleInput, RulePreview, Suggestion, TreeCategory } from '../lib/types';
 
 export type Mode = 'p' | 'd';
 type Look = { bg: string; fg: string };
 
-export const PASTELS: [CategoryColour, string][] = [
+export const PASTELS: [PaletteColour, string][] = [
   ['c1', 'Lichtblauw'],
   ['c2', 'Abrikoos'],
   ['c3', 'Roze'],
   ['c4', 'Lavendel'],
   ['c5', 'Geel'],
   ['c6', 'Grijs'],
+  ['c7', 'Mint'],
+  ['c8', 'Limoen'],
+  ['c9', 'Turquoise'],
+  ['c10', 'Koraal'],
+  ['c11', 'Perzik'],
+  ['c12', 'Lila'],
+  ['c13', 'Oudroze'],
+  ['c14', 'Zand'],
+  ['c15', 'Olijf'],
+  ['c16', 'Denim'],
 ];
+
+const isHex = (c: CategoryColour): c is `#${string}` => c.startsWith('#');
+const CUSTOM_START = '#7a8cff';
 
 export const BAD_REGEX = 'Deze reguliere expressie klopt niet.';
 const OFFLINE = 'Je bent offline. Opslaan kan weer zodra je verbinding hebt.';
@@ -36,7 +50,7 @@ export function CatChip({ c, byId }: { c: TreeCategory | undefined; byId: Readon
   const parent = c.parentId === null ? undefined : byId.get(c.parentId);
   return (
     <span className="ct-chip" style={{ background: lk.bg, color: lk.fg }}>
-      <Icon name={categoryIcon(c.icon)} size={13} stroke={2.4} className="ct-chip-ico" />
+      <CatEmoji icon={c.icon} className="ct-chip-ico" />
       {parent && <span className="ct-chip-parent">{parent.name} ›</span>} {c.name}
     </span>
   );
@@ -69,11 +83,12 @@ export function ReadOnlyChip({ head }: { head?: boolean }) {
   );
 }
 
-function Head({ look, icon, title, sub, inSheet, onClose, extra }: { look: Look; icon: IconName; title: string; sub: string; inSheet: boolean; onClose?: () => void; extra?: ReactNode }) {
+/** The head of an editor: a line icon, or `emoji` for a category's own icon. */
+function Head({ look, icon, emoji, title, sub, inSheet, onClose, extra }: { look: Look; icon?: IconName; emoji?: string; title: string; sub: string; inSheet: boolean; onClose?: () => void; extra?: ReactNode }) {
   return (
     <div className="ct-ed-head">
       <span className="ct-ed-icon" style={{ background: look.bg, color: look.fg }}>
-        <Icon name={icon} size={20} stroke={2.2} />
+        {emoji ? <CatEmoji icon={emoji} className="ct-ed-emoji" /> : icon && <Icon name={icon} size={20} stroke={2.2} />}
       </span>
       <div className="ct-ed-title">
         <span className="ct-ed-name">{title}</span>
@@ -199,7 +214,10 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
   const byId = new Map(tree.map((x) => [x.id, x]));
   const [name, setName] = useState(c ? c.name : '');
   const [place, setPlace] = useState<Place>(c ? placeOf(c) : parentId !== undefined ? String(parentId) : 'top-expense');
-  const [colour, setColour] = useState<CategoryColour>(c && c.type === 'expense' && c.parentId === null ? c.colour : 'c1');
+  /** `null`: not touched, so the stored colour stays (or the default of the type for a new one). */
+  const [picked, setPicked] = useState<CategoryColour | null>(null);
+  /** The last custom colour, so a swatch pick and back does not lose it. */
+  const [custom, setCustom] = useState(CUSTOM_START);
   /** `null`: not touched, so a create sends none and a save keeps the stored icon. */
   const [icon, setIcon] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -209,10 +227,15 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
 
   const isTop = place === 'top-expense' || place === 'top-income';
   const parent = isTop ? undefined : byId.get(Number(place));
-  const look: Look = place === 'top-expense' ? catColours(colour) : place === 'top-income' ? catColours('soft') : catColours(parent?.colour ?? 'c6');
-  const shownIcon = categoryIcon(icon ?? c?.icon);
+  const topType = place === 'top-income' ? 'income' : 'expense';
+  const stored = c && c.parentId === null && c.type === topType ? c.colour : null;
+  const colour: CategoryColour = picked ?? stored ?? (topType === 'income' ? 'soft' : 'c1');
+  // An income category starts green (soft), so green stays a choice there; the server refuses soft for expenses.
+  const swatches: [PaletteColour, string][] = topType === 'income' ? [['soft', 'Groen'], ...PASTELS] : PASTELS;
+  const look: Look = isTop ? catColours(colour) : catColours(parent?.colour ?? 'c6');
+  const shownIcon = categoryEmoji(icon ?? c?.icon);
   // The picker draws in the main category's colour: its own, or the parent's for a subcategory.
-  const iconColour: CategoryColour = place === 'top-expense' ? colour : place === 'top-income' ? 'soft' : (parent?.colour ?? 'c6');
+  const iconColour: CategoryColour = isTop ? colour : (parent?.colour ?? 'c6');
   const kids = c ? tree.filter((x) => x.parentId === c.id) : [];
   const k = kids.length;
   const shown = name.trim() || (c ? c.name : 'Nieuwe categorie');
@@ -225,9 +248,11 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
     const steps: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
     if (!(e.key in steps)) return;
     e.preventDefault();
-    const i = PASTELS.findIndex((p) => p[0] === colour);
-    const next = PASTELS[(i + steps[e.key] + PASTELS.length) % PASTELS.length][0];
-    setColour(next);
+    const at = swatches.findIndex((p) => p[0] === colour);
+    // A custom colour is no swatch of the group: ArrowRight enters at the first one, ArrowLeft at the last.
+    const i = at < 0 ? (steps[e.key] > 0 ? -1 : 0) : at;
+    const next = swatches[(i + steps[e.key] + swatches.length) % swatches.length][0];
+    setPicked(next);
     requestAnimationFrame(() => root.current?.querySelector<HTMLElement>('[data-key="sw-' + next + '"]')?.focus());
   };
 
@@ -244,16 +269,16 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
         let saved: TreeCategory;
         if (!c) {
           const extra = icon ? { icon } : {};
-          saved = await api.createCategory(isTop ? { name: clean, type, ...(type === 'expense' ? { colour } : {}), ...extra } : { name: clean, parentId: Number(place), ...extra });
+          saved = await api.createCategory(isTop ? { name: clean, type, ...(type === 'expense' || picked !== null ? { colour } : {}), ...extra } : { name: clean, parentId: Number(place), ...extra });
         } else {
           const patch: CategoryPatch = {};
           if (clean !== c.name) patch.name = clean;
           if (isTop) {
             if (c.parentId !== null) patch.parentId = null;
             if (type !== c.type) patch.type = type;
-            if (type === 'expense' && (colour !== c.colour || patch.parentId === null || patch.type)) patch.colour = colour;
+            if ((picked !== null && picked !== c.colour) || (type === 'expense' && patch.parentId === null) || patch.type) patch.colour = colour;
           } else if (Number(place) !== c.parentId) patch.parentId = Number(place);
-          if (icon !== null && icon !== categoryIcon(c.icon)) patch.icon = icon;
+          if (icon !== null && !sameEmoji(icon, categoryEmoji(c.icon))) patch.icon = icon;
           saved = Object.keys(patch).length ? await api.updateCategory(c.id, patch) : c;
         }
         toast(saved.name + (c ? ' opgeslagen' : ' toegevoegd'));
@@ -268,7 +293,7 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
 
   return (
     <div className="ct-editor" ref={root}>
-      <Head look={look} icon={shownIcon} title={shown} sub={sub} inSheet={mode === 'p'} onClose={onClose} />
+      <Head look={look} emoji={shownIcon} title={shown} sub={sub} inSheet={mode === 'p'} onClose={onClose} />
       <div className="ct-field">
         <label className="ct-label" htmlFor={id('name')}>
           Naam
@@ -313,47 +338,65 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
         <span className="ct-label" id={id('kleur')}>
           Kleur
         </span>
-        {place === 'top-expense' ? (
+        {isTop ? (
           <>
-            <div className="ct-swatches" role="radiogroup" aria-labelledby={id('kleur')}>
-              {PASTELS.map(([key, label]) => {
-                const on = key === colour;
-                const lk = catColours(key);
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className="ct-swatch"
-                    role="radio"
-                    aria-checked={on}
-                    aria-label={label}
-                    tabIndex={on ? 0 : -1}
-                    data-key={'sw-' + key}
-                    style={{ background: lk.bg, color: lk.fg }}
-                    onClick={() => setColour(key)}
-                    onKeyDown={onSwatchKey}
-                  >
-                    {on && <Icon name="check" size={16} stroke={3} />}
-                  </button>
-                );
-              })}
+            <div className="ct-swatch-row">
+              <div className="ct-swatches" role="radiogroup" aria-labelledby={id('kleur')}>
+                {swatches.map(([key, label], i) => {
+                  const on = key === colour;
+                  const lk = catColours(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className="ct-swatch"
+                      role="radio"
+                      aria-checked={on}
+                      aria-label={label}
+                      // Roving tabindex; with a custom colour chosen the first swatch is the way back in.
+                      tabIndex={on || (i === 0 && isHex(colour)) ? 0 : -1}
+                      data-key={'sw-' + key}
+                      style={{ background: lk.bg, color: lk.fg }}
+                      onClick={() => setPicked(key)}
+                      onKeyDown={onSwatchKey}
+                    >
+                      {on && <Icon name="check" size={16} stroke={3} />}
+                    </button>
+                  );
+                })}
+              </div>
+              <label className={'ct-swatch ct-swatch--custom' + (isHex(colour) ? ' is-on' : '')} style={isHex(colour) ? { background: look.bg, color: look.fg } : undefined}>
+                <input
+                  type="color"
+                  className="ct-swatch-input"
+                  aria-label="Eigen kleur"
+                  data-key="sw-custom"
+                  value={isHex(colour) ? colour : custom}
+                  onChange={(e) => {
+                    const hex = e.target.value.toLowerCase();
+                    setCustom(hex);
+                    setPicked(hex as CategoryColour);
+                  }}
+                />
+                {isHex(colour) ? <Icon name="check" size={16} stroke={3} /> : <Icon name="plus" size={16} stroke={3} />}
+              </label>
             </div>
-            <span className="ct-help">Subcategorieën krijgen de kleur van hun hoofdcategorie. Een kleur mag vaker voorkomen.</span>
+            <span className="ct-help">Subcategorieën krijgen de kleur van hun hoofdcategorie. Een kleur mag vaker voorkomen. Met Eigen kleur kies je zelf; Saldo maakt er een zachte tint van.</span>
           </>
         ) : (
-          <span className="ct-help">{place === 'top-income' ? 'Inkomsten zijn altijd groen.' : 'Krijgt de kleur van ' + (parent?.name ?? '') + '.'}</span>
+          <span className="ct-help">{'Krijgt de kleur van ' + (parent?.name ?? '') + '.'}</span>
         )}
       </div>
       <div className="ct-field">
         <span className="ct-label" id={id('icoon')}>
           Pictogram
         </span>
-        <IconPicker value={shownIcon} colour={iconColour} labelledBy={id('icoon')} onChange={setIcon} />
+        <EmojiPicker value={shownIcon} colour={iconColour} labelledBy={id('icoon')} onChange={setIcon} />
       </div>
       <div className="ct-preview-strip">
         <span className="ct-preview-label">Voorbeeld</span>
         <span className="ct-chip" style={{ background: look.bg, color: look.fg }}>
-          <Icon name={shownIcon} size={13} stroke={2.4} className="ct-chip-ico" />
+          <CatEmoji icon={shownIcon} className="ct-chip-ico" />
           {parent && <span className="ct-chip-parent">{parent.name} ›</span>} {shown}
         </span>
         {count !== null && (

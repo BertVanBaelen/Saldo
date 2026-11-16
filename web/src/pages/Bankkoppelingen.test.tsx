@@ -33,6 +33,14 @@ describe('Bankkoppelingen', () => {
     expect(v.getByRole('link', { name: 'Opnieuw autoriseren' }).className).toContain('bk-btn--primary');
   });
 
+  it('names the account whose sync failed, with its error code', async () => {
+    stubApi({ accounts: [{ ...ZICHT, syncStatus: 'failed', syncError: 'ASPSP_ERROR', lastAttempt: ZICHT.lastSync } as typeof ZICHT, GEDEELD] });
+    renderAt('/bankkoppelingen');
+    const c = within(await screen.findByText('Argenta', { selector: '.bk-conn-name' }).then((n) => n.closest('article') as HTMLElement));
+    expect(c.getByText('Synchronisatie mislukt · Foutcode ASPSP_ERROR · laatste poging vandaag 04:02')).toBeTruthy();
+    expect(c.getAllByText(/Synchronisatie mislukt/)).toHaveLength(1);
+  });
+
   it('shows each status in the mockup’s words', async () => {
     stubApi({
       connections: [

@@ -1,16 +1,16 @@
 // The detail of a transaction, the same content in the phone bottom sheet and the desktop side panel:
-// facts, where the category came from, the category picker, "apply to similar and create a rule", note,
+// facts, where the category came from, the category picker (components/CategoryPicker), "apply to similar and create a rule", note,
 // split (phase 0.4-3). Design: finance-mockup/js/screens/transacties.js (detail, sourceStrip, picker,
 // partsView, splitEditor); spec: analysis/screens/transacties.md; API: docs/api.md "Categorise a transaction".
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
+import { CatIcon } from '../components/CatIcon';
+import { CategoryPicker } from '../components/CategoryPicker';
 import { Icon } from '../components/Icon';
-import { Select, type SelectOption } from '../components/Select';
 import { accColour, isShared, manager } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
-import { catColours, categoryLabel, groupTree, plural, ruleLabel, skippedText, splitState, toParts, type SplitDraft, type TreeGroup } from '../lib/categories';
-import { categoryIcon } from '../lib/categoryIcons';
+import { catColours, categoryLabel, plural, ruleLabel, skippedText, splitState, toParts, type SplitDraft } from '../lib/categories';
 import { dateFull, eur } from '../lib/format';
 import type { Account, Rule, SimilarPreview, Split, Transaction, TreeCategory } from '../lib/types';
 import type { AsyncState } from '../lib/useAsync';
@@ -110,48 +110,16 @@ function Offline() {
   );
 }
 
-/** A select over the whole tree (Uitgaven / Inkomsten, each top followed by its subs), with the pastel dot. */
-function CatSelect(p: {
-  id: string;
-  label: string;
-  placeholder: string;
-  value: number | null;
-  groups: { expense: TreeGroup[]; income: TreeGroup[] };
-  byId: ReadonlyMap<number, TreeCategory>;
-  dataKey: string;
-  onPick: (id: number | null) => void;
-}) {
+/** The button of a split part: its category (emoji tile and "Wonen › Energie", or "Kies een categorie"); it opens the picker under the part. */
+function PartCategory(p: { n: number; value: number | null; byId: ReadonlyMap<number, TreeCategory>; dataKey: string; open: boolean; onToggle: () => void }) {
   const c = p.value !== null ? p.byId.get(p.value) : undefined;
-  const options: SelectOption[] = [{ value: '', label: p.placeholder }];
-  for (const type of ['expense', 'income'] as const) {
-    const group = type === 'expense' ? 'Uitgaven' : 'Inkomsten';
-    for (const g of p.groups[type]) {
-      const lead = (c: TreeCategory) => <Icon name={categoryIcon(c.icon)} size={16} stroke={2.2} className="tx-opt-ico" />;
-      options.push({ value: String(g.top.id), label: g.top.name, group, lead: lead(g.top) });
-      for (const s of g.subs) options.push({ value: String(s.id), label: g.top.name + ' › ' + s.name, group, lead: lead(s) });
-    }
-  }
+  const text = c ? categoryLabel(c, p.byId) : 'Kies een categorie';
   return (
-    <div className="tx-part-cat">
-      {c ? (
-        <span className="tx-part-dot" style={{ background: catColours(c.colour).bg, color: catColours(c.colour).fg }} aria-hidden="true">
-          <Icon name={categoryIcon(c.icon)} size={12} stroke={2.4} />
-        </span>
-      ) : (
-        <i className="tx-part-dot tx-part-dot--empty" aria-hidden="true" />
-      )}
-      <label className="visually-hidden" htmlFor={p.id}>
-        {p.label}
-      </label>
-      <Select
-        className="tx-select"
-        id={p.id}
-        dataKey={p.dataKey}
-        value={p.value === null ? '' : String(p.value)}
-        options={options}
-        onChange={(v) => p.onPick(v ? Number(v) : null)}
-      />
-    </div>
+    <button type="button" className="tx-part-cat" data-key={p.dataKey} aria-expanded={p.open} aria-label={'Categorie van deel ' + p.n + ': ' + text} onClick={p.onToggle}>
+      {c ? <CatIcon icon={c.icon} colour={c.colour} /> : <i className="tx-part-dot--empty" aria-hidden="true" />}
+      <span className="tx-part-text">{text}</span>
+      <Icon name="chevronDown" size={16} stroke={2.4} />
+    </button>
   );
 }
 
@@ -196,13 +164,14 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
   const cv = catView(t);
   const tree = cats.data;
   const byId = useMemo(() => new Map((tree ?? []).map((c) => [c.id, c])), [tree]);
-  const groups = useMemo(() => groupTree(tree ?? []), [tree]);
 
   const [note, setNote] = useState(t.note ?? '');
   const [rule, setRule] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const busyRef = useRef(false);
   const [parts, setParts] = useState<Part[] | null>(null);
+  /** The `k` of the split part whose picker is open. */
+  const [pickPart, setPickPart] = useState<number | null>(null);
   const nextKey = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const focusKey = useRef<string | null>(null);
@@ -288,6 +257,7 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
   };
   const closeSplit = () => {
     setParts(null);
+    setPickPart(null);
     focusKey.current = 'split';
   };
   const setPart = (i: number, patch: Partial<SplitDraft>) => setParts((ps) => ps && ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -301,6 +271,7 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
         const n = await api.splitTransaction(t.id, toParts(t.amount, parts));
         onChange(n, null);
         setParts(null);
+        setPickPart(null);
         focusKey.current = 'split';
         toast('Gesplitst over ' + parts.length + ' categorieën');
       });
@@ -310,6 +281,7 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
         const n = await api.unsplitTransaction(t.id);
         onChange(n, null);
         setParts(null);
+        setPickPart(null);
         focusKey.current = 'split';
         toast('Splitsing ongedaan gemaakt');
       });
@@ -335,16 +307,7 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
             const pid = 'tx-part-' + mode + '-' + i;
             return (
               <div className="tx-part" key={p.k}>
-                <CatSelect
-                  id={pid + '-c'}
-                  label={'Categorie van deel ' + (i + 1)}
-                  placeholder="Kies een categorie"
-                  value={p.categoryId}
-                  groups={groups}
-                  byId={byId}
-                  dataKey={'pc' + i}
-                  onPick={(id) => setPart(i, { categoryId: id })}
-                />
+                <PartCategory n={i + 1} value={p.categoryId} byId={byId} dataKey={'pc' + i} open={pickPart === p.k} onToggle={() => setPickPart(pickPart === p.k ? null : p.k)} />
                 <div className="tx-money">
                   <span aria-hidden="true">€</span>
                   <label className="visually-hidden" htmlFor={pid + '-a'}>
@@ -374,6 +337,21 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
                 >
                   <Icon name="trash" size={18} stroke={2} />
                 </button>
+                {pickPart === p.k && (
+                  <div className="tx-part-picker">
+                    <CategoryPicker
+                      tree={tree}
+                      amount={t.amount}
+                      value={p.categoryId}
+                      label={'Categorie van deel ' + (i + 1)}
+                      onPick={(id) => {
+                        setPart(i, { categoryId: id });
+                        setPickPart(null);
+                        focusKey.current = 'pc' + i;
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -507,72 +485,6 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
     );
   } else if (!ro && !(t.transfer && !t.category)) {
     const labelId = 'tx-pick-label-' + mode;
-    const type = t.amount > 0 ? 'income' : 'expense';
-    const tops = groups[type].map((g) => g.top);
-    let body: ReactNode;
-    if (!tree && cats.error) {
-      body = (
-        <div className="tx-note tx-note--muted tx-cats-err" role="alert">
-          <span>{cats.error}</span>
-          <button type="button" className="tx-src-btn" onClick={cats.reload}>
-            Opnieuw proberen
-          </button>
-        </div>
-      );
-    } else if (!tree) {
-      body = (
-        <div className="tx-picks" role="status" aria-label="Categorieën laden">
-          {[96, 128, 88, 104].map((w) => (
-            <span key={w} className="tx-skel" style={{ width: w, height: 40, borderRadius: 20 }} />
-          ))}
-        </div>
-      );
-    } else if (!tree.length) {
-      body = (
-        <p className="tx-note tx-note--muted">
-          Nog geen categorieën.{' '}
-          <Link className="tx-src-link" to="/categorieen">
-            Categorieën maken
-          </Link>
-        </p>
-      );
-    } else {
-      body = (
-        <>
-          <div className="tx-picks" role="group" aria-labelledby={labelId} aria-busy={busy === 'pick' || undefined}>
-            {tops.map((c) => {
-              const on = c.id === catId;
-              const { bg, fg } = catColours(c.colour);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="tx-pick"
-                  data-key={'pick-' + c.id}
-                  aria-pressed={on}
-                  aria-disabled={off || undefined}
-                  style={on ? { background: bg, color: fg, borderColor: 'var(--text)' } : { borderColor: c.colour === 'soft' ? 'var(--softChip)' : bg }}
-                  onClick={() => pick(c.id)}
-                >
-                  {on ? <Icon name="check" size={sheet ? 15 : 14} stroke={3} /> : <Icon name={categoryIcon(c.icon)} size={sheet ? 15 : 14} stroke={2.4} />}
-                  {c.name}
-                </button>
-              );
-            })}
-          </div>
-          <CatSelect
-            id={'tx-pick-all-' + mode}
-            label="Alle categorieën"
-            placeholder="Alle categorieën"
-            value={catId !== undefined && !tops.some((c) => c.id === catId) ? catId : null}
-            groups={groups}
-            byId={byId}
-            dataKey="pick-all"
-            onPick={pick}
-          />
-        </>
-      );
-    }
 
     let desc: ReactNode = null;
     let skipped = '';
@@ -590,7 +502,18 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
         <span className="tx-picker-label" id={labelId}>
           Kies een categorie
         </span>
-        {body}
+        <CategoryPicker
+          key={t.id}
+          tree={tree}
+          error={cats.error}
+          onRetry={cats.reload}
+          amount={t.amount}
+          value={catId}
+          onPick={pick}
+          disabled={off}
+          busy={busy === 'pick'}
+          labelledBy={labelId}
+        />
         {showRule && preview.data?.counterparty !== '' && (
           <label className="tx-rule">
             <input

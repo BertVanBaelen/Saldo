@@ -82,7 +82,7 @@ func (s *Store) BackfillPreview(ctx context.Context, viewer int64) (BackfillPrev
 	if err != nil {
 		return BackfillPreview{}, err
 	}
-	cats, err := s.db.QueryContext(ctx, `SELECT id, name, icon, colour FROM categories`)
+	cats, err := s.db.QueryContext(ctx, `SELECT id, name, icon, `+effectiveColour("")+` FROM categories`)
 	if err != nil {
 		return BackfillPreview{}, err
 	}

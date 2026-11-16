@@ -102,6 +102,20 @@ describe('Rekening · a bank account', () => {
     expect(within(card('Synchronisatie')).queryByRole('button', { name: 'Nu opnieuw proberen' })).toBeNull();
   });
 
+  it('says why the sync of the account failed: its error code and last attempt', async () => {
+    stubApi({ accounts: [{ ...ZICHT, syncStatus: 'failed', syncError: 'ASPSP_ERROR', lastAttempt: ZICHT.lastSync } as typeof ZICHT, SPAAR, GEDEELD] });
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(within(card('Synchronisatie')).getByText('Foutcode ASPSP_ERROR · laatste poging vandaag 04:02')).toBeTruthy();
+  });
+
+  it('says when the last consent left the account out', async () => {
+    stubApi({ accounts: [{ ...ZICHT, syncStatus: 'failed', syncError: 'not_shared', lastAttempt: ZICHT.lastSync } as typeof ZICHT, SPAAR, GEDEELD] });
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(within(card('Synchronisatie')).getByText(/Niet gedeeld bij de laatste toestemming/)).toBeTruthy();
+  });
+
   it('shows an account whose link was removed as not linked, with the way back', async () => {
     stubApi({ accounts: [UNLINKED, SPAAR], connections: [] });
     renderAt('/rekeningen/1');

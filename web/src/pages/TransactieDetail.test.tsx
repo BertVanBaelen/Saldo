@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api';
 import type { Transaction } from '../lib/types';
 import { ACCOUNTS, GEDEELD, renderAt, RULES, stubApi, TRANSACTIONS } from '../test/helpers';
-import { choose } from '../test/select';
 
 const toast = () => document.querySelector('.toast')?.textContent;
 const row = (name: string) => screen.getByText(name, { selector: '.tx-name' }).closest('.tx-row') as HTMLElement;
@@ -26,10 +25,13 @@ describe('Transactie detail · category', () => {
     renderAt('/transacties');
     const dialog = await open('Bakkerij De Graankorrel');
     const pills = within(dialog).getByRole('group', { name: 'Kies een categorie' });
-    // Expense row: the expense tops in server order, no income categories.
-    expect(within(pills).getAllByRole('button').map((b) => b.textContent)).toEqual(['Wonen', 'Boodschappen', 'Vrije tijd', 'Vervoer', 'Abonnementen', 'Overig']);
+    // Expense row: the expense tops in server order (each with its emoji, the default tag for none), no income categories.
+    expect(within(pills).getAllByRole('button').map((b) => b.textContent)).toEqual(['🏠Wonen', '🏷️Boodschappen', '🏷️Vrije tijd', '🏷️Vervoer', '🏷️Abonnementen', '🏷️Overig']);
     const counts = api.transactions.mock.calls.length;
 
+    // "Vrije tijd" has no subcategories: its tile picks at once (data-key pick-; a tile that opens step 2 uses open-).
+    expect(within(pills).getByRole('button', { name: 'Vrije tijd' }).getAttribute('data-key')).toBe('pick-3');
+    expect(within(pills).getByRole('button', { name: 'Wonen' }).getAttribute('data-key')).toBe('open-1');
     fireEvent.click(within(pills).getByRole('button', { name: 'Vrije tijd' }));
     await waitFor(() => expect(within(pills).getByRole('button', { name: 'Vrije tijd' }).getAttribute('aria-pressed')).toBe('true'));
     expect(api.updateTransaction).toHaveBeenCalledWith(112, { categoryId: 3 });
@@ -39,20 +41,52 @@ describe('Transactie detail · category', () => {
     await waitFor(() => expect(api.transactions.mock.calls.slice(counts).filter(([q]) => q?.uncategorised && q.limit === 1).length).toBeGreaterThanOrEqual(2));
   });
 
-  it('picks any category of the tree from "Alle categorieën" and shows a subcategory as "Wonen › Energie"', async () => {
+  it('reaches a subcategory in two taps and shows it as "Wonen › Energie"', async () => {
     const api = stubApi();
     renderAt('/transacties');
     const dialog = await open('Colruyt Laagste Prijzen');
-    const select = await within(dialog).findByRole('combobox', { name: 'Alle categorieën' });
-    expect(select.textContent).toBe('Alle categorieën');
-    fireEvent.click(select);
-    const list = within(screen.getByRole('listbox'));
-    expect(list.getByRole('group', { name: 'Uitgaven' })).toBeTruthy();
-    expect(list.getByRole('group', { name: 'Inkomsten' })).toBeTruthy();
-    fireEvent.click(list.getByRole('option', { name: 'Wonen › Energie' }));
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Wonen' }));
+    // Step 2: the main category as header, "Alleen Wonen" first, then the subcategories.
+    const rows = within(dialog).getByRole('group', { name: 'Subcategorieën van Wonen' });
+    expect(within(rows).getAllByRole('button').map((b) => b.textContent)).toEqual(['🏠Alleen Wonen', '⚡Energie']);
+    expect(api.updateTransaction).not.toHaveBeenCalled();
+    fireEvent.click(within(rows).getByRole('button', { name: 'Energie' }));
     await waitFor(() => expect(api.updateTransaction).toHaveBeenCalledWith(115, { categoryId: 10 }));
     expect(await within(dialog).findByText('Wonen › Energie', { selector: 'dd' })).toBeTruthy();
-    expect(select.textContent).toBe('Wonen › Energie');
+    // The picker stays on step 2 and marks the new category.
+    await waitFor(() => expect(within(rows).getByRole('button', { name: 'Energie' }).getAttribute('aria-pressed')).toBe('true'));
+    expect(within(rows).getByRole('button', { name: 'Energie' }).querySelector('svg')).toBeTruthy();
+    expect(within(rows).getByRole('button', { name: 'Alleen Wonen' }).getAttribute('aria-pressed')).toBe('false');
+    // Back to step 1: the main tile is marked and the full name is shown under the grid.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Terug' }));
+    expect(within(dialog).getByRole('button', { name: 'Wonen' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(dialog).getByRole('button', { name: 'Boodschappen' }).getAttribute('aria-pressed')).toBe('false');
+    expect(within(dialog).getByText('Wonen › Energie', { selector: '.cat-pick-cur' })).toBeTruthy();
+  });
+
+  it('picks a main category alone with the "Alleen Wonen" row', async () => {
+    const api = stubApi();
+    renderAt('/transacties');
+    const dialog = await open('Colruyt Laagste Prijzen');
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Wonen' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Alleen Wonen' }));
+    await waitFor(() => expect(api.updateTransaction).toHaveBeenCalledWith(115, { categoryId: 1 }));
+    expect(await within(dialog).findByText('Wonen', { selector: 'dd' })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Alleen Wonen' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('shows the other type with "Toon inkomsten" and picks an income category', async () => {
+    const api = stubApi();
+    renderAt('/transacties');
+    const dialog = await open('Colruyt Laagste Prijzen');
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Toon inkomsten' }));
+    const pills = within(dialog).getByRole('group', { name: 'Kies een categorie' });
+    expect(within(pills).getAllByRole('button').map((b) => b.textContent)).toEqual(['🏷️Loon', '🏷️Terugbetaling', '🏷️Gespaard']);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Toon uitgaven' }));
+    expect(within(dialog).getByRole('button', { name: 'Boodschappen' })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Toon inkomsten' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Loon' }));
+    await waitFor(() => expect(api.updateTransaction).toHaveBeenCalledWith(115, { categoryId: 7 }));
   });
 
   it('makes the same category manual when picked by hand over a rule, and does nothing for a manual one', async () => {
@@ -74,10 +108,16 @@ describe('Transactie detail · category', () => {
     renderAt('/transacties');
     const dialog = await open('TotalEnergies');
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Wonen' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Alleen Wonen' }));
     await waitFor(() => expect(toast()).toBe('Die categorie bestaat niet.'));
+    // The picker stays on step 2 and gives the old choice back: nothing is marked there.
+    const alone = within(dialog).getByRole('button', { name: 'Alleen Wonen' });
+    expect(alone.getAttribute('aria-pressed')).toBe('false');
+    expect(alone.getAttribute('aria-disabled')).toBeNull();
+    expect(alone.getAttribute('aria-busy')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Terug' }));
     expect(within(dialog).getByRole('button', { name: 'Vervoer' }).getAttribute('aria-pressed')).toBe('true');
     expect(within(dialog).getByRole('button', { name: 'Wonen' }).getAttribute('aria-pressed')).toBe('false');
-    expect(within(dialog).getByRole('button', { name: 'Wonen' }).getAttribute('aria-disabled')).toBeNull();
   });
 
   it('sends one request for a double press', async () => {
@@ -86,14 +126,19 @@ describe('Transactie detail · category', () => {
     api.updateTransaction.mockImplementation(() => new Promise((r) => (done = r)));
     renderAt('/transacties');
     const dialog = await open('TotalEnergies');
-    const wonen = await within(dialog).findByRole('button', { name: 'Wonen' });
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Wonen' }));
+    const wonen = within(dialog).getByRole('button', { name: 'Alleen Wonen' });
     fireEvent.click(wonen);
     fireEvent.click(wonen);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Opslaan' }));
     expect(api.updateTransaction).toHaveBeenCalledTimes(1);
     expect(wonen.getAttribute('aria-disabled')).toBe('true');
+    expect(wonen.getAttribute('aria-busy')).toBe('true');
+    // The chosen row is marked while the save runs.
+    expect(wonen.getAttribute('aria-pressed')).toBe('true');
     await act(async () => done({ ...TRANSACTIONS[2], category: { id: 1, name: 'Wonen', colour: 'c1' } }));
     expect(wonen.getAttribute('aria-pressed')).toBe('true');
+    expect(wonen.getAttribute('aria-busy')).toBeNull();
   });
 
   it('confirms a suggestion with the same category', async () => {
@@ -350,7 +395,11 @@ describe('Transactie detail · offline', () => {
     const save = within(dialog).getByRole('button', { name: 'Opslaan' });
     expect(save.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(save);
+    // Browsing the steps still works offline; picking toasts.
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Wonen' }));
+    const alone = within(dialog).getByRole('button', { name: 'Alleen Wonen' });
+    expect(alone.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(alone);
     expect(toast()).toBe('Je bent offline · wijzigen kan weer zodra je verbinding hebt');
     expect((within(dialog).getByRole('checkbox') as HTMLInputElement).disabled).toBe(true);
     expect(api.updateTransaction).not.toHaveBeenCalled();
@@ -364,9 +413,9 @@ describe('Transactie detail · split', () => {
     renderAt('/transacties');
     const dialog = await open('Colruyt Laagste Prijzen');
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Splitsen' }));
-    const cat1 = within(dialog).getByRole('combobox', { name: 'Categorie van deel 1' });
+    const cat1 = within(dialog).getByRole('button', { name: 'Categorie van deel 1: Boodschappen' });
     expect(document.activeElement).toBe(cat1);
-    expect(cat1.textContent).toBe('Boodschappen');
+    expect(cat1.textContent).toBe('🏷️Boodschappen');
     const rest = () => dialog.querySelector('.tx-rest-wrap') as HTMLElement;
     expect(rest().getAttribute('aria-live')).toBe('polite');
     expect(rest().textContent).toBe('Nog te verdelen€ 86,42Verdeel het hele bedrag om op te slaan.');
@@ -383,7 +432,16 @@ describe('Transactie detail · split', () => {
     fireEvent.click(save());
     expect(toast()).toBe('Kies voor elk deel een categorie.');
     expect(api.splitTransaction).not.toHaveBeenCalled();
-    choose(within(dialog).getByRole('combobox', { name: 'Categorie van deel 2' }), 'Vrije tijd');
+    const cat2 = within(dialog).getByRole('button', { name: 'Categorie van deel 2: Kies een categorie' });
+    expect(cat2.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(cat2);
+    expect(cat2.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Vrije tijd' }));
+    // Choosing closes the picker and puts focus back on the part's button.
+    expect(within(dialog).queryByRole('group', { name: 'Categorie van deel 2' })).toBeNull();
+    expect(cat2.getAttribute('aria-expanded')).toBe('false');
+    expect(cat2.textContent).toBe('🏷️Vrije tijd');
+    expect(document.activeElement).toBe(cat2);
     expect(save().getAttribute('aria-disabled')).toBe('false');
     fireEvent.click(save());
 
@@ -407,6 +465,28 @@ describe('Transactie detail · split', () => {
     expect(api.unsplitTransaction).toHaveBeenCalledWith(115);
     expect(within(dialog).getByRole('group', { name: 'Kies een categorie' })).toBeTruthy();
     expect(document.activeElement?.textContent).toBe('Splitsen');
+  });
+
+  it('picks a subcategory for a part with the same two-step picker and sends it', async () => {
+    const api = stubApi();
+    renderAt('/transacties');
+    const dialog = await open('Bakkerij De Graankorrel');
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Splitsen' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Categorie van deel 1: Kies een categorie' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Wonen' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Energie' }));
+    const cat1 = within(dialog).getByRole('button', { name: 'Categorie van deel 1: Wonen › Energie' });
+    expect(cat1.textContent).toBe('⚡Wonen › Energie');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Categorie van deel 2: Kies een categorie' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Overig' }));
+    fireEvent.change(within(dialog).getByLabelText('Bedrag van deel 1'), { target: { value: '5' } });
+    fireEvent.change(within(dialog).getByLabelText('Bedrag van deel 2'), { target: { value: '3,40' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(toast()).toBe('Gesplitst over 2 categorieën'));
+    expect(api.splitTransaction).toHaveBeenCalledWith(112, [
+      { categoryId: 10, amount: -500 },
+      { categoryId: 6, amount: -340 },
+    ]);
   });
 
   it('adds parts up to ten and never removes below two; cancel goes back', async () => {

@@ -869,7 +869,7 @@ describe('Importeren · Bilance', () => {
     expect(sent).toEqual([
       { category: 'Wonen', subcategory: 'Energie, nutsvoorzieningen', action: 'map', categoryId: 1 },
       { category: 'Wonen', subcategory: 'Huur, hypotheek', action: 'map', categoryId: 1 },
-      { category: 'Winkelen', subcategory: 'Overig', action: 'create', new: { name: 'Webwinkels', parentId: null, type: 'expense', icon: 'bag' } },
+      { category: 'Winkelen', subcategory: 'Overig', action: 'create', new: { name: 'Webwinkels', parentId: null, type: 'expense', icon: '👜' } },
     ]);
   });
 
@@ -890,10 +890,10 @@ describe('Importeren · Bilance', () => {
 
   it('suggests the first synced date as cutoff, and lists the probable duplicates side by side, skipped until included', async () => {
     const api = stubApi({ accounts: [ZICHT] });
-    const streaming = { name: 'Streaming', icon: 'tv', colour: 'c5' };
+    const streaming = { name: 'Streaming', icon: '📺', colour: 'c5' };
     const dup = (line: number, who: string, existing: string, takes: boolean) => ({
       line, accountId: ZICHT.id, date: '2026-10-18', amount: -1199, counterparty: who, note: '', source: ['Winkelen', 'Overig'] as [string, string], category: streaming, takes,
-      existing: { id: line, date: '2026-10-17', amount: -1199, counterparty: existing, communication: '', category: takes ? null : { name: 'Abonnementen', icon: 'repeat', colour: 'c5' }, imported: false },
+      existing: { id: line, date: '2026-10-17', amount: -1199, counterparty: existing, communication: '', category: takes ? null : { name: 'Abonnementen', icon: '🔁', colour: 'c5' }, imported: false },
     });
     // The answer of the server: with the cutoff the two rows are skipped by date, without it they are probable duplicates.
     api.previewImport.mockImplementation(async (file, o = {}) => ({

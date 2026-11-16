@@ -7,7 +7,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
 import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
-import { accColour, accountIcon } from '../lib/accounts';
+import { accColour, accountIcon, syncProblem } from '../lib/accounts';
 import { api, browser, errorMessage } from '../lib/api';
 import { dateYear, eur, momentLabel, names } from '../lib/format';
 import type { Account, BankLinkResult, Connection, SyncStatus } from '../lib/types';
@@ -184,6 +184,7 @@ function ConnectionCard({ c, accounts, index, onRemove }: { c: Connection; accou
                     {a.iban && ' · '}
                     {a.kind === 'shared' ? 'gedeeld' : 'persoonlijk'}
                   </span>
+                  {a.syncStatus === 'failed' && <span className="bk-acc-sub bk-acc-sub--neg">{['Synchronisatie mislukt', syncProblem(a, today)].filter(Boolean).join(' · ')}</span>}
                 </span>
               </li>
             ))}

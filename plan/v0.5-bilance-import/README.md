@@ -2,7 +2,7 @@
 
 **After this version you can** import your full Bilance history from its CSV export, map its categories onto Saldo's, skip what is already synced, undo an import, and get better category suggestions learned from that history.
 
-Status: built, to verify: all phases built (0.5-1 done, 0.5-2 to 0.5-6 to verify). Analysis milestones: spike S2 and M6. Roadmap: [../README.md](../README.md).
+Status: released as 0.5.0, verifying on the live add-on (16 Nov 2026): all phases built (0.5-1 done, 0.5-2 to 0.5-6 to verify). Analysis milestones: spike S2 and M6. Roadmap: [../README.md](../README.md).
 
 Moved before shared accounts, overview and planning on 3 Nov 2026: the bank API gives only about 90 days, and the forecast needs 12+ months to find quarterly and yearly items (risk 12). Overzicht also starts with real history this way.
 

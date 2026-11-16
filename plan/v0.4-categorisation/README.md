@@ -2,7 +2,7 @@
 
 **After this version you can** have your transactions categorised automatically by rules, change a category in a tap and turn that into a rule for similar transactions, split a transaction, and manage categories and rules.
 
-Status: in progress (10 Nov 2026): the category tree (0.4-1), the rules engine (0.4-2), Categorise in Transacties (0.4-3) and the Categorieën en regels screen (0.4-4) are built and wait for verification. Category icons (CAT-6, 11 Nov 2026, added after testing: an icon per category and subcategory, chosen in the editor, colour stays that of the main category) extend 0.4-1 and 0.4-4. Analysis milestone: M2. Roadmap: [../README.md](../README.md).
+Status: released as 0.4.0 (in the release 0.5.0 too), verifying on the live add-on (16 Nov 2026): the category tree (0.4-1), the rules engine (0.4-2), Categorise in Transacties (0.4-3) and the Categorieën en regels screen (0.4-4) are built and wait for verification. Category icons (CAT-6, 11 Nov 2026, added after testing: an icon per category and subcategory, chosen in the editor, colour stays that of the main category) extend 0.4-1 and 0.4-4. Analysis milestone: M2. Roadmap: [../README.md](../README.md).
 
 ## Features
 | Id | Feature |

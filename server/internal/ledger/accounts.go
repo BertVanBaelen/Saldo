@@ -51,8 +51,22 @@ type Account struct {
 	// their user rules that no longer apply to it and have no equal account
 	// rule yet (POST /api/accounts/{id}/convert-rules); 0 for everyone else.
 	ConvertibleRules int `json:"convertibleRules"`
+	// SourceRole is the role of the viewer's own link on this bank account:
+	// "primary", "reserve" (a fallback) or nil without a link (0.6-1d).
+	SourceRole *string `json:"sourceRole"`
+	// CarriedBy is whose link carries (fetches) the account now, nil when no
+	// link can (manual, unlinked, or no usable source).
+	CarriedBy *CarriedBy `json:"carriedBy"`
+	// ViaReserve is true while a fallback carries the account.
+	ViaReserve bool `json:"viaReserve"`
 
-	sources []int64 // connections that feed this account
+	sources []int64 // connections whose failure explains this account's state
+}
+
+// CarriedBy names the owner of the link that carries an account.
+type CarriedBy struct {
+	Name string `json:"name"`
+	Me   bool   `json:"me"`
 }
 
 // SyncReport tells a silent sync from a broken one: "fetched 0" is the bank's
@@ -225,19 +239,170 @@ type source struct {
 	failed     string    // the source's error code while its status is failed
 	attempt    time.Time // its last attempt
 	report     *SyncReport
+
+	// For the carrier (0.6-1d).
+	status     string // ok or failed
+	lastError  string
+	live       bool   // the connection is active
+	validUntil string // the consent's end
+	shared     bool   // the current consent lists the account (a provider id)
+	owner      int64  // the connection's user
+	ownerName  string
+	joined     string // when the owner joined the account ("" when unknown)
 }
 
-// loadSync sets lastSync and syncStatus of bank accounts. The account follows
-// its primary source; when that one fails or its consent lapsed, the most
-// recent working fallback takes over (analysis 6.3).
+// sourceSelect reads account_sources rows with what the view and the carrier
+// need; scanSource reads one. A caller adds the WHERE and ORDER BY.
+const sourceSelect = `
+	SELECT s.account_id, s.connection_id, s.priority, s.status, COALESCE(s.last_sync_at, ''),
+	       c.status, COALESCE(c.valid_until, ''), COALESCE(s.last_error, ''), COALESCE(s.last_attempt_at, ''),
+	       s.last_fetched, COALESCE(s.last_added, 0), COALESCE(s.last_from, ''), COALESCE(s.last_newest, ''),
+	       COALESCE(s.last_balance_date, ''), COALESCE(s.last_external_tail, ''),
+	       s.external_account_id IS NOT NULL, c.status = 'active',
+	       c.user_id, u.display_name, COALESCE(x.joined_at, '')
+	FROM account_sources s
+	JOIN provider_connections c ON c.id = s.connection_id
+	JOIN users u ON u.id = c.user_id
+	LEFT JOIN account_access x ON x.account_id = s.account_id AND x.user_id = c.user_id`
+
+func scanSource(rows *sql.Rows, now time.Time) (int64, source, error) {
+	var accountID int64
+	var src source
+	var priority, lastSync, connStatus, lastAttempt string
+	var fetched sql.NullInt64
+	var added int
+	var from, newest, balanceDate, tail string
+	if err := rows.Scan(&accountID, &src.connection, &priority, &src.status, &lastSync, &connStatus, &src.validUntil, &src.lastError, &lastAttempt,
+		&fetched, &added, &from, &newest, &balanceDate, &tail,
+		&src.shared, &src.live, &src.owner, &src.ownerName, &src.joined); err != nil {
+		return 0, src, err
+	}
+	src.primary = priority == "primary"
+	src.usable = src.status == "ok" && connStatus == "active" && !consentLapsed(src.validUntil, now)
+	if t, err := time.Parse(time.RFC3339, lastSync); err == nil {
+		src.lastSync, src.hasSync = t, true
+	}
+	if src.status == "failed" {
+		src.failed = src.lastError
+	}
+	if t, err := time.Parse(time.RFC3339, lastAttempt); err == nil {
+		src.attempt = t
+	}
+	if at, _, ok := formatTimestamp(lastSync); ok && fetched.Valid {
+		src.report = &SyncReport{At: at, From: ptrIfSet(from), Fetched: int(fetched.Int64), Added: added,
+			Newest: ptrIfSet(newest), BalanceDate: ptrIfSet(balanceDate), IDTail: tail}
+	}
+	return accountID, src, nil
+}
+
+// Carrier returns the connection that fetches the account in a sync at now
+// (0 when none can) and whether the account has more than one source. The
+// sync calls it per account before fetching, on the state stored before.
+func Carrier(ctx context.Context, db *sql.DB, account int64, now time.Time) (connection int64, multi bool, err error) {
+	rows, err := db.QueryContext(ctx, sourceSelect+` WHERE s.account_id = ? ORDER BY s.connection_id`, account)
+	if err != nil {
+		return 0, false, err
+	}
+	defer rows.Close()
+	var srcs []source
+	for rows.Next() {
+		_, src, err := scanSource(rows, now)
+		if err != nil {
+			return 0, false, err
+		}
+		srcs = append(srcs, src)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, false, err
+	}
+	if c := carrier(srcs, now, true); c != nil {
+		connection = c.connection
+	}
+	return connection, len(srcs) > 1, nil
+}
+
+// carrier is the one source that fetches an account (plan 0.6-1d): the
+// primary, unless it is stopped and a fallback can take over; then the oldest
+// usable fallback (its owner joined first, then the lowest connection id, as
+// promotePrimary). Without such a fallback the primary carries even when
+// stopped, so a one-link account syncs exactly as before. run is true in a
+// sync at now, false for the view.
+func carrier(srcs []source, now time.Time, run bool) *source {
+	var primary, reserve *source
+	for i := range srcs {
+		src := &srcs[i]
+		switch {
+		case src.primary:
+			primary = src
+		case src.canCarry(now, run) && (reserve == nil || src.before(reserve)):
+			reserve = src
+		}
+	}
+	if primary != nil && (reserve == nil || !primary.stopped(now, run)) {
+		return primary
+	}
+	return reserve
+}
+
+// attemptedIn reports an attempt made by the sync at now (its timestamp has
+// whole seconds). Such a source was a carrier of that sync: what it wrote
+// must not change the choice for a connection that syncs after it.
+func (src *source) attemptedIn(now time.Time) bool {
+	return !src.attempt.IsZero() && !src.attempt.Before(now.Truncate(time.Second))
+}
+
+// canCarry: a fallback can take over when the current consent lists the
+// account and its connection is usable. Its own row's status does not count:
+// an idle fallback is never fetched, so nothing would clear it.
+func (src *source) canCarry(now time.Time, run bool) bool {
+	return src.shared && (src.live && !consentLapsed(src.validUntil, now) || run && src.attemptedIn(now))
+}
+
+// before orders fallbacks: the owner who joined first, then the connection.
+func (src *source) before(o *source) bool {
+	if (src.joined == "") != (o.joined == "") {
+		return o.joined == ""
+	}
+	if src.joined != o.joined {
+		return src.joined < o.joined
+	}
+	return src.connection < o.connection
+}
+
+// stopped decides, on stored state only, that the primary cannot carry: its
+// connection is not active, its consent lapsed, the current consent does not
+// list the account (not_shared), or it has been failing for longer than
+// StaleAfter (the account's stale threshold, so a
+// fallback steps in once the account would read stale; "failing" because a
+// primary that was not tried, after a downtime say, is not broken). In a
+// sync, a stopped-by-failures primary is tried again once its last attempt
+// is older than StaleAfter: nothing else would ever bring it back.
+func (src *source) stopped(now time.Time, run bool) bool {
+	// Not listed by the consent: only a new consent changes that, never a
+	// sync (which marks the row not_shared, an "attempt").
+	if !src.shared {
+		return true
+	}
+	if run && src.attemptedIn(now) {
+		return false
+	}
+	if !src.live || consentLapsed(src.validUntil, now) {
+		return true
+	}
+	// not_shared and session_expired were the consent's fault: a live
+	// connection whose consent lists the account has a new one.
+	failing := src.status == "failed" && src.lastError != "not_shared" && src.lastError != "session_expired"
+	if !failing || src.hasSync && now.Sub(src.lastSync) <= StaleAfter {
+		return false
+	}
+	return !run || now.Sub(src.attempt) <= StaleAfter
+}
+
+// loadSync sets lastSync and syncStatus of bank accounts. An account with one
+// source follows it; an account with more follows its carrier (0.6-1d), so an
+// idle fallback never makes it stale or failed.
 func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, index map[int64]int, now time.Time) error {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT s.account_id, s.connection_id, s.priority, s.status, COALESCE(s.last_sync_at, ''),
-		       c.status, COALESCE(c.valid_until, ''), COALESCE(s.last_error, ''), COALESCE(s.last_attempt_at, ''),
-		       s.last_fetched, COALESCE(s.last_added, 0), COALESCE(s.last_from, ''), COALESCE(s.last_newest, ''),
-		       COALESCE(s.last_balance_date, ''), COALESCE(s.last_external_tail, '')
-		FROM account_sources s
-		JOIN provider_connections c ON c.id = s.connection_id
+	rows, err := s.db.QueryContext(ctx, sourceSelect+`
 		WHERE s.account_id IN (SELECT account_id FROM account_access WHERE user_id = ?)
 		ORDER BY s.account_id, s.priority DESC, s.connection_id`, viewer)
 	if err != nil {
@@ -246,30 +411,9 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 	defer rows.Close()
 	byAccount := map[int64][]source{}
 	for rows.Next() {
-		var accountID int64
-		var src source
-		var priority, status, lastSync, connStatus, validUntil, lastError, lastAttempt string
-		var fetched sql.NullInt64
-		var added int
-		var from, newest, balanceDate, tail string
-		if err := rows.Scan(&accountID, &src.connection, &priority, &status, &lastSync, &connStatus, &validUntil, &lastError, &lastAttempt,
-			&fetched, &added, &from, &newest, &balanceDate, &tail); err != nil {
+		accountID, src, err := scanSource(rows, now)
+		if err != nil {
 			return err
-		}
-		src.primary = priority == "primary"
-		src.usable = status == "ok" && connStatus == "active" && !consentLapsed(validUntil, now)
-		if t, err := time.Parse(time.RFC3339, lastSync); err == nil {
-			src.lastSync, src.hasSync = t, true
-		}
-		if status == "failed" {
-			src.failed = lastError
-		}
-		if t, err := time.Parse(time.RFC3339, lastAttempt); err == nil {
-			src.attempt = t
-		}
-		if at, _, ok := formatTimestamp(lastSync); ok && fetched.Valid {
-			src.report = &SyncReport{At: at, From: ptrIfSet(from), Fetched: int(fetched.Int64), Added: added,
-				Newest: ptrIfSet(newest), BalanceDate: ptrIfSet(balanceDate), IDTail: tail}
 		}
 		byAccount[accountID] = append(byAccount[accountID], src)
 	}
@@ -289,9 +433,28 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 			continue
 		}
 		for _, src := range srcs {
+			if src.owner == viewer {
+				a.SourceRole = ptr("primary")
+				if !src.primary {
+					a.SourceRole = ptr("reserve")
+				}
+			}
+		}
+		pick := carrier(srcs, now, false)
+		if pick != nil {
+			a.CarriedBy = &CarriedBy{Name: pick.ownerName, Me: pick.owner == viewer}
+			a.ViaReserve = !pick.primary
+		}
+		// The state, error and report are the carrier's: an idle or broken
+		// fallback says nothing about the account.
+		view := srcs
+		if len(srcs) > 1 && pick != nil {
+			view = []source{*pick}
+		}
+		for _, src := range view {
 			a.sources = append(a.sources, src.connection)
 		}
-		status, last := syncState(srcs, now)
+		status, last := syncState(view, now)
 		a.SyncStatus = &status
 		if !last.IsZero() {
 			ts, _, _ := formatTimestamp(last.UTC().Format(time.RFC3339))
@@ -299,11 +462,15 @@ func (s *Store) loadSync(ctx context.Context, viewer int64, list []Account, inde
 		}
 		var attempt, reported time.Time
 		for _, src := range srcs {
-			if status == "failed" && a.SyncError == nil && src.failed != "" {
-				a.SyncError = ptr(src.failed)
-			}
 			if src.attempt.After(attempt) {
 				attempt = src.attempt
+			}
+		}
+		for _, src := range view {
+			// Only the viewer's own link's error code: never another
+			// member's.
+			if status == "failed" && a.SyncError == nil && src.failed != "" && src.owner == viewer {
+				a.SyncError = ptr(src.failed)
 			}
 			// The report of the source that synced most recently.
 			if src.report != nil && (a.SyncReport == nil || src.lastSync.After(reported)) {

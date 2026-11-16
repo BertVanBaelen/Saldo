@@ -47,6 +47,9 @@ const base: Omit<Account, 'id' | 'name' | 'type' | 'iban' | 'colour' | 'buffer' 
   role: 'manager',
   members: [],
   convertibleRules: 0,
+  sourceRole: 'primary',
+  carriedBy: { name: 'Bert', me: true },
+  viaReserve: false,
 };
 
 export const ZICHT: Account = { ...base, id: 1, name: 'Zichtrekening', type: 'current', iban: 'BE68 •••• •••• 4821', colour: 'green', buffer: 90000, balance: 196882, state: 'ok' };
@@ -65,6 +68,8 @@ export const SPAAR: Account = {
   bank: null,
   lastSync: null,
   syncStatus: null,
+  sourceRole: null,
+  carriedBy: null,
 };
 export const GEDEELD: Account = {
   ...base,
@@ -88,6 +93,8 @@ export const asMember = (permission: Permission): Account => ({
   ...GEDEELD,
   role: 'member',
   permission,
+  sourceRole: null,
+  carriedBy: { name: 'Partner', me: false },
   members: [
     { userId: 2, name: 'Partner', initial: 'P', role: 'manager', permission: 'edit', me: false, joinedAt: '2026-06-03T20:14:00+02:00' },
     { userId: 1, name: 'Bert', initial: 'B', role: 'member', permission, me: true, joinedAt: '2026-11-18T08:30:00+01:00' },
@@ -195,7 +202,7 @@ export const PENDING: Connection = { id: 3, bank: 'Argenta', since: null, validU
 /** A manual account without a balance yet. */
 export const NEW_MANUAL: Account = { ...SPAAR, id: 7, name: 'Vakantiepot', iban: null, balance: 0, balanceDate: null };
 /** A bank account whose link was removed with "keep history". */
-export const UNLINKED: Account = { ...ZICHT, syncStatus: 'unlinked', lastSync: null, balanceDate: '2026-11-17' };
+export const UNLINKED: Account = { ...ZICHT, syncStatus: 'unlinked', lastSync: null, balanceDate: '2026-11-17', sourceRole: null, carriedBy: null };
 
 export const BALANCES: Record<number, BalancePoint[]> = {
   1: [

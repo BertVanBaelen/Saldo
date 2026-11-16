@@ -86,6 +86,12 @@ export interface Account {
   lastAttempt?: string | null;
   /** The last successful sync of a bank account; `null` before the first one. */
   syncReport?: SyncReport | null;
+  /** The role of the viewer's own bank link on this account; `null` without a link (manual account, member without a link). */
+  sourceRole?: 'primary' | 'reserve' | null;
+  /** Whose link syncs the account right now; `null` for manual accounts. */
+  carriedBy?: { name: string; me: boolean } | null;
+  /** True while a reserve link carries the account because the primary is stopped. */
+  viaReserve?: boolean;
   permission: Permission;
   role: MemberRole;
   members: Member[];

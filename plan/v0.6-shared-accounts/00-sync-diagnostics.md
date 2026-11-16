@@ -8,6 +8,8 @@
 | Follows | [0.5.1-1](../v0.5.1-category-look/01-sync-two-accounts.md) |
 
 ## Why
+**Cause found 16 Nov 2026:** the user had linked only one of the two accounts in the bank app. This phase stays as a general safeguard: the per-account sync report.
+
 One bank link, two accounts, and only the second syncs (user, 16 Nov 2026). With 0.5.1 installed the sync card shows no failure message and the first account has no new transactions: a silent failure. Two agents found no cause in the code, so the next step is to make a sync say what it did, per account, without needing logs.
 
 ## Goal

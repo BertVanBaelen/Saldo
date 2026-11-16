@@ -532,8 +532,9 @@ func TestConnectionsAndAlerts(t *testing.T) {
 		t.Errorf("stopped alerts:\n got %+v\nwant %+v", alerts, want)
 	}
 
-	// Bert's sync fails: one error for his connection; the shared account falls
-	// back on Partner's link and stays fine.
+	// Bert's sync fails: one error for his connection. The shared account
+	// follows its carrier, still Bert's link: Partner's fallback only takes
+	// over once his has been failing for longer than StaleAfter (0.6-1d).
 	d.Exec(`UPDATE provider_connections SET sync_status = 'failed', last_attempt_at = '2026-11-18T03:02:00Z' WHERE id = 1`)
 	d.Exec(`UPDATE account_sources SET status = 'failed' WHERE connection_id = 1`)
 	alerts, _ = s.Alerts(ctx, bert, demoNow)
@@ -547,7 +548,7 @@ func TestConnectionsAndAlerts(t *testing.T) {
 		}
 	}
 	accs, _ := s.Accounts(ctx, bert, demoNow)
-	if *accs[0].SyncStatus != "failed" || *accs[3].SyncStatus != "ok" || *accs[3].LastSync != "2026-11-18T04:05:00+01:00" {
+	if *accs[0].SyncStatus != "failed" || *accs[3].SyncStatus != "failed" || *accs[3].LastSync != "2026-11-18T04:02:00+01:00" {
 		t.Errorf("sync status: zicht %s, shared %s %s", *accs[0].SyncStatus, *accs[3].SyncStatus, *accs[3].LastSync)
 	}
 

@@ -274,13 +274,13 @@ func TestAccounts(t *testing.T) {
 		"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 		"iban": "BE68 •••• •••• 4821", "colour": "green", "buffer": 90000, "balance": 196882,
 		"balanceDate": "2026-11-18", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T04:02:00+01:00",
-		"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T04:02:00+01:00", "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0
+		"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T04:02:00+01:00", "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false
 	}`)
 	equalJSON(t, string(list[1]), `{
 		"id": 2, "name": "Spaarrekening", "type": "savings", "source": "manual", "kind": "personal",
 		"iban": "BE41 •••• •••• 1196", "colour": "orange", "buffer": 0, "balance": 1250000,
 		"balanceDate": "2026-10-02", "state": null, "bank": null, "lastSync": null,
-		"syncStatus": null, "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0
+		"syncStatus": null, "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": null, "carriedBy": null, "viaReserve": false
 	}`)
 	equalJSON(t, string(list[3]), `{
 		"id": 4, "name": "Gedeelde rekening", "type": "current", "source": "bank", "kind": "shared",
@@ -291,7 +291,7 @@ func TestAccounts(t *testing.T) {
 			{"userId": 1, "name": "Bert", "initial": "B", "role": "manager", "permission": "edit", "me": true, "joinedAt": "2026-06-03T10:10:00+02:00"},
 			{"userId": 2, "name": "Partner", "initial": "P", "role": "member", "permission": "edit", "me": false, "joinedAt": "2026-06-05T21:00:00+02:00"}
 		],
-		"convertibleRules": 0
+		"convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false
 	}`)
 }
 
@@ -575,6 +575,8 @@ func TestPrivacyEndpoints(t *testing.T) {
 					}
 				}
 			}
+			// The key viaReserve (0.6-1d) is not the account name Reserve.
+			text = strings.ReplaceAll(text, `"viaReserve"`, "")
 			for _, secret := range c.secrets {
 				if strings.Contains(text, secret) {
 					t.Errorf("%s: %s contains %q", c.name, path, secret)

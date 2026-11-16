@@ -10,7 +10,7 @@ import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useTitle } from '../components/ui';
-import { accColour, accountState, canManage, isCurrent, isShared, manager, memberTint, nextManager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
+import { accColour, accountState, canManage, carrier, isCurrent, isShared, manager, memberTint, nextManager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { plural } from '../lib/categories';
 import { dateRelative, dateShort, dateYear, eur, momentLabel, names, parseMoney, toDate } from '../lib/format';
@@ -573,6 +573,16 @@ function MembersCard({ a, onChanged, onExit }: { a: Account; onChanged: (a: Acco
 function SyncCard({ a, conn, onRemove }: { a: Account; conn: Connection | undefined; onRemove: () => void }) {
   const { today, online, syncing, startSync } = useApp();
   const mgr = manager(a);
+  const other = carrier(a);
+  const reserve = a.sourceRole === 'reserve';
+  // Which link syncs the account, and why; one-link accounts say nothing.
+  const carrierLine = a.viaReserve && a.carriedBy
+    ? 'De hoofdkoppeling is gestopt: ' + (a.carriedBy.me ? 'jouw koppeling' : 'de koppeling van ' + a.carriedBy.name) + ' houdt deze rekening nu bij.'
+    : other
+      ? 'Via de koppeling van ' + other
+      : null;
+  const prime = other ?? (mgr && !mgr.me ? mgr.name : null);
+  const reserveLine = reserve && !a.carriedBy?.me ? 'Je koppeling is reserve: ze neemt over als ' + (prime ? 'de koppeling van ' + prime : 'de andere koppeling') + ' stopt.' : null;
   const syncBtn = (
     <button
       type="button"
@@ -647,6 +657,8 @@ function SyncCard({ a, conn, onRemove }: { a: Account; conn: Connection | undefi
         </span>
       </div>
       {a.syncReport && <p className="rkd-help">{syncReportLine(a.syncReport)}</p>}
+      {carrierLine && <p className="rkd-help">{carrierLine}</p>}
+      {reserveLine && <p className="rkd-help">{reserveLine}</p>}
       {conn ? (
         <>
           <ul className="rkd-srcs">
@@ -657,7 +669,7 @@ function SyncCard({ a, conn, onRemove }: { a: Account; conn: Connection | undefi
               <div className="rkd-src-main">
                 <div className="rkd-src-top">
                   <span className="rkd-src-title">Jouw koppeling · {conn.bank}</span>
-                  <span className="rkd-prio rkd-prio--primary">Primair</span>
+                  <span className={'rkd-prio' + (reserve ? '' : ' rkd-prio--primary')}>{reserve ? 'Reserve' : 'Primair'}</span>
                 </div>
                 <dl className="rkd-facts">
                   <div>
@@ -676,7 +688,7 @@ function SyncCard({ a, conn, onRemove }: { a: Account; conn: Connection | undefi
               </div>
             </li>
           </ul>
-          <p className="rkd-help">Alleen jouw koppeling houdt deze rekening bij. Banken vragen elke 180 dagen opnieuw toestemming.</p>
+          <p className="rkd-help">{(carrierLine || reserveLine ? '' : 'Alleen jouw koppeling houdt deze rekening bij. ') + 'Banken vragen elke 180 dagen opnieuw toestemming.'}</p>
           <div className="rkd-actions">
             {tone !== 'ok' && (
               <button type="button" className="btn btn--primary btn--block" aria-disabled={!online || syncing || undefined} onClick={startSync}>
@@ -695,7 +707,7 @@ function SyncCard({ a, conn, onRemove }: { a: Account; conn: Connection | undefi
           </div>
         </>
       ) : (
-        <p className="rkd-help">{(mgr && !mgr.me ? 'De koppeling van ' + mgr.name : 'Een koppeling van een ander lid') + ' houdt deze rekening bij. Je beheert alleen je eigen koppelingen.'}</p>
+        <p className="rkd-help">{carrierLine ? 'Je beheert alleen je eigen koppelingen.' : (mgr && !mgr.me ? 'De koppeling van ' + mgr.name : 'Een koppeling van een ander lid') + ' houdt deze rekening bij. Je beheert alleen je eigen koppelingen.'}</p>
       )}
     </section>
   );

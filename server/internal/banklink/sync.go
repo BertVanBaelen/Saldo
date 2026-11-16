@@ -124,6 +124,7 @@ type source struct {
 	account  int64
 	iban     string
 	external string // the provider's account id in the current session
+	multi    bool   // the account has more than one source (0.6-1d)
 }
 
 // syncConnection fetches every account the connection feeds. A failing
@@ -141,6 +142,12 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 	ts := now.UTC().Format(time.RFC3339)
 	today := now.In(clock.Brussels).Format(time.DateOnly)
 
+	// Decided before anything is written, so this sync's own outcome never
+	// changes it.
+	sources, skipped, stopped, err := s.sources(ctx, c.id, now)
+	if err != nil {
+		return err
+	}
 	client, err := s.client(c)
 	var session []byte
 	if err == nil && c.sessEnc != nil {
@@ -148,21 +155,19 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 	}
 	if err != nil || len(session) == 0 {
 		// A lost secret.key or credentials removed: only new ones help.
-		return s.broken(ctx, c.id, ts, "credentials", false)
+		return s.broken(ctx, c.id, ts, "credentials", false, skipped)
 	}
 	sess := bank.Session{ID: string(session)}
 
-	sources, err := s.sources(ctx, c.id)
-	if err != nil {
-		return err
-	}
 	// An account the current consent does not list (left out at the bank on
 	// a new consent) is not fetched; it says so instead of looking fine.
 	if _, err := s.db.ExecContext(ctx, `UPDATE account_sources SET status = 'failed', last_attempt_at = ?, last_error = 'not_shared'
 		WHERE connection_id = ? AND external_account_id IS NULL`, ts, c.id); err != nil {
 		return err
 	}
-	failed := ""
+	// A stopped primary that a fallback carries is not fetched, and its
+	// connection is not ok: its owner still sees that their link is broken.
+	failed := stopped
 	// A database failure of one account is recorded on it and returned after
 	// the other accounts had their turn: one account never stops the rest.
 	var storeErr error
@@ -181,7 +186,7 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 			bals, err = client.FetchBalances(ctx, sess, src.external)
 		}
 		if errors.Is(err, bank.ErrSessionExpired) {
-			return s.broken(ctx, c.id, ts, errorCode(err), true)
+			return s.broken(ctx, c.id, ts, errorCode(err), true, skipped)
 		}
 		if err != nil {
 			code := errorCode(err)
@@ -208,28 +213,53 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 	return err
 }
 
-func (s *Service) sources(ctx context.Context, connection int64) ([]source, error) {
+// sources are the accounts this connection fetches in the sync at now: those
+// it carries (ledger.Carrier, plan 0.6-1d), decided on the state stored
+// before this sync. An idle fallback is left alone. skipped are the accounts
+// of this connection's stopped primaries that a fallback carries, and stopped
+// the first of their error codes ("" for none).
+func (s *Service) sources(ctx context.Context, connection int64, now time.Time) (list []source, skipped []int64, stopped string, err error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT s.account_id, COALESCE(a.iban, ''), s.external_account_id
+		SELECT s.account_id, COALESCE(a.iban, ''), s.external_account_id, s.priority = 'primary', COALESCE(s.last_error, '')
 		FROM account_sources s JOIN accounts a ON a.id = s.account_id
 		WHERE s.connection_id = ? AND s.external_account_id IS NOT NULL
-		  -- A joiner's fallback source is not fetched yet: when it is (only
-		  -- while the primary is stopped) is slice 0.6-1d.
-		  AND s.priority = 'primary'
 		ORDER BY s.account_id`, connection)
 	if err != nil {
-		return nil, err
+		return nil, nil, "", err
 	}
-	defer rows.Close()
-	var list []source
+	type row struct {
+		source
+		primary bool
+		code    string
+	}
+	var all []row
 	for rows.Next() {
-		var src source
-		if err := rows.Scan(&src.account, &src.iban, &src.external); err != nil {
-			return nil, err
+		var r row
+		if err := rows.Scan(&r.account, &r.iban, &r.external, &r.primary, &r.code); err != nil {
+			rows.Close()
+			return nil, nil, "", err
 		}
-		list = append(list, src)
+		all = append(all, r)
 	}
-	return list, rows.Err()
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, nil, "", err
+	}
+	for _, r := range all {
+		carrier, multi, err := ledger.Carrier(ctx, s.db, r.account, now)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		switch {
+		case carrier == connection:
+			r.multi = multi
+			list = append(list, r.source)
+		case r.primary:
+			skipped = append(skipped, r.account)
+			stopped = cmp.Or(stopped, r.code, "session_expired")
+		}
+	}
+	return list, skipped, stopped, nil
 }
 
 // fromDate is where the account's sync starts: nothing (the longest history
@@ -276,6 +306,17 @@ func (s *Service) storeAccount(ctx context.Context, connection int64, src source
 		return err
 	}
 	defer tx.Rollback()
+	if src.multi {
+		// The account's pending rows follow its carrier, so StoreFetch can
+		// replace them (and carry their category and note over) whichever
+		// source stored them: after a takeover and when the primary is back.
+		if _, err := tx.ExecContext(ctx, `UPDATE transactions SET source_connection_id = ?1
+			WHERE account_id = ?2 AND status = 'pending' AND source_connection_id <> ?1
+			  AND source_connection_id IN (SELECT connection_id FROM account_sources WHERE account_id = ?2)`,
+			connection, src.account); err != nil {
+			return err
+		}
+	}
 	added, err := ledger.StoreFetch(ctx, tx, src.account, connection, from, rows)
 	if err != nil {
 		return err
@@ -372,8 +413,10 @@ func (s *Service) storeFailed(ctx context.Context, connection, account int64, ts
 
 // broken records a sync that failed for the whole connection: a lapsed
 // session marks it expired (only a new consent helps), anything else failed,
-// and every account it feeds failed with the same code.
-func (s *Service) broken(ctx context.Context, connection int64, ts, code string, expired bool) error {
+// and every account it feeds failed with the same code, except the skipped
+// stopped primaries: this sync did not try them, and an attempt stamped on
+// them would make a fallback that syncs later think they carried tonight.
+func (s *Service) broken(ctx context.Context, connection int64, ts, code string, expired bool, skipped []int64) error {
 	ctx = context.WithoutCancel(ctx)
 	q := `UPDATE provider_connections SET sync_status = 'failed', last_attempt_at = ?, last_error = ? WHERE id = ?`
 	if expired {
@@ -388,8 +431,12 @@ func (s *Service) broken(ctx context.Context, connection int64, ts, code string,
 	if _, err := tx.ExecContext(ctx, q, ts, code, connection); err != nil {
 		return err
 	}
+	args := []any{ts, code, connection}
+	for _, a := range skipped {
+		args = append(args, a)
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE account_sources SET status = 'failed', last_attempt_at = ?, last_error = ?
-		WHERE connection_id = ?`, ts, code, connection); err != nil {
+		WHERE connection_id = ? AND account_id NOT IN (0`+strings.Repeat(", ?", len(skipped))+`)`, args...); err != nil {
 		return err
 	}
 	return tx.Commit()

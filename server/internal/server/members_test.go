@@ -89,7 +89,7 @@ func TestPatchMember(t *testing.T) {
 			{"userId": 1, "name": "Bert", "initial": "B", "role": "manager", "permission": "edit", "me": true, "joinedAt": "2026-06-03T10:10:00+02:00"},
 			{"userId": 2, "name": "Partner", "initial": "P", "role": "member", "permission": "read", "me": false, "joinedAt": "2026-06-05T21:00:00+02:00"}
 		],
-		"convertibleRules": 0
+		"convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false
 	}`)
 	if n := p.count(`SELECT COUNT(*) FROM audit_log WHERE event = 'member_permission' AND user_id = 1 AND detail = 'account=4 user=2 permission=read'`); n != 1 {
 		t.Errorf("%d audit lines", n)

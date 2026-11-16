@@ -51,6 +51,9 @@ export const canManage = (a: Account) => a.role === 'manager' && a.permission ==
 export const manager = (a: Account): Member | undefined => a.members.find((m) => m.role === 'manager');
 export const others = (a: Account): Member[] => a.members.filter((m) => !m.me);
 
+/** The name of the other member whose link carries the account right now, else null. */
+export const carrier = (a: Account): string | null => (a.carriedBy && !a.carriedBy.me ? a.carriedBy.name : null);
+
 /** Who becomes manager when the viewer leaves: the longest-standing other member (`joinedAt`, then user id), as the server picks. */
 export const nextManager = (a: Account): Member | undefined =>
   others(a).sort((x, y) => Date.parse(x.joinedAt) - Date.parse(y.joinedAt) || x.userId - y.userId)[0];

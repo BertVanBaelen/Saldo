@@ -149,7 +149,61 @@ describe('Rekening · a bank account', () => {
     await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
     expect((screen.getByLabelText('Naam') as HTMLInputElement).disabled).toBe(true);
     expect(screen.queryByRole('button', { name: 'Opslaan' })).toBeNull();
-    expect(screen.getByText('De koppeling van Partner houdt deze rekening bij. Je beheert alleen je eigen koppelingen.')).toBeTruthy();
+    const sync = within(card('Synchronisatie'));
+    expect(sync.getByText('Via de koppeling van Partner')).toBeTruthy();
+    expect(sync.getByText('Je beheert alleen je eigen koppelingen.')).toBeTruthy();
+    // Without a link of their own: only the carrier line, no role line.
+    expect(sync.queryByText(/Je koppeling is reserve/)).toBeNull();
+  });
+
+  it('says nothing about sources on a one-link personal account', async () => {
+    stubApi();
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    const sync = within(card('Synchronisatie'));
+    await sync.findByText(/Alleen jouw koppeling houdt deze rekening bij/);
+    expect(sync.getByText('Primair')).toBeTruthy();
+    expect(sync.queryByText(/Via de koppeling van/)).toBeNull();
+    expect(sync.queryByText(/hoofdkoppeling is gestopt/)).toBeNull();
+    expect(sync.queryByText(/Je koppeling is reserve/)).toBeNull();
+  });
+
+  it('says whose link carries the account when it is not yours, and that yours is the reserve', async () => {
+    const reserve = { ...asMember('edit'), sourceRole: 'reserve' as const };
+    stubApi({ accounts: [ZICHT, reserve] });
+    renderAt('/rekeningen/4');
+    await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
+    const sync = within(card('Synchronisatie'));
+    expect(await sync.findByText('Via de koppeling van Partner')).toBeTruthy();
+    expect(sync.getByText('Je koppeling is reserve: ze neemt over als de koppeling van Partner stopt.')).toBeTruthy();
+    expect(sync.getByText('Reserve')).toBeTruthy();
+    expect(sync.queryByText('Primair')).toBeNull();
+    expect(sync.queryByText(/Alleen jouw koppeling houdt/)).toBeNull();
+  });
+
+  it('says plainly that the main link stopped while a reserve link carries the account', async () => {
+    const viaOther = { ...GEDEELD, carriedBy: { name: 'Partner', me: false }, viaReserve: true };
+    stubApi({ accounts: [ZICHT, viaOther] });
+    const first = renderAt('/rekeningen/4');
+    await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
+    expect(await within(card('Synchronisatie')).findByText('De hoofdkoppeling is gestopt: de koppeling van Partner houdt deze rekening nu bij.')).toBeTruthy();
+    first.unmount();
+
+    // My own reserve link carries it: no reserve sentence, "jouw koppeling".
+    const viaMine = { ...GEDEELD, sourceRole: 'reserve' as const, carriedBy: { name: 'Bert', me: true }, viaReserve: true };
+    stubApi({ accounts: [ZICHT, viaMine] });
+    renderAt('/rekeningen/4');
+    await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
+    const sync = within(card('Synchronisatie'));
+    expect(await sync.findByText('De hoofdkoppeling is gestopt: jouw koppeling houdt deze rekening nu bij.')).toBeTruthy();
+    expect(sync.queryByText(/Je koppeling is reserve/)).toBeNull();
+  });
+
+  it('keeps the reserve sentence generic when it cannot name the other link', async () => {
+    stubApi({ accounts: [ZICHT, { ...GEDEELD, sourceRole: 'reserve' as const, carriedBy: null }] });
+    renderAt('/rekeningen/4');
+    await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
+    expect(await within(card('Synchronisatie')).findByText('Je koppeling is reserve: ze neemt over als de andere koppeling stopt.')).toBeTruthy();
   });
 
   it('says so when the account does not exist (or is not yours)', async () => {

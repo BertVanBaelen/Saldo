@@ -8,7 +8,7 @@ import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
-import { accColour, accountIcon, syncProblem, syncReportLine } from '../lib/accounts';
+import { accColour, accountIcon, carrier, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, browser, errorMessage } from '../lib/api';
 import { dateYear, eur, momentLabel, names } from '../lib/format';
 import type { Account, BankLinkResult, Connection, JoinOffer, SyncStatus } from '../lib/types';
@@ -312,7 +312,9 @@ function ConnectionCard({ c, accounts, index, onRemove }: { c: Connection; accou
                   </span>
                   {a.syncStatus === 'failed' && <span className="bk-acc-sub bk-acc-sub--neg">{['Synchronisatie mislukt', syncProblem(a, today)].filter(Boolean).join(' · ')}</span>}
                   {a.syncReport && <span className="bk-acc-sub bk-acc-sub--line">{syncReportLine(a.syncReport, true)}</span>}
+                  {carrier(a) && <span className="bk-acc-sub bk-acc-sub--line">Via de koppeling van {carrier(a)}</span>}
                 </span>
+                {a.sourceRole === 'reserve' && <span className="chip chip--readonly">Reserve</span>}
               </li>
             ))}
           </ul>

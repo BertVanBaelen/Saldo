@@ -23,7 +23,8 @@ Status: in progress (16 Nov 2026), on branch `v0.6-shared-accounts`, version `0.
 | [0.6-1a](01-membership-and-lifecycle.md#1a-join) | Join an existing account | M | built, to verify |
 | [0.6-1b](01-membership-and-lifecycle.md#1b-members-and-permissions) | Members and permissions | M | built, to verify |
 | [0.6-1c](01-membership-and-lifecycle.md#1c-lifecycle) | Lifecycle: leave, hand-over, delete, delete a user | M | built, to verify |
-| [0.6-1d](01-membership-and-lifecycle.md#1d-primary-and-fallback-sources) | Primary and fallback sources | M | planned |
+| [0.6-1d](01-membership-and-lifecycle.md#1d-primary-and-fallback-sources) | Primary and fallback sources | M | built, to verify (fallback behaviour with real data) |
+| [0.6-1e](01-membership-and-lifecycle.md#1e-say-what-a-new-consent-left-out) | Say at link time which accounts a new consent left out | S | planned |
 | [0.6-2](02-privacy.md) | Privacy suite for every endpoint | M | planned |
 | [0.6-3](03-transfers-and-saved.md) | Transfer detection and saved | M | planned |
 | [0.6-4](04-scope-and-sums.md) | Scope filter and sums | S | planned |
@@ -36,7 +37,7 @@ Status: in progress (16 Nov 2026), on branch `v0.6-shared-accounts`, version `0.
 4. **Invariant:** every account has at least one member and exactly one manager. Every lifecycle test asserts it. `account_access` cascades on user delete, so leave, hand-over and delete-user do their cleanup explicitly in one transaction.
 5. **Last member cannot "leave"**: they delete the account (a clear warning) or remove their link keeping history.
 6. **Two-user checks:** the demo only acts as Bert. A demo-only way to act as Partner is added (ignored outside demo mode, tested), and `saldo-demo` in `.claude/launch.json` drops `-Fresh`.
-7. **The live sync bug is still open** (user, 16 Nov 2026: 0.5.1 installed, the sync card shows no message and the first account has no new transactions: a silent failure). 0.6-0 builds the diagnostics; the multi-source sync (0.6-1d) is built defensively.
+7. **The live sync bug is explained** (user, 16 Nov 2026): the consent at the bank listed only one of the two accounts, so Saldo never got the other; with both selected it works. 0.5.1 already marks such an account `not_shared`; 0.6-0 keeps the per-account sync report; 0.6-1e will say at link time which known accounts a new consent left out. No 0.5.2 patch is needed.
 
 ## Concepts
 shared-account, user-and-visibility, internal-transfer, scope, account, bank-connection, notification (member joined, in-app only until 0.9).

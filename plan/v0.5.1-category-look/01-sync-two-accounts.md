@@ -20,6 +20,9 @@ Reading the code found no loop that stops early, so **reproduce first**. Checked
 ## Done when
 A two-account link syncs both accounts in the test; `cd server && go test ./internal/banklink/... ./internal/bank/... ./internal/ledger/... ./internal/server/...` passes.
 
+## Cause found by the user (16 Nov 2026)
+In the bank app the user had linked only one of the two accounts when giving consent; with both ticked the sync works. The consent therefore did not list the first account, Saldo kept no provider id for it and skipped it without a word (until 0.5.1, which marks it `not_shared` after the next sync). Hardening point 3 below is the case that happened; the other two were found on the way and were not the cause. Open: say it at link time instead of after the next sync (0.6-1e).
+
 ## Result (16 Nov 2026)
 **The reported symptom was not reproduced.** The owner has one link with two accounts and says only the second syncs; there are no logs. Two agents found no mechanism in the code that skips the first account when both are fresh and healthy (tests `twoaccounts_test.go`). The second, deeper pass (`firstaccount_test.go`) found and fixed three real defects that can make one account fail or go stale silently, but none is proven to be the live cause:
 1. A database or data error in `fromDate` or `storeAccount` aborted `syncConnection` (`return err`): later accounts were skipped and nothing was recorded. It is per account now (`storeFailed`, code `store_failed`), and the connection is marked failed.

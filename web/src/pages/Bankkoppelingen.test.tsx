@@ -52,6 +52,26 @@ describe('Bankkoppelingen', () => {
     expect(c.getByText('De bank gaf geen transacties terug · bank-id …b7c2')).toBeTruthy();
   });
 
+  it('marks an account whose source is your reserve link, and says whose link carries it', async () => {
+    stubApi({ accounts: [ZICHT, { ...GEDEELD, sourceRole: 'reserve', carriedBy: { name: 'Partner', me: false } }] });
+    renderAt('/bankkoppelingen');
+    const c = within(await screen.findByText('Argenta', { selector: '.bk-conn-name' }).then((n) => n.closest('article') as HTMLElement));
+    expect(c.getByText('Reserve')).toBeTruthy();
+    expect(c.getByText('Via de koppeling van Partner')).toBeTruthy();
+    // The other account is unchanged: no label, no carrier line.
+    expect(c.getAllByText('Reserve')).toHaveLength(1);
+    expect(c.getAllByText(/Via de koppeling van/)).toHaveLength(1);
+  });
+
+  it('adds no label or carrier line for accounts your own link carries', async () => {
+    stubApi();
+    renderAt('/bankkoppelingen');
+    const c = within(await screen.findByText('Argenta', { selector: '.bk-conn-name' }).then((n) => n.closest('article') as HTMLElement));
+    await c.findByText('Leest 2 rekeningen');
+    expect(c.queryByText('Reserve')).toBeNull();
+    expect(c.queryByText(/Via de koppeling van/)).toBeNull();
+  });
+
   it('shows each status in the mockup’s words', async () => {
     stubApi({
       connections: [

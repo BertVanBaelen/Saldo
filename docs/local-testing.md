@@ -236,3 +236,9 @@ Start from a fresh demo; Bert is the admin and the manager of the Gedeelde reken
 4. **Delete for everyone** (needs two members again: add Partner back with Python, `insert into account_access (account_id,user_id,role,permission,joined_at) values (4,2,'member','edit','2026-11-18T08:00:00Z');`): as Bert, Leden card, "Rekening voor iedereen verwijderen": the button "Verwijder voor iedereen" stays disabled until you type `Gedeelde rekening` exactly; then the toast "Gedeelde rekening is verwijderd" and the account is gone. As Partner, Start shows "Bert heeft Gedeelde rekening verwijderd" and her own Zichtrekening is untouched.
 5. **Delete a user**: as Bert, Instellingen, Gebruikers, Partner, "Verwijder Partner": Partner is gone from the list; her sign-in and her devices go too.
 
+### Primary and reserve links (0.6-1d, about five minutes)
+The demo never runs the real sync (its "Nu synchroniseren" only records a sync), so the takeover itself is proven by the Go tests (`server/internal/banklink/sources_test.go`); here you check what the screens say.
+1. Fresh demo. **As Partner** (`/api/demo/as/partner`), Rekeningen, Gedeelde rekening, Synchronisatie: her link carries the label "Reserve" and the text "Je koppeling is reserve: ze neemt over als de koppeling van Bert stopt." and the line "Via de koppeling van Bert". Bankkoppelingen shows "Reserve" under that account. **As Bert** the card shows his link as "Primair" and no reserve line.
+2. Make Bert's link stop: with Python, `update provider_connections set valid_until='2026-11-01T00:00:00Z' where id=1;` (the demo date is 18 November 2026) and reload. **As Bert**: "De hoofdkoppeling is gestopt: de koppeling van Partner houdt deze rekening nu bij.", his link shows "Verlopen" and "Opnieuw autoriseren". **As Partner**: "De hoofdkoppeling is gestopt: jouw koppeling houdt deze rekening nu bij."
+3. A failure of the reserve link is shown only to its owner (the other member's error code is never visible).
+

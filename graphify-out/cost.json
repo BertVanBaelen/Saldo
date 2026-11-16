@@ -1,0 +1,13 @@
+{
+  "runs": [
+    {
+      "date": "2026-11-16T13:13:05.413832+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 405,
+      "note": "semantic token usage not captured for subagent chunks (9 agents, 3 resumed after a rate limit)"
+    }
+  ],
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}

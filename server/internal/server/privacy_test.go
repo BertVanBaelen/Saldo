@@ -559,6 +559,14 @@ func privacyRows() []privacyRow {
 				hidden("bert", "GET", "/api/accounts/"+id(w.partnerAcc)+"/balances", "", "/api/accounts/"+none+"/balances", "", "partner"),
 			}
 		}, nil},
+		{"GET /api/accounts/{id}/transfers", "byid", "accessOf; the rows of the viewer's own other accounts only", func(w *world) []probe {
+			return []probe{
+				read("/api/accounts/"+id(w.shared)+"/transfers", 200),
+				hidden("partner", "GET", "/api/accounts/"+id(w.bertManual)+"/transfers", "", "/api/accounts/"+none+"/transfers", "", "bert"),
+				hidden("partner", "GET", "/api/accounts/"+id(w.bertAcc)+"/transfers", "", "/api/accounts/"+none+"/transfers", "", "bert"),
+				hidden("bert", "GET", "/api/accounts/"+id(w.partnerAcc)+"/transfers", "", "/api/accounts/"+none+"/transfers", "", "partner"),
+			}
+		}, []string{"TestIncomingTransfers"}},
 		{"GET /api/transactions", "list", "visibleTx: the viewer's accounts only; total, next, transfer and ruleId per viewer", func(w *world) []probe {
 			ps := []probe{}
 			for _, q := range transactionQueries(w) {
@@ -588,6 +596,12 @@ func privacyRows() []privacyRow {
 		{"DELETE /api/transactions/{id}/split", "byid", "editable()", func(w *world) []probe {
 			return []probe{hidden("partner", "DELETE", txPath(w.bertSplit, "/split"), "", txPath(999999, "/split"), "", "bert")}
 		}, []string{"TestWritePermissions"}},
+		{"PUT /api/transactions/{id}/transfer", "byid", "visible row through account_access (read-only too); the viewer's own override only", func(w *world) []probe {
+			return []probe{
+				hidden("partner", "PUT", txPath(w.bertTx, "/transfer"), `{"transfer":true}`, txPath(999999, "/transfer"), `{"transfer":true}`, "bert"),
+				hidden("bert", "PUT", txPath(w.partnerTx, "/transfer"), `{"transfer":null}`, txPath(999999, "/transfer"), `{"transfer":null}`, "partner"),
+			}
+		}, []string{"TestTransferOverrideRoute", "TestTransferIsPerViewer"}},
 		{"GET /api/alerts", "list", "the viewer's own connections, accounts and notices", func(w *world) []probe {
 			return []probe{read("/api/alerts", 200)}
 		}, []string{"TestLeaveAsMember", "TestDeleteSharedAccount"}},
@@ -1052,6 +1066,35 @@ func TestTransferIsPerViewer(t *testing.T) {
 	if partner["Overschrijving Bert"] {
 		t.Error("Partner's payment to Bert's IBAN is a transfer for her")
 	}
+
+	// The opposite-amount rule (b) and the kinds, per viewer: each user has
+	// a contribution of their own to the family account without IBANs, and
+	// each personal account holds the opposite of a family-account row that
+	// only its owner can pair. A match on the other user's personal account
+	// is no transfer, and no kind comes from an account the viewer cannot see.
+	w.addRow(w.bertAcc, -6161, "2026-11-03", "PV Bert naar gezin", "booked", "EUR", "")
+	w.addRow(w.shared, 6161, "2026-11-04", "PV gezin van Bert", "booked", "EUR", "")
+	w.addRow(w.partnerAcc, -7171, "2026-11-03", "PV Partner naar gezin", "booked", "EUR", "")
+	w.addRow(w.shared, 7171, "2026-11-05", "PV gezin van Partner", "booked", "EUR", "")
+	// Family account to a savings account of one user: saved only for its owner.
+	w.addRow(w.shared, -8282, "2026-11-06", "PV gezin naar Potje", "booked", "EUR", "")
+	w.addRow(w.partnerManual, 8282, "2026-11-06", "PV Potje van gezin", "booked", "EUR", "")
+	w.addRow(w.shared, -9292, "2026-11-06", "PV gezin naar Spaarpot", "booked", "EUR", "")
+	w.addRow(w.bertManual, 9292, "2026-11-07", "PV Spaarpot van gezin", "booked", "EUR", "")
+	for name, want := range map[string][2]string{
+		"PV Bert naar gezin":     {"shared", "hidden"},
+		"PV gezin van Bert":      {"internal", "-"},
+		"PV Partner naar gezin":  {"hidden", "shared"},
+		"PV gezin van Partner":   {"-", "internal"},
+		"PV gezin naar Potje":    {"-", "saved"},
+		"PV Potje van gezin":     {"hidden", "internal"},
+		"PV gezin naar Spaarpot": {"saved", "-"},
+		"PV Spaarpot van gezin":  {"internal", "hidden"},
+	} {
+		if b, p := kindOf(w.seen("bert", name)), kindOf(w.seen("partner", name)); b != want[0] || p != want[1] {
+			t.Errorf("%s: Bert %s, Partner %s; want %v", name, b, p, want)
+		}
+	}
 }
 
 // A file of Bert's over his current account and the family account is one
@@ -1225,6 +1268,40 @@ func TestMatchingIsPerViewer(t *testing.T) {
 	}
 	if got := ruleOf("partner"); got != nil {
 		t.Errorf("Partner sees Bert's user rule %d", *got)
+	}
+
+	// Transfer matching (rule b): the same family-account row has an
+	// opposite amount on each user's personal account, so it is a transfer
+	// for both, each paired with their own account (a personal source, so
+	// "internal"); a family-account row whose opposite is only on Partner's
+	// personal account is none for Bert, and the reverse.
+	w.addRow(w.shared, 5353, "2026-11-10", "MV gezin in", "booked", "EUR", "")
+	w.addRow(w.bertAcc, -5353, "2026-11-09", "MV Bert uit", "booked", "EUR", "")
+	w.addRow(w.partnerAcc, -5353, "2026-11-11", "MV Partner uit", "booked", "EUR", "")
+	w.addRow(w.shared, 5454, "2026-11-10", "MV alleen Partner", "booked", "EUR", "")
+	w.addRow(w.partnerAcc, -5454, "2026-11-10", "MV Partner 5454", "booked", "EUR", "")
+	w.addRow(w.shared, 5656, "2026-11-10", "MV alleen Bert", "booked", "EUR", "")
+	w.addRow(w.bertAcc, -5656, "2026-11-10", "MV Bert 5656", "booked", "EUR", "")
+	for name, want := range map[string][2]string{
+		"MV gezin in":       {"internal", "internal"},
+		"MV alleen Partner": {"-", "internal"},
+		"MV alleen Bert":    {"internal", "-"},
+	} {
+		if b, p := kindOf(w.seen("bert", name)), kindOf(w.seen("partner", name)); b != want[0] || p != want[1] {
+			t.Errorf("%s: Bert %s, Partner %s; want %v", name, b, p, want)
+		}
+	}
+	// The uncategorised count follows each viewer's own flags.
+	for as, u := range map[string]int64{"bert": w.bert, "partner": w.partner} {
+		r, _ := w.send(probe{method: "GET", path: "/api/transactions?uncategorised=1&limit=200&q=MV%20alleen"}, as)
+		got := map[string]bool{}
+		for _, x := range decode[ledger.Page](t, r.body).Items {
+			got[x.Counterparty] = true
+		}
+		want := map[int64]string{w.bert: "MV alleen Partner", w.partner: "MV alleen Bert"}[u]
+		if len(got) != 1 || !got[want] {
+			t.Errorf("%s's uncategorised MV rows: %v", as, got)
+		}
 	}
 }
 

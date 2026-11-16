@@ -309,6 +309,7 @@
     color: var(--muted);
   }
   .tx-cat--tr svg { flex: none; }
+  .tx-cat-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
   /* Split editor rows in the 380 px panel */
   .tx-detail--panel .tx-part { grid-template-columns: minmax(0, 1fr) 100px 44px; }
@@ -565,6 +566,16 @@
   background: transparent; color: var(--negText);
   font-size: 14px; font-weight: 600;
 }
+
+/* "Is (geen) overschrijving" and "Terug naar automatisch": text buttons with a 44 px target, for every viewer */
+.tx-tr-marks { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 8px; }
+.tx-toggle {
+  height: 44px; padding: 0 12px;
+  border: none; border-radius: 10px;
+  background: transparent; color: var(--greenText);
+  font-size: 14px; font-weight: 600;
+}
+.tx-toggle--auto { color: var(--muted); font-weight: 500; }
 
 /* Offline: edit controls look disabled and explain themselves with a toast */
 .tx-detail [aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }

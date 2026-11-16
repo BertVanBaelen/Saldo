@@ -176,6 +176,21 @@ export interface Transaction {
   splits: Split[] | null;
   /** A transfer between the viewer's own accounts: shown in text colour, not as an expense. */
   transfer: boolean;
+  /** Why it is a transfer: to savings, to the shared account, between own accounts; `null` when it is none. */
+  transferKind?: TransferKind | null;
+  /** The viewer's own "is / is not a transfer" mark; `null` follows the automatic detection. */
+  transferOverride?: boolean | null;
+}
+
+export type TransferKind = 'saved' | 'shared' | 'internal';
+
+/** An item of GET /api/accounts/{id}/transfers: a recognised transfer into the account (`amount` is as booked at the sender, so negative). */
+export interface AccountTransfer {
+  id: number;
+  bookingDate: string;
+  amount: number;
+  from: { id: number; name: string };
+  counterparty: string;
 }
 
 /** An item of GET /api/categories: the flat tree with the viewer's own transaction count. */

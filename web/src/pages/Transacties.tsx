@@ -81,9 +81,9 @@ function CatChip({ t, icon }: { t: Transaction; icon: string | null | undefined 
   if (cv.split) return <span className="tx-cat tx-cat--split">{cv.name}</span>;
   if (cv.transfer && !t.category) {
     return (
-      <span className="tx-cat tx-cat--tr">
+      <span className="tx-cat tx-cat--tr" title={cv.name}>
         <Icon name="transfer" size={13} stroke={2.4} />
-        Overschrijving
+        <span className="tx-cat-text">{cv.name}</span>
       </span>
     );
   }

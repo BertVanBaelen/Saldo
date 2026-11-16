@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import type { ImportBatch, ImportCounts, ImportPreview, ImportResult, RowError } from '../lib/imports';
 import type {
   Account,
+  AccountTransfer,
   Alert,
   BalancePoint,
   Connection,
@@ -115,6 +116,8 @@ const tx = (id: number, bookingDate: string, accountId: number, amount: number, 
   note: null,
   splits: null,
   transfer: false,
+  transferKind: null,
+  transferOverride: null,
   ...extra,
 });
 
@@ -123,7 +126,7 @@ export const TRANSACTIONS: Transaction[] = [
   tx(115, '2026-11-18', 4, -8642, 'Colruyt Laagste Prijzen', { category: { id: 2, name: 'Boodschappen', colour: 'c2' }, categoryOrigin: 'rule', ruleId: 3 }),
   tx(114, '2026-11-17', 1, -6210, 'TotalEnergies', { category: { id: 4, name: 'Vervoer', colour: 'c4' }, categoryOrigin: 'manual' }),
   tx(112, '2026-11-17', 1, -840, 'Bakkerij De Graankorrel'),
-  tx(111, '2026-11-16', 1, -20000, 'Naar spaarrekening', { transfer: true, category: { id: 9, name: 'Gespaard', colour: 'soft' }, categoryOrigin: 'manual' }),
+  tx(111, '2026-11-16', 1, -20000, 'Naar spaarrekening', { transfer: true, transferKind: 'saved', category: { id: 9, name: 'Gespaard', colour: 'soft' }, categoryOrigin: 'manual' }),
   tx(110, '2026-11-16', 1, 1850, 'CM Ziekenfonds', { category: { id: 8, name: 'Terugbetaling', colour: 'soft' }, categoryOrigin: 'manual' }),
 ];
 
@@ -295,6 +298,8 @@ interface Stub {
   suggestions?: Suggestion[];
   /** POST /api/rules/preview; default 14 matches, 3 changes. */
   preview?: Partial<RulePreview>;
+  /** GET /api/accounts/{id}/transfers; default none. */
+  transfers?: AccountTransfer[];
 }
 
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
@@ -330,6 +335,13 @@ export function stubApi(s: Stub = {}) {
       if (patch.note !== undefined) t.note = (patch.note ?? '').replace(/\s+/g, ' ').trim() || null;
       return t;
     }),
+    // The mark answers like the server: `true`/`false` set the override and the flag, `null` gives the fixture row's automatic state back.
+    setTransfer: vi.spyOn(api, 'setTransfer').mockImplementation(async (id, transfer) => {
+      const t = rowOf(id);
+      if (transfer === null) return { ...t, transferOverride: null };
+      return { ...t, transfer, transferKind: transfer ? (t.transferKind ?? 'internal') : null, transferOverride: transfer };
+    }),
+    accountTransfers: vi.spyOn(api, 'accountTransfers').mockImplementation(async () => structuredClone(s.transfers ?? [])),
     similarPreview: vi.spyOn(api, 'similarPreview').mockImplementation(async (id) => ({
       counterparty: rowOf(id).counterparty,
       scope: 'user',

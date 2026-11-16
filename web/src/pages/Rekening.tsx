@@ -1,5 +1,5 @@
 // Rekening: the page of one account (/rekeningen/:id). Balance and state against its own buffer, balance history,
-// "Saldo bijwerken" (manual accounts), recent transactions, Synchronisatie (bank accounts: source, consent,
+// "Saldo bijwerken" (manual accounts), the transfers recognised into a manual account with an IBAN, recent transactions, Synchronisatie (bank accounts: source, consent,
 // re-authorise, remove the link), Leden (shared accounts: the manager sets Lezen or Bewerken per member),
 // Instellen (the Rekeningen form), deleting a manual account, and for a shared account leaving it or (manager) deleting it for everyone.
 // Design: finance-mockup/js/screens/rekening.js; spec: analysis/screens/rekeningen.md, analysis 4.8 and 6.3.
@@ -467,6 +467,50 @@ function TxCard({ a, page, error, onRetry, today }: { a: Account; page: Transact
   return (
     <section className="card rkd-card anim-in" style={delay(100)} id="transacties" aria-labelledby="rkd-h-tx">
       <CardHead id="rkd-h-tx" title="Recente transacties" extra={page?.length ? link : undefined} />
+      {body}
+    </section>
+  );
+}
+
+// ---------- Overschrijvingen naar deze rekening (manual account with an IBAN) ----------
+
+/** The transfers Saldo recognised into this account by its IBAN, newest first (phase 0.6-3). */
+function TransfersCard({ a, today }: { a: Account; today: string }) {
+  const { dataVersion } = useApp();
+  // The IBAN is in the deps: a newly saved one recognises other transfers.
+  const list = useAsync((signal) => api.accountTransfers(a.id, signal), [a.id, a.iban, dataVersion]);
+  let body;
+  if (!list.data) body = list.error ? <ErrorState message={list.error} onRetry={list.reload} /> : <SkelList rows={3} label="Overschrijvingen laden" />;
+  else if (!list.data.length) {
+    body = (
+      <div className="rkd-empty">
+        <p>Nog geen overschrijvingen herkend.</p>
+      </div>
+    );
+  } else {
+    body = (
+      <ul className="rkd-txs">
+        {list.data.map((t) => (
+          <li className="rkd-tx" key={t.id}>
+            <span className="rkd-tx-av" style={{ background: 'var(--bg)', color: 'var(--text)' }} aria-hidden="true">
+              <Icon name="transfer" size={16} stroke={2.2} />
+            </span>
+            <span className="rkd-tx-main">
+              <span className="rkd-tx-name">{'Van ' + t.from.name}</span>
+              <span className="rkd-tx-sub">{dateRelative(t.bookingDate, today)}</span>
+            </span>
+            <span className="rkd-tx-end">
+              {/* The server sends the amount as booked at the sender (negative); here it comes in. */}
+              <span className="mono rkd-tx-amount">{eur(-t.amount, true)}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <section className="card rkd-card anim-in" style={delay(95)} id="overschrijvingen" aria-labelledby="rkd-h-tr">
+      <CardHead id="rkd-h-tr" title="Overschrijvingen naar deze rekening" meta="Herkend aan het IBAN" />
       {body}
     </section>
   );
@@ -1189,6 +1233,7 @@ export function Rekening() {
               }}
             />
           )}
+          {manual && a.iban && <TransfersCard a={a} today={today} />}
           <TxCard a={a} page={txs.data} error={txs.error} onRetry={txs.reload} today={today} />
           {a.members.length > 1 && <MembersCard a={a} onChanged={replace} onExit={(all) => setDialog(all ? 'deleteAll' : 'leave')} />}
         </div>

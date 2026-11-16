@@ -12,7 +12,7 @@ import { accColour, isShared, manager } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { catColours, categoryLabel, plural, ruleLabel, skippedText, splitState, toParts, type SplitDraft } from '../lib/categories';
 import { dateFull, eur } from '../lib/format';
-import type { Account, Rule, SimilarPreview, Split, Transaction, TreeCategory } from '../lib/types';
+import type { Account, Rule, SimilarPreview, Split, Transaction, TransferKind, TreeCategory } from '../lib/types';
 import type { AsyncState } from '../lib/useAsync';
 import { useAsync } from '../lib/useAsync';
 
@@ -25,11 +25,19 @@ export interface CatView {
   split: boolean;
 }
 
-/** How a row shows its category: split, the pastel of its category, a transfer, or "Niet gecategoriseerd". */
+// A transfer without a kind (an older answer) counts as between own accounts.
+const TRANSFER_LABEL: Record<TransferKind, string> = { saved: 'Gespaard', shared: 'Naar gedeelde rekening', internal: 'Overschrijving tussen eigen rekeningen' };
+const TRANSFER_NOTE: Record<TransferKind, string> = {
+  saved: 'Overschrijving naar je spaarrekening. Telt als gespaard, niet als uitgave.',
+  shared: 'Overschrijving naar de gedeelde rekening. Telt niet als uitgave van je persoonlijke rekening in Alles.',
+  internal: 'Overschrijving tussen je eigen rekeningen. Telt niet als inkomen of uitgave.',
+};
+
+/** How a row shows its category: split, the pastel of its category, a transfer (named by kind), or "Niet gecategoriseerd". */
 export function catView(t: Transaction): CatView {
   if (t.splits) return { name: 'Gesplitst · ' + t.splits.length + ' categorieën', bg: '', fg: '', uncat: false, transfer: t.transfer, split: true };
   if (t.category) return { name: t.category.name, ...catColours(t.category.colour), uncat: false, transfer: t.transfer, split: false };
-  if (t.transfer) return { name: 'Overschrijving', bg: '', fg: '', uncat: false, transfer: true, split: false };
+  if (t.transfer) return { name: TRANSFER_LABEL[t.transferKind ?? 'internal'], bg: '', fg: '', uncat: false, transfer: true, split: false };
   return { name: 'Niet gecategoriseerd', bg: '', fg: '', uncat: true, transfer: false, split: false };
 }
 
@@ -448,11 +456,27 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
   const transferNote = t.transfer && (
     <div className="tx-note tx-note--transfer">
       <Icon name="transfer" size={18} stroke={2.2} />
-      <span>
-        <strong>Overschrijving tussen eigen rekeningen</strong>
-        <br />
-        Telt niet mee als inkomen of uitgave
-      </span>
+      <span>{TRANSFER_NOTE[t.transferKind ?? 'internal']}</span>
+    </div>
+  );
+  // The viewer's own setting, so read-only members have it too.
+  const hasMark = t.transferOverride != null;
+  const mark = (value: boolean | null) => () =>
+    void run('transfer', async () => {
+      onChange(await api.setTransfer(t.id, value));
+      if (value === null) focusKey.current = 'transfer'; // the pressed "Terug naar automatisch" is gone now
+      toast(value === null ? 'Weer automatisch' : value ? 'Gemarkeerd als overschrijving' : 'Gemarkeerd als geen overschrijving');
+    });
+  const transferMark = (
+    <div className="tx-tr-marks">
+      <button type="button" className="tx-toggle" data-key="transfer" aria-disabled={off || undefined} aria-busy={busy === 'transfer' || undefined} onClick={mark(!t.transfer)}>
+        {t.transfer ? 'Is geen overschrijving' : 'Is een overschrijving'}
+      </button>
+      {hasMark && (
+        <button type="button" className="tx-toggle tx-toggle--auto" data-key="transfer-auto" aria-disabled={off || undefined} aria-busy={busy === 'transfer' || undefined} onClick={mark(null)}>
+          Terug naar automatisch
+        </button>
+      )}
     </div>
   );
 
@@ -616,6 +640,7 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
       )}
       {transferNote}
       {edit}
+      {transferMark}
       {!ro && (
         <>
           <div className="field tx-field">

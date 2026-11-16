@@ -363,7 +363,7 @@ func TestTransactions(t *testing.T) {
 	b, _ := json.Marshal(first)
 	equalJSON(t, string(b), `{
 		"accountId": 1, "bookingDate": "2026-11-18", "amount": -2499, "counterparty": "Bol.com",
-		"communication": "Bestelling 4471-2210", "status": "pending", "category": null, "transfer": false,
+		"communication": "Bestelling 4471-2210", "status": "pending", "category": null, "transfer": false, "transferKind": null, "transferOverride": null,
 		"categoryOrigin": null, "ruleId": null, "note": null, "splits": null
 	}`)
 	second := decode[ledger.Transaction](t, string(page.Items[1]))

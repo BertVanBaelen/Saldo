@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ACCOUNTS, asMember, CONNECTIONS, GEDEELD, NEW_MANUAL, renderAt, SPAAR, stubApi, UNLINKED, ZICHT } from '../test/helpers';
 import { ApiError } from '../lib/api';
@@ -271,6 +271,66 @@ describe('Rekening · a manual account', () => {
     fireEvent.click(within(set).getByRole('button', { name: 'Opslaan' }));
     await waitFor(() => expect(api.updateAccount).toHaveBeenLastCalledWith(2, { iban: 'BE83 3630 1234 5615' }));
     await waitFor(() => expect(api.alerts).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('Rekening · transfers into a manual account', () => {
+  const HEADING = 'Overschrijvingen naar deze rekening';
+  const transfer = (id: number, bookingDate: string, amount: number) => ({ id, bookingDate, amount, from: { id: 1, name: 'Zichtrekening' }, counterparty: 'Spaarrekening' });
+  const box = () => screen.findByRole('heading', { name: HEADING }).then((h) => h.closest('section') as HTMLElement);
+
+  it('lists the recognised transfers as money coming in, in the server order', async () => {
+    const api = stubApi({ transfers: [transfer(41, '2026-11-05', -20000), transfer(33, '2026-10-05', -15000)] });
+    renderAt('/rekeningen/2');
+    const card = await box();
+    expect(await within(card).findAllByText('Van Zichtrekening')).toHaveLength(2);
+    expect(within(card).getAllByText(/^\+€ /).map((e) => e.textContent)).toEqual(['+€ 200,00', '+€ 150,00']);
+    expect(within(card).getAllByText(/^\d+ \p{L}+$/u).map((e) => e.textContent)).toEqual(['5 nov', '5 okt']);
+    expect(api.accountTransfers).toHaveBeenCalledWith(2, expect.anything());
+  });
+
+  it('says so when none are recognised yet', async () => {
+    stubApi();
+    renderAt('/rekeningen/2');
+    expect(await within(await box()).findByText('Nog geen overschrijvingen herkend.')).toBeTruthy();
+  });
+
+  it('shows a skeleton while the list loads', async () => {
+    const api = stubApi();
+    let done: () => void = () => {};
+    api.accountTransfers.mockImplementationOnce(() => new Promise((r) => (done = () => r([]))));
+    renderAt('/rekeningen/2');
+    const card = await box();
+    expect(within(card).getByRole('status', { name: 'Overschrijvingen laden' })).toBeTruthy();
+    await act(async () => done());
+    expect(await within(card).findByText('Nog geen overschrijvingen herkend.')).toBeTruthy();
+  });
+
+  it('shows the error of a failed load, with retry', async () => {
+    const api = stubApi({ transfers: [transfer(41, '2026-11-05', -20000)] });
+    api.accountTransfers.mockRejectedValueOnce(new ApiError(0, 'network', 'Saldo is niet bereikbaar.'));
+    renderAt('/rekeningen/2');
+    const card = await box();
+    expect(await within(card).findByText('Saldo is niet bereikbaar.')).toBeTruthy();
+    fireEvent.click(within(card).getByRole('button', { name: 'Opnieuw proberen' }));
+    expect(await within(card).findByText('Van Zichtrekening')).toBeTruthy();
+    expect(api.accountTransfers).toHaveBeenCalledTimes(2);
+  });
+
+  it('has no card for a manual account without an IBAN', async () => {
+    const api = stubApi({ accounts: [NEW_MANUAL] });
+    renderAt('/rekeningen/7');
+    await screen.findByText('Geen IBAN');
+    expect(screen.queryByRole('heading', { name: HEADING })).toBeNull();
+    expect(api.accountTransfers).not.toHaveBeenCalled();
+  });
+
+  it('has no card for a bank account', async () => {
+    const api = stubApi();
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(screen.queryByRole('heading', { name: HEADING })).toBeNull();
+    expect(api.accountTransfers).not.toHaveBeenCalled();
   });
 });
 

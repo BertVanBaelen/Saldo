@@ -222,7 +222,12 @@ describe('Transacties · grouping by day', () => {
     expect(catView(bol)).toMatchObject({ name: 'Niet gecategoriseerd', uncat: true });
     expect(catView(colruyt)).toMatchObject({ name: 'Boodschappen', bg: 'var(--c2)', fg: 'var(--onPastel)' });
     expect(catView(saved)).toMatchObject({ name: 'Gespaard', bg: 'var(--soft)', fg: 'var(--greenText)', transfer: true });
-    expect(catView({ ...saved, category: null })).toMatchObject({ name: 'Overschrijving', transfer: true, uncat: false });
+    // Without a category a transfer is named by its kind; without a kind it is between own accounts.
+    const bare = { ...saved, category: null };
+    expect(catView(bare)).toMatchObject({ name: 'Gespaard', transfer: true, uncat: false });
+    expect(catView({ ...bare, transferKind: 'shared' })).toMatchObject({ name: 'Naar gedeelde rekening', transfer: true });
+    expect(catView({ ...bare, transferKind: 'internal' })).toMatchObject({ name: 'Overschrijving tussen eigen rekeningen', transfer: true });
+    expect(catView({ ...bare, transferKind: null })).toMatchObject({ name: 'Overschrijving tussen eigen rekeningen', transfer: true });
     expect(amountClass(bol)).toBe('muted');
     expect(amountClass(colruyt)).toBe('neg');
     expect(amountClass(saved)).toBe('');

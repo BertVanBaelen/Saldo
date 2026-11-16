@@ -240,6 +240,23 @@ func TestTransferFlagPerViewer(t *testing.T) {
 	if len(page.Items) != 1 || !page.Items[0].Transfer || page.Items[0].BookingDate != "2026-11-16" || page.Items[0].Amount != -20000 {
 		t.Errorf("Naar spaarrekening: %+v", page.Items)
 	}
+
+	// The kinds in the demo (plan 0.6-3): saving is "saved", the
+	// contribution "shared" (Naar gedeelde rekening), its incoming side internal.
+	kinds := map[key]string{}
+	for _, tx := range allTransactions(t, s, bert, ledger.TxQuery{From: "2026-11-01", To: "2026-11-16", Limit: 200}) {
+		if tx.TransferKind != nil {
+			kinds[key{tx.AccountID, tx.Counterparty}] = *tx.TransferKind
+		}
+	}
+	for k, want := range map[key]string{{1, "Naar spaarrekening"}: "saved", {1, "Naar gedeelde rekening"}: "shared", {4, "Bert"}: "internal"} {
+		if kinds[k] != want {
+			t.Errorf("Bert, %v: kind %q, want %q (all: %v)", k, kinds[k], want, kinds)
+		}
+	}
+	if len(kinds) != 3 {
+		t.Errorf("Bert's transfer kinds in November: %v", kinds)
+	}
 }
 
 func TestTransferOverride(t *testing.T) {

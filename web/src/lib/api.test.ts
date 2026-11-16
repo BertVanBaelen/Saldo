@@ -150,6 +150,24 @@ describe('categorisation calls', () => {
     expect(sent(fetch)).toEqual({ url: '/api/transactions/101', method: 'PATCH', body: { categoryId: 2, note: null } });
   });
 
+  it('puts the transfer mark of the viewer, and null clears it, each answering the transaction', async () => {
+    for (const transfer of [true, false, null]) {
+      const marked = { ...tx, transfer: transfer ?? false, transferKind: transfer ? 'internal' : null, transferOverride: transfer };
+      const fetch = respond(200, marked);
+      vi.stubGlobal('fetch', fetch);
+      await expect(api.setTransfer(101, transfer)).resolves.toEqual(marked);
+      expect(sent(fetch)).toEqual({ url: '/api/transactions/101/transfer', method: 'PUT', body: { transfer } });
+    }
+  });
+
+  it('lists the transfers recognised into an account without a body', async () => {
+    const items = [{ id: 41, bookingDate: '2026-11-05', amount: -20000, from: { id: 1, name: 'Zichtrekening' }, counterparty: 'Spaarrekening' }];
+    const fetch = respond(200, items);
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.accountTransfers(2)).resolves.toEqual(items);
+    expect(sent(fetch)).toEqual({ url: '/api/accounts/2/transfers', method: 'GET', body: undefined });
+  });
+
   it('reads the preview of "apply to similar" without a body', async () => {
     const preview = { counterparty: 'Colruyt Laagste Prijzen', scope: 'user', count: 14, skipped };
     const fetch = respond(200, preview);

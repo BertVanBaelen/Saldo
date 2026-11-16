@@ -156,7 +156,7 @@ describe('Transactie detail · category', () => {
     stubApi({ transactions: withRow(111, { category: null, categoryOrigin: null }) });
     renderAt('/transacties');
     const dialog = await open('Naar spaarrekening');
-    expect(within(dialog).getByText('Overschrijving tussen eigen rekeningen')).toBeTruthy();
+    expect(within(dialog).getByText('Overschrijving naar je spaarrekening. Telt als gespaard, niet als uitgave.')).toBeTruthy();
     expect(within(dialog).queryByText('Kies een categorie')).toBeNull();
     expect(within(dialog).queryByRole('button', { name: 'Is een overschrijving' })).toBeNull();
   });
@@ -224,7 +224,8 @@ describe('Transactie detail · read-only member', () => {
     expect(within(dialog).getByText('Weekboodschappen', { selector: 'dd' })).toBeTruthy();
     expect(within(dialog).queryByRole('link')).toBeNull();
     expect(within(dialog).queryByRole('textbox')).toBeNull();
-    expect(within(dialog).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Sluiten']);
+    // The transfer mark is the viewer's own setting, so it stays.
+    expect(within(dialog).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Sluiten', 'Is een overschrijving']);
     expect(api.similarPreview).not.toHaveBeenCalled();
   });
 
@@ -517,5 +518,132 @@ describe('Transactie detail · split', () => {
     fireEvent.click(split);
     expect(within(dialog).queryByLabelText('Categorie van deel 1')).toBeNull();
     expect(api.splitTransaction).not.toHaveBeenCalled();
+  });
+});
+
+// Phase 0.6-3: the kind of a transfer and the viewer's own "is / is not a transfer" mark.
+describe('Transactie detail · transfer', () => {
+  /** Row 111 as an uncategorised transfer of that kind. */
+  const transferRow = (transferKind: Transaction['transferKind']) => withRow(111, { category: null, categoryOrigin: null, transferKind });
+
+  it.each([
+    ['saved', 'Gespaard', 'Overschrijving naar je spaarrekening. Telt als gespaard, niet als uitgave.'],
+    ['shared', 'Naar gedeelde rekening', 'Overschrijving naar de gedeelde rekening. Telt niet als uitgave van je persoonlijke rekening in Alles.'],
+    ['internal', 'Overschrijving tussen eigen rekeningen', 'Overschrijving tussen je eigen rekeningen. Telt niet als inkomen of uitgave.'],
+    // An answer without a kind counts as between own accounts.
+    [null, 'Overschrijving tussen eigen rekeningen', 'Overschrijving tussen je eigen rekeningen. Telt niet als inkomen of uitgave.'],
+  ] as const)('names a transfer of kind %s in the row and explains it in the detail', async (kind, label, note) => {
+    stubApi({ transactions: transferRow(kind) });
+    renderAt('/transacties');
+    const dialog = await open('Naar spaarrekening');
+    // The phone line and the desktop chip of the row.
+    expect(within(row('Naar spaarrekening')).getAllByText(label)).toHaveLength(2);
+    expect(within(dialog).getByText(note)).toBeTruthy();
+    expect(within(dialog).getByText(label, { selector: 'dd' })).toBeTruthy();
+    expect(within(dialog).queryByText('Kies een categorie')).toBeNull();
+  });
+
+  it('marks a transfer as no transfer at once: saves, toasts, updates the row and refreshes the counts', async () => {
+    const api = stubApi({ transactions: transferRow('saved') });
+    renderAt('/transacties');
+    const dialog = await open('Naar spaarrekening');
+    expect(within(dialog).queryByRole('button', { name: 'Terug naar automatisch' })).toBeNull();
+    const counts = api.transactions.mock.calls.length;
+    const alerts = api.alerts.mock.calls.length;
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Is geen overschrijving' }));
+    await waitFor(() => expect(api.setTransfer).toHaveBeenCalledWith(111, false));
+    await waitFor(() => expect(toast()).toBe('Gemarkeerd als geen overschrijving'));
+    // An uncategorised expense now: the picker, the label and the red amount.
+    expect(await within(dialog).findByText('Kies een categorie')).toBeTruthy();
+    expect(within(row('Naar spaarrekening')).getAllByText('Niet gecategoriseerd').length).toBeGreaterThan(0);
+    expect(row('Naar spaarrekening').querySelector('.tx-amount')!.classList.contains('neg')).toBe(true);
+    expect(within(dialog).getByRole('button', { name: 'Is een overschrijving' })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Terug naar automatisch' })).toBeTruthy();
+    // The count chip and the shell (badge, alerts) are asked again.
+    await waitFor(() => expect(api.transactions.mock.calls.slice(counts).filter(([q]) => q?.uncategorised && q.limit === 1).length).toBeGreaterThanOrEqual(2));
+    expect(api.alerts.mock.calls.length).toBeGreaterThan(alerts);
+  });
+
+  it('marks a row as a transfer and goes back to automatic, keeping focus on the toggle', async () => {
+    const api = stubApi();
+    renderAt('/transacties');
+    const dialog = await open('Bakkerij De Graankorrel');
+    expect(within(dialog).queryByRole('button', { name: 'Terug naar automatisch' })).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Is een overschrijving' }));
+    await waitFor(() => expect(api.setTransfer).toHaveBeenCalledWith(112, true));
+    expect(await within(dialog).findByText('Overschrijving tussen je eigen rekeningen. Telt niet als inkomen of uitgave.')).toBeTruthy();
+    await waitFor(() => expect(toast()).toBe('Gemarkeerd als overschrijving'));
+    expect(within(dialog).queryByText('Kies een categorie')).toBeNull();
+    expect(row('Bakkerij De Graankorrel').querySelector('.tx-amount')!.classList.contains('neg')).toBe(false);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Terug naar automatisch' }));
+    await waitFor(() => expect(api.setTransfer).toHaveBeenLastCalledWith(112, null));
+    await waitFor(() => expect(toast()).toBe('Weer automatisch'));
+    expect(await within(dialog).findByText('Kies een categorie')).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Terug naar automatisch' })).toBeNull();
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Is een overschrijving' }));
+  });
+
+  it('offers the way back for a row the viewer marked as no transfer', async () => {
+    const api = stubApi({ transactions: withRow(111, { category: null, categoryOrigin: null, transfer: false, transferKind: null, transferOverride: false }) });
+    renderAt('/transacties');
+    const dialog = await open('Naar spaarrekening');
+    expect(within(dialog).getByRole('button', { name: 'Is een overschrijving' })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Terug naar automatisch' }));
+    await waitFor(() => expect(api.setTransfer).toHaveBeenCalledWith(111, null));
+  });
+
+  it('lets a read-only member mark a transfer too, it is their own setting', async () => {
+    const api = stubApi({ accounts: ACCOUNTS.map((a) => (a.id === GEDEELD.id ? { ...a, permission: 'read' as const, role: 'member' as const } : a)) });
+    renderAt('/transacties');
+    const dialog = await open('Colruyt Laagste Prijzen');
+    expect(within(dialog).getByText('Alleen lezen')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Is een overschrijving' }));
+    await waitFor(() => expect(api.setTransfer).toHaveBeenCalledWith(115, true));
+    expect(await within(dialog).findByRole('button', { name: 'Is geen overschrijving' })).toBeTruthy();
+    expect(api.updateTransaction).not.toHaveBeenCalled();
+  });
+
+  it('toasts the server message when marking fails and keeps the button', async () => {
+    const api = stubApi();
+    api.setTransfer.mockRejectedValueOnce(new ApiError(404, 'not_found', 'Deze transactie bestaat niet meer.'));
+    renderAt('/transacties');
+    const dialog = await open('Bakkerij De Graankorrel');
+    const mark = within(dialog).getByRole('button', { name: 'Is een overschrijving' });
+    fireEvent.click(mark);
+    await waitFor(() => expect(toast()).toBe('Deze transactie bestaat niet meer.'));
+    expect(mark.getAttribute('aria-disabled')).toBeNull();
+    expect(mark.getAttribute('aria-busy')).toBeNull();
+    expect(mark.textContent).toBe('Is een overschrijving');
+  });
+
+  it('sends one request for a double press and shows it is busy', async () => {
+    const api = stubApi();
+    let done: (t: Transaction) => void = () => {};
+    api.setTransfer.mockImplementation(() => new Promise((r) => (done = r)));
+    renderAt('/transacties');
+    const dialog = await open('Bakkerij De Graankorrel');
+    const mark = within(dialog).getByRole('button', { name: 'Is een overschrijving' });
+    fireEvent.click(mark);
+    fireEvent.click(mark);
+    expect(api.setTransfer).toHaveBeenCalledTimes(1);
+    expect(mark.getAttribute('aria-disabled')).toBe('true');
+    expect(mark.getAttribute('aria-busy')).toBe('true');
+    await act(async () => done({ ...TRANSACTIONS[3], transfer: true, transferKind: 'internal', transferOverride: true }));
+    expect(mark.getAttribute('aria-busy')).toBeNull();
+  });
+
+  it('does not send the mark offline', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const api = stubApi();
+    renderAt('/transacties');
+    const dialog = await open('Bakkerij De Graankorrel');
+    const mark = within(dialog).getByRole('button', { name: 'Is een overschrijving' });
+    expect(mark.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(mark);
+    expect(toast()).toBe('Je bent offline · wijzigen kan weer zodra je verbinding hebt');
+    expect(api.setTransfer).not.toHaveBeenCalled();
   });
 });

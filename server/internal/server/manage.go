@@ -96,6 +96,19 @@ func (s *Server) listBalances(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, list)
 }
 
+func (s *Server) listIncomingTransfers(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, msgAccountNotFound)
+	if !ok {
+		return
+	}
+	list, err := s.store.IncomingTransfers(r.Context(), viewerOf(r), id)
+	if err != nil {
+		s.fail(w, r, err, msgAccountNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
 func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r, msgAccountNotFound)
 	if !ok {

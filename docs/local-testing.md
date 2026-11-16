@@ -242,3 +242,10 @@ The demo never runs the real sync (its "Nu synchroniseren" only records a sync),
 2. Make Bert's link stop: with Python, `update provider_connections set valid_until='2026-11-01T00:00:00Z' where id=1;` (the demo date is 18 November 2026) and reload. **As Bert**: "De hoofdkoppeling is gestopt: de koppeling van Partner houdt deze rekening nu bij.", his link shows "Verlopen" and "Opnieuw autoriseren". **As Partner**: "De hoofdkoppeling is gestopt: jouw koppeling houdt deze rekening nu bij."
 3. A failure of the reserve link is shown only to its owner (the other member's error code is never visible).
 
+### Transfers and saved (0.6-3, about five minutes)
+1. **As Bert**, Transacties, search `spaarrekening`: "Naar spaarrekening" (−€ 200,00, 16 november) is in the normal text colour with the label "Gespaard". Open it: the note "Overschrijving naar je spaarrekening. Telt als gespaard, niet als uitgave." and the button "Is geen overschrijving". Press it: the row becomes an ordinary expense that needs a category (the badge "Niet gecategoriseerd" counts one more) and "Terug naar automatisch" appears; press that: it is "Gespaard" again.
+2. The monthly € 450 from Bert's Zichtrekening to the Gedeelde rekening is labelled "Naar gedeelde rekening"; the matching incoming row on the shared account is "Overschrijving tussen eigen rekeningen". Partner's own € 450 to the shared account is labelled the same way for **her**, never for Bert (and the other way round): each of you only matches against your own accounts.
+3. Rekeningen, Spaarrekening (a manual account with an IBAN): the card "Overschrijvingen naar deze rekening" lists the 13 monthly "Van Zichtrekening +€ 200,00". Accounts without IBAN and bank accounts have no such card.
+4. **As Partner** (`/api/demo/as/partner`): nothing of Bert's savings or Spaarrekening appears anywhere; `/api/accounts/2/transfers` answers "niet gevonden".
+5. Known cost: the transfer detection makes the first page of Transacties slower on very large histories (see the changelog); a real pair can be missed when a manual account carries another IBAN than the bank row names (then mark it by hand).
+

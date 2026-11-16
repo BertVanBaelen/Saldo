@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/BertVanBaelen/Saldo/server/internal/apperr"
+
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 )
 
@@ -88,6 +90,35 @@ func (s *Server) deleteSplit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t, err := s.store.RemoveSplit(r.Context(), viewerOf(r), id)
+	if err != nil {
+		s.fail(w, r, err, msgTxNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, t)
+}
+
+// putTransfer sets or removes the viewer's own transfer override.
+func (s *Server) putTransfer(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, msgTxNotFound)
+	if !ok {
+		return
+	}
+	var body struct {
+		Transfer ledger.Opt[bool] `json:"transfer"`
+	}
+	if err := decodeJSON(w, r, &body); err != nil {
+		s.fail(w, r, err, msgTxNotFound)
+		return
+	}
+	if !body.Transfer.Set {
+		s.fail(w, r, apperr.Invalid("De gegevens kloppen niet."), msgTxNotFound)
+		return
+	}
+	var transfer *bool
+	if !body.Transfer.Null {
+		transfer = &body.Transfer.V
+	}
+	t, err := s.store.SetTransferOverride(r.Context(), viewerOf(r), id, transfer)
 	if err != nil {
 		s.fail(w, r, err, msgTxNotFound)
 		return

@@ -3,6 +3,7 @@
 import type {
   Account,
   AccountPatch,
+  AccountTransfer,
   Alert,
   BackfillPreview,
   BackfillResult,
@@ -166,6 +167,10 @@ export const api = {
   convertRules: (id: number) => request<{ converted: number }>('POST', '/api/accounts/' + id + '/convert-rules'),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
   updateTransaction: (id: number, patch: TransactionPatch) => request<Transaction>('PATCH', '/api/transactions/' + id, { body: patch }),
+  /** The viewer's own mark: `true` is a transfer, `false` is none, `null` goes back to automatic. Answers the transaction. */
+  setTransfer: (id: number, transfer: boolean | null) => request<Transaction>('PUT', '/api/transactions/' + id + '/transfer', { body: { transfer } }),
+  /** The transfers recognised into this account (by its IBAN), newest first, at most 50. */
+  accountTransfers: (id: number, signal?: AbortSignal) => request<AccountTransfer[]>('GET', '/api/accounts/' + id + '/transfers', { signal }),
   /** What "apply to similar" would do for the row's current category; writes nothing. */
   similarPreview: (id: number, signal?: AbortSignal) => request<SimilarPreview>('GET', '/api/transactions/' + id + '/similar', { signal }),
   /** Keeps the row's category, creates (or reuses) the rule for its counterparty and applies it. */

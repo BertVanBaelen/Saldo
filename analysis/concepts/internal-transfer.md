@@ -5,7 +5,7 @@ Analysis: 4.3, 4.4, 5.2 · Data: `transfer_override` (pairing itself is not stor
 ## Rules
 Evaluated **per viewer, at query time**. A transaction is an internal transfer for a user when:
 - the counterparty IBAN is an account **that user can see** (personal, joined shared, registered savings), or
-- an opposite amount exists on another account the user can see within about 3 days.
+- an opposite amount exists on another account the user can see within about 3 days (same currency, the partner row booked), **unless the IBANs contradict the pair**: when a row names a counterparty IBAN, the other account must have no registered IBAN or that same IBAN. (Decided 16 Nov 2026: without it, Partner's contribution to the shared account paired with Bert's own payment of the same amount and was labelled a transfer.)
 
 Then:
 - Internal transfers are excluded from income and expenses in that user's combined views.

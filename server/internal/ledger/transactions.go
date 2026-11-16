@@ -31,6 +31,10 @@ type Transaction struct {
 	Note           *string `json:"note"`
 	Splits         []Split `json:"splits"`
 	Transfer       bool    `json:"transfer"`
+	// TransferKind is saved, shared or internal; nil when Transfer is false.
+	// TransferOverride is the viewer's own "is / is geen overschrijving".
+	TransferKind     *string `json:"transferKind"`
+	TransferOverride *bool   `json:"transferOverride"`
 }
 
 // Split is one part of a split transaction, signed like its amount.
@@ -103,25 +107,55 @@ func decodeCursor(s string) (cursor, error) {
 }
 
 // visibleTx is the viewer's transactions with the per-viewer transfer flag
-// (analysis 5.2): a transaction is a transfer when its counterparty IBAN is
-// another account the viewer can see, unless the viewer marked it otherwise.
-// The first two parameters are the viewer's id.
+// (analysis 5.2, plan 0.6-3). other_id is the other side among the accounts
+// the viewer can see: (a) the account whose IBAN is the counterparty IBAN,
+// else (b) the account of a booked row with the opposite amount, same
+// currency, within 3 days, whose IBANs do not contradict the pair (a row
+// from IBAN X does not pair with an account whose IBAN is Y). A transaction
+// is a transfer when it has an other side, unless the viewer marked it
+// otherwise (override). Both only ever look in vis, so another user's personal accounts never match. booked is the
+// viewer's booked rows, materialised once per query: SQLite gives it an
+// automatic index for the per-row lookup (a scan of the 7-day window per
+// visible account instead took seconds on 20 000 rows). The first two
+// parameters are the viewer's id.
 const visibleTx = `
 WITH vis AS (
-    SELECT x.account_id,
+    SELECT x.account_id, a.type, COALESCE(a.iban, '') AS iban,
            (SELECT COUNT(*) FROM account_access m WHERE m.account_id = x.account_id) AS members
-    FROM account_access x WHERE x.user_id = ?
+    FROM account_access x JOIN accounts a ON a.id = x.account_id WHERE x.user_id = ?
 ), viban AS (
-    SELECT a.id, a.iban FROM accounts a JOIN vis ON vis.account_id = a.id
-    WHERE a.iban IS NOT NULL AND a.iban <> ''
-), tx AS (
-    SELECT t.*, vis.members,
+    SELECT account_id AS id, iban FROM vis WHERE iban <> ''
+), booked AS MATERIALIZED (
+    SELECT p.id, p.account_id, p.amount, p.currency, p.booking_date,
+           COALESCE(p.counterparty_iban, '') AS counterparty_iban, vis.iban
+    FROM vis JOIN transactions p ON p.account_id = vis.account_id
+    WHERE p.status = 'booked' AND p.amount <> 0
+), tx0 AS (
+    SELECT t.*, vis.members, vis.type AS account_type,
+           (SELECT o.is_transfer FROM transfer_overrides o WHERE o.user_id = ? AND o.transaction_id = t.id) AS override,
            COALESCE(
-               (SELECT o.is_transfer FROM transfer_overrides o WHERE o.user_id = ? AND o.transaction_id = t.id),
-               EXISTS (SELECT 1 FROM viban WHERE viban.iban = t.counterparty_iban AND viban.id <> t.account_id)
-           ) AS is_transfer
+               (SELECT MIN(viban.id) FROM viban WHERE viban.iban = t.counterparty_iban AND viban.id <> t.account_id),
+               (SELECT p.account_id FROM booked p
+                WHERE t.amount <> 0 AND p.amount = -t.amount AND p.account_id <> t.account_id
+                  AND p.booking_date BETWEEN date(t.booking_date, '-3 days') AND date(t.booking_date, '+3 days')
+                  AND p.currency = t.currency
+                  AND (COALESCE(t.counterparty_iban, '') = '' OR p.iban = '' OR p.iban = t.counterparty_iban)
+                  AND (p.counterparty_iban = '' OR vis.iban = '' OR vis.iban = p.counterparty_iban)
+                ORDER BY abs(julianday(p.booking_date) - julianday(t.booking_date)), p.id LIMIT 1)
+           ) AS other_id
     FROM transactions t JOIN vis ON vis.account_id = t.account_id
+), tx AS (
+    SELECT tx0.*, COALESCE(override, other_id IS NOT NULL) AS is_transfer FROM tx0
 )`
+
+// transferKind is the kind of a transfer (docs/api.md): saved when money
+// leaves a non-savings account for a savings account, shared when it leaves
+// a personal account for a shared one, else internal. The other side's type
+// and members come from vis, so only from an account the viewer can see.
+const transferKind = `CASE WHEN tx.is_transfer = 0 THEN NULL
+    WHEN tx.amount < 0 AND ov.type = 'savings' AND tx.account_type <> 'savings' THEN 'saved'
+    WHEN tx.amount < 0 AND tx.members = 1 AND ov.members > 1 THEN 'shared'
+    ELSE 'internal' END`
 
 // uncategorisedCond: no category, no split, and not a transfer for the viewer.
 const uncategorisedCond = `tx.category_id IS NULL AND tx.is_transfer = 0
@@ -178,8 +212,9 @@ const visibleRule = `(SELECT r.id FROM rules r WHERE r.id = tx.rule_id
 func (s *Store) items(ctx context.Context, viewer int64, where []string, args []any, limit int) ([]Transaction, error) {
 	query := visibleTx + `
 		SELECT tx.id, tx.account_id, tx.booking_date, tx.amount, tx.counterparty_name, tx.communication,
-		       tx.status, c.id, c.name, ` + effectiveColour("c") + `, tx.category_origin, ` + visibleRule + `, tx.note, tx.is_transfer
-		FROM tx LEFT JOIN categories c ON c.id = tx.category_id
+		       tx.status, c.id, c.name, ` + effectiveColour("c") + `, tx.category_origin, ` + visibleRule + `, tx.note, tx.is_transfer,
+		       ` + transferKind + `, tx.override
+		FROM tx LEFT JOIN categories c ON c.id = tx.category_id LEFT JOIN vis ov ON ov.account_id = tx.other_id
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY tx.booking_date DESC, tx.id DESC
 		LIMIT ?`
@@ -195,7 +230,8 @@ func (s *Store) items(ctx context.Context, viewer int64, where []string, args []
 		var catID sql.NullInt64
 		var catName, catColour sql.NullString
 		if err := rows.Scan(&t.ID, &t.AccountID, &t.BookingDate, &t.Amount, &t.Counterparty, &t.Communication,
-			&t.Status, &catID, &catName, &catColour, &t.CategoryOrigin, &t.RuleID, &t.Note, &t.Transfer); err != nil {
+			&t.Status, &catID, &catName, &catColour, &t.CategoryOrigin, &t.RuleID, &t.Note, &t.Transfer,
+			&t.TransferKind, &t.TransferOverride); err != nil {
 			return nil, err
 		}
 		if catID.Valid {
@@ -255,6 +291,86 @@ func (s *Store) transaction(ctx context.Context, viewer, id int64) (Transaction,
 		return Transaction{}, apperr.ErrNotFound
 	}
 	return items[0], nil
+}
+
+// SetTransferOverride stores the viewer's own "is / is geen overschrijving"
+// on a transaction the viewer can see (read-only members too: it is the
+// viewer's data); nil removes it. A hidden or missing row answers
+// apperr.ErrNotFound and writes nothing.
+func (s *Store) SetTransferOverride(ctx context.Context, viewer, id int64, transfer *bool) (Transaction, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Transaction{}, err
+	}
+	defer tx.Rollback()
+	var ok bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM transactions t
+		JOIN account_access x ON x.account_id = t.account_id AND x.user_id = ? WHERE t.id = ?)`, viewer, id).Scan(&ok); err != nil {
+		return Transaction{}, err
+	}
+	if !ok {
+		return Transaction{}, apperr.ErrNotFound
+	}
+	if transfer == nil {
+		_, err = tx.ExecContext(ctx, `DELETE FROM transfer_overrides WHERE user_id = ? AND transaction_id = ?`, viewer, id)
+	} else {
+		_, err = tx.ExecContext(ctx, `INSERT INTO transfer_overrides (user_id, transaction_id, is_transfer) VALUES (?, ?, ?)
+			ON CONFLICT (user_id, transaction_id) DO UPDATE SET is_transfer = excluded.is_transfer`, viewer, id, *transfer)
+	}
+	if err != nil {
+		return Transaction{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Transaction{}, err
+	}
+	return s.transaction(ctx, viewer, id)
+}
+
+// IncomingTransfer is one row of GET /api/accounts/{id}/transfers.
+type IncomingTransfer struct {
+	ID           int64      `json:"id"`
+	BookingDate  string     `json:"bookingDate"`
+	Amount       int64      `json:"amount"`
+	From         AccountRef `json:"from"`
+	Counterparty string     `json:"counterparty"`
+}
+
+// AccountRef names an account the viewer can see.
+type AccountRef struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// maxIncomingTransfers caps GET /api/accounts/{id}/transfers.
+const maxIncomingTransfers = 50
+
+// IncomingTransfers lists the transfers into an account the viewer can see:
+// rows on the viewer's other accounts whose counterparty IBAN is this
+// account's registered IBAN, newest first. Without an IBAN the list is empty.
+func (s *Store) IncomingTransfers(ctx context.Context, viewer, id int64) ([]IncomingTransfer, error) {
+	if _, err := accessOf(ctx, s.db, viewer, id); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT t.id, t.booking_date, t.amount, a.id, a.name, t.counterparty_name
+		FROM accounts me
+		JOIN transactions t ON t.counterparty_iban = me.iban AND t.account_id <> me.id
+		JOIN account_access x ON x.account_id = t.account_id AND x.user_id = ?
+		JOIN accounts a ON a.id = t.account_id
+		WHERE me.id = ? AND me.iban IS NOT NULL AND me.iban <> ''
+		ORDER BY t.booking_date DESC, t.id DESC LIMIT ?`, viewer, id, maxIncomingTransfers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := []IncomingTransfer{}
+	for rows.Next() {
+		var x IncomingTransfer
+		if err := rows.Scan(&x.ID, &x.BookingDate, &x.Amount, &x.From.ID, &x.From.Name, &x.Counterparty); err != nil {
+			return nil, err
+		}
+		list = append(list, x)
+	}
+	return list, rows.Err()
 }
 
 // UncategorisedCount counts the viewer's transactions that still need a

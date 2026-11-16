@@ -260,6 +260,14 @@ type Linked struct {
 	Accounts   []int64 // the accounts this consent feeds, new or matched again
 	Offers     []Offer
 	Skipped    []Skipped
+	Missing    []Missing
+}
+
+// Missing is an account this connection fed that the new consent no longer
+// lists (unticked at the bank). Only accounts the viewer holds are listed.
+type Missing struct {
+	IBAN string `json:"iban"` // masked
+	Name string `json:"name"`
 }
 
 // Offer is an account of the consent that already exists and that the viewer
@@ -308,7 +316,8 @@ func (s *Service) Complete(ctx context.Context, viewer int64, code, state string
 	if err != nil {
 		return Linked{}, err
 	}
-	s.log.Info("bank linked", "connection", c.id, "accounts", len(linked.Accounts), "offers", len(linked.Offers), "skipped", len(linked.Skipped))
+	s.log.Info("bank linked", "connection", c.id, "accounts", len(linked.Accounts), "offers", len(linked.Offers),
+		"skipped", len(linked.Skipped), "missing", len(linked.Missing))
 	return linked, nil
 }
 
@@ -337,7 +346,7 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 	if _, err := tx.ExecContext(ctx, `UPDATE account_sources SET external_account_id = NULL WHERE connection_id = ?`, c.id); err != nil {
 		return Linked{}, err
 	}
-	linked := Linked{Connection: c.id, Accounts: []int64{}, Offers: []Offer{}, Skipped: []Skipped{}}
+	linked := Linked{Connection: c.id, Accounts: []int64{}, Offers: []Offer{}, Skipped: []Skipped{}, Missing: []Missing{}}
 	stamp := now.UTC().Format(time.RFC3339)
 	for _, a := range info.Accounts {
 		iban := ledger.NormalizeIBAN(a.IBAN)
@@ -378,6 +387,30 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 		strings.Repeat(", ?", len(linked.Offers))+`)`, keep...); err != nil {
 		return Linked{}, err
 	}
+	// What this connection fed and the consent leaves out is marked now, as the
+	// next sync would, and told to the viewer if they hold it.
+	if err := markNotShared(ctx, tx, c.id, stamp); err != nil {
+		return Linked{}, err
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT COALESCE(a.iban, ''), a.name FROM account_sources s JOIN accounts a ON a.id = s.account_id
+		WHERE s.connection_id = ? AND s.external_account_id IS NULL
+		  AND EXISTS (SELECT 1 FROM account_access x WHERE x.account_id = s.account_id AND x.user_id = ?)
+		ORDER BY s.account_id`, c.id, c.user)
+	if err != nil {
+		return Linked{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var iban, name string
+		if err := rows.Scan(&iban, &name); err != nil {
+			return Linked{}, err
+		}
+		linked.Missing = append(linked.Missing, Missing{IBAN: ledger.MaskIBAN(iban), Name: name})
+	}
+	if err := rows.Err(); err != nil {
+		return Linked{}, err
+	}
+	rows.Close()
 	return linked, tx.Commit()
 }
 

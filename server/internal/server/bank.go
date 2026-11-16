@@ -157,6 +157,7 @@ type callbackBody struct {
 	Accounts   []ledger.Account   `json:"accounts"`
 	Offers     []banklink.Offer   `json:"offers"`
 	Skipped    []banklink.Skipped `json:"skipped"`
+	Missing    []banklink.Missing `json:"missing"`
 }
 
 func (s *Server) postBankCallback(w http.ResponseWriter, r *http.Request) {
@@ -208,5 +209,5 @@ func (s *Server) postBankCallback(w http.ResponseWriter, r *http.Request) {
 			accounts = append(accounts, a)
 		}
 	}
-	writeJSON(w, http.StatusOK, callbackBody{Connection: conns[i], Accounts: accounts, Offers: linked.Offers, Skipped: linked.Skipped})
+	writeJSON(w, http.StatusOK, callbackBody{Connection: conns[i], Accounts: accounts, Offers: linked.Offers, Skipped: linked.Skipped, Missing: linked.Missing})
 }

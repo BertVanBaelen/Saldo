@@ -709,17 +709,40 @@ type FirstSync = { done: false } | { done: true; status: SyncStatus | null };
 /** `offers` are the join offers still undecided; the dialog asks about them at once. */
 function Linked({ result, first, offers, onDecided }: { result: BankLinkResult; first: FirstSync; offers: JoinOffer[]; onDecided: (id: number) => void }) {
   const { connection: c, accounts, skipped } = result;
+  const missing = result.missing ?? [];
   const after = first.done ? first.status?.connections.find((x) => x.id === c.id) : undefined;
   const n = accounts.length;
   // Only existing accounts to join: the bank is linked, the account follows once the viewer joins.
   const none = n === 0 && !result.offers.length;
-  const title = none ? 'Er is geen rekening gekoppeld' : n === 0 ? 'Je bank is gekoppeld.' : n === 1 ? 'Klaar. Je rekening is gekoppeld.' : 'Klaar. Je rekeningen zijn gekoppeld.';
+  const title = none
+    ? 'Er is geen rekening gekoppeld'
+    : missing.length
+      ? 'Je bank is gekoppeld, maar niet alle rekeningen.'
+      : n === 0
+        ? 'Je bank is gekoppeld.'
+        : n === 1
+          ? 'Klaar. Je rekening is gekoppeld.'
+          : 'Klaar. Je rekeningen zijn gekoppeld.';
+  const warn = none || missing.length > 0;
   return (
     <>
-      <Mark tone={none ? 'warn' : undefined} icon={none ? 'info' : 'check'} />
+      <Mark tone={warn ? 'warn' : undefined} icon={warn ? 'info' : 'check'} />
       <h1 className="bk-h1" tabIndex={-1}>
         {title}
       </h1>
+      {missing.length > 0 && (
+        <Notice tone="warn" icon="warning" title={'Je hebt bij ' + c.bank + ' niet alle rekeningen gedeeld.'}>
+          {missing.map((m) => (
+            <span key={m.iban + m.name}>
+              {m.name} ({m.iban}) ontbreekt.
+            </span>
+          ))}
+          <span>Koppel opnieuw en vink alle rekeningen aan.</span>
+          <Link className="bk-btn bk-btn--ghost bk-btn--sm" to={linkPath(c)}>
+            Opnieuw koppelen
+          </Link>
+        </Notice>
+      )}
       {n > 0 && (
         <ul className="bk-box bk-accs bk-accs--box">
           {accounts.map((a) => (

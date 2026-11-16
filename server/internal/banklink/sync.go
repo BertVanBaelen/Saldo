@@ -159,10 +159,7 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 	}
 	sess := bank.Session{ID: string(session)}
 
-	// An account the current consent does not list (left out at the bank on
-	// a new consent) is not fetched; it says so instead of looking fine.
-	if _, err := s.db.ExecContext(ctx, `UPDATE account_sources SET status = 'failed', last_attempt_at = ?, last_error = 'not_shared'
-		WHERE connection_id = ? AND external_account_id IS NULL`, ts, c.id); err != nil {
+	if err := markNotShared(ctx, s.db, c.id, ts); err != nil {
 		return err
 	}
 	// A stopped primary that a fallback carries is not fetched, and its
@@ -210,6 +207,17 @@ func (s *Service) syncConnection(ctx context.Context, id int64, now time.Time) e
 	}
 	_, err = s.db.ExecContext(ctx, `UPDATE provider_connections
 		SET last_sync_at = ?, last_attempt_at = ?, sync_status = 'ok', last_error = NULL WHERE id = ?`, ts, ts, c.id)
+	return err
+}
+
+// markNotShared marks the accounts the connection's current consent does not
+// list (left out at the bank on a new consent): they are not fetched, so they
+// say so instead of looking fine. q is the database or an open transaction.
+func markNotShared(ctx context.Context, q interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}, connection int64, ts string) error {
+	_, err := q.ExecContext(ctx, `UPDATE account_sources SET status = 'failed', last_attempt_at = ?, last_error = 'not_shared'
+		WHERE connection_id = ? AND external_account_id IS NULL`, ts, connection)
 	return err
 }
 

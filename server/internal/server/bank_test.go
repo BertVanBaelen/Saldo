@@ -373,7 +373,8 @@ func TestBankLinkAndSync(t *testing.T) {
 				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false}
 		],
 		"offers": [],
-		"skipped": []
+		"skipped": [],
+		"missing": []
 	}`)
 	equalJSON(t, e.as(e.bert, "GET", "/api/sync", "").body, `{"running": false,
 		"startedAt": "2026-11-18T20:00:00+01:00", "finishedAt": "2026-11-18T20:00:00+01:00",
@@ -456,6 +457,60 @@ func TestBankLinkAndSync(t *testing.T) {
 	}
 	e.noLeaks("provider_connections", plain)
 	e.noLeaks("log", e.logs.String())
+}
+
+// A consent that leaves out an account of the link says so in the callback's
+// answer (only the viewer's own accounts) and marks it; listing it again clears it.
+func TestBankCallbackNamesWhatTheConsentLeftOut(t *testing.T) {
+	e := newBankEnv(t)
+	e.saveCredentials(e.bert)
+	e.saveCredentials(e.partner)
+	both := slices.Clone(e.bank.accounts)
+	source := func() string {
+		var s string
+		if err := e.db.QueryRow(`SELECT status || ' ' || COALESCE(last_error, '-') FROM account_sources WHERE account_id = 2 AND connection_id = 1`).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+
+	if got := e.link(e.bert, ""); len(got.Missing) != 0 {
+		t.Fatalf("first link: %+v", got.Missing)
+	}
+	// Partner lists her own account and Bert's shared IBAN (an offer), and later
+	// only her own: nothing of Bert's is named to her, nothing of hers to Bert.
+	e.bank.set(func(b *testBank) {
+		b.session = "sess-partner"
+		b.accounts = []bank.Account{{ID: "p-1", IBAN: ibanPartner, Name: "Zichtrekening"}, {ID: "p-2", IBAN: ibanShared, Name: "Gezinsrekening"}}
+	})
+	if got := e.link(e.partner, ""); len(got.Missing) != 0 || len(got.Offers) != 1 {
+		t.Fatalf("Partner's link: %+v", got)
+	}
+	e.bank.set(func(b *testBank) { b.accounts = b.accounts[:1] })
+	if got := e.link(e.partner, `{"connectionId": 2}`); len(got.Missing) != 0 || len(got.Offers) != 0 {
+		t.Fatalf("Partner's link without the shared IBAN: %+v", got)
+	}
+
+	// Bert ticks only the first account.
+	e.bank.set(func(b *testBank) { b.session, b.accounts = "sess-2", both[:1] })
+	got := e.link(e.bert, `{"connectionId": 1}`)
+	equalJSON(t, jsonBody(got.Missing), `[{"iban": "BE71 •••• •••• 6769", "name": "Gezinsrekening"}]`)
+	if s := source(); s != "failed not_shared" {
+		t.Errorf("source of the left out account: %q", s)
+	}
+	accs := decode[[]ledger.Account](t, e.as(e.bert, "GET", "/api/accounts", "").body)
+	if a := accs[1]; a.ID != 2 || a.SyncStatus == nil || *a.SyncStatus != "failed" || a.SyncError == nil || *a.SyncError != "not_shared" {
+		t.Errorf("account 2 in the list: %+v", a)
+	}
+
+	// Bert links again and ticks both: nothing missing, the mark is gone.
+	e.bank.set(func(b *testBank) { b.session, b.accounts = "sess-3", both })
+	if got := e.link(e.bert, `{"connectionId": 1}`); len(got.Missing) != 0 {
+		t.Errorf("both listed: %+v", got.Missing)
+	}
+	if s := source(); s != "ok -" {
+		t.Errorf("source after listing it again: %q", s)
+	}
 }
 
 func TestBankCallbackRejectsStates(t *testing.T) {
@@ -723,7 +778,7 @@ func TestBankDemoWizard(t *testing.T) {
 				t.Fatalf("callback: %d %s", r.status, r.body)
 			}
 			got := decode[callbackBody](t, r.body)
-			if !slices.Equal(accountIDs(got.Accounts), tc.accounts) || len(got.Skipped) != 0 || *got.Connection.ValidUntil != "2027-05-17" {
+			if !slices.Equal(accountIDs(got.Accounts), tc.accounts) || len(got.Skipped) != 0 || len(got.Missing) != 0 || *got.Connection.ValidUntil != "2027-05-17" {
 				t.Errorf("demo callback: %s", r.body)
 			}
 			// The first sync runs in the background with the real code.

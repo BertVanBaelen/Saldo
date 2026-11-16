@@ -425,6 +425,13 @@ export interface SkippedAccount {
   reason: string;
 }
 
+/** An account this connection fed before that the new consent no longer lists (unticked at the bank). */
+export interface MissingAccount {
+  /** Masked. */
+  iban: string;
+  name: string;
+}
+
 /** An account that exists already at someone else: linking it offers to join it. Nothing but the masked IBAN is known before. */
 export interface JoinOffer {
   id: number;
@@ -444,6 +451,8 @@ export interface BankLinkResult {
   accounts: Account[];
   skipped: SkippedAccount[];
   offers: JoinOffer[];
+  /** Always sent; optional here so older fixtures compile. */
+  missing?: MissingAccount[];
 }
 
 // ---------- Sign-in, devices and users (docs/api.md, "Sign-in") ----------

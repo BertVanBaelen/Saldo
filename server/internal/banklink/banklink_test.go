@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -144,5 +145,80 @@ func TestStoreConsentKeepsARemovedLinkRemoved(t *testing.T) {
 	}
 	if got := e.query(`SELECT COUNT(*) FROM account_sources`) + " " + e.query(`SELECT COUNT(*) FROM accounts`); got != "0 2" {
 		t.Errorf("sources and accounts: %s, want 0 2", got)
+	}
+}
+
+// A consent that leaves out an account the connection fed marks it not_shared
+// at once and names it to the viewer, but only if the viewer holds it; a
+// consent that lists it again clears the mark with its first sync, and one that
+// adds an account names nothing.
+func TestStoreConsentNamesWhatItLeavesOut(t *testing.T) {
+	ctx := context.Background()
+	b := &scriptBank{txs: map[string][]bank.Transaction{}, fail: map[string]error{}}
+	svc, e := linkEnv(t, func(int64, string, []byte) (Client, error) { return b, nil })
+	valid := at(18, 10, 0).AddDate(0, 0, 90)
+	zicht := bank.Account{ID: "b1", IBAN: "BE68539007547034", Name: "Zichtrekening"}
+	gezin := bank.Account{ID: "b2", IBAN: "BE71096123456769", Name: "Gezinsrekening"}
+	consent := func(accs ...bank.Account) Linked {
+		t.Helper()
+		l, err := svc.storeConsent(ctx, connection{id: 1, user: 1, aspsp: "Argenta"}, bank.SessionInfo{ID: "s", ValidUntil: valid, Accounts: accs}, at(18, 10, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l.Missing == nil {
+			t.Fatal("Missing is nil: the answer must always hold an array")
+		}
+		return l
+	}
+	state := func(account int) string {
+		return e.query(fmt.Sprintf(`SELECT status, COALESCE(last_error, '-'), last_attempt_at IS NOT NULL FROM account_sources WHERE account_id = %d AND connection_id = 1`, account))
+	}
+
+	// A first link has nothing missing.
+	if l := consent(zicht, gezin); len(l.Accounts) != 2 || len(l.Missing) != 0 {
+		t.Fatalf("first link: %+v", l)
+	}
+	// An account of someone else that this connection still has a row for (its
+	// holder left it), and a new account of the viewer's for later.
+	e.exec(`INSERT INTO users (id, email, display_name) VALUES (2, 'b@example.com', 'B')`)
+	e.exec(`INSERT INTO accounts (id, type, source, iban, name) VALUES (9, 'current', 'bank', 'BE43068999999501', 'Van B')`)
+	e.exec(`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (9, 2, 'manager', 'edit')`)
+	e.exec(`INSERT INTO account_sources (account_id, connection_id, priority, external_account_id) VALUES (9, 1, 'fallback', 'b9')`)
+
+	// Only the first account ticked at the bank: the second is named and marked
+	// before any sync; the other user's account is marked but never named.
+	l := consent(zicht)
+	if want := []Missing{{IBAN: "BE71 •••• •••• 6769", Name: "Gezinsrekening"}}; !slices.Equal(l.Missing, want) {
+		t.Errorf("missing %+v, want %+v", l.Missing, want)
+	}
+	if got := state(2); got != "failed not_shared 1" {
+		t.Errorf("account 2 source %q, want failed not_shared", got)
+	}
+	if got := state(1); got != "ok - 0" {
+		t.Errorf("account 1 source %q, want it untouched", got)
+	}
+	if got := state(9); got != "failed not_shared 1" {
+		t.Errorf("account 9 source %q: the marking is the sync's, whoever holds it", got)
+	}
+	// Asking again says it again: the account is still not shared.
+	if l := consent(zicht); len(l.Missing) != 1 {
+		t.Errorf("second consent without it: %+v", l.Missing)
+	}
+
+	// Both listed again: nothing missing; the first sync clears the mark.
+	if l := consent(zicht, gezin); len(l.Missing) != 0 {
+		t.Errorf("both listed: %+v", l.Missing)
+	}
+	if err := svc.Sync(ctx, 1, at(18, 10, 5)); err != nil {
+		t.Fatal(err)
+	}
+	if got := state(2); got != "ok - 1" {
+		t.Errorf("account 2 source %q after the sync, want ok", got)
+	}
+
+	// A consent that adds an account names nothing.
+	l = consent(zicht, gezin, bank.Account{ID: "b3", IBAN: "BE62510007547061", Name: "Spaarrekening"})
+	if len(l.Accounts) != 3 || len(l.Missing) != 0 {
+		t.Errorf("added an account: %+v", l)
 	}
 }

@@ -171,6 +171,7 @@ const RESULT: BankLinkResult = {
   accounts: [ZICHT],
   skipped: [],
   offers: [],
+  missing: [],
 };
 const WITH_OFFER: BankLinkResult = { ...RESULT, offers: [OFFER] };
 
@@ -259,6 +260,56 @@ describe('Back from the bank', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Niets om af te ronden' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Naar Bankkoppelingen' }).getAttribute('href')).toBe('/bankkoppelingen');
     expect(callback).not.toHaveBeenCalled();
+  });
+});
+
+describe('Back from the bank · accounts the consent left out', () => {
+  const GEZIN = { iban: 'BE71 •••• •••• 6769', name: 'Gezinsrekening' };
+  const SPAAR = { iban: 'BE41 •••• •••• 1196', name: 'Spaarrekening' };
+  const back = (result: BankLinkResult) => {
+    stubApi();
+    vi.spyOn(api, 'bankCallback').mockResolvedValue(result);
+    renderAt('/bankkoppelingen/terug?code=' + CODE + '&state=' + STATE);
+  };
+
+  it('warns above the success text with the one account that is missing, and does not claim everything is linked', async () => {
+    back({ ...RESULT, missing: [GEZIN] });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Je bank is gekoppeld, maar niet alle rekeningen.' })).toBeTruthy();
+    expect(screen.getByText('Je hebt bij Argenta niet alle rekeningen gedeeld.')).toBeTruthy();
+    expect(screen.getByText('Gezinsrekening (BE71 •••• •••• 6769) ontbreekt.')).toBeTruthy();
+    expect(screen.getByText('Koppel opnieuw en vink alle rekeningen aan.')).toBeTruthy();
+    expect(screen.queryByText(/Klaar\./)).toBeNull();
+    // The notice comes before the account list and the rest of the success text.
+    const notice = screen.getByText('Je hebt bij Argenta niet alle rekeningen gedeeld.').closest('.bk-notice') as HTMLElement;
+    expect(notice.compareDocumentPosition(screen.getByText(ZICHT.name)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(notice.compareDocumentPosition(screen.getByText('Toestemming tot 17 mei 2027.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('names every missing account', async () => {
+    back({ ...RESULT, missing: [GEZIN, SPAAR] });
+    expect(await screen.findByText('Gezinsrekening (BE71 •••• •••• 6769) ontbreekt.')).toBeTruthy();
+    expect(screen.getByText('Spaarrekening (BE41 •••• •••• 1196) ontbreekt.')).toBeTruthy();
+    expect(screen.getAllByText('Koppel opnieuw en vink alle rekeningen aan.')).toHaveLength(1);
+  });
+
+  it('restarts the authorisation of that connection with Opnieuw koppelen', async () => {
+    back({ ...RESULT, missing: [GEZIN] });
+    const link = vi.spyOn(api, 'startLink').mockResolvedValue({ url: BANK_URL });
+    const go = vi.spyOn(browser, 'go').mockImplementation(() => undefined);
+    fireEvent.click(await screen.findByRole('link', { name: 'Opnieuw koppelen' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Toestemming vernieuwen bij Argenta' })).toBeTruthy();
+    expect(where()).toBe('/bankkoppelingen/koppelen?koppeling=' + RESULT.connection.id);
+    fireEvent.click(screen.getByRole('button', { name: 'Naar Argenta' }));
+    await waitFor(() => expect(go).toHaveBeenCalledWith(BANK_URL));
+    expect(link).toHaveBeenCalledWith(RESULT.connection.id);
+  });
+
+  it('shows no notice when nothing is missing', async () => {
+    back(RESULT);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Klaar. Je rekening is gekoppeld.' })).toBeTruthy();
+    expect(screen.queryByText(/niet alle rekeningen/)).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Opnieuw koppelen' })).toBeNull();
   });
 });
 

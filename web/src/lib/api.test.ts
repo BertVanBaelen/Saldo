@@ -272,6 +272,42 @@ describe('categorisation calls', () => {
     expect(sent(dismiss)).toEqual({ url: '/api/suggestions/dismiss', method: 'POST', body: { counterpartyKey: 'bakkerij de graankorrel', categoryId: 2 } });
   });
 
+  it('reads, accepts and declines join offers, reads a notice and converts rules, each with the right path and method', async () => {
+    const sent = (fetch: ReturnType<typeof respond>) => {
+      const [url, init] = fetch.mock.calls[0];
+      return { url, method: init.method, body: init.body };
+    };
+    const offers = [{ id: 12, iban: 'BE68 •••• •••• 4821', bank: 'Argenta', createdAt: '2026-11-18T20:00:00+01:00' }];
+    const list = respond(200, offers);
+    vi.stubGlobal('fetch', list);
+    await expect(api.joinOffers()).resolves.toEqual(offers);
+    expect(sent(list)).toEqual({ url: '/api/join-offers', method: 'GET', body: undefined });
+
+    const accept = respond(200, { account: { id: 4 } });
+    vi.stubGlobal('fetch', accept);
+    await expect(api.acceptJoinOffer(12)).resolves.toEqual({ account: { id: 4 } });
+    expect(sent(accept)).toEqual({ url: '/api/join-offers/12/accept', method: 'POST', body: undefined });
+
+    const noContent = () => vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const decline = noContent();
+    vi.stubGlobal('fetch', decline);
+    await expect(api.declineJoinOffer(12)).resolves.toBeNull();
+    expect(sent(decline)).toEqual({ url: '/api/join-offers/12', method: 'DELETE', body: undefined });
+
+    const read = noContent();
+    vi.stubGlobal('fetch', read);
+    await expect(api.readNotice(7)).resolves.toBeNull();
+    expect(sent(read)).toEqual({ url: '/api/notices/7/read', method: 'POST', body: undefined });
+
+    const convert = respond(200, { converted: 3 });
+    vi.stubGlobal('fetch', convert);
+    await expect(api.convertRules(4)).resolves.toEqual({ converted: 3 });
+    expect(sent(convert)).toEqual({ url: '/api/accounts/4/convert-rules', method: 'POST', body: undefined });
+
+    vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Koppel de rekening opnieuw om aan te sluiten.' } }));
+    await expect(api.acceptJoinOffer(12)).rejects.toMatchObject({ status: 400, message: 'Koppel de rekening opnieuw om aan te sluiten.' });
+  });
+
   it('passes on the server’s message when a call is refused', async () => {
     vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' } }));
     await expect(api.updateTransaction(101, { categoryId: 2 })).rejects.toMatchObject({ status: 400, message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' });

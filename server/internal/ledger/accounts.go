@@ -48,6 +48,10 @@ type Account struct {
 	Permission string      `json:"permission"`
 	Role       string      `json:"role"`
 	Members    []Member    `json:"members"`
+	// ConvertibleRules is, for the manager of a shared account, the number of
+	// their user rules that no longer apply to it and have no equal account
+	// rule yet (POST /api/accounts/{id}/convert-rules); 0 for everyone else.
+	ConvertibleRules int `json:"convertibleRules"`
 
 	sources []int64 // connections that feed this account
 }
@@ -173,6 +177,9 @@ func (s *Store) accounts(ctx context.Context, viewer, only int64, now time.Time)
 		return nil, err
 	}
 	if err := s.loadSync(ctx, viewer, list, index, now); err != nil {
+		return nil, err
+	}
+	if err := s.loadConvertible(ctx, viewer, list, index); err != nil {
 		return nil, err
 	}
 	return list, nil

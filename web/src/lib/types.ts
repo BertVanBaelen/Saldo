@@ -86,6 +86,8 @@ export interface Account {
   permission: Permission;
   role: MemberRole;
   members: Member[];
+  /** The manager of an account with more than one member: how many of their own rules no longer apply to it; else 0. */
+  convertibleRules: number;
 }
 
 export interface AccountPatch {
@@ -366,12 +368,14 @@ export interface TransactionQuery {
 
 export interface Alert {
   kind: 'neg' | 'warn' | 'ok';
-  type: 'consent' | 'sync' | 'categorise' | 'planning';
+  type: 'consent' | 'sync' | 'categorise' | 'planning' | 'member' | 'rules';
   title: string;
   note: string;
   href: string;
-  /** Only the alerts about one account (type sync); it shows only when that account is in the scope. */
+  /** Only the alerts about one account (types sync, member and rules); it shows only when that account is in the scope. */
   accountId?: number;
+  /** A stored notice (types member and rules): the viewer can dismiss it with `POST /api/notices/{id}/read`. */
+  noticeId?: number;
 }
 
 export interface Connection {
@@ -405,11 +409,24 @@ export interface EnableBanking {
   redirectUrl: string | null;
 }
 
-/** An account the bank returned that was not linked: its IBAN belongs to another user (joining arrives in 0.6-1). */
+/** An account the bank returned that was not linked, for a reason other than a joinable IBAN (that is an offer). */
 export interface SkippedAccount {
   /** Masked. */
   iban: string;
-  reason: 'exists';
+  reason: string;
+}
+
+/** An account that exists already at someone else: linking it offers to join it. Nothing but the masked IBAN is known before. */
+export interface JoinOffer {
+  id: number;
+  /** Masked. */
+  iban: string;
+  bank: string;
+}
+
+/** GET /api/join-offers: the viewer's pending offers. */
+export interface PendingJoinOffer extends JoinOffer {
+  createdAt: string;
 }
 
 /** Answer of POST /api/bank/callback. */
@@ -417,6 +434,7 @@ export interface BankLinkResult {
   connection: Connection;
   accounts: Account[];
   skipped: SkippedAccount[];
+  offers: JoinOffer[];
 }
 
 // ---------- Sign-in, devices and users (docs/api.md, "Sign-in") ----------

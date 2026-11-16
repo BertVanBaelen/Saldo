@@ -6,11 +6,12 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
+import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
 import { accColour, accountIcon, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, browser, errorMessage } from '../lib/api';
 import { dateYear, eur, momentLabel, names } from '../lib/format';
-import type { Account, BankLinkResult, Connection, SyncStatus } from '../lib/types';
+import type { Account, BankLinkResult, Connection, JoinOffer, SyncStatus } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { RemoveLink } from './Rekening';
 import './Bankkoppelingen.css';
@@ -102,6 +103,131 @@ function ErrorLine({ children }: { children: ReactNode }) {
       <Icon name="warning" size={16} stroke={2.2} />
       <span>{children}</span>
     </p>
+  );
+}
+
+// ---------- Joining an account that exists already (0.6-1a) ----------
+
+/**
+ * "Deze rekening bestaat al. Wil je aansluiten?" Aansluiten makes the viewer a member; "Niet nu" drops the offer.
+ * Closing (Escape, backdrop, ×) decides nothing: the offer stays and can be reopened from its card.
+ */
+function JoinDialog({ offer, onClose, onDone }: { offer: JoinOffer; onClose: () => void; onDone: () => void }) {
+  const { online, toast, refreshShell } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = (task: Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    task.then(onDone, (e) => {
+      setBusy(false);
+      setError(errorMessage(e));
+    });
+  };
+  const accept = () =>
+    go(
+      api.acceptJoinOffer(offer.id).then((r) => {
+        toast('Je bent aangesloten bij ' + r.account.name);
+        refreshShell();
+      }),
+    );
+  const decline = () => go(api.declineJoinOffer(offer.id).then(() => undefined));
+
+  return (
+    <Sheet onClose={onClose} labelledBy="bk-join-title" className="rk-sheet rkd-dialog" backdropClassName="rk-backdrop">
+      <div className="rkd-dlg-head">
+        <span className="rkd-dlg-icon">
+          <Icon name="people" size={20} stroke={2.2} />
+        </span>
+        <h2 className="rkd-dlg-title" id="bk-join-title">
+          Deze rekening bestaat al.
+        </h2>
+        <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
+          <Icon name="close" size={18} stroke={2.4} />
+        </button>
+      </div>
+      <p className="rkd-dlg-text">
+        <span className="rkd-dlg-name">{offer.iban}</span> bij {offer.bank} staat al in Saldo. Wil je aansluiten?
+      </p>
+      <p className="rkd-dlg-text">Sluit je aan, dan zie en bewerk je de rekening samen met de andere leden. Zij krijgen een melding.</p>
+      {error && (
+        <p className="rk-err rk-save-err" role="alert">
+          {error}
+        </p>
+      )}
+      {!online && (
+        <p className="rk-offline">
+          <Icon name="cloudOff" size={14} stroke={2.2} />
+          Je bent offline. Aansluiten kan weer zodra je verbinding hebt.
+        </p>
+      )}
+      <div className="rk-actions">
+        <button type="button" className="rk-btn rk-btn--ghost" disabled={busy} onClick={decline}>
+          Niet nu
+        </button>
+        <button type="button" className="rk-btn rk-btn--primary" disabled={!online || busy} aria-busy={busy || undefined} onClick={accept}>
+          {busy ? 'Even geduld…' : 'Aansluiten'}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * The pending offers, a card each, and the dialog that asks. `autoOpen` asks at once (right after the bank
+ * callback, one offer after the other); on Bankkoppelingen the cards are how a closed dialog is reopened.
+ */
+function JoinOffers({ offers, autoOpen, onDecided }: { offers: JoinOffer[]; autoOpen?: boolean; onDecided: (id: number) => void }) {
+  const [asking, setAsking] = useState<number | null>(null);
+  // Asked from an effect, so the page's heading has the focus first and every way of closing the dialog returns to it.
+  useEffect(() => {
+    if (autoOpen && offers.length) setAsking(offers[0].id);
+    // Once, on mount: later offers are asked for one after the other by `onDone`.
+  }, []);
+  const offer = offers.find((o) => o.id === asking);
+  if (!offers.length) return null;
+  return (
+    <section className="bk-section" aria-labelledby="bk-offers">
+      <div className="bk-section-head anim-fade" style={delay(20)}>
+        <h2 className="label" id="bk-offers">
+          Aansluiten
+        </h2>
+      </div>
+      {offers.map((o) => (
+        <article className="bk-conn anim-in" style={delay(40)} key={o.id} aria-labelledby={'bk-offer-' + o.id}>
+          <div className="bk-conn-head">
+            <span className="bk-tile" aria-hidden="true">
+              <Icon name="people" size={22} />
+            </span>
+            <span className="bk-conn-title">
+              <span className="bk-conn-name" id={'bk-offer-' + o.id}>
+                Bestaande rekening
+              </span>
+              <span className="bk-conn-sub">
+                <span className="mono">{o.iban}</span> · {o.bank}
+              </span>
+            </span>
+          </div>
+          <div className="bk-actions">
+            <button type="button" className="bk-btn bk-btn--primary" aria-haspopup="dialog" onClick={() => setAsking(o.id)}>
+              Wil je aansluiten?
+            </button>
+          </div>
+        </article>
+      ))}
+      {offer && (
+        <JoinDialog
+          key={offer.id}
+          offer={offer}
+          onClose={() => setAsking(null)}
+          onDone={() => {
+            const next = offers.find((o) => o.id !== offer.id);
+            setAsking(autoOpen && next ? next.id : null);
+            onDecided(offer.id);
+          }}
+        />
+      )}
+    </section>
   );
 }
 
@@ -305,8 +431,8 @@ function Empty() {
 export function Bankkoppelingen() {
   useTitle('Bankkoppelingen');
   const { dataVersion } = useApp();
-  const page = useAsync((signal) => Promise.all([api.connections(signal), api.accounts(signal), api.enableBanking(signal)]), [dataVersion]);
-  const [conns, accounts, eb] = page.data ?? [];
+  const page = useAsync((signal) => Promise.all([api.connections(signal), api.accounts(signal), api.enableBanking(signal), api.joinOffers(signal)]), [dataVersion]);
+  const [conns, accounts, eb, offers] = page.data ?? [];
   const [removing, setRemoving] = useState<Connection | null>(null);
 
   let body: ReactNode;
@@ -348,6 +474,7 @@ export function Bankkoppelingen() {
           </Link>
         )}
       </div>
+      {!!offers?.length && <JoinOffers offers={offers} onDecided={page.reload} />}
       {body}
       {page.data && (
         <p className="bk-info anim-in" style={delay(130)}>
@@ -577,14 +704,17 @@ type Outcome = { kind: 'busy' } | { kind: 'done'; result: BankLinkResult } | { k
 /** How the first sync after linking went: running, its final state, or `null` when the app stopped waiting. */
 type FirstSync = { done: false } | { done: true; status: SyncStatus | null };
 
-function Linked({ result, first }: { result: BankLinkResult; first: FirstSync }) {
+/** `offers` are the join offers still undecided; the dialog asks about them at once. */
+function Linked({ result, first, offers, onDecided }: { result: BankLinkResult; first: FirstSync; offers: JoinOffer[]; onDecided: (id: number) => void }) {
   const { connection: c, accounts, skipped } = result;
   const after = first.done ? first.status?.connections.find((x) => x.id === c.id) : undefined;
   const n = accounts.length;
-  const title = n === 0 ? 'Er is geen rekening gekoppeld' : n === 1 ? 'Klaar. Je rekening is gekoppeld.' : 'Klaar. Je rekeningen zijn gekoppeld.';
+  // Only existing accounts to join: the bank is linked, the account follows once the viewer joins.
+  const none = n === 0 && !result.offers.length;
+  const title = none ? 'Er is geen rekening gekoppeld' : n === 0 ? 'Je bank is gekoppeld.' : n === 1 ? 'Klaar. Je rekening is gekoppeld.' : 'Klaar. Je rekeningen zijn gekoppeld.';
   return (
     <>
-      <Mark tone={n ? undefined : 'warn'} icon={n ? 'check' : 'info'} />
+      <Mark tone={none ? 'warn' : undefined} icon={none ? 'info' : 'check'} />
       <h1 className="bk-h1" tabIndex={-1}>
         {title}
       </h1>
@@ -610,11 +740,11 @@ function Linked({ result, first }: { result: BankLinkResult; first: FirstSync })
           ))}
         </ul>
       )}
+      <JoinOffers offers={offers} autoOpen onDecided={onDecided} />
       {skipped.length > 0 && (
-        <Notice tone="warn" icon="people" title={skipped.length === 1 ? 'Eén rekening is overgeslagen' : skipped.length + ' rekeningen zijn overgeslagen'}>
+        <Notice tone="warn" icon="warning" title={skipped.length === 1 ? 'Eén rekening is overgeslagen' : skipped.length + ' rekeningen zijn overgeslagen'}>
           <span>
-            {names(skipped.map((s) => s.iban))} {skipped.length === 1 ? 'staat' : 'staan'} al in Saldo bij een andere gebruiker. Aansluiten bij de rekening van iemand anders
-            komt in versie 0.6. Koppel ze dan opnieuw om aan te sluiten.
+            {names(skipped.map((s) => s.iban))} konden we niet koppelen.
           </span>
         </Notice>
       )}
@@ -658,6 +788,8 @@ export function BankTerug() {
   const navigate = useNavigate();
   const { refreshShell, followSync } = useApp();
   const [first, setFirst] = useState<FirstSync>({ done: false });
+  // The offers to join that the viewer has not decided on yet.
+  const [offers, setOffers] = useState<JoinOffer[]>([]);
   const [params] = useSearchParams();
   // The bank's answer, as the first render saw the address. `error` is how the bank says the user cancelled.
   const [answer] = useState(() => ({ code: params.get('code'), state: params.get('state'), cancelled: params.has('error') }));
@@ -676,6 +808,7 @@ export function BankTerug() {
     api.bankCallback(answer.code, answer.state).then(
       (result) => {
         setOutcome({ kind: 'done', result });
+        setOffers(result.offers);
         refreshShell();
         // The server runs the first sync in the background; follow it.
         followSync().then((status) => setFirst({ done: true, status }));
@@ -710,7 +843,7 @@ export function BankTerug() {
       </div>
     );
   } else if (outcome.kind === 'done') {
-    content = <Linked result={outcome.result} first={first} />;
+    content = <Linked result={outcome.result} first={first} offers={offers} onDecided={(id) => setOffers((o) => o.filter((x) => x.id !== id))} />;
     foot = (
       <>
         <Link className="bk-btn bk-btn--primary" to="/">

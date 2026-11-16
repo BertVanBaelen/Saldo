@@ -212,3 +212,13 @@ Start with `pwsh -File scripts/dev.ps1 -Fresh` (the `saldo-demo` entry of `.clau
 
 Known limits: Safari 16.4 to 17.x may not understand the formula of "Eigen kleur" and then shows a plain tint with readable text (a fallback), the preset pastels always work; the Transacties filter and the import mapping keep their dropdown (with emoji).
 
+## Shared accounts (0.6)
+
+The demo has Bert and Partner (see "Demo mode": `/api/demo/as/partner` and `/api/demo/as/bert`). Partner is already a member of the Gedeelde rekening in the demo story, so the join below needs a prepared database. Use a copy of the demo database with Python (`sqlite3`, server stopped or running): `delete from account_access where account_id=4 and user_id=2; delete from account_sources where account_id=4 and connection_id=2;` and then add the offer `insert into join_offers (user_id, connection_id, account_id, external_account_id, created_at) values (2,2,4,'demo-ext','2026-11-18T08:00:00Z');` (the offer must be younger than 24 hours on the demo date, 18 November 2026). As Bert, first make a rule of your own (Meer, Categorieën en regels, Regels, "Colruyt" to Boodschappen, for all your accounts).
+
+### Join (0.6-1a, about five minutes)
+1. **As Partner**, open Bankkoppelingen: above "Jouw koppelingen" a card "Aansluiten" shows "Bestaande rekening", `BE12 •••• •••• 7730 · Argenta` and "Wil je aansluiten?": nothing else about the account (no name of the account, no balance, no members). Partner's accounts list has only her own Zichtrekening.
+2. Press "Wil je aansluiten?": a sheet "Deze rekening bestaat al." with "Niet nu" and "Aansluiten". "Niet nu" removes the offer for good (add it again to continue). Press "Aansluiten": toast "Je bent aangesloten bij Gedeelde rekening"; Rekeningen now shows it as Gedeeld, and Transacties show its history.
+3. **As Bert**, open Start: a green notice "Partner sluit aan bij Gedeelde rekening" and a yellow one "Je regels voor Gedeelde rekening gelden niet meer", each with a close button (it disappears and stays away after a reload). Open the account (Rekeningen, Gedeelde rekening): a card "Je regels" says "1 regel van jou geldt niet op deze gedeelde rekening"; "Zet om naar regels van deze rekening" toasts "1 regel omgezet", the card disappears, and Categorieën en regels now lists the rule for the account next to your own rule.
+4. A member cannot convert (403) and a personal account has no card. Nothing is fetched for Partner's link on the shared account yet (fallback source, 0.6-1d).
+

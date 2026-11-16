@@ -11,6 +11,7 @@ import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useTitle } from '../components/ui';
 import { accColour, accountState, isCurrent, isShared, manager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
+import { plural } from '../lib/categories';
 import { dateRelative, dateShort, dateYear, eur, momentLabel, names, parseMoney, toDate } from '../lib/format';
 import type { Account, BalancePoint, Connection, Transaction } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -603,6 +604,49 @@ function SyncCard({ a, conn, onRemove }: { a: Account; conn: Connection | undefi
   );
 }
 
+// ---------- Je regels (shared account, manager): the manager's own rules stopped applying when a member joined ----------
+
+function ConvertRules({ a, onDone }: { a: Account; onDone: () => void }) {
+  const { online, toast, refreshShell } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const n = a.convertibleRules;
+  const convert = () => {
+    setBusy(true);
+    setError(null);
+    api.convertRules(a.id).then(
+      (r) => {
+        toast(plural(r.converted, 'regel', 'regels') + ' omgezet');
+        // The notice about these rules goes with them.
+        refreshShell();
+        onDone();
+      },
+      (e) => {
+        setBusy(false);
+        setError(errorMessage(e));
+      },
+    );
+  };
+  return (
+    <section className="card rkd-card anim-in" style={delay(60)} id="regels" aria-labelledby="rkd-h-rules">
+      <CardHead id="rkd-h-rules" title="Je regels" />
+      <p className="rkd-help">
+        {n === 1 ? '1 regel van jou geldt' : n + ' regels van jou gelden'} niet op deze gedeelde rekening. Zet je ze om, dan gelden ze voor de rekening zelf.
+      </p>
+      {error && (
+        <p className="rk-err rk-save-err" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="rkd-actions">
+        <button type="button" className="btn btn--primary btn--block" disabled={!online || busy} aria-busy={busy || undefined} onClick={convert}>
+          {busy ? 'Even geduld…' : 'Zet om naar regels van deze rekening'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // ---------- Remove a bank link (analysis 4.8): keep or delete history, delete needs a second step ----------
 
 /** The accounts a removal with "delete" would delete (only you hold them) and keep (others see them). */
@@ -935,6 +979,7 @@ export function Rekening() {
           <TxCard a={a} page={txs.data} error={txs.error} onRetry={txs.reload} today={today} />
         </div>
         <div className="rkd-col rkd-col--side">
+          {a.role === 'manager' && a.convertibleRules > 0 && <ConvertRules a={a} onDone={accounts.reload} />}
           {bank && <SyncCard a={a} conn={conn} onRemove={() => setDialog('unlink')} />}
           <section className="card rkd-card anim-in" style={delay(90)} id="instellen" aria-labelledby="rkd-h-set">
             <CardHead

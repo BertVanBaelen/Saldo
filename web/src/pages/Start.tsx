@@ -2,7 +2,7 @@
 // Design: finance-mockup/js/screens/start.js; spec: analysis/screens/start.md.
 // Every current account is judged on its own buffer; a sum is information only (decisions 3 Nov 2026).
 // The forecast (0.8) and the spending card (0.7) arrive later: no figures for them until then.
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon, Logo, type IconName } from '../components/Icon';
@@ -21,7 +21,7 @@ import {
   staleNote,
   syncLine,
 } from '../lib/accounts';
-import { api } from '../lib/api';
+import { api, errorMessage } from '../lib/api';
 import { dateLong, eur, eur0, names } from '../lib/format';
 import type { Account, Alert, Connection, EnableBanking, Scope } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -64,11 +64,14 @@ function Header({ bare }: { bare: boolean }) {
 function alertIcon(a: Alert): IconName {
   if (a.type === 'consent') return 'clock';
   if (a.type === 'categorise') return 'tag';
+  if (a.type === 'member') return 'people';
   if (a.type === 'sync') return a.kind === 'neg' ? 'warning' : 'sync';
   return 'warning';
 }
 
 function AlertRow({ a }: { a: Alert }) {
+  const { toast, refreshShell } = useApp();
+  const [busy, setBusy] = useState(false);
   const chevron = !a.href.startsWith('/planning');
   const body = (
     <>
@@ -92,6 +95,27 @@ function AlertRow({ a }: { a: Alert }) {
     </>
   );
   const cls = 'alert alert--' + a.kind;
+  if (a.noticeId !== undefined) {
+    // A stored notice can be dismissed. A button cannot sit inside the link, so the link and the button are siblings.
+    const id = a.noticeId;
+    const dismiss = () => {
+      setBusy(true);
+      api.readNotice(id).then(refreshShell, (e) => {
+        setBusy(false);
+        toast(errorMessage(e));
+      });
+    };
+    return (
+      <div className={cls + ' alert--notice'}>
+        <Link className="alert-link" to={a.href}>
+          {body}
+        </Link>
+        <button type="button" className="icon-btn alert-x" aria-label={'Sluiten: ' + a.title} disabled={busy} onClick={dismiss}>
+          <Icon name="close" size={16} stroke={2.4} />
+        </button>
+      </div>
+    );
+  }
   return a.href.startsWith('/') ? (
     <Link className={cls} to={a.href}>
       {body}
@@ -110,7 +134,7 @@ function Alerts({ alerts, inView }: { alerts: Alert[]; inView: Account[] }) {
   return (
     <div className="alerts anim-in" style={delay(30)}>
       {shown.map((a, i) => (
-        <AlertRow key={a.type + i} a={a} />
+        <AlertRow key={a.noticeId !== undefined ? 'notice' + a.noticeId : a.type + i} a={a} />
       ))}
     </div>
   );

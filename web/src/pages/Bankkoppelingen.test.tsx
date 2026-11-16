@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { api, ApiError, browser } from '../lib/api';
 import type { BankLinkResult, Connection } from '../lib/types';
 import { connectionsSub } from './Meer';
-import { CONNECTIONS, EB_OFF, GEDEELD, ME, PENDING, renderAt, renderRoot, stubApi, ZICHT } from '../test/helpers';
+import { CONNECTIONS, EB_OFF, GEDEELD, ME, OFFER, PENDING, renderAt, renderRoot, stubApi, ZICHT } from '../test/helpers';
 
 const where = () => screen.getByTestId('location').textContent;
 const toast = () => document.querySelector('.toast')?.textContent;
@@ -31,6 +31,8 @@ describe('Bankkoppelingen', () => {
     expect(v.getByText('Gekoppeld sinds 3 juni 2026')).toBeTruthy();
     // 12 days left: re-authorising is the main action.
     expect(v.getByRole('link', { name: 'Opnieuw autoriseren' }).className).toContain('bk-btn--primary');
+    // No pending offer: no card to join.
+    expect(screen.queryByRole('heading', { name: 'Aansluiten' })).toBeNull();
   });
 
   it('names the account whose sync failed, with its error code', async () => {
@@ -147,8 +149,10 @@ describe('Bankkoppelingen', () => {
 const RESULT: BankLinkResult = {
   connection: { ...CONNECTIONS[0], since: '2026-11-18', validUntil: '2027-05-17', daysLeft: 180, accounts: [1] },
   accounts: [ZICHT],
-  skipped: [{ iban: 'BE12 •••• •••• 7730', reason: 'exists' }],
+  skipped: [],
+  offers: [],
 };
+const WITH_OFFER: BankLinkResult = { ...RESULT, offers: [OFFER] };
 
 describe('Back from the bank', () => {
   it('takes the code and state out of the address, posts them once (also in StrictMode) and shows what was linked', async () => {
@@ -162,8 +166,7 @@ describe('Back from the bank', () => {
     expect(callback).toHaveBeenCalledTimes(1);
     expect(callback).toHaveBeenCalledWith(CODE, STATE);
     expect(screen.getByText(ZICHT.name)).toBeTruthy();
-    expect(screen.getByText('Eén rekening is overgeslagen')).toBeTruthy();
-    expect(screen.getByText(/BE12 •••• •••• 7730 staat al in Saldo bij een andere gebruiker/)).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByText('Toestemming tot 17 mei 2027.')).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 }));
     expect(document.body.innerHTML).not.toContain(CODE);
@@ -185,7 +188,7 @@ describe('Back from the bank', () => {
   it('says when the first sync failed, and when nothing came back from the bank', async () => {
     const stub = stubApi();
     stub.syncStatus.mockResolvedValue({ running: false, startedAt: null, finishedAt: null, connections: [{ id: 1, status: 'failed', lastSync: null, error: 'http_500' }] });
-    const callback = vi.spyOn(api, 'bankCallback').mockResolvedValue({ ...RESULT, skipped: [] });
+    const callback = vi.spyOn(api, 'bankCallback').mockResolvedValue(RESULT);
     const first = renderAt('/bankkoppelingen/terug?code=' + CODE + '&state=' + STATE);
     expect(await screen.findByText('De eerste synchronisatie is mislukt')).toBeTruthy();
     expect(screen.queryByText(/Je transacties en je saldo zijn binnen/)).toBeNull();
@@ -236,6 +239,160 @@ describe('Back from the bank', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Niets om af te ronden' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Naar Bankkoppelingen' }).getAttribute('href')).toBe('/bankkoppelingen');
     expect(callback).not.toHaveBeenCalled();
+  });
+});
+
+describe('Back from the bank · an account that exists already', () => {
+  const OFFER_2 = { id: 13, iban: 'BE41 •••• •••• 1196', bank: 'Argenta' };
+  const back = () => renderAt('/bankkoppelingen/terug?code=' + CODE + '&state=' + STATE);
+  const dialog = () => screen.findByRole('dialog', { name: 'Deze rekening bestaat al.' });
+  const linked = (result: BankLinkResult) => vi.spyOn(api, 'bankCallback').mockResolvedValue(result);
+
+  it('asks whether to join, with the masked IBAN and the bank, and the dialog has the focus', async () => {
+    stubApi();
+    linked(WITH_OFFER);
+    back();
+    const d = await dialog();
+    expect(within(d).getByText(OFFER.iban)).toBeTruthy();
+    expect(d.textContent).toContain('bij Argenta staat al in Saldo. Wil je aansluiten?');
+    expect(within(d).getByRole('button', { name: 'Aansluiten' })).toBeTruthy();
+    expect(within(d).getByRole('button', { name: 'Niet nu' })).toBeTruthy();
+    // The result's heading waits: it must not take the focus from the dialog.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Klaar. Je rekening is gekoppeld.' })).toBeTruthy();
+    expect(d.contains(document.activeElement)).toBe(true);
+  });
+
+  it('joins on Aansluiten: toasts the account, closes the dialog and the heading takes the focus again', async () => {
+    const stub = stubApi();
+    linked(WITH_OFFER);
+    back();
+    fireEvent.click(within(await dialog()).getByRole('button', { name: 'Aansluiten' }));
+
+    await waitFor(() => expect(toast()).toBe('Je bent aangesloten bij Gedeelde rekening'));
+    expect(stub.acceptJoinOffer).toHaveBeenCalledTimes(1);
+    expect(stub.acceptJoinOffer).toHaveBeenCalledWith(12);
+    expect(stub.declineJoinOffer).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Aansluiten' })).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })));
+  });
+
+  it('declines on Niet nu, then asks about the next account', async () => {
+    const stub = stubApi();
+    linked({ ...WITH_OFFER, offers: [OFFER, OFFER_2] });
+    back();
+    fireEvent.click(within(await dialog()).getByRole('button', { name: 'Niet nu' }));
+
+    await waitFor(() => expect(within(screen.getByRole('dialog')).getByText(OFFER_2.iban)).toBeTruthy());
+    expect(stub.declineJoinOffer).toHaveBeenCalledWith(12);
+    expect(stub.acceptJoinOffer).not.toHaveBeenCalled();
+    expect(toast() ?? '').not.toContain('aangesloten');
+    // The first is decided; only the second keeps its card.
+    expect(screen.getAllByRole('article', { name: 'Bestaande rekening' })).toHaveLength(1);
+
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Niet nu' }));
+    await waitFor(() => expect(stub.declineJoinOffer).toHaveBeenLastCalledWith(13));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByRole('article', { name: 'Bestaande rekening' })).toBeNull();
+  });
+
+  it('shows the server’s message when joining fails, keeps the offer and lets the user try again', async () => {
+    const stub = stubApi();
+    stub.acceptJoinOffer.mockRejectedValue(new ApiError(400, 'invalid', 'Koppel de rekening opnieuw om aan te sluiten.'));
+    linked(WITH_OFFER);
+    back();
+    const d = await dialog();
+    fireEvent.click(within(d).getByRole('button', { name: 'Aansluiten' }));
+
+    expect((await within(d).findByRole('alert')).textContent).toBe('Koppel de rekening opnieuw om aan te sluiten.');
+    expect(screen.getByRole('dialog')).toBe(d);
+    expect((within(d).getByRole('button', { name: 'Aansluiten' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(toast() ?? '').not.toContain('aangesloten');
+    expect(screen.getByRole('article', { name: 'Bestaande rekening' })).toBeTruthy();
+  });
+
+  it('shows the message and keeps the dialog when declining fails', async () => {
+    const stub = stubApi();
+    stub.declineJoinOffer.mockRejectedValue(new ApiError(404, 'not_found', 'Niet gevonden.'));
+    linked(WITH_OFFER);
+    back();
+    const d = await dialog();
+    fireEvent.click(within(d).getByRole('button', { name: 'Niet nu' }));
+    expect((await within(d).findByRole('alert')).textContent).toBe('Niet gevonden.');
+    expect(screen.getByRole('dialog')).toBe(d);
+  });
+
+  it('decides nothing when the dialog is closed (Escape or ×): the offer keeps its card, which opens the dialog again', async () => {
+    const stub = stubApi();
+    linked(WITH_OFFER);
+    back();
+    await dialog();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // Back on the result's heading, so it is read out.
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 }));
+
+    // The card is where the dialog is reopened, and focus returns there.
+    const open = screen.getByRole('button', { name: 'Wil je aansluiten?' });
+    open.focus();
+    fireEvent.click(open);
+    fireEvent.click(within(await dialog()).getByRole('button', { name: 'Sluiten' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(open);
+    expect(stub.acceptJoinOffer).not.toHaveBeenCalled();
+    expect(stub.declineJoinOffer).not.toHaveBeenCalled();
+    expect(screen.getByRole('article', { name: 'Bestaande rekening' })).toBeTruthy();
+  });
+
+  it('says the bank is linked when every account was one to join, and keeps a plain notice for other skipped accounts', async () => {
+    stubApi();
+    linked({ ...WITH_OFFER, accounts: [], skipped: [{ iban: 'BE41 •••• •••• 1196', reason: 'unsupported' }] });
+    back();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Je bank is gekoppeld.' })).toBeTruthy();
+    expect(screen.getByText('Eén rekening is overgeslagen')).toBeTruthy();
+    expect(screen.getByText('BE41 •••• •••• 1196 konden we niet koppelen.')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('staat al in Saldo bij een andere gebruiker');
+    expect(await dialog()).toBeTruthy();
+  });
+});
+
+describe('Bankkoppelingen · pending offers', () => {
+  const PENDING_OFFER = { ...OFFER, createdAt: '2026-11-18T20:00:00+01:00' };
+
+  it('lists them above the connections; the card opens the dialog, joining takes the card away and refreshes the shell', async () => {
+    const stub = stubApi({ joinOffers: [PENDING_OFFER] });
+    renderAt('/bankkoppelingen');
+    const head = await screen.findByRole('heading', { name: 'Aansluiten' });
+    const list = head.closest('section') as HTMLElement;
+    expect(within(list).getByText(OFFER.iban)).toBeTruthy();
+    expect(list.textContent).toContain('Argenta');
+    expect(head.compareDocumentPosition(await screen.findByRole('heading', { name: 'Jouw koppelingen' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    fireEvent.click(within(list).getByRole('button', { name: 'Wil je aansluiten?' }));
+    const d = await screen.findByRole('dialog', { name: 'Deze rekening bestaat al.' });
+    const alertsBefore = stub.alerts.mock.calls.length;
+    stub.joinOffers.mockResolvedValue([]);
+    fireEvent.click(within(d).getByRole('button', { name: 'Aansluiten' }));
+
+    await waitFor(() => expect(toast()).toBe('Je bent aangesloten bij Gedeelde rekening'));
+    expect(stub.acceptJoinOffer).toHaveBeenCalledWith(12);
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Aansluiten' })).toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(stub.alerts.mock.calls.length).toBeGreaterThan(alertsBefore);
+  });
+
+  it('"Niet nu" drops the offer from the list', async () => {
+    const stub = stubApi({ joinOffers: [PENDING_OFFER] });
+    renderAt('/bankkoppelingen');
+    fireEvent.click(await screen.findByRole('button', { name: 'Wil je aansluiten?' }));
+    stub.joinOffers.mockResolvedValue([]);
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Niet nu' }));
+
+    await waitFor(() => expect(stub.declineJoinOffer).toHaveBeenCalledWith(12));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Aansluiten' })).toBeNull());
+    expect(stub.acceptJoinOffer).not.toHaveBeenCalled();
+    expect(toast()).toBeUndefined();
   });
 });
 

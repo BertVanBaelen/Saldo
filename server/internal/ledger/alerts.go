@@ -9,11 +9,14 @@ import (
 // Alert is one alert on Start (docs/api.md).
 type Alert struct {
 	Kind      string `json:"kind"` // neg, warn or ok
-	Type      string `json:"type"` // consent, sync or categorise
+	Type      string `json:"type"` // consent, sync, categorise, member or rules
 	Title     string `json:"title"`
 	Note      string `json:"note"`
 	Href      string `json:"href"`
-	AccountID int64  `json:"accountId,omitempty"` // only the alerts about one account (type sync)
+	AccountID int64  `json:"accountId,omitempty"` // only the alerts about one account (types sync, member, rules)
+	// NoticeID is the stored notice behind the alert (types member and
+	// rules); POST /api/notices/{id}/read dismisses it.
+	NoticeID int64 `json:"noticeId,omitempty"`
 }
 
 const (
@@ -34,6 +37,10 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 		return nil, err
 	}
 	uncategorised, err := s.UncategorisedCount(ctx, viewer)
+	if err != nil {
+		return nil, err
+	}
+	noticeWarn, noticeInfo, err := s.noticeAlerts(ctx, viewer)
 	if err != nil {
 		return nil, err
 	}
@@ -113,12 +120,13 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 		}
 	}
 
+	ok = append(ok, noticeInfo...)
 	if uncategorised > 0 {
 		ok = append(ok, Alert{Kind: "ok", Type: "categorise",
 			Title: fmt.Sprintf("%d %s te categoriseren", uncategorised, plural(uncategorised, "transactie", "transacties")),
 			Href:  hrefUncategorised})
 	}
-	out := append(append(append(neg, stale...), consent...), ok...)
+	out := append(append(append(append(neg, stale...), consent...), noticeWarn...), ok...)
 	if out == nil {
 		out = []Alert{}
 	}

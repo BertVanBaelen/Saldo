@@ -19,6 +19,7 @@ import type {
   Me,
   NewAccount,
   NewCategory,
+  PendingJoinOffer,
   Preferences,
   Redeem,
   RemovedLink,
@@ -153,6 +154,8 @@ export const api = {
   balances: (id: number, signal?: AbortSignal) => request<BalancePoint[]>('GET', '/api/accounts/' + id + '/balances', { signal }),
   /** Manual accounts only. */
   deleteAccount: (id: number) => request<null>('DELETE', '/api/accounts/' + id),
+  /** The manager's own rules that no longer apply to this account become rules of the account. */
+  convertRules: (id: number) => request<{ converted: number }>('POST', '/api/accounts/' + id + '/convert-rules'),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
   updateTransaction: (id: number, patch: TransactionPatch) => request<Transaction>('PATCH', '/api/transactions/' + id, { body: patch }),
   /** What "apply to similar" would do for the row's current category; writes nothing. */
@@ -185,6 +188,8 @@ export const api = {
   applyBackfill: (items: { counterpartyKey: string; categoryId: number }[]) => request<BackfillResult>('POST', '/api/suggestions/backfill', { body: { items } }),
   dismissSuggestion: (counterpartyKey: string, categoryId: number) => request<null>('POST', '/api/suggestions/dismiss', { body: { counterpartyKey, categoryId } }),
   alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
+  /** Dismisses the stored notice behind an alert (`noticeId`); it leaves the alerts. */
+  readNotice: (id: number) => request<null>('POST', '/api/notices/' + id + '/read'),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),
   /** Removes the viewer's bank link; `delete` also deletes the accounts only it feeds and only the viewer holds. */
   removeConnection: (id: number, history: 'keep' | 'delete') => request<RemovedLink>('DELETE', '/api/connections/' + id + '?history=' + history),
@@ -211,6 +216,12 @@ export const api = {
   /** The bank's consent page; with `connectionId` it re-authorises that connection. */
   startLink: (connectionId?: number) => request<{ url: string }>('POST', '/api/bank/link', { body: connectionId === undefined ? {} : { connectionId } }),
   bankCallback: (code: string, state: string) => request<BankLinkResult>('POST', '/api/bank/callback', { body: { code, state } }),
+  /** The viewer's pending offers to join an account that exists already. */
+  joinOffers: (signal?: AbortSignal) => request<PendingJoinOffer[]>('GET', '/api/join-offers', { signal }),
+  /** Joins the account of the offer (member with edit) and answers it. 404 when the offer is unknown or used. */
+  acceptJoinOffer: (id: number) => request<{ account: Account }>('POST', '/api/join-offers/' + id + '/accept'),
+  /** "Niet nu": the offer is gone. */
+  declineJoinOffer: (id: number) => request<null>('DELETE', '/api/join-offers/' + id),
 
   // Sign-in (public) and the viewer's devices, profile and, for admins, the users.
   login: (email: string, password: string) => request<LoginChallenge>('POST', '/api/auth/login', { body: { email, password } }),

@@ -13,7 +13,9 @@ import type {
   Connection,
   Device,
   EnableBanking,
+  JoinOffer,
   Me,
+  PendingJoinOffer,
   Rule,
   RulePreview,
   SimilarPreview,
@@ -42,6 +44,7 @@ const base: Omit<Account, 'id' | 'name' | 'type' | 'iban' | 'colour' | 'buffer' 
   permission: 'edit',
   role: 'manager',
   members: [],
+  convertibleRules: 0,
 };
 
 export const ZICHT: Account = { ...base, id: 1, name: 'Zichtrekening', type: 'current', iban: 'BE68 •••• •••• 4821', colour: 'green', buffer: 90000, balance: 196882, state: 'ok' };
@@ -148,6 +151,28 @@ const NO_SKIPS = { manual: 0, import: 0, split: 0, rule: 0 };
 export const CONSENT_ALERT: Alert = { kind: 'warn', type: 'consent', title: 'Toestemming verloopt over 12 dagen', note: 'Argenta · opnieuw autoriseren', href: '/bankkoppelingen' };
 export const CATEGORISE_ALERT: Alert = { kind: 'ok', type: 'categorise', title: '2 transacties te categoriseren', note: '', href: '/transacties?filter=niet-gecategoriseerd' };
 
+/** Linking an IBAN that exists at someone else (here: the shared account of Partner) offers to join it. */
+export const OFFER: JoinOffer = { id: 12, iban: 'BE12 •••• •••• 7730', bank: 'Argenta' };
+/** What Bert sees of the notice when Partner joins: dismissable through its `noticeId`. */
+export const MEMBER_ALERT: Alert = {
+  kind: 'ok',
+  type: 'member',
+  title: 'Partner sluit aan bij Gedeelde rekening',
+  note: 'Partner kan de rekening nu zien en bewerken.',
+  href: '/rekeningen/4',
+  accountId: 4,
+  noticeId: 7,
+};
+export const RULES_ALERT: Alert = {
+  kind: 'warn',
+  type: 'rules',
+  title: 'Je regels voor Gedeelde rekening gelden niet meer',
+  note: 'Zet ze om naar regels van de rekening.',
+  href: '/rekeningen/4',
+  accountId: 4,
+  noticeId: 8,
+};
+
 export const CONNECTIONS: Connection[] = [
   { id: 1, bank: 'Argenta', since: '2026-06-03', validUntil: '2026-11-30', daysLeft: 12, lastSync: '2026-11-18T04:02:00+01:00', status: 'ok', accounts: [1, 4] },
 ];
@@ -234,6 +259,8 @@ interface Stub {
   balances?: Record<number, BalancePoint[]>;
   devices?: Device[];
   enableBanking?: EnableBanking;
+  /** GET /api/join-offers; default none. */
+  joinOffers?: PendingJoinOffer[];
   imports?: ImportBatch[];
   categories?: TreeCategory[];
   /** GET /api/transactions/{id}/similar; default 14 others, nothing skipped. */
@@ -336,6 +363,12 @@ export function stubApi(s: Stub = {}) {
     })),
     setBalance: vi.spyOn(api, 'setBalance').mockImplementation(async (id, balance, date) => ({ ...(s.accounts ?? ACCOUNTS).find((a) => a.id === id)!, balance, balanceDate: date ?? ME.today })),
     deleteAccount: vi.spyOn(api, 'deleteAccount').mockResolvedValue(null),
+    // Joining (0.6-1a): accepting answers the shared account, like the server.
+    joinOffers: vi.spyOn(api, 'joinOffers').mockImplementation(async () => structuredClone(s.joinOffers ?? [])),
+    acceptJoinOffer: vi.spyOn(api, 'acceptJoinOffer').mockImplementation(async () => ({ account: structuredClone(GEDEELD) })),
+    declineJoinOffer: vi.spyOn(api, 'declineJoinOffer').mockResolvedValue(null),
+    readNotice: vi.spyOn(api, 'readNotice').mockResolvedValue(null),
+    convertRules: vi.spyOn(api, 'convertRules').mockResolvedValue({ converted: 3 }),
     imports: vi.spyOn(api, 'imports').mockImplementation(async () => structuredClone(s.imports ?? BATCHES)),
     // Counts only when both the account and the mapping are sent, as the server does.
     previewImport: vi.spyOn(api, 'previewImport').mockImplementation(async (file, o = {}) => ({

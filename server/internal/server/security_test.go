@@ -109,7 +109,7 @@ func TestBankLinkWithUnreadableKey(t *testing.T) {
 }
 
 // Two users linking the same new IBAN at once: one gets the account, the
-// other the "exists" skip; nobody gets a 500.
+// other a join offer; nobody gets a 500.
 func TestConcurrentLinkSameIBAN(t *testing.T) {
 	e := newBankEnv(t)
 	e.saveCredentials(e.bert)
@@ -134,15 +134,19 @@ func TestConcurrentLinkSameIBAN(t *testing.T) {
 	}
 	wg.Wait()
 	e.s.syncs.Wait() // a WaitGroup may not be waited on while another goroutine adds to it
-	skipped := 0
+	offers := 0
 	for u, r := range got {
 		if r.status != http.StatusOK {
 			t.Fatalf("user %d: %d %s", u, r.status, r.body)
 		}
-		skipped += len(decode[callbackBody](t, r.body).Skipped)
+		body := decode[callbackBody](t, r.body)
+		offers += len(body.Offers)
+		if len(body.Skipped) != 0 {
+			t.Errorf("user %d: skipped %+v", u, body.Skipped)
+		}
 	}
-	if skipped != 2 || e.count(`SELECT COUNT(*) FROM accounts`) != 2 {
-		t.Errorf("skipped %d, accounts %d; want each IBAN once", skipped, e.count(`SELECT COUNT(*) FROM accounts`))
+	if offers != 2 || e.count(`SELECT COUNT(*) FROM accounts`) != 2 || e.count(`SELECT COUNT(*) FROM join_offers`) != 2 {
+		t.Errorf("offers %d, accounts %d; want each IBAN once", offers, e.count(`SELECT COUNT(*) FROM accounts`))
 	}
 }
 

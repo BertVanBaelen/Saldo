@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { ACCOUNTS, CONNECTIONS, GEDEELD, NEW_MANUAL, renderAt, SPAAR, stubApi, UNLINKED, ZICHT } from '../test/helpers';
+import { ApiError } from '../lib/api';
 import type { Account } from '../lib/types';
 import { removalSplit } from './Rekening';
 
@@ -226,5 +227,70 @@ describe('Rekening · a manual account', () => {
 describe('Rekening · what a removal deletes', () => {
   it('deletes only the accounts nobody else sees', () => {
     expect(removalSplit(CONNECTIONS[0], ACCOUNTS)).toEqual({ gone: [ZICHT], kept: [GEDEELD] });
+  });
+});
+
+describe('Rekening · Je regels (the manager’s rules on a shared account)', () => {
+  const shared = (convertibleRules: number, extra: Partial<Account> = {}): Account => ({ ...GEDEELD, convertibleRules, ...extra });
+  const toast = () => document.querySelector('.toast')?.textContent;
+  const BUTTON = 'Zet om naar regels van deze rekening';
+
+  it('offers the manager to turn the rules that stopped applying into rules of the account, then the card is gone', async () => {
+    const api = stubApi({ accounts: [ZICHT, SPAAR, shared(3)] });
+    renderAt('/rekeningen/4');
+    const box = await screen.findByRole('heading', { name: 'Je regels' }).then((h) => h.closest('section') as HTMLElement);
+    expect(within(box).getByText(/3 regels van jou gelden niet op deze gedeelde rekening/)).toBeTruthy();
+
+    // Converted: the server now says nothing is left to convert.
+    api.accounts.mockImplementation(async () => [ZICHT, SPAAR, shared(0)]);
+    const alertsBefore = api.alerts.mock.calls.length;
+    fireEvent.click(within(box).getByRole('button', { name: BUTTON }));
+    await waitFor(() => expect(toast()).toBe('3 regels omgezet'));
+    expect(api.convertRules).toHaveBeenCalledTimes(1);
+    expect(api.convertRules).toHaveBeenCalledWith(4);
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Je regels' })).toBeNull());
+    // The notice about these rules leaves the alerts with them.
+    expect(api.alerts.mock.calls.length).toBeGreaterThan(alertsBefore);
+  });
+
+  it('speaks of one rule in the singular', async () => {
+    const api = stubApi({ accounts: [ZICHT, shared(1)] });
+    api.convertRules.mockResolvedValue({ converted: 1 });
+    renderAt('/rekeningen/4');
+    expect(await screen.findByText(/1 regel van jou geldt niet op deze gedeelde rekening/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: BUTTON }));
+    await waitFor(() => expect(toast()).toBe('1 regel omgezet'));
+  });
+
+  it('shows the server’s message and keeps the card when converting fails', async () => {
+    const api = stubApi({ accounts: [ZICHT, shared(2)] });
+    api.convertRules.mockRejectedValue(new ApiError(403, 'forbidden', 'Alleen de beheerder van de rekening kan dit.'));
+    renderAt('/rekeningen/4');
+    fireEvent.click(await screen.findByRole('button', { name: BUTTON }));
+    expect((await screen.findByRole('alert')).textContent).toBe('Alleen de beheerder van de rekening kan dit.');
+    expect(screen.getByRole('heading', { name: 'Je regels' })).toBeTruthy();
+    expect((screen.getByRole('button', { name: BUTTON }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('is not there when nothing needs converting, for a member, or on a personal account', async () => {
+    stubApi({ accounts: [ZICHT, shared(0)] });
+    const first = renderAt('/rekeningen/4');
+    await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
+    expect(screen.queryByRole('heading', { name: 'Je regels' })).toBeNull();
+    first.unmount();
+
+    // Only the manager's rules are converted: a member never sees the card.
+    const member = shared(2, { role: 'member', members: [{ name: 'Partner', initial: 'P', role: 'manager', permission: 'edit', me: false }, { name: 'Bert', initial: 'B', role: 'member', permission: 'edit', me: true }] });
+    stubApi({ accounts: [ZICHT, member] });
+    const second = renderAt('/rekeningen/4');
+    await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
+    expect(screen.queryByRole('heading', { name: 'Je regels' })).toBeNull();
+    second.unmount();
+
+    stubApi({ accounts: [ZICHT, shared(0)] });
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(screen.queryByRole('heading', { name: 'Je regels' })).toBeNull();
+    expect(screen.queryByRole('button', { name: BUTTON })).toBeNull();
   });
 });

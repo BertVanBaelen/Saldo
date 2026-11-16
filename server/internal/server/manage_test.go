@@ -21,7 +21,7 @@ func TestManualAccounts(t *testing.T) {
 	a := decode[ledger.Account](t, r.body)
 	equalJSON(t, r.body, `{"id": `+strconv.FormatInt(a.ID, 10)+`, "name": "Spaarpot", "type": "savings", "source": "manual", "kind": "personal",
 		"iban": "BE83 •••• •••• 5615", "colour": "orange", "buffer": 0, "balance": 1250000, "balanceDate": "2026-11-18",
-		"state": null, "bank": null, "lastSync": null, "syncStatus": null, "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": []}`)
+		"state": null, "bank": null, "lastSync": null, "syncStatus": null, "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0}`)
 	path := "/api/accounts/" + strconv.FormatInt(a.ID, 10)
 
 	// A current account without a link: buffer and state, no balance yet.

@@ -258,13 +258,23 @@ func (s *Service) StartLink(ctx context.Context, viewer, connectionID int64, red
 type Linked struct {
 	Connection int64
 	Accounts   []int64 // the accounts this consent feeds, new or matched again
+	Offers     []Offer
 	Skipped    []Skipped
+}
+
+// Offer is an account of the consent that already exists and that the viewer
+// may join (POST /api/join-offers/{id}/accept). It reveals nothing about the
+// account but the masked IBAN the viewer's own bank listed.
+type Offer struct {
+	ID   int64  `json:"id"`
+	IBAN string `json:"iban"` // masked
+	Bank string `json:"bank"` // the bank of the viewer's own connection
 }
 
 // Skipped is an account of the consent that was not linked.
 type Skipped struct {
 	IBAN   string `json:"iban"`   // masked
-	Reason string `json:"reason"` // "exists": the IBAN belongs to another user (joining is 0.6-1)
+	Reason string `json:"reason"` // "exists": the viewer holds the account but this connection cannot feed it
 }
 
 // Complete finishes the consent the bank redirected back with: it checks the
@@ -298,7 +308,7 @@ func (s *Service) Complete(ctx context.Context, viewer int64, code, state string
 	if err != nil {
 		return Linked{}, err
 	}
-	s.log.Info("bank linked", "connection", c.id, "accounts", len(linked.Accounts), "skipped", len(linked.Skipped))
+	s.log.Info("bank linked", "connection", c.id, "accounts", len(linked.Accounts), "offers", len(linked.Offers), "skipped", len(linked.Skipped))
 	return linked, nil
 }
 
@@ -327,7 +337,8 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 	if _, err := tx.ExecContext(ctx, `UPDATE account_sources SET external_account_id = NULL WHERE connection_id = ?`, c.id); err != nil {
 		return Linked{}, err
 	}
-	linked := Linked{Connection: c.id, Accounts: []int64{}, Skipped: []Skipped{}}
+	linked := Linked{Connection: c.id, Accounts: []int64{}, Offers: []Offer{}, Skipped: []Skipped{}}
+	stamp := now.UTC().Format(time.RFC3339)
 	for _, a := range info.Accounts {
 		iban := ledger.NormalizeIBAN(a.IBAN)
 		if iban == "" {
@@ -335,75 +346,127 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 			s.log.Warn("bank account without IBAN left out", "connection", c.id)
 			continue
 		}
-		id, ok, err := match(ctx, tx, c, iban, a)
+		id, outcome, err := match(ctx, tx, c, iban, a)
 		if err != nil {
 			return Linked{}, err
 		}
-		switch {
-		case !ok:
+		switch outcome {
+		case matchSkipped:
 			linked.Skipped = append(linked.Skipped, Skipped{IBAN: ledger.MaskIBAN(iban), Reason: "exists"})
-		case !slices.Contains(linked.Accounts, id):
-			linked.Accounts = append(linked.Accounts, id)
+		case matchOffer:
+			offer, err := recordOffer(ctx, tx, c, id, a.ID, stamp)
+			if err != nil {
+				return Linked{}, err
+			}
+			if !slices.ContainsFunc(linked.Offers, func(o Offer) bool { return o.ID == offer }) {
+				linked.Offers = append(linked.Offers, Offer{ID: offer, IBAN: ledger.MaskIBAN(iban), Bank: c.aspsp})
+			}
+		case matchLinked:
+			if !slices.Contains(linked.Accounts, id) {
+				linked.Accounts = append(linked.Accounts, id)
+			}
 		}
+	}
+	// An offer this consent no longer lists holds a provider id of a dead
+	// session, the same reason the sources were reset above.
+	keep := make([]any, 0, len(linked.Offers)+1)
+	keep = append(keep, c.id)
+	for _, o := range linked.Offers {
+		keep = append(keep, o.ID)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM join_offers WHERE connection_id = ? AND id NOT IN (0`+
+		strings.Repeat(", ?", len(linked.Offers))+`)`, keep...); err != nil {
+		return Linked{}, err
 	}
 	return linked, tx.Commit()
 }
 
+// recordOffer records or refreshes the join offer of this connection for the
+// account and returns its id: a re-link refreshes the same offer.
+func recordOffer(ctx context.Context, tx *sql.Tx, c connection, account int64, external, stamp string) (int64, error) {
+	var id int64
+	err := tx.QueryRowContext(ctx, `INSERT INTO join_offers (user_id, connection_id, account_id, external_account_id, created_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT (connection_id, account_id) DO UPDATE SET external_account_id = excluded.external_account_id, created_at = excluded.created_at
+		RETURNING id`, c.user, c.id, account, external, stamp).Scan(&id)
+	return id, err
+}
+
+// The outcomes of match.
+const (
+	matchLinked  = iota // the connection feeds the account
+	matchOffer          // someone else's account: the viewer may join it
+	matchSkipped        // the viewer holds it, but this connection cannot feed it
+)
+
 // match links one account by IBAN: a new IBAN becomes a current account that
 // the viewer manages; an IBAN this connection already feeds gets its new
-// provider id (re-authorisation); an IBAN of anyone else is not linked (ok
-// false).
-func match(ctx context.Context, tx *sql.Tx, c connection, iban string, a bank.Account) (id int64, ok bool, err error) {
+// provider id (re-authorisation); an IBAN of an account the viewer does not
+// hold is a join offer; an account the viewer holds that this connection
+// cannot feed is skipped.
+func match(ctx context.Context, tx *sql.Tx, c connection, iban string, a bank.Account) (id int64, outcome int, err error) {
 	err = tx.QueryRowContext(ctx, `SELECT id FROM accounts WHERE source = 'bank' AND iban = ?`, iban).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
-		// Another user linking the same new IBAN at the same moment is the
-		// "exists" skip, not a unique-index error.
 		res, err := tx.ExecContext(ctx, `INSERT INTO accounts (type, source, iban, name, currency, bank_name, created_by)
 			VALUES ('current', 'bank', ?, ?, ?, ?, ?) ON CONFLICT (iban) WHERE source = 'bank' DO NOTHING`,
 			iban, accountName(a.Name), cmp.Or(a.Currency, "EUR"), cmp.Or(a.Bank, c.aspsp), c.user)
 		if err != nil {
-			return 0, false, err
+			return 0, 0, err
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
-			return 0, false, nil
+			// Another user linked the same new IBAN at the same moment: it
+			// is theirs now, so this is an offer, not a unique-index error.
+			if err := tx.QueryRowContext(ctx, `SELECT id FROM accounts WHERE source = 'bank' AND iban = ?`, iban).Scan(&id); err != nil {
+				return 0, 0, err
+			}
+			return id, matchOffer, nil
 		}
 		if id, err = res.LastInsertId(); err != nil {
-			return 0, false, err
+			return 0, 0, err
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO account_access (account_id, user_id, role, permission)
 			VALUES (?, ?, 'manager', 'edit')`, id, c.user); err != nil {
-			return 0, false, err
+			return 0, 0, err
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO account_sources (account_id, connection_id, priority, external_account_id)
 			VALUES (?, ?, 'primary', ?)`, id, c.id, a.ID)
-		return id, err == nil, err
+		return id, matchLinked, err
 	}
 	if err != nil {
-		return 0, false, err
+		return 0, 0, err
+	}
+	var holds bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM account_access WHERE account_id = ? AND user_id = ?)`,
+		id, c.user).Scan(&holds); err != nil {
+		return 0, 0, err
+	}
+	if !holds {
+		return id, matchOffer, nil
 	}
 	res, err := tx.ExecContext(ctx, `UPDATE account_sources SET external_account_id = ? WHERE account_id = ? AND connection_id = ?`,
 		a.ID, id, c.id)
 	if err != nil {
-		return 0, false, err
+		return 0, 0, err
 	}
 	if n, _ := res.RowsAffected(); n > 0 {
-		return id, true, nil
+		return id, matchLinked, nil
 	}
 	// An account the viewer manages whose link was removed with "keep
-	// history" has no source at all: the new link feeds it again, and its
+	// history" has no primary source (a member's fallback may remain): the
+	// new link is its primary again, and its
 	// pending rows follow this connection from now on.
 	res, err = tx.ExecContext(ctx, `INSERT INTO account_sources (account_id, connection_id, priority, external_account_id)
-		SELECT ?, ?, 'primary', ? WHERE NOT EXISTS (SELECT 1 FROM account_sources WHERE account_id = ?)
+		SELECT ?, ?, 'primary', ? WHERE NOT EXISTS (SELECT 1 FROM account_sources WHERE account_id = ? AND priority = 'primary')
 		  AND EXISTS (SELECT 1 FROM account_access WHERE account_id = ? AND user_id = ? AND role = 'manager')`,
 		id, c.id, a.ID, id, id, c.user)
 	if err != nil {
-		return 0, false, err
+		return 0, 0, err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return 0, false, nil
+		return id, matchSkipped, nil
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE transactions SET source_connection_id = ? WHERE account_id = ? AND status = 'pending'`, c.id, id)
-	return id, err == nil, err
+	return id, matchLinked, err
 }
 
 // accountName is the bank's product name, cut to what an account name may be.

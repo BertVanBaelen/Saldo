@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { CATEGORISE_ALERT, CONSENT_ALERT, EB_OFF, EB_ON, GEDEELD, PENDING, renderAt, SPAAR, stubApi, ZICHT } from '../test/helpers';
+import { ApiError } from '../lib/api';
+import { CATEGORISE_ALERT, CONSENT_ALERT, EB_OFF, EB_ON, GEDEELD, MEMBER_ALERT, PENDING, renderAt, RULES_ALERT, SPAAR, stubApi, ZICHT } from '../test/helpers';
 import type { Account, Alert, SyncStatus } from '../lib/types';
 
 const hero = () => document.querySelector('.hero') as HTMLElement;
@@ -258,6 +259,68 @@ describe('Start · alerts', () => {
     renderAt('/');
     await screen.findByText('Saldo nu · alle rekeningen');
     expect(document.querySelector('.alerts')).toBeNull();
+  });
+});
+
+describe('Start · dismissable alerts (a member joined, rules no longer apply)', () => {
+  const rows = () => Array.from(document.querySelectorAll('.alerts .alert'));
+  const toast = () => document.querySelector('.toast')?.textContent;
+
+  it('shows both like the other alerts, a link to the account each, and a labelled close button only on a notice', async () => {
+    stubApi({ alerts: [MEMBER_ALERT, RULES_ALERT, CONSENT_ALERT] });
+    renderAt('/');
+    await screen.findByText(MEMBER_ALERT.title);
+    expect(rows().map((r) => r.className)).toEqual(['alert alert--ok alert--notice', 'alert alert--warn alert--notice', 'alert alert--warn']);
+    // The link and the button are siblings: a button inside a link is not valid.
+    for (const [row, alert] of [[rows()[0], MEMBER_ALERT], [rows()[1], RULES_ALERT]] as const) {
+      const link = within(row as HTMLElement).getByRole('link');
+      expect(link.getAttribute('href')).toBe('/rekeningen/4');
+      expect(link.textContent).toContain(alert.title);
+      expect(link.textContent).toContain(alert.note);
+      expect(link.querySelector('button')).toBeNull();
+    }
+    expect(screen.getByRole('button', { name: 'Sluiten: ' + MEMBER_ALERT.title })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sluiten: ' + RULES_ALERT.title })).toBeTruthy();
+    expect(within(rows()[2] as HTMLElement).queryByRole('button')).toBeNull();
+  });
+
+  it('marks the notice as read and the alert leaves; the others stay', async () => {
+    const stub = stubApi({ alerts: [MEMBER_ALERT, RULES_ALERT, CONSENT_ALERT] });
+    renderAt('/');
+    await screen.findByText(MEMBER_ALERT.title);
+    const before = stub.alerts.mock.calls.length;
+    // After the read mark the server no longer sends it.
+    stub.alerts.mockResolvedValue([RULES_ALERT, CONSENT_ALERT]);
+    fireEvent.click(screen.getByRole('button', { name: 'Sluiten: ' + MEMBER_ALERT.title }));
+
+    await waitFor(() => expect(screen.queryByText(MEMBER_ALERT.title)).toBeNull());
+    expect(stub.readNotice).toHaveBeenCalledTimes(1);
+    expect(stub.readNotice).toHaveBeenCalledWith(7);
+    expect(stub.alerts.mock.calls.length).toBeGreaterThan(before);
+    expect(screen.getByText(RULES_ALERT.title)).toBeTruthy();
+    expect(screen.getByText(CONSENT_ALERT.title)).toBeTruthy();
+  });
+
+  it('keeps the alert and says why when the read mark fails', async () => {
+    const stub = stubApi({ alerts: [MEMBER_ALERT] });
+    stub.readNotice.mockRejectedValue(new ApiError(404, 'not_found', 'Deze melding bestaat niet meer.'));
+    renderAt('/');
+    await screen.findByText(MEMBER_ALERT.title);
+    fireEvent.click(screen.getByRole('button', { name: 'Sluiten: ' + MEMBER_ALERT.title }));
+
+    await waitFor(() => expect(toast()).toBe('Deze melding bestaat niet meer.'));
+    expect(screen.getByText(MEMBER_ALERT.title)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Sluiten: ' + MEMBER_ALERT.title }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('shows an alert about the shared account only when that account is in the scope', async () => {
+    stubApi({ alerts: [MEMBER_ALERT] });
+    renderAt('/');
+    await screen.findByText(MEMBER_ALERT.title);
+    fireEvent.click(screen.getByRole('button', { name: 'Persoonlijk' }));
+    expect(screen.queryByText(MEMBER_ALERT.title)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Gedeeld' }));
+    expect(screen.getByText(MEMBER_ALERT.title)).toBeTruthy();
   });
 });
 

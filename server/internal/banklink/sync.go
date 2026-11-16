@@ -212,7 +212,11 @@ func (s *Service) sources(ctx context.Context, connection int64) ([]source, erro
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT s.account_id, COALESCE(a.iban, ''), s.external_account_id
 		FROM account_sources s JOIN accounts a ON a.id = s.account_id
-		WHERE s.connection_id = ? AND s.external_account_id IS NOT NULL ORDER BY s.account_id`, connection)
+		WHERE s.connection_id = ? AND s.external_account_id IS NOT NULL
+		  -- A joiner's fallback source is not fetched yet: when it is (only
+		  -- while the primary is stopped) is slice 0.6-1d.
+		  AND s.priority = 'primary'
+		ORDER BY s.account_id`, connection)
 	if err != nil {
 		return nil, err
 	}

@@ -159,6 +159,11 @@ func TestOutsideDemoModeEverythingButHealthIs401(t *testing.T) {
 		{"PUT", "/api/bank/enablebanking", `{"applicationId":"x","privateKey":"y"}`},
 		{"POST", "/api/bank/link", ""},
 		{"POST", "/api/bank/callback", `{"code":"x","state":"y"}`},
+		{"GET", "/api/join-offers", ""},
+		{"POST", "/api/join-offers/1/accept", ""},
+		{"DELETE", "/api/join-offers/1", ""},
+		{"POST", "/api/notices/1/read", ""},
+		{"POST", "/api/accounts/1/convert-rules", ""},
 		{"GET", "/api/unknown", ""},
 		{"PATCH", "/api/me", `{"name":"x"}`},
 		{"PUT", "/api/me/password", `{"current":"x","new":"y"}`},
@@ -265,13 +270,13 @@ func TestAccounts(t *testing.T) {
 		"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 		"iban": "BE68 •••• •••• 4821", "colour": "green", "buffer": 90000, "balance": 196882,
 		"balanceDate": "2026-11-18", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T04:02:00+01:00",
-		"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T04:02:00+01:00", "syncReport": null, "permission": "edit", "role": "manager", "members": []
+		"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T04:02:00+01:00", "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0
 	}`)
 	equalJSON(t, string(list[1]), `{
 		"id": 2, "name": "Spaarrekening", "type": "savings", "source": "manual", "kind": "personal",
 		"iban": "BE41 •••• •••• 1196", "colour": "orange", "buffer": 0, "balance": 1250000,
 		"balanceDate": "2026-10-02", "state": null, "bank": null, "lastSync": null,
-		"syncStatus": null, "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": []
+		"syncStatus": null, "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0
 	}`)
 	equalJSON(t, string(list[3]), `{
 		"id": 4, "name": "Gedeelde rekening", "type": "current", "source": "bank", "kind": "shared",
@@ -281,7 +286,8 @@ func TestAccounts(t *testing.T) {
 		"members": [
 			{"name": "Bert", "initial": "B", "role": "manager", "permission": "edit", "me": true},
 			{"name": "Partner", "initial": "P", "role": "member", "permission": "edit", "me": false}
-		]
+		],
+		"convertibleRules": 0
 	}`)
 }
 

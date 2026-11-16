@@ -385,6 +385,21 @@ a.card { text-decoration: none; }
   .alert-icon { width: 34px; height: 34px; }
   .alert .chev { display: none; }
 }
+/* A stored notice can be dismissed: the link takes the room, the close button sits beside it (not inside it). */
+.alert--notice { padding: 0 4px 0 0; }
+.alert-link {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0 10px 12px;
+  border-radius: 16px;
+  color: inherit;
+  text-decoration: none;
+}
+.alert-x { border: none; background: transparent; color: var(--muted); }
+.alert-x:disabled { opacity: 0.45; }
+@media (min-width: 1024px) {
+  .alert-link { padding: 8px 0 8px 14px; }
+}
 
 /* ---------- Lists ---------- */
 

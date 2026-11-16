@@ -81,6 +81,7 @@ describe('Back from the bank, the first sync', () => {
       connection: { ...CONNECTIONS[0], status: 'stale', lastSync: null },
       accounts: [{ ...ZICHT, balance: 0, balanceDate: null, lastSync: null, syncStatus: 'stale' }],
       skipped: [],
+      offers: [],
     };
     vi.spyOn(api, 'bankCallback').mockResolvedValue(result);
     renderAt('/bankkoppelingen/terug?code=c0de&state=st4te', ME);

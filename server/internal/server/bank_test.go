@@ -366,12 +366,13 @@ func TestBankLinkAndSync(t *testing.T) {
 			{"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE68 •••• •••• 7034", "colour": "green", "buffer": 0, "balance": 0,
 				"balanceDate": null, "state": "ok", "bank": "Argenta", "lastSync": null,
-				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": []},
+				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0},
 			{"id": 2, "name": "Gezinsrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE71 •••• •••• 6769", "colour": "green", "buffer": 0, "balance": 0,
 				"balanceDate": null, "state": "ok", "bank": "Argenta", "lastSync": null,
-				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": []}
+				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0}
 		],
+		"offers": [],
 		"skipped": []
 	}`)
 	equalJSON(t, e.as(e.bert, "GET", "/api/sync", "").body, `{"running": false,
@@ -389,11 +390,11 @@ func TestBankLinkAndSync(t *testing.T) {
 			{"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE68 •••• •••• 7034", "colour": "green", "buffer": 0, "balance": 196882,
 				"balanceDate": "2026-11-17", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T20:00:00+01:00",
-				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "syncReport": {"at": "2026-11-18T20:00:00+01:00", "from": null, "fetched": 3, "added": 3, "newest": "2026-11-17", "balanceDate": "2026-11-17", "idTail": "id-1"}, "permission": "edit", "role": "manager", "members": []},
+				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "syncReport": {"at": "2026-11-18T20:00:00+01:00", "from": null, "fetched": 3, "added": 3, "newest": "2026-11-17", "balanceDate": "2026-11-17", "idTail": "id-1"}, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0},
 			{"id": 2, "name": "Gezinsrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE71 •••• •••• 6769", "colour": "green", "buffer": 0, "balance": 94608,
 				"balanceDate": "2026-11-17", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T20:00:00+01:00",
-				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "syncReport": {"at": "2026-11-18T20:00:00+01:00", "from": null, "fetched": 1, "added": 1, "newest": "2026-11-11", "balanceDate": "2026-11-17", "idTail": "id-2"}, "permission": "edit", "role": "manager", "members": []}
+				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "syncReport": {"at": "2026-11-18T20:00:00+01:00", "from": null, "fetched": 1, "added": 1, "newest": "2026-11-11", "balanceDate": "2026-11-17", "idTail": "id-2"}, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0}
 		],
 		"skipped": []
 	}`)
@@ -518,7 +519,7 @@ func TestBankCallbackRejectsStates(t *testing.T) {
 	expectError(t, r, http.StatusServiceUnavailable, "unavailable")
 }
 
-func TestBankLinkSkipsAnotherUsersIBAN(t *testing.T) {
+func TestBankLinkOffersAnotherUsersIBAN(t *testing.T) {
 	e := newBankEnv(t)
 	e.saveCredentials(e.bert)
 	e.link(e.bert, "")
@@ -535,7 +536,8 @@ func TestBankLinkSkipsAnotherUsersIBAN(t *testing.T) {
 	if got.Connection.ID != 2 || !slices.Equal(accountIDs(got.Accounts), []int64{3}) {
 		t.Errorf("Partner's link: %+v", got)
 	}
-	equalJSON(t, jsonBody(got.Skipped), `[{"iban": "BE71 •••• •••• 6769", "reason": "exists"}]`)
+	equalJSON(t, jsonBody(got.Offers), `[{"id": 1, "iban": "BE71 •••• •••• 6769", "bank": "Argenta"}]`)
+	equalJSON(t, jsonBody(got.Skipped), `[]`)
 	if got.Accounts[0].Role != "manager" {
 		t.Errorf("Partner's account: %+v", got.Accounts[0])
 	}
@@ -543,7 +545,8 @@ func TestBankLinkSkipsAnotherUsersIBAN(t *testing.T) {
 		t.Errorf("Partner's account after the first sync: %+v", a[0])
 	}
 
-	// The shared IBAN stays Bert's alone, and nobody sees the other's account.
+	// Until Partner accepts, the shared IBAN stays Bert's alone, and nobody
+	// sees the other's account.
 	bert := decode[[]ledger.Account](t, e.as(e.bert, "GET", "/api/accounts", "").body)
 	if !slices.Equal(accountIDs(bert), []int64{1, 2}) || bert[1].Kind != "personal" {
 		t.Errorf("Bert's accounts: %+v", bert)

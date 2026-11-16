@@ -364,7 +364,7 @@ func TestTransactions(t *testing.T) {
 	equalJSON(t, string(b), `{
 		"accountId": 1, "bookingDate": "2026-11-18", "amount": -2499, "counterparty": "Bol.com",
 		"communication": "Bestelling 4471-2210", "status": "pending", "category": null, "transfer": false, "transferKind": null, "transferOverride": null,
-		"categoryOrigin": null, "ruleId": null, "note": null, "splits": null
+		"categoryOrigin": null, "ruleId": null, "note": null, "splits": null, "contribution": null
 	}`)
 	second := decode[ledger.Transaction](t, string(page.Items[1]))
 	if second.Category == nil || *second.Category != (ledger.Category{ID: 2, Name: "Boodschappen", Colour: "c2"}) {

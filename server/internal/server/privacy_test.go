@@ -50,6 +50,7 @@ type world struct {
 	bertBatch, bertRunBatch, sharedRunBatch, partnerBatch  int64
 	bertDevice, partnerDevice, bertOffer                   int64
 	bertNotice, partnerNotice, invitation                  int64
+	bertSender, partnerSender, bertContribution            int64
 	bertState                                              string // a pending link state of Bert
 }
 
@@ -164,6 +165,14 @@ func newWorld(t *testing.T) *world {
 	}
 	w.importFile(w.bert, "gemeen.csv", csvHeader+gemeen, w.bertAcc)
 	w.exec(`UPDATE transactions SET category_id = 2, category_origin = 'rule', rule_id = ? WHERE counterparty_name = 'Bijdrage'`, w.bertRule)
+
+	// Contributions: each member claims their own account as the sender of
+	// their contribution to the family account (masked: "7034", "7061").
+	sender := func(user, from int64) int64 {
+		return decode[ledger.Sender](t, w.ok(user, "POST", "/api/accounts/"+id(w.shared)+"/contribution-senders", `{"fromAccountId":`+id(from)+`}`, 201).body).ID
+	}
+	w.bertSender, w.partnerSender = sender(w.bert, w.bertAcc), sender(w.partner, w.partnerAcc)
+	w.bertContribution = row("Bijdrage van Bert")
 
 	// Devices, a third user with an account offered to Bert, notices, an invitation.
 	w.bertDevice = w.int(`INSERT INTO devices (user_id, name, token_hash) VALUES (?, 'Chrome op Windows', 'b') RETURNING id`, w.bert)
@@ -536,6 +545,45 @@ func privacyRows() []privacyRow {
 		{"POST /api/accounts/{id}/convert-rules", "byid", "accessOf, manager only; converts the viewer's own user rules", func(w *world) []probe {
 			return []probe{hidden("partner", "POST", "/api/accounts/"+id(w.bertAcc)+"/convert-rules", "", "/api/accounts/"+none+"/convert-rules", "", "bert")}
 		}, []string{"TestWritePermissions", "TestJoinSharedAccount"}},
+		{"GET /api/accounts/{id}/contributions", "byid", "accessOf; the figure only from the shared account's own rows; senders as a count, sender IBANs (masked) only the viewer's own", func(w *world) []probe {
+			return []probe{
+				read("/api/accounts/"+id(w.shared)+"/contributions", 200),
+				read("/api/accounts/"+id(w.shared)+"/contributions?month=2026-10", 200),
+				hidden("partner", "GET", "/api/accounts/"+id(w.bertAcc)+"/contributions", "", "/api/accounts/"+none+"/contributions", "", "bert"),
+				hidden("bert", "GET", "/api/accounts/"+id(w.partnerAcc)+"/contributions", "", "/api/accounts/"+none+"/contributions", "", "partner"),
+			}
+		}, []string{"TestContributionFigure", "TestContributionClaims"}},
+		{"POST /api/accounts/{id}/contribution-senders", "byid", "accessOf, edit; the IBAN only from an account the viewer holds or a row of this account from outside Saldo: another user's account, a row elsewhere and a Saldo IBAN refuse as a missing id", func(w *world) []probe {
+			path := "/api/accounts/" + id(w.shared) + "/contribution-senders"
+			return []probe{
+				hidden("partner", "POST", "/api/accounts/"+id(w.bertAcc)+"/contribution-senders", `{"fromAccountId":`+id(w.partnerAcc)+`}`, "/api/accounts/"+none+"/contribution-senders", `{"fromAccountId":`+id(w.partnerAcc)+`}`, ""),
+				{as: "partner", method: "POST", path: path, body: `{"fromAccountId":` + id(w.bertAcc) + `}`, status: 400,
+					missing: &probe{as: "partner", method: "POST", path: path, body: `{"fromAccountId":` + none + `}`, status: 400}},
+				{as: "partner", method: "POST", path: path, body: `{"fromAccountId":` + id(w.bertManual) + `}`, status: 400,
+					missing: &probe{as: "partner", method: "POST", path: path, body: `{"fromAccountId":` + none + `}`, status: 400}},
+				{as: "bert", method: "POST", path: path, body: `{"transactionId":` + id(w.partnerTx) + `}`, status: 400,
+					missing: &probe{as: "bert", method: "POST", path: path, body: `{"transactionId":` + none + `}`, status: 400}},
+				// Bert's contribution comes from his IBAN, an account in Saldo.
+				{as: "partner", method: "POST", path: path, body: `{"transactionId":` + id(w.bertContribution) + `}`, status: 400,
+					missing: &probe{as: "partner", method: "POST", path: path, body: `{"transactionId":` + none + `}`, status: 400}},
+			}
+		}, []string{"TestContributionClaims", "TestWritePermissions"}},
+		{"DELETE /api/accounts/{id}/contribution-senders/{senderId}", "byid", "accessOf, edit, the sender of this account; the claimant's own or the manager", func(w *world) []probe {
+			return []probe{
+				hidden("partner", "DELETE", "/api/accounts/"+id(w.bertAcc)+"/contribution-senders/"+id(w.bertSender), "", "/api/accounts/"+none+"/contribution-senders/"+id(w.bertSender), "", ""),
+				hidden("bert", "DELETE", "/api/accounts/"+id(w.partnerAcc)+"/contribution-senders/"+id(w.partnerSender), "", "/api/accounts/"+id(w.shared)+"/contribution-senders/"+none, "", ""),
+				{as: "partner", method: "DELETE", path: "/api/accounts/" + id(w.shared) + "/contribution-senders/" + id(w.bertSender), status: 403},
+			}
+		}, []string{"TestContributionClaims", "TestWritePermissions"}},
+		{"PUT /api/accounts/{id}/contribution-shares", "byid", "accessOf, manager only; every member named", func(w *world) []probe {
+			body := `{"shares":{"` + id(w.bert) + `":50,"` + id(w.partner) + `":50}}`
+			return []probe{
+				hidden("partner", "PUT", "/api/accounts/"+id(w.bertAcc)+"/contribution-shares", body, "/api/accounts/"+none+"/contribution-shares", body, "bert"),
+				hidden("bert", "PUT", "/api/accounts/"+id(w.partnerAcc)+"/contribution-shares", `{"shares":null}`, "/api/accounts/"+none+"/contribution-shares", `{"shares":null}`, "partner"),
+				{as: "partner", method: "PUT", path: "/api/accounts/" + id(w.shared) + "/contribution-shares", body: body, status: 403},
+				{as: "bert", method: "PUT", path: "/api/accounts/" + id(w.shared) + "/contribution-shares", body: body, status: 200},
+			}
+		}, []string{"TestContributionShares", "TestWritePermissions"}},
 		{"GET /api/join-offers", "list", "the viewer's own offers; an offer shows only the masked IBAN and the viewer's own bank", func(w *world) []probe {
 			return []probe{read("/api/join-offers", 200)}
 		}, []string{"TestJoinSharedAccount"}},

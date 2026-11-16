@@ -12,6 +12,9 @@ import type {
   BankLinkResult,
   CategoryPatch,
   Connection,
+  ContributionSender,
+  ContributionSenderBody,
+  Contributions,
   Device,
   EnableBanking,
   Health,
@@ -166,6 +169,15 @@ export const api = {
     request<Account>('PATCH', '/api/accounts/' + accountId + '/members/' + userId, { body: { permission } }),
   /** The manager's own rules that no longer apply to this account become rules of the account. */
   convertRules: (id: number) => request<{ converted: number }>('POST', '/api/accounts/' + id + '/convert-rules'),
+  /** What each member of a shared account sent in `month` (`YYYY-MM`, default this month); `members: []` for a personal account. */
+  contributions: (id: number, month?: string, signal?: AbortSignal) =>
+    request<Contributions>('GET', '/api/accounts/' + id + '/contributions' + (month ? '?month=' + encodeURIComponent(month) : ''), { signal }),
+  /** The viewer declares a sender as theirs; 409 when it already belongs to a member, 403 for a read-only member. */
+  addContributionSender: (id: number, body: ContributionSenderBody) => request<ContributionSender>('POST', '/api/accounts/' + id + '/contribution-senders', { body }),
+  /** The claimant or the manager takes a declared sender away. */
+  removeContributionSender: (id: number, senderId: number) => request<null>('DELETE', '/api/accounts/' + id + '/contribution-senders/' + senderId),
+  /** Manager only: percentage per user id (0 to 100, every member, sum 100), or `null` for equal. It has no effect yet. */
+  setContributionShares: (id: number, shares: Record<number, number> | null) => request<Contributions>('PUT', '/api/accounts/' + id + '/contribution-shares', { body: { shares } }),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
   updateTransaction: (id: number, patch: TransactionPatch) => request<Transaction>('PATCH', '/api/transactions/' + id, { body: patch }),
   /** The viewer's own mark: `true` is a transfer, `false` is none, `null` goes back to automatic. Answers the transaction. */

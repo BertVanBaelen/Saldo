@@ -180,9 +180,42 @@ export interface Transaction {
   transferKind?: TransferKind | null;
   /** The viewer's own "is / is not a transfer" mark; `null` follows the automatic detection. */
   transferOverride?: boolean | null;
+  /** An incoming row of a shared account that matches a member's declared sender (phase 0.6-5); `null` when it matches none. */
+  contribution?: { name: string; me: boolean } | null;
 }
 
 export type TransferKind = 'saved' | 'shared' | 'internal';
+
+/** One member in GET /api/accounts/{id}/contributions. `confirmed` is "something was received this month", not "paid their part". */
+export interface ContributionMember {
+  userId: number;
+  name: string;
+  me: boolean;
+  /** The manager's fixed percentage (0 to 100); `null` while the split is equal (the default). It has no effect yet. */
+  share: number | null;
+  /** How many sending accounts the member declared; the IBANs of other members are never shown. */
+  senders: number;
+  /** Cents received this month from the member's declared senders. */
+  received: number;
+  confirmed: boolean;
+}
+
+/** A sending account the viewer declared as theirs, masked like every IBAN. */
+export interface ContributionSender {
+  id: number;
+  iban: string;
+}
+
+/** The answer of GET /api/accounts/{id}/contributions; a personal account answers `members: []`. */
+export interface Contributions {
+  /** `YYYY-MM`. */
+  month: string;
+  members: ContributionMember[];
+  mySenders: ContributionSender[];
+}
+
+/** POST /api/accounts/{id}/contribution-senders: one of the viewer's own accounts, or an incoming row of the shared account. */
+export type ContributionSenderBody = { fromAccountId: number } | { transactionId: number };
 
 /** An item of GET /api/accounts/{id}/transfers: a recognised transfer into the account (`amount` is as booked at the sender, so negative). */
 export interface AccountTransfer {

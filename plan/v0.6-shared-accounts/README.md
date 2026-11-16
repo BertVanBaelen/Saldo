@@ -2,7 +2,7 @@
 
 **After this version you can** share the joint account with Partner: she links it with her own bank login and joins it, each of you sees only your own accounts, transfers between your own accounts no longer count as income or expenses, the Alles · Persoonlijk · Gedeeld switch filters every list, and you see both contributions arrive.
 
-Status: in progress (16 Nov 2026), on branch `v0.6-shared-accounts`, version `0.6.0-dev`. Analysis milestone: M3. Roadmap: [../README.md](../README.md).
+Status: built (16 Nov 2026), to verify on the live add-on, on branch `v0.6-shared-accounts` (not merged, not pushed), version `0.6.0-dev`. Analysis milestone: M3. Roadmap: [../README.md](../README.md).
 
 ## Features
 | Id | Feature |
@@ -28,7 +28,7 @@ Status: in progress (16 Nov 2026), on branch `v0.6-shared-accounts`, version `0.
 | [0.6-2](02-privacy.md) | Privacy suite for every endpoint | M | built, to verify |
 | [0.6-3](03-transfers-and-saved.md) | Transfer detection and saved | M | built, to verify |
 | [0.6-4](04-scope-and-sums.md) | Scope filter and sums | S | built, to verify |
-| [0.6-5](05-contributions.md) | Contributions | S | planned |
+| [0.6-5](05-contributions.md) | Contributions | S | built, to verify |
 
 ## Decisions (16 Nov 2026)
 1. **Everything in slices, commit per slice, no push** (user). Nothing goes to main or a release without the user's word.

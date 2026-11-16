@@ -20,3 +20,5 @@ Start shows what you spent this month and whether the contributions arrived.
 
 ## Done when
 Start matches the mockup for everything except the forecast parts.
+
+The "Bijdragen" row of the Start card for shared accounts (step 2) is built in 0.6-5 (`GET /api/accounts/{id}/contributions`).

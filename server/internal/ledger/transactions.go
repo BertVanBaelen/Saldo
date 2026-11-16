@@ -35,6 +35,9 @@ type Transaction struct {
 	// TransferOverride is the viewer's own "is / is geen overschrijving".
 	TransferKind     *string `json:"transferKind"`
 	TransferOverride *bool   `json:"transferOverride"`
+	// Contribution names the member whose claimed sender paid this incoming
+	// booked row of a shared account (0.6-5); nil elsewhere.
+	Contribution *ContributionLabel `json:"contribution"`
 }
 
 // Split is one part of a split transaction, signed like its amount.
@@ -213,8 +216,11 @@ func (s *Store) items(ctx context.Context, viewer int64, where []string, args []
 	query := visibleTx + `
 		SELECT tx.id, tx.account_id, tx.booking_date, tx.amount, tx.counterparty_name, tx.communication,
 		       tx.status, c.id, c.name, ` + effectiveColour("c") + `, tx.category_origin, ` + visibleRule + `, tx.note, tx.is_transfer,
-		       ` + transferKind + `, tx.override
+		       ` + transferKind + `, tx.override, cs.user_id, cu.display_name
 		FROM tx LEFT JOIN categories c ON c.id = tx.category_id LEFT JOIN vis ov ON ov.account_id = tx.other_id
+		LEFT JOIN contribution_senders cs ON cs.account_id = tx.account_id AND cs.iban = tx.counterparty_iban
+		     AND tx.members > 1 AND tx.status = 'booked' AND tx.amount > 0
+		LEFT JOIN users cu ON cu.id = cs.user_id
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY tx.booking_date DESC, tx.id DESC
 		LIMIT ?`
@@ -228,11 +234,15 @@ func (s *Store) items(ctx context.Context, viewer int64, where []string, args []
 	for rows.Next() {
 		var t Transaction
 		var catID sql.NullInt64
-		var catName, catColour sql.NullString
+		var catName, catColour, claimantName sql.NullString
+		var claimant sql.NullInt64
 		if err := rows.Scan(&t.ID, &t.AccountID, &t.BookingDate, &t.Amount, &t.Counterparty, &t.Communication,
 			&t.Status, &catID, &catName, &catColour, &t.CategoryOrigin, &t.RuleID, &t.Note, &t.Transfer,
-			&t.TransferKind, &t.TransferOverride); err != nil {
+			&t.TransferKind, &t.TransferOverride, &claimant, &claimantName); err != nil {
 			return nil, err
+		}
+		if claimant.Valid {
+			t.Contribution = &ContributionLabel{Name: claimantName.String, Me: claimant.Int64 == viewer}
 		}
 		if catID.Valid {
 			t.Category = &Category{ID: catID.Int64, Name: catName.String, Colour: catColour.String}

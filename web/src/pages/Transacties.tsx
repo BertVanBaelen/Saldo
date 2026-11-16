@@ -8,7 +8,7 @@ import { CatEmoji } from '../components/CatIcon';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, ScopeSwitch, useIsDesktop, useTitle } from '../components/ui';
-import { accColour, inScope, isShared } from '../lib/accounts';
+import { accColour, contributionLabel, inScope, isShared } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { cap, dateShort, dayHeading, eur, MONTHS, toDate } from '../lib/format';
 import type { Account, Transaction, TransactionPage } from '../lib/types';
@@ -124,6 +124,7 @@ function TxRow({ t, acc, first, desktop, pressed, icon, onOpen }: RowProps) {
       <span className="tx-row-main">
         <span className="tx-row-name">
           <span className="tx-name">{t.counterparty}</span>
+          {t.contribution && <span className="tx-contrib">{contributionLabel(t.contribution)}</span>}
           {pending && (
             <span className="only-desktop">
               <Pending />

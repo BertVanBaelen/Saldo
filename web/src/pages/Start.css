@@ -72,15 +72,18 @@
   background: rgba(255, 255, 255, 0.14);
   font-size: 13px;
 }
-.hero-contrib .hero-sub { font-size: 13px; font-weight: 400; white-space: nowrap; }
-.hero-contrib .contrib-chips { display: flex; gap: 10px; font-weight: 600; white-space: nowrap; }
+.hero-contrib .contrib-title { font-size: 13px; font-weight: 400; color: var(--heroText); white-space: nowrap; }
+.hero-contrib .contrib-chips { gap: 4px 12px; }
+.hero-contrib .contrib-chip { padding: 0; background: none; color: inherit; }
+.hero-contrib .contrib-chip--wait { font-weight: 500; color: var(--heroText); }
+.hero-contrib a.contrib-chip--link { color: inherit; }
+.hero-contrib a.contrib-chip--link::after { inset: -13px 0; }
 
 @media (min-width: 1024px) {
   .hero { padding: 22px 24px; }
   .hero-amount { font-size: 50px; }
   .hero-accounts, .hero-contrib { margin-top: auto; }
   .hero-tile { padding: 8px 12px; }
-  .hero-contrib .contrib-chips { gap: 12px; }
 }
 
 /* Komende maanden */
@@ -121,9 +124,8 @@
   padding: 8px 12px 10px;
   font-size: 13px;
 }
-.shared-contrib .hero-sub { color: var(--sharedText); font-size: 13px; font-weight: 600; white-space: nowrap; }
-.shared-contrib .contrib-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.shared-contrib .contrib-chips > span { padding: 3px 9px; border-radius: var(--r-pill); background: var(--surface); font-weight: 600; white-space: nowrap; }
+.shared-contrib .contrib-title { white-space: nowrap; }
+.shared-contrib .contrib-chip { background: var(--surface); }
 @media (min-width: 1024px) {
   .shared-contrib { flex-direction: column; align-items: flex-start; gap: 8px; }
   .row-icon { width: 34px; height: 34px; }

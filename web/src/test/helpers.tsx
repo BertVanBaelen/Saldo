@@ -12,6 +12,7 @@ import type {
   Alert,
   BalancePoint,
   Connection,
+  Contributions,
   Device,
   EnableBanking,
   JoinOffer,
@@ -196,6 +197,16 @@ export const RULES_ALERT: Alert = {
   noticeId: 8,
 };
 
+/** GET /api/accounts/4/contributions in November: both members have a sender and both amounts came in. Bert declared one sender. */
+export const CONTRIBUTIONS: Contributions = {
+  month: '2026-11',
+  members: [
+    { userId: 1, name: 'Bert', me: true, share: null, senders: 1, received: 45000, confirmed: true },
+    { userId: 2, name: 'Partner', me: false, share: null, senders: 1, received: 45000, confirmed: true },
+  ],
+  mySenders: [{ id: 3, iban: 'BE68 •••• •••• 4821' }],
+};
+
 export const CONNECTIONS: Connection[] = [
   { id: 1, bank: 'Argenta', since: '2026-06-03', validUntil: '2026-11-30', daysLeft: 12, lastSync: '2026-11-18T04:02:00+01:00', status: 'ok', accounts: [1, 4] },
 ];
@@ -302,6 +313,8 @@ interface Stub {
   preview?: Partial<RulePreview>;
   /** GET /api/accounts/{id}/transfers; default none. */
   transfers?: AccountTransfer[];
+  /** GET /api/accounts/{id}/contributions; default a personal answer (`members: []`), so nothing shows. */
+  contributions?: Contributions | ((id: number) => Contributions);
 }
 
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
@@ -342,6 +355,17 @@ export function stubApi(s: Stub = {}) {
       const t = rowOf(id);
       if (transfer === null) return { ...t, transferOverride: null };
       return { ...t, transfer, transferKind: transfer ? (t.transferKind ?? 'internal') : null, transferOverride: transfer };
+    }),
+    contributions: vi.spyOn(api, 'contributions').mockImplementation(async (id) => {
+      const c = s.contributions ?? { month: '2026-11', members: [], mySenders: [] };
+      return structuredClone(typeof c === 'function' ? c(id) : c);
+    }),
+    // Declaring and removing a sender, and the shares: answer like the server (the sender, nothing, the contributions with the shares applied).
+    addContributionSender: vi.spyOn(api, 'addContributionSender').mockResolvedValue({ id: 9, iban: 'BE41 •••• •••• 1196' }),
+    removeContributionSender: vi.spyOn(api, 'removeContributionSender').mockResolvedValue(null),
+    setContributionShares: vi.spyOn(api, 'setContributionShares').mockImplementation(async (id, shares) => {
+      const c = structuredClone(typeof s.contributions === 'function' ? s.contributions(id) : (s.contributions ?? CONTRIBUTIONS));
+      return { ...c, members: c.members.map((m) => ({ ...m, share: shares ? (shares[m.userId] ?? 0) : null })) };
     }),
     accountTransfers: vi.spyOn(api, 'accountTransfers').mockImplementation(async () => structuredClone(s.transfers ?? [])),
     similarPreview: vi.spyOn(api, 'similarPreview').mockImplementation(async (id) => ({

@@ -372,6 +372,50 @@ describe('categorisation calls', () => {
     await expect(api.deleteUser(1)).rejects.toMatchObject({ status: 400, message: 'Je kunt jezelf niet verwijderen.' });
   });
 
+  it('reads the contributions of a month, declares and removes a sender, and sets the shares', async () => {
+    const sent = (fetch: ReturnType<typeof respond>) => {
+      const [url, init] = fetch.mock.calls[0];
+      return { url, method: init.method, body: init.body };
+    };
+    const answer = { month: '2026-11', members: [], mySenders: [] };
+    const read = respond(200, answer);
+    vi.stubGlobal('fetch', read);
+    await expect(api.contributions(4)).resolves.toEqual(answer);
+    expect(sent(read)).toEqual({ url: '/api/accounts/4/contributions', method: 'GET', body: undefined });
+    const month = respond(200, answer);
+    vi.stubGlobal('fetch', month);
+    await api.contributions(4, '2026-10');
+    expect(sent(month).url).toBe('/api/accounts/4/contributions?month=2026-10');
+
+    // One of your own accounts, or an incoming row of the shared account: 201 with the masked sender.
+    const own = respond(201, { id: 3, iban: 'BE68 •••• •••• 4821' });
+    vi.stubGlobal('fetch', own);
+    await expect(api.addContributionSender(4, { fromAccountId: 1 })).resolves.toEqual({ id: 3, iban: 'BE68 •••• •••• 4821' });
+    expect(sent(own)).toEqual({ url: '/api/accounts/4/contribution-senders', method: 'POST', body: '{"fromAccountId":1}' });
+    const row = respond(201, { id: 4, iban: 'BE47 •••• •••• 2210' });
+    vi.stubGlobal('fetch', row);
+    await api.addContributionSender(4, { transactionId: 314 });
+    expect(sent(row).body).toBe('{"transactionId":314}');
+    vi.stubGlobal('fetch', respond(409, { error: { code: 'conflict', message: 'Deze afzender hoort al bij Partner.' } }));
+    await expect(api.addContributionSender(4, { fromAccountId: 1 })).rejects.toMatchObject({ status: 409, message: 'Deze afzender hoort al bij Partner.' });
+
+    const gone = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', gone);
+    await expect(api.removeContributionSender(4, 3)).resolves.toBeNull();
+    expect(sent(gone)).toEqual({ url: '/api/accounts/4/contribution-senders/3', method: 'DELETE', body: undefined });
+
+    const shares = respond(200, answer);
+    vi.stubGlobal('fetch', shares);
+    await api.setContributionShares(4, { 1: 60, 2: 40 });
+    expect(sent(shares)).toEqual({ url: '/api/accounts/4/contribution-shares', method: 'PUT', body: '{"shares":{"1":60,"2":40}}' });
+    const equal = respond(200, answer);
+    vi.stubGlobal('fetch', equal);
+    await api.setContributionShares(4, null);
+    expect(sent(equal).body).toBe('{"shares":null}');
+    vi.stubGlobal('fetch', respond(403, { error: { code: 'forbidden', message: 'Alleen de beheerder van de rekening kan dit.' } }));
+    await expect(api.setContributionShares(4, null)).rejects.toMatchObject({ status: 403, message: 'Alleen de beheerder van de rekening kan dit.' });
+  });
+
   it('passes on the server’s message when a call is refused', async () => {
     vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' } }));
     await expect(api.updateTransaction(101, { categoryId: 2 })).rejects.toMatchObject({ status: 400, message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' });

@@ -843,3 +843,96 @@ func TestMigration0013RebuildsNoticesWithoutLosingRows(t *testing.T) {
 		t.Errorf("second run applied %v, %v", again, err)
 	}
 }
+
+// 0014 adds contribution_senders: every other row stays, one sender per
+// account and IBAN, and the claims go with their account or user.
+func TestMigration0014AddsContributionSendersWithoutTouchingRows(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	full := Migrations()
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(full, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() < "0014" {
+			b, err := fs.ReadFile(full, e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			old[e.Name()] = &fstest.MapFile{Data: b}
+		}
+	}
+	if len(old) != 13 {
+		t.Fatalf("%d migrations before 0014, want 13", len(old))
+	}
+	backups := filepath.Join(t.TempDir(), "backups")
+	if _, err := Migrate(ctx, db, old, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO users (id, email, display_name) VALUES (1, 'a@example.com', 'A'), (2, 'b@example.com', 'B')`,
+		`INSERT INTO accounts (id, type, source, iban, name) VALUES (1, 'current', 'bank', 'BE68539007547034', 'Zicht'), (2, 'current', 'manual', NULL, 'Pot')`,
+		`INSERT INTO account_access (account_id, user_id, role, permission, contribution_share) VALUES (1, 1, 'manager', 'edit', 50), (1, 2, 'member', 'edit', 50), (2, 1, 'manager', 'edit', NULL)`,
+		`INSERT INTO transactions (id, account_id, amount, booking_date, counterparty_iban, status, dedupe_key) VALUES (1, 1, 45000, '2026-11-01', 'BE62510007547061', 'booked', 'hash:1')`,
+		`INSERT INTO account_notices (id, user_id, account_id, type, actor_id, created_at) VALUES (7, 1, 1, 'member', 2, '2026-11-16T10:00:00Z')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dump := func() string {
+		t.Helper()
+		var out string
+		for _, tbl := range []string{"users", "accounts", "account_access", "transactions", "account_notices"} {
+			var n int
+			if err := db.QueryRow(`SELECT COUNT(*) FROM ` + tbl).Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			out += tbl + "=" + strconv.Itoa(n) + " "
+		}
+		var shares string
+		if err := db.QueryRow(`SELECT group_concat(account_id || ':' || user_id || ':' || COALESCE(contribution_share, '-'), ' ') FROM account_access`).Scan(&shares); err != nil {
+			t.Fatal(err)
+		}
+		return out + shares
+	}
+	before := dump()
+	applied, err := Migrate(ctx, db, full, backups, nil)
+	if err != nil || !slices.Contains(applied, 14) {
+		t.Fatalf("applied %v, %v", applied, err)
+	}
+	if got := dump(); got != before {
+		t.Errorf("rows changed:\n%s\nwas\n%s", got, before)
+	}
+	if _, err := db.Exec(`INSERT INTO contribution_senders (account_id, user_id, iban) VALUES (1, 2, 'BE62510007547061'), (1, 1, 'BE68539007547034')`); err != nil {
+		t.Fatal(err)
+	}
+	for name, q := range map[string]string{
+		"second claim of a sender": `INSERT INTO contribution_senders (account_id, user_id, iban) VALUES (1, 1, 'BE62510007547061')`,
+		"unknown account":          `INSERT INTO contribution_senders (account_id, user_id, iban) VALUES (9, 1, 'BE00')`,
+		"no IBAN":                  `INSERT INTO contribution_senders (account_id, user_id) VALUES (1, 1)`,
+	} {
+		if _, err := db.Exec(q); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+	if _, err := db.Exec(`DELETE FROM users WHERE id = 2`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`DELETE FROM accounts WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	var left int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM contribution_senders`).Scan(&left); err != nil || left != 0 {
+		t.Errorf("%d claims outlive their user and account (%v)", left, err)
+	}
+	if again, err := Migrate(ctx, db, full, backups, nil); err != nil || len(again) != 0 {
+		t.Errorf("second run applied %v, %v", again, err)
+	}
+}

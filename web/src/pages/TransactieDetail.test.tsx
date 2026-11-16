@@ -647,3 +647,71 @@ describe('Transactie detail · transfer', () => {
     expect(api.setTransfer).not.toHaveBeenCalled();
   });
 });
+
+describe('Transactie detail · contribution (0.6-5)', () => {
+  /** An incoming payment of € 450 on the shared account (id 4), from a sender nobody declared yet. */
+  const INCOMING: Transaction = { ...TRANSACTIONS[1], id: 118, amount: 45000, counterparty: 'Partner Janssens', communication: 'Bijdrage november', category: null, categoryOrigin: null, ruleId: null };
+  const rows = (extra: Transaction[]) => [...TRANSACTIONS, ...extra];
+
+  it('claims the sender of an incoming payment on a shared account, and the row becomes "Jouw bijdrage"', async () => {
+    const api = stubApi({ transactions: rows([INCOMING]) });
+    renderAt('/transacties');
+    const dialog = await open('Partner Janssens');
+    expect(within(row('Partner Janssens')).queryByText('Jouw bijdrage')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dit is mijn bijdrage' }));
+    await waitFor(() => expect(api.addContributionSender).toHaveBeenCalledWith(4, { transactionId: 118 }));
+    await waitFor(() => expect(toast()).toBe('Opgeslagen: deze afzender telt voortaan als jouw bijdrage'));
+    // The label is on the row and in the detail, and the button is gone: a second press would be refused.
+    expect(within(row('Partner Janssens')).getByText('Jouw bijdrage')).toBeTruthy();
+    expect(within(dialog).getByText('Jouw bijdrage')).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+  });
+
+  it('shows the server’s message when the sender cannot be claimed, and the button stays', async () => {
+    const api = stubApi({ transactions: rows([INCOMING]) });
+    api.addContributionSender.mockRejectedValueOnce(new ApiError(409, 'conflict', 'Deze afzender hoort al bij Partner.'));
+    renderAt('/transacties');
+    const dialog = await open('Partner Janssens');
+    const claim = within(dialog).getByRole('button', { name: 'Dit is mijn bijdrage' });
+    fireEvent.click(claim);
+    await waitFor(() => expect(toast()).toBe('Deze afzender hoort al bij Partner.'));
+    expect(claim.getAttribute('aria-busy')).toBeNull();
+    expect(within(row('Partner Janssens')).queryByText('Jouw bijdrage')).toBeNull();
+  });
+
+  it('labels a row that matches a member’s sender, without the button', async () => {
+    stubApi({
+      transactions: rows([
+        { ...INCOMING, contribution: { name: 'Partner', me: false } },
+        { ...INCOMING, id: 119, counterparty: 'Eigen rekening', contribution: { name: 'Bert', me: true } },
+      ]),
+    });
+    renderAt('/transacties');
+    const dialog = await open('Partner Janssens');
+    expect(within(row('Partner Janssens')).getAllByText('Bijdrage van Partner')).toHaveLength(1);
+    expect(within(row('Eigen rekening')).getAllByText('Jouw bijdrage')).toHaveLength(1);
+    expect(within(dialog).getByText('Bijdrage van Partner')).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+  });
+
+  it('offers no claim for an expense, a transfer, a personal account or a read-only member', async () => {
+    stubApi({ transactions: rows([{ ...INCOMING, id: 120, counterparty: 'Van eigen rekening', transfer: true, transferKind: 'internal' }]) });
+    renderAt('/transacties');
+    // An expense on the shared account.
+    expect(within(await open('Colruyt Laagste Prijzen')).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+    // A transfer for you: its sender is your own account.
+    fireEvent.click(screen.getByRole('button', { name: 'Sluiten' }));
+    expect(within(await open('Van eigen rekening')).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+    // Income on a personal account.
+    fireEvent.click(screen.getByRole('button', { name: 'Sluiten' }));
+    expect(within(await open('CM Ziekenfonds')).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+  });
+
+  it('offers no claim to a member who may only read the shared account', async () => {
+    stubApi({ accounts: ACCOUNTS.map((a) => (a.id === GEDEELD.id ? { ...a, permission: 'read' as const, role: 'member' as const } : a)), transactions: rows([INCOMING]) });
+    renderAt('/transacties');
+    const dialog = await open('Partner Janssens');
+    expect(within(dialog).getByText('Alleen lezen')).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+  });
+});

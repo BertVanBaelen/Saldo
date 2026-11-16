@@ -23,8 +23,9 @@ import {
 } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { dateLong, eur, eur0, names } from '../lib/format';
-import type { Account, Alert, Connection, EnableBanking, Scope } from '../lib/types';
+import type { Account, Alert, Connection, Contributions, EnableBanking, Scope } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { ContributionRow } from './Bijdragen';
 import './Start.css';
 
 const SCOPE_LABEL: Record<Scope, string> = {
@@ -142,8 +143,11 @@ function Alerts({ alerts, inView }: { alerts: Alert[]; inView: Account[] }) {
 
 // ---------- Hero "Saldo nu" ----------
 
-/** One account in view: its balance against its own buffer, with its state chip. */
-export function SingleHero({ a, today }: { a: Account; today: string }) {
+/** Where "Jij · nog niet ingesteld" leads: the account page, where the claim is made; a read-only member cannot claim, so no link. */
+const claimPage = (a: Account) => (a.permission === 'edit' ? '/rekeningen/' + a.id : undefined);
+
+/** One account in view: its balance against its own buffer, with its state chip (a shared account adds its contributions). */
+export function SingleHero({ a, today, contributions }: { a: Account; today: string; contributions?: Contributions | null }) {
   const st = accountState(a);
   const scale = Math.max(a.balance, a.buffer) * 1.3 || 1;
   const fill = ((Math.max(a.balance, 0) / scale) * 100).toFixed(1);
@@ -173,6 +177,7 @@ export function SingleHero({ a, today }: { a: Account; today: string }) {
           <span>{diff}</span>
         </span>
       </span>
+      {isShared(a) && contributions && <ContributionRow c={contributions} to={claimPage(a)} className="hero-contrib" />}
     </section>
   );
 }
@@ -327,7 +332,7 @@ function managerLine(a: Account): string {
   return [with_.length ? 'Met ' + names(with_) : '', who].filter(Boolean).join(' · ');
 }
 
-function Shared({ list, today }: { list: Account[]; today: string }) {
+function Shared({ list, today, contributions }: { list: Account[]; today: string; contributions?: Map<number, Contributions> }) {
   if (!list.length) return null;
   const one = list.length === 1 ? list[0] : null;
   const sub = one ? managerLine(one) : list.length + ' rekeningen met meer leden';
@@ -359,9 +364,11 @@ function Shared({ list, today }: { list: Account[]; today: string }) {
       <div className="start-shared-list">
         {list.map((a) => {
           const m = manager(a);
+          const c = contributions?.get(a.id);
           return (
             <div className="shared-card" key={a.id}>
               <AccountRow a={a} today={today} className="row shared-card-row" />
+              {c && <ContributionRow c={c} to={claimPage(a)} className="shared-contrib" />}
               {a.permission === 'read' && (
                 <div className="shared-ro">
                   <span className="chip chip--readonly">
@@ -519,6 +526,18 @@ export function Start() {
   const all = accounts.data;
   const empty = !!all && all.length === 0;
   // Only without accounts: what the first steps need. A request that fails counts as "nothing done yet".
+  // The contributions of the shared accounts, loaded once for the hero and the cards. A failure leaves the row out: Start works without it.
+  const sharedIds = (all ?? []).filter(isShared).map((a) => a.id).join(',');
+  const contribs = useAsync<Map<number, Contributions>>(async (signal) => {
+    const found = new Map<number, Contributions>();
+    await Promise.all(
+      sharedIds
+        .split(',')
+        .filter(Boolean)
+        .map((id) => api.contributions(Number(id), undefined, signal).then((c) => void found.set(Number(id), c), () => undefined)),
+    );
+    return found;
+  }, [sharedIds, dataVersion]);
   const first = useAsync<[EnableBanking | null, Connection[]] | null>(
     (signal) => (empty ? Promise.all([api.enableBanking(signal).catch(() => null), api.connections(signal).catch(() => [])]) : Promise.resolve(null)),
     [empty, dataVersion],
@@ -546,13 +565,13 @@ export function Start() {
           <NoAccounts scope={scope} savingsOnly={inView.length > 0} />
         ) : (
           <div className="start-top">
-            {current.length === 1 ? <SingleHero a={current[0]} today={today} /> : <MultiHero scope={scope} list={current} withSavings={savings > 0} />}
+            {current.length === 1 ? <SingleHero a={current[0]} today={today} contributions={contribs.data?.get(current[0].id)} /> : <MultiHero scope={scope} list={current} withSavings={savings > 0} />}
             <ForecastSoon />
           </div>
         )}
         <div className={'start-bottom' + (sections < 2 ? ' start-bottom--one' : '')}>
           {showPersonal && <Personal list={personal} today={today} />}
-          {showShared && <Shared list={shared} today={today} />}
+          {showShared && <Shared list={shared} today={today} contributions={contribs.data} />}
         </div>
       </Fragment>
     );

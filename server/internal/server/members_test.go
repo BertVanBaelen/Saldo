@@ -180,6 +180,7 @@ func TestJoinAlertFollowsPermission(t *testing.T) {
 func TestWritePermissions(t *testing.T) {
 	type fixture struct {
 		tx, split, rule, batch int64
+		incoming, sender       int64 // a row from outside Saldo on 4, Partner's claim on 4
 	}
 	csv := csvHeader + csvCoffee
 	routes := []struct {
@@ -235,6 +236,15 @@ func TestWritePermissions(t *testing.T) {
 		{"convert rules", true, func(p *pair, h http.Handler, f fixture) response {
 			return do(t, h, "POST", "/api/accounts/4/convert-rules", "")
 		}},
+		{"claim sender", false, func(p *pair, h http.Handler, f fixture) response {
+			return do(t, h, "POST", sendersPath, `{"transactionId": `+strconv.FormatInt(f.incoming, 10)+`}`)
+		}},
+		{"remove sender", false, func(p *pair, h http.Handler, f fixture) response {
+			return do(t, h, "DELETE", sendersPath+"/"+strconv.FormatInt(f.sender, 10), "")
+		}},
+		{"shares", true, func(p *pair, h http.Handler, f fixture) response {
+			return do(t, h, "PUT", sharesPath, `{"shares": {"1": 70, "2": 30}}`)
+		}},
 		{"delete account", true, func(p *pair, h http.Handler, f fixture) response {
 			return do(t, h, "DELETE", "/api/accounts/2?confirm=Spaarrekening", "")
 		}},
@@ -265,6 +275,8 @@ func TestWritePermissions(t *testing.T) {
 					t.Fatalf("import: %d %s", r.status, r.body)
 				}
 				f.batch = decode[importBody](t, r.body).Batches[0].ID
+				f.incoming = p.incoming(4, outsideIBAN, 30000, "2026-11-16", "booked")
+				f.sender = p.claim(p.partner, `{"fromAccountId": 5}`).ID
 				if role.setup != "" {
 					p.exec(role.setup)
 				}

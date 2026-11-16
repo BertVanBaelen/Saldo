@@ -127,6 +127,9 @@ func (s *Store) AcceptJoin(ctx context.Context, viewer, id int64, now time.Time)
 		VALUES (?, ?, 'member', 'edit', ?)`, account, viewer, stamp); err != nil {
 		return Account{}, err
 	}
+	if err := resetContributions(ctx, tx, account, viewer); err != nil {
+		return Account{}, err
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO account_sources (account_id, connection_id, priority, external_account_id)
 		VALUES (?, ?, 'fallback', ?)
 		ON CONFLICT (account_id, connection_id) DO UPDATE SET external_account_id = excluded.external_account_id`,

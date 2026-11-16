@@ -1,0 +1,28 @@
+/* Bijdragen (phase 0.6-5): the month's chips, the declared senders and the split editor.
+   Start overrides the chip colours inside the hero and the shared card (Start.css). */
+
+.contrib-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; font-size: 13px; }
+.contrib-title { font-size: 13px; font-weight: 600; color: var(--sharedText); }
+.contrib-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+/* A long text wraps under 375 px instead of pushing the card wider. */
+.contrib-chip { display: inline-block; max-width: 100%; padding: 3px 10px; border-radius: 14px; background: var(--bg); font-size: 13px; font-weight: 600; line-height: 1.4; }
+.contrib-chip--wait { font-weight: 500; color: var(--muted); }
+/* The link chip stays small but its tap area reaches 44 px. */
+a.contrib-chip--link { position: relative; color: var(--sharedText); text-decoration: underline; }
+a.contrib-chip--link::after { content: ""; position: absolute; inset: -10px 0; }
+
+.contrib-senders { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.contrib-senders li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; }
+.contrib-senders li + li { border-top: 1px solid var(--line); }
+.contrib-iban { font-size: 15px; font-weight: 500; }
+.contrib-remove { min-height: 44px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; color: var(--negText); font-size: 14px; font-weight: 600; }
+.contrib-remove:disabled { opacity: 0.5; cursor: default; }
+
+.contrib-shares { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.contrib-share { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: 15px; }
+.contrib-pct { display: inline-flex; align-items: center; gap: 6px; }
+.contrib-pct .input { width: 84px; text-align: right; }
+.contrib-total { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--greenText); }
+.contrib-total--bad { color: var(--negText); }
+.contrib-actions { flex-direction: row; flex-wrap: wrap; }
+.contrib-actions .btn { flex: 1 1 140px; }

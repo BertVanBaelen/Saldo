@@ -48,6 +48,9 @@ export const STATE_CHIP: Record<AccountState, string> = { ok: 'Boven buffer', bu
 /** Name, colour, buffer and balance are the manager's; every other write needs `permission === 'edit'`. */
 export const canManage = (a: Account) => a.role === 'manager' && a.permission === 'edit';
 
+/** The chip on a row that matches a member's declared sender: "Jouw bijdrage" or "Bijdrage van Partner". */
+export const contributionLabel = (c: { name: string; me: boolean }) => (c.me ? 'Jouw bijdrage' : 'Bijdrage van ' + c.name);
+
 export const manager = (a: Account): Member | undefined => a.members.find((m) => m.role === 'manager');
 export const others = (a: Account): Member[] => a.members.filter((m) => !m.me);
 

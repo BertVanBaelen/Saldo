@@ -21,3 +21,14 @@ func (e *InvalidError) Error() string { return "invalid: " + e.Message }
 
 // Invalid returns a validation error with a Dutch message for the user.
 func Invalid(message string) error { return &InvalidError{Message: message} }
+
+// ConflictError is a write that clashes with what is stored; Message is
+// Dutch and shown to the user.
+type ConflictError struct {
+	Message string
+}
+
+func (e *ConflictError) Error() string { return "conflict: " + e.Message }
+
+// Conflict returns a conflict error with a Dutch message for the user.
+func Conflict(message string) error { return &ConflictError{Message: message} }

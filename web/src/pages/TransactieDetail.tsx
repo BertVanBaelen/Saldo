@@ -8,7 +8,7 @@ import { useApp } from '../app/AppContext';
 import { CatIcon } from '../components/CatIcon';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { Icon } from '../components/Icon';
-import { accColour, isShared, manager } from '../lib/accounts';
+import { accColour, contributionLabel, isShared, manager } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { catColours, categoryLabel, plural, ruleLabel, skippedText, splitState, toParts, type SplitDraft } from '../lib/categories';
 import { dateFull, eur } from '../lib/format';
@@ -165,7 +165,7 @@ interface DetailProps {
 // ---------- Detail ----------
 
 export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }: DetailProps) {
-  const { toast, online } = useApp();
+  const { me, toast, online } = useApp();
   const sheet = mode === 'sheet';
   const pending = t.status === 'pending';
   const ro = acc?.permission === 'read';
@@ -459,6 +459,21 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
       <span>{TRANSFER_NOTE[t.transferKind ?? 'internal']}</span>
     </div>
   );
+  const contributionNote = t.contribution && (
+    <div className="tx-note tx-note--contrib">
+      <Icon name="people" size={18} stroke={2.2} />
+      <span>{contributionLabel(t.contribution)}</span>
+    </div>
+  );
+  // An incoming payment on a shared account you may edit, from a sender nobody declared yet. A payment from one of your own accounts is a transfer, not a contribution.
+  const canClaim = acc !== undefined && isShared(acc) && acc.permission === 'edit' && t.amount > 0 && !t.transfer && !t.contribution;
+  const claim = () =>
+    void run('contribution', async () => {
+      await api.addContributionSender(acc!.id, { transactionId: t.id });
+      // The sender is yours now, so this row is yours; other rows of it follow when the list loads again.
+      onChange({ ...t, contribution: { name: me.user.name, me: true } });
+      toast('Opgeslagen: deze afzender telt voortaan als jouw bijdrage');
+    });
   // The viewer's own setting, so read-only members have it too.
   const hasMark = t.transferOverride != null;
   const mark = (value: boolean | null) => () =>
@@ -639,6 +654,14 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
         </div>
       )}
       {transferNote}
+      {contributionNote}
+      {canClaim && (
+        <div className="tx-tr-marks">
+          <button type="button" className="tx-toggle" data-key="contribution" aria-disabled={off || undefined} aria-busy={busy === 'contribution' || undefined} onClick={claim}>
+            Dit is mijn bijdrage
+          </button>
+        </div>
+      )}
       {edit}
       {transferMark}
       {!ro && (

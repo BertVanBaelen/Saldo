@@ -68,9 +68,12 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 // missing or hidden resource.
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error, notFound string) {
 	var invalid *apperr.InvalidError
+	var conflict *apperr.ConflictError
 	switch {
 	case errors.As(err, &invalid):
 		writeError(w, http.StatusBadRequest, "invalid", invalid.Message)
+	case errors.As(err, &conflict):
+		writeError(w, http.StatusConflict, "conflict", conflict.Message)
 	case errors.Is(err, apperr.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", notFound)
 	case errors.Is(err, ledger.ErrNotManager):

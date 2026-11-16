@@ -53,7 +53,8 @@ func (s *Store) Leave(ctx context.Context, viewer, id int64, now time.Time) (*Ha
 // member: their access, their own sources of it and their private rows about
 // it go; the manager role passes to the longest-standing member (joined_at,
 // then user id), who edits; the oldest fallback becomes primary when the
-// primary went; the members left get a notice.
+// primary went; their contribution senders go and the shares reset to equal;
+// the members left get a notice.
 func removeMember(ctx context.Context, tx *sql.Tx, account, user int64, now time.Time) (*HandOver, error) {
 	var role, actor string
 	err := tx.QueryRowContext(ctx, `SELECT x.role, u.display_name FROM account_access x JOIN users u ON u.id = x.user_id
@@ -77,6 +78,9 @@ func removeMember(ctx context.Context, tx *sql.Tx, account, user int64, now time
 		if _, err := tx.ExecContext(ctx, q, account, user); err != nil {
 			return nil, err
 		}
+	}
+	if err := resetContributions(ctx, tx, account, user); err != nil {
+		return nil, err
 	}
 	var next *HandOver
 	if role == "manager" {
@@ -140,7 +144,7 @@ func promotePrimary(ctx context.Context, tx *sql.Tx, account int64) error {
 
 // dropAccount deletes an account for everyone. Its notices go first (they
 // would outlive it with account_id NULL); transactions, splits, balances,
-// access, sources and join offers cascade.
+// access, sources, join offers and contribution senders cascade.
 func dropAccount(ctx context.Context, tx *sql.Tx, account int64) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM account_notices WHERE account_id = ?`, account); err != nil {
 		return err

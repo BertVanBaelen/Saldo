@@ -3,19 +3,20 @@
 // re-authorise, remove the link), Leden (shared accounts: the manager sets Lezen or Bewerken per member),
 // Instellen (the Rekeningen form), deleting a manual account, and for a shared account leaving it or (manager) deleting it for everyone.
 // Design: finance-mockup/js/screens/rekening.js; spec: analysis/screens/rekeningen.md, analysis 4.8 and 6.3.
-// Contributions arrive with 0.6-5.
+// Bijdragen (shared accounts, 0.6-5): the month's chips, your own senders and the split (Bijdragen.tsx).
 import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useTitle } from '../components/ui';
-import { accColour, accountState, canManage, carrier, isCurrent, isShared, manager, memberTint, nextManager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
+import { accColour, accountState, canManage, carrier, contributionLabel, isCurrent, isShared, manager, memberTint, nextManager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { plural } from '../lib/categories';
 import { dateRelative, dateShort, dateYear, eur, momentLabel, names, parseMoney, toDate } from '../lib/format';
 import type { Account, BalancePoint, Connection, Member, Permission, Transaction } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { ContributionsCard } from './Bijdragen';
 import { amountClass, catView } from './Transacties';
 import { Avatar, Editor, patchOf, values, type Draft } from './Rekeningen';
 import './Rekeningen.css';
@@ -452,7 +453,10 @@ function TxCard({ a, page, error, onRetry, today }: { a: Account; page: Transact
               )}
               <span className="rkd-tx-main">
                 <span className="rkd-tx-name">{t.counterparty}</span>
-                <span className="rkd-tx-sub">{cv.name + ' · ' + dateRelative(t.bookingDate, today)}</span>
+                <span className="rkd-tx-sub">
+                  {t.contribution && <span className="tx-contrib">{contributionLabel(t.contribution)}</span>}
+                  {cv.name + ' · ' + dateRelative(t.bookingDate, today)}
+                </span>
               </span>
               <span className="rkd-tx-end">
                 <span className={'mono rkd-tx-amount ' + amountClass(t)}>{eur(t.amount, true)}</span>
@@ -1235,7 +1239,12 @@ export function Rekening() {
           )}
           {manual && a.iban && <TransfersCard a={a} today={today} />}
           <TxCard a={a} page={txs.data} error={txs.error} onRetry={txs.reload} today={today} />
-          {a.members.length > 1 && <MembersCard a={a} onChanged={replace} onExit={(all) => setDialog(all ? 'deleteAll' : 'leave')} />}
+          {a.members.length > 1 && (
+            <>
+              <ContributionsCard a={a} accounts={accounts.data} onChanged={txs.reload} />
+              <MembersCard a={a} onChanged={replace} onExit={(all) => setDialog(all ? 'deleteAll' : 'leave')} />
+            </>
+          )}
         </div>
         <div className="rkd-col rkd-col--side">
           {a.role === 'manager' && a.convertibleRules > 0 && <ConvertRules a={a} onDone={accounts.reload} />}

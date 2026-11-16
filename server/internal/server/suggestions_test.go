@@ -73,6 +73,7 @@ func TestSuggestions(t *testing.T) {
 		t.Errorf("Partner's suggestion %+v", s)
 	}
 	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+	p.assertInvariant()
 	if s := p.suggestion(p.partner, key); s == nil || s.Open != 1 {
 		t.Errorf("Partner read-only: %+v", s)
 	}

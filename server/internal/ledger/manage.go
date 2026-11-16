@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -140,7 +141,8 @@ func putSnapshot(ctx context.Context, tx *sql.Tx, account, balance int64, date s
 
 // access is the viewer's hold on one account.
 type access struct {
-	source, permission, role string
+	source, typ, permission, role string
+	members                       int
 }
 
 // accessOf reads the viewer's access to an account; a hidden one is
@@ -149,14 +151,37 @@ func accessOf(ctx context.Context, q interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }, viewer, id int64) (access, error) {
 	var a access
-	err := q.QueryRowContext(ctx, `SELECT a.source, me.permission, me.role
+	err := q.QueryRowContext(ctx, `SELECT a.source, a.type, me.permission, me.role,
+		    (SELECT COUNT(*) FROM account_access x WHERE x.account_id = a.id)
 		FROM account_access me JOIN accounts a ON a.id = me.account_id
-		WHERE me.user_id = ? AND a.id = ?`, viewer, id).Scan(&a.source, &a.permission, &a.role)
+		WHERE me.user_id = ? AND a.id = ?`, viewer, id).Scan(&a.source, &a.typ, &a.permission, &a.role, &a.members)
 	if errors.Is(err, sql.ErrNoRows) {
 		return a, apperr.ErrNotFound
 	}
 	return a, err
 }
+
+// edit is the one check before any write to an account's data: edit
+// permission (the manager always has it, plan 0.6-1 invariant), else
+// apperr.ErrForbidden. The SQL filters "me.permission = 'edit'" say the same.
+func (a access) edit() error {
+	if a.permission != "edit" {
+		return apperr.ErrForbidden
+	}
+	return nil
+}
+
+// manage is the check before changing the account itself: its manager only,
+// else ErrNotManager.
+func (a access) manage() error {
+	if a.role != "manager" {
+		return ErrNotManager
+	}
+	return nil
+}
+
+// ErrNotManager is apperr.ErrForbidden for an action only the manager may take.
+var ErrNotManager = fmt.Errorf("%w: not the manager", apperr.ErrForbidden)
 
 // SetBalance records a manual account's balance on a date (today when
 // empty, never in the future) and returns the account.
@@ -170,8 +195,8 @@ func (s *Store) SetBalance(ctx context.Context, viewer, id, balance int64, date 
 	if err != nil {
 		return Account{}, err
 	}
-	if a.permission != "edit" {
-		return Account{}, apperr.ErrForbidden
+	if err := a.edit(); err != nil {
+		return Account{}, err
 	}
 	if a.source != "manual" {
 		return Account{}, apperr.Invalid("Het saldo van een bankrekening komt van de bank.")
@@ -187,6 +212,47 @@ func (s *Store) SetBalance(ctx context.Context, viewer, id, balance int64, date 
 		return Account{}, apperr.Invalid("Kies vandaag of een dag in het verleden.")
 	}
 	if err := putSnapshot(ctx, tx, id, balance, date); err != nil {
+		return Account{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Account{}, err
+	}
+	return s.Account(ctx, viewer, id, now)
+}
+
+// SetPermission sets a member's permission ("read" or "edit") on an account
+// the viewer manages and returns the account. A hidden account or a user who
+// is not a member is apperr.ErrNotFound, a viewer who is not the manager
+// ErrNotManager; the manager's own row cannot change (the manager always edits).
+func (s *Store) SetPermission(ctx context.Context, viewer, id, user int64, permission string, now time.Time) (Account, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Account{}, err
+	}
+	defer tx.Rollback()
+	a, err := accessOf(ctx, tx, viewer, id)
+	if err != nil {
+		return Account{}, err
+	}
+	if err := a.manage(); err != nil {
+		return Account{}, err
+	}
+	var role string
+	err = tx.QueryRowContext(ctx, `SELECT role FROM account_access WHERE account_id = ? AND user_id = ?`, id, user).Scan(&role)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Account{}, apperr.ErrNotFound
+	}
+	if err != nil {
+		return Account{}, err
+	}
+	if role == "manager" {
+		return Account{}, apperr.Invalid("De beheerder kan niet op Alleen lezen gezet worden.")
+	}
+	if permission != "read" && permission != "edit" {
+		return Account{}, apperr.Invalid("Kies Lezen of Bewerken.")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE account_access SET permission = ? WHERE account_id = ? AND user_id = ?`,
+		permission, id, user); err != nil {
 		return Account{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -245,8 +311,8 @@ func (s *Store) DeleteAccount(ctx context.Context, viewer, id int64) error {
 	if a.source != "manual" {
 		return apperr.Invalid("Een bankrekening verwijder je door haar koppeling te verwijderen.")
 	}
-	if a.role != "manager" {
-		return apperr.ErrForbidden
+	if err := a.manage(); err != nil {
+		return err
 	}
 	// Snapshots, transactions, splits and access go with it (ON DELETE CASCADE).
 	if _, err := tx.ExecContext(ctx, `DELETE FROM accounts WHERE id = ?`, id); err != nil {

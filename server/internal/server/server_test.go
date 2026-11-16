@@ -284,8 +284,8 @@ func TestAccounts(t *testing.T) {
 		"balanceDate": "2026-11-18", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T04:02:00+01:00",
 		"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T04:05:00+01:00", "syncReport": null, "permission": "edit", "role": "manager",
 		"members": [
-			{"name": "Bert", "initial": "B", "role": "manager", "permission": "edit", "me": true},
-			{"name": "Partner", "initial": "P", "role": "member", "permission": "edit", "me": false}
+			{"userId": 1, "name": "Bert", "initial": "B", "role": "manager", "permission": "edit", "me": true, "joinedAt": "2026-06-03T10:10:00+02:00"},
+			{"userId": 2, "name": "Partner", "initial": "P", "role": "member", "permission": "edit", "me": false, "joinedAt": "2026-06-05T21:00:00+02:00"}
 		],
 		"convertibleRules": 0
 	}`)
@@ -328,7 +328,9 @@ func TestPatchAccount(t *testing.T) {
 		expectError(t, do(t, h, "PATCH", path, `{"name":"x"}`), http.StatusNotFound, "not_found")
 	}
 
-	d.Exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 1`)
+	// Bert as a read-only member of the shared account (Partner manages it).
+	d.Exec(`UPDATE account_access SET role = CASE user_id WHEN 1 THEN 'member' ELSE 'manager' END,
+		permission = CASE user_id WHEN 1 THEN 'read' ELSE 'edit' END WHERE account_id = 4`)
 	expectError(t, do(t, h, "PATCH", "/api/accounts/4", `{"colour":"teal"}`), http.StatusForbidden, "forbidden")
 	r = do(t, h, "GET", "/api/accounts", "")
 	if list := decode[[]ledger.Account](t, r.body); list[3].Permission != "read" || list[3].Colour != "violet" {

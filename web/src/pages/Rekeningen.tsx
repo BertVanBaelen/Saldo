@@ -7,7 +7,7 @@ import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useIsDesktop, useTitle } from '../components/ui';
-import { accColour, accountIcon, COLOURS, isCurrent, isShared, manager, others, syncLine } from '../lib/accounts';
+import { accColour, accountIcon, canManage, COLOURS, isCurrent, isShared, manager, others, syncLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { eur, momentLabel, names, parseMoney } from '../lib/format';
 import type { Account, AccountColour, AccountPatch } from '../lib/types';
@@ -157,7 +157,8 @@ interface EditorProps {
 export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, onSave, onClose }: EditorProps) {
   const { today, online } = useApp();
   const v = values(a, draft);
-  const ro = a.permission === 'read';
+  // Name, colour and buffer are the manager's: a member who may edit transactions still only reads them here.
+  const ro = !canManage(a);
   const inSheet = mode === 'p';
   const dirty = Object.keys(draft).length > 0;
   const swatchesRef = useRef<HTMLDivElement>(null);
@@ -212,11 +213,16 @@ export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, 
 
       {ro && (
         <div className="rk-ro">
-          <span className="chip chip--readonly">
-            <Icon name="lock" size={14} stroke={2.2} />
-            Alleen lezen
+          {a.permission === 'read' && (
+            <span className="chip chip--readonly">
+              <Icon name="lock" size={14} stroke={2.2} />
+              Alleen lezen
+            </span>
+          )}
+          <span>
+            {(mgr && !mgr.me ? mgr.name : 'De beheerder') +
+              (a.permission === 'read' ? ' (beheerder) gaf je leesrechten op deze rekening.' : ' (beheerder) past naam, kleur en buffer aan.')}
           </span>
-          <span>{(mgr && !mgr.me ? mgr.name : 'De beheerder') + ' (beheerder) gaf je leesrechten op deze rekening.'}</span>
         </div>
       )}
 

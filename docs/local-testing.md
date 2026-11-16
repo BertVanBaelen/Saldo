@@ -222,3 +222,9 @@ The demo has Bert and Partner (see "Demo mode": `/api/demo/as/partner` and `/api
 3. **As Bert**, open Start: a green notice "Partner sluit aan bij Gedeelde rekening" and a yellow one "Je regels voor Gedeelde rekening gelden niet meer", each with a close button (it disappears and stays away after a reload). Open the account (Rekeningen, Gedeelde rekening): a card "Je regels" says "1 regel van jou geldt niet op deze gedeelde rekening"; "Zet om naar regels van deze rekening" toasts "1 regel omgezet", the card disappears, and Categorieën en regels now lists the rule for the account next to your own rule.
 4. A member cannot convert (403) and a personal account has no card. Nothing is fetched for Partner's link on the shared account yet (fallback source, 0.6-1d).
 
+### Members and permissions (0.6-1b, about five minutes)
+Start from a fresh demo (Partner is a member of the Gedeelde rekening).
+1. **As Bert** (the manager), open Rekeningen, Gedeelde rekening: a card "Leden" lists "Jij · Beheerder · Bewerken" and "Partner · Lid · sinds 5 juni 2026" with the group "Rechten van Partner" (Lezen, Bewerken). Press "Lezen": toast "Partner mag nu alleen lezen". There is no control on your own row.
+2. **As Partner** (`/api/demo/as/partner`), open the same account: the chip "Alleen lezen", a plain list in the Leden card (no buttons, "Alleen de beheerder past de rechten aan."), no "Saldo bijwerken" and no "Instellen". Open a transaction of the account in Transacties: no category pills, no split, no note field. Importeren offers only accounts she may edit.
+3. Set Partner back to Bewerken as Bert. As Partner a member with edit rights still cannot change the name, colour, buffer or balance of the shared account (they show read-only, with a note naming the manager).
+

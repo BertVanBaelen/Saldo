@@ -12,13 +12,14 @@ import (
 )
 
 // assertInvariant: every account has at least one member and exactly one
-// manager (plan 0.6-1, decision 4).
+// manager, who may edit (plan 0.6-1, decision 4).
 func (e *bankEnv) assertInvariant() {
 	e.t.Helper()
 	if n := e.count(`SELECT COUNT(*) FROM accounts a
 		WHERE (SELECT COUNT(*) FROM account_access x WHERE x.account_id = a.id) = 0
-		   OR (SELECT COUNT(*) FROM account_access x WHERE x.account_id = a.id AND x.role = 'manager') <> 1`); n != 0 {
-		e.t.Errorf("%d accounts break the invariant (>= 1 member, exactly 1 manager)", n)
+		   OR (SELECT COUNT(*) FROM account_access x WHERE x.account_id = a.id AND x.role = 'manager') <> 1
+		   OR EXISTS (SELECT 1 FROM account_access x WHERE x.account_id = a.id AND x.role = 'manager' AND x.permission <> 'edit')`); n != 0 {
+		e.t.Errorf("%d accounts break the invariant (>= 1 member, exactly 1 manager, who edits)", n)
 	}
 }
 

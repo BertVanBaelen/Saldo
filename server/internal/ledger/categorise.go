@@ -65,17 +65,17 @@ type txRow struct {
 // editable reads a transaction the viewer may change.
 func editable(ctx context.Context, q categorise.DB, viewer, id int64) (txRow, error) {
 	var t txRow
-	var perm string
+	var a access
 	err := q.QueryRowContext(ctx, `SELECT t.account_id, t.amount, t.status, t.counterparty_name, t.category_id,
 		    EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id),
 		    (SELECT COUNT(*) FROM account_access m WHERE m.account_id = t.account_id), me.permission
 		FROM transactions t JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?
-		WHERE t.id = ?`, viewer, id).Scan(&t.account, &t.amount, &t.status, &t.counterparty, &t.category, &t.split, &t.members, &perm)
+		WHERE t.id = ?`, viewer, id).Scan(&t.account, &t.amount, &t.status, &t.counterparty, &t.category, &t.split, &t.members, &a.permission)
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, apperr.ErrNotFound
 	}
-	if err == nil && perm != "edit" {
-		err = apperr.ErrForbidden
+	if err == nil {
+		err = a.edit()
 	}
 	return t, err
 }

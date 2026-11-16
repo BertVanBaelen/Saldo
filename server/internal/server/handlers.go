@@ -16,6 +16,7 @@ import (
 const (
 	msgAccountNotFound = "Rekening niet gevonden."
 	msgNotFound        = "Niet gevonden."
+	msgMemberNotFound  = "Lid niet gevonden."
 )
 
 type healthBody struct {

@@ -376,6 +376,7 @@ func TestRulesAPI(t *testing.T) {
 	expectError(t, p.bert("POST", "/api/rules", `{"accountId":5,"counterparty":"x","categoryId":2}`), http.StatusNotFound, "not_found")
 	expectError(t, p.bert("POST", "/api/rules", `{"accountId":999,"counterparty":"x","categoryId":2}`), http.StatusNotFound, "not_found")
 	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+	p.assertInvariant()
 	if pl := decode[[]ledger.RuleView](t, p.partner("GET", "/api/rules", "").body); len(pl) != 1 || pl[0].Permission != "read" {
 		t.Errorf("read-only member: %+v", pl)
 	}
@@ -491,6 +492,7 @@ func TestRulesApply(t *testing.T) {
 	// applies for its members.
 	post(p.partner, `{"accountId":4,"counterparty":"Colruyt","categoryId":15}`)
 	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+	p.assertInvariant()
 	if apply(p.partner) != 0 {
 		t.Error("a read-only member applied rules")
 	}

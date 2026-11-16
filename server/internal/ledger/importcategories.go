@@ -231,8 +231,8 @@ func (s *Store) ReapplyCategories(ctx context.Context, viewer, batchID int64) (i
 	if err != nil {
 		return 0, err
 	}
-	if a.permission != "edit" {
-		return 0, apperr.ErrForbidden
+	if err := a.edit(); err != nil {
+		return 0, err
 	}
 	res, err := tx.ExecContext(ctx, `UPDATE transactions SET category_id = m.category_id,
 		    category_origin = CASE WHEN m.category_id IS NULL THEN NULL ELSE 'import' END

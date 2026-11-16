@@ -5,7 +5,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api';
 import type { Account, BackfillPreview, Rule, Suggestion, TreeCategory } from '../lib/types';
-import { ACCOUNTS, CATEGORIES, GEDEELD, renderAt, RULES, stubApi } from '../test/helpers';
+import { ACCOUNTS, asMember, CATEGORIES, renderAt, RULES, stubApi } from '../test/helpers';
 import { choose } from '../test/select';
 import { draftOf, inputOf, previewText } from './CategorieenEditors';
 
@@ -18,18 +18,7 @@ const NO_SKIPS = { manual: 0, import: 0, split: 0, rule: 0 };
 afterEach(() => vi.unstubAllGlobals());
 
 // Invented: a shared account the viewer may only read.
-const POT: Account = {
-  ...GEDEELD,
-  id: 6,
-  name: 'Huishoudpot',
-  colour: 'teal',
-  permission: 'read',
-  role: 'member',
-  members: [
-    { name: 'Partner', initial: 'P', role: 'manager', permission: 'edit', me: false },
-    { name: 'Bert', initial: 'B', role: 'member', permission: 'read', me: true },
-  ],
-};
+const POT: Account = { ...asMember('read'), id: 6, name: 'Huishoudpot', colour: 'teal' };
 const ACCS = [...ACCOUNTS, POT];
 
 const TREE: TreeCategory[] = CATEGORIES.map((c) => ({ ...c, count: { 1: 0, 10: 12, 2: 41, 4: 26, 8: 3 }[c.id] ?? 0 }));

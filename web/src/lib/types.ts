@@ -35,11 +35,14 @@ export type Permission = 'read' | 'edit';
 export type MemberRole = 'manager' | 'member';
 
 export interface Member {
+  userId: number;
   name: string;
   initial: string;
   role: MemberRole;
   permission: Permission;
   me: boolean;
+  /** When the member joined the account (a date or RFC 3339 timestamp). */
+  joinedAt: string;
 }
 
 /** What the last successful sync of a bank account got from the bank and kept (GET /api/accounts). */

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/apperr"
+	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 )
 
 // maxBody limits JSON request bodies.
@@ -72,6 +73,8 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error, notFoun
 		writeError(w, http.StatusBadRequest, "invalid", invalid.Message)
 	case errors.Is(err, apperr.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", notFound)
+	case errors.Is(err, ledger.ErrNotManager):
+		writeError(w, http.StatusForbidden, "forbidden", "Alleen de beheerder kan dit wijzigen.")
 	case errors.Is(err, apperr.ErrForbidden):
 		writeError(w, http.StatusForbidden, "forbidden", "Je mag deze rekening alleen bekijken.")
 	case errors.Is(err, errMediaType):

@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ACCOUNTS, NEW_MANUAL, renderAt, SPAAR, stubApi } from '../test/helpers';
+import { ACCOUNTS, asMember, NEW_MANUAL, renderAt, SPAAR, stubApi, ZICHT } from '../test/helpers';
 import { patchOf, values } from './Rekeningen';
 import { looksLikeIban } from './AddAccount';
 
@@ -111,5 +111,42 @@ describe('Rekeningen · the IBAN of a manual account', () => {
     expect(patchOf(SPAAR, values(SPAAR, { iban: null }))).toEqual({ iban: '' });
     expect(looksLikeIban('BE83 3630 1234 5615')).toBe(true);
     expect(looksLikeIban('BE00 1234')).toBe(false);
+  });
+});
+
+describe('Rekeningen · settings of a shared account the viewer does not manage', () => {
+  const open = async () => {
+    fireEvent.click((await screen.findByText('Gedeelde rekening', { selector: '.rk-row-name' })).closest('button')!);
+    return screen.findByRole('dialog');
+  };
+
+  it('opens read-only with the manager named, and only Sluiten, for a member who may edit', async () => {
+    stubApi({ accounts: [ZICHT, asMember('edit')] });
+    renderAt('/rekeningen');
+    const sheet = await open();
+    expect((within(sheet).getByLabelText('Naam') as HTMLInputElement).disabled).toBe(true);
+    expect((within(sheet).getByLabelText('Minimumbuffer') as HTMLInputElement).disabled).toBe(true);
+    expect(within(sheet).getByText('Partner (beheerder) past naam, kleur en buffer aan.')).toBeTruthy();
+    expect(within(sheet).queryByText('Alleen lezen')).toBeNull();
+    expect(within(sheet).queryByRole('button', { name: 'Opslaan' })).toBeNull();
+    // The cross in the head and the button below; no save, no reset.
+    expect(within(sheet).getAllByRole('button', { name: 'Sluiten' })).toHaveLength(2);
+  });
+
+  it('keeps the lock and the read-only note for a member who may only read', async () => {
+    stubApi({ accounts: [ZICHT, asMember('read')] });
+    renderAt('/rekeningen');
+    const sheet = await open();
+    expect(within(sheet).getByText('Alleen lezen')).toBeTruthy();
+    expect(within(sheet).getByText('Partner (beheerder) gaf je leesrechten op deze rekening.')).toBeTruthy();
+    expect((within(sheet).getByLabelText('Naam') as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('lets the manager change them', async () => {
+    stubApi();
+    renderAt('/rekeningen');
+    const sheet = await open();
+    expect((within(sheet).getByLabelText('Naam') as HTMLInputElement).disabled).toBe(false);
+    expect(within(sheet).getByRole('button', { name: 'Opslaan' })).toBeTruthy();
   });
 });

@@ -55,6 +55,34 @@ func (s *Server) putBalance(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, a)
 }
 
+// patchMember sets a member's permission; only the account's manager may.
+func (s *Server) patchMember(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, msgAccountNotFound)
+	if !ok {
+		return
+	}
+	user, err := strconv.ParseInt(r.PathValue("userId"), 10, 64)
+	if err != nil || user <= 0 {
+		writeError(w, http.StatusNotFound, "not_found", msgMemberNotFound)
+		return
+	}
+	var body struct {
+		Permission string `json:"permission"`
+	}
+	if err := decodeJSON(w, r, &body); err != nil {
+		s.fail(w, r, err, msgMemberNotFound)
+		return
+	}
+	viewer := viewerOf(r)
+	a, err := s.store.SetPermission(r.Context(), viewer, id, user, body.Permission, s.now())
+	if err != nil {
+		s.fail(w, r, err, msgMemberNotFound)
+		return
+	}
+	s.audit(r, auth.EventMemberPermission, viewer, fmt.Sprintf("account=%d user=%d permission=%s", id, user, body.Permission))
+	writeJSON(w, http.StatusOK, a)
+}
+
 func (s *Server) listBalances(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r, msgAccountNotFound)
 	if !ok {

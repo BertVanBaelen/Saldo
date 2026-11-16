@@ -76,8 +76,8 @@ func undoBatches(ctx context.Context, tx *sql.Tx, viewer, id int64, run bool) ([
 		if err != nil {
 			return nil, err
 		}
-		if a.permission != "edit" {
-			return nil, apperr.ErrForbidden
+		if err := a.edit(); err != nil {
+			return nil, err
 		}
 	}
 	if len(ids) == 0 {

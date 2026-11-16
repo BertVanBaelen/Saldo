@@ -303,3 +303,38 @@
 /* The second step of "delete history": an explicit tick. */
 .rkd-check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; cursor: pointer; }
 .rkd-check input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--neg); }
+
+/* ---------- Leden ---------- */
+
+.rkd-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rkd-member {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-areas: "av main" ". perm";
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px 0;
+}
+.rkd-member + .rkd-member { border-top: 1px solid var(--line); }
+.rkd-member > .avatar { grid-area: av; }
+.rkd-member-main { grid-area: main; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rkd-member-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 15px; font-weight: 500; }
+.rkd-member-sub { font-size: 13px; color: var(--muted); }
+.rkd-role { padding: 1px 8px; border-radius: var(--r-pill); border: 1px solid var(--lineStrong); font-size: 11px; font-weight: 600; color: var(--muted); }
+.rkd-role--mgr { border-color: transparent; background: var(--sharedSoft); color: var(--sharedText); }
+.rkd-perm { grid-area: perm; }
+.rkd-perm-text { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; color: var(--muted); }
+@media (min-width: 1024px) {
+  .rkd-member { grid-template-columns: 36px minmax(0, 1fr) auto; grid-template-areas: "av main perm"; }
+}
+/* Lezen · Bewerken (segmented, like Weergave on Meer) */
+.rkd-seg { display: inline-grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.rkd-seg button {
+  min-width: 96px; min-height: 44px;
+  border-radius: 9px; border: none;
+  background: transparent; color: var(--text);
+  font-size: 13px; font-weight: 600;
+  transition: background 160ms ease, color 160ms ease;
+}
+.rkd-seg button[aria-pressed="true"] { background: var(--green); color: var(--onGreen); }
+.rkd-seg button[aria-disabled="true"] { opacity: 0.5; cursor: default; }

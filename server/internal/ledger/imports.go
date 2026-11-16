@@ -170,8 +170,8 @@ func importIn(ctx context.Context, tx *sql.Tx, viewer int64, f ImportFile, withP
 	if err != nil {
 		return Batch{}, nil, err
 	}
-	if a.permission != "edit" {
-		return Batch{}, nil, apperr.ErrForbidden
+	if err := a.edit(); err != nil {
+		return Batch{}, nil, err
 	}
 	var iban string
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(iban, '') FROM accounts WHERE id = ?`, f.AccountID).Scan(&iban); err != nil {

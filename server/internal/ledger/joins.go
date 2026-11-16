@@ -157,11 +157,12 @@ func (s *Store) AcceptJoin(ctx context.Context, viewer, id int64, now time.Time)
 // still holds, as alerts: the warnings and the information.
 func (s *Store) noticeAlerts(ctx context.Context, viewer int64) (warn, info []Alert, err error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT n.id, n.type, n.account_id, a.name, COALESCE(u.display_name, '')
+		SELECT n.id, n.type, n.account_id, a.name, COALESCE(u.display_name, ''), COALESCE(x.permission, '')
 		FROM account_notices n
 		JOIN account_access me ON me.account_id = n.account_id AND me.user_id = n.user_id
 		JOIN accounts a ON a.id = n.account_id
 		LEFT JOIN users u ON u.id = n.actor_id
+		LEFT JOIN account_access x ON x.account_id = n.account_id AND x.user_id = n.actor_id
 		WHERE n.user_id = ? AND n.read_at IS NULL
 		ORDER BY n.id`, viewer)
 	if err != nil {
@@ -170,8 +171,8 @@ func (s *Store) noticeAlerts(ctx context.Context, viewer int64) (warn, info []Al
 	defer rows.Close()
 	for rows.Next() {
 		var a Alert
-		var kind, account, actor string
-		if err := rows.Scan(&a.NoticeID, &kind, &a.AccountID, &account, &actor); err != nil {
+		var kind, account, actor, permission string
+		if err := rows.Scan(&a.NoticeID, &kind, &a.AccountID, &account, &actor, &permission); err != nil {
 			return nil, nil, err
 		}
 		if actor == "" {
@@ -187,7 +188,12 @@ func (s *Store) noticeAlerts(ctx context.Context, viewer int64) (warn, info []Al
 		}
 		a.Kind = "ok"
 		a.Title = actor + " sluit aan bij " + account
-		a.Note = actor + " mag bewerken · ziet de geschiedenis van deze rekening, nooit je persoonlijke rekeningen"
+		// The actor's permission now, not at joining: the manager may have changed it.
+		may := " mag bewerken"
+		if permission == "read" {
+			may = " mag alleen lezen"
+		}
+		a.Note = actor + may + " · ziet de geschiedenis van deze rekening, nooit je persoonlijke rekeningen"
 		info = append(info, a)
 	}
 	return warn, info, rows.Err()
@@ -256,8 +262,8 @@ func (s *Store) ConvertRules(ctx context.Context, viewer, id int64) (int, error)
 	if err != nil {
 		return 0, err
 	}
-	if a.role != "manager" {
-		return 0, apperr.ErrForbidden
+	if err := a.manage(); err != nil {
+		return 0, err
 	}
 	var members, existing int
 	if err := tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM account_access WHERE account_id = ?1),

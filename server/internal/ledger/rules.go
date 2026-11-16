@@ -186,8 +186,8 @@ func ruleOwner(ctx context.Context, q categorise.DB, viewer int64, in RuleInput)
 	if err != nil {
 		return categorise.Rule{}, err
 	}
-	if a.permission != "edit" {
-		return categorise.Rule{}, apperr.ErrForbidden
+	if err := a.edit(); err != nil {
+		return categorise.Rule{}, err
 	}
 	return categorise.Rule{AccountID: in.AccountID.V}, nil
 }
@@ -203,8 +203,8 @@ func (s *Store) UpdateRule(ctx context.Context, viewer, id int64, in RuleInput) 
 	if err != nil {
 		return RuleView{}, err
 	}
-	if perm != "edit" {
-		return RuleView{}, apperr.ErrForbidden
+	if err := (access{permission: perm}).edit(); err != nil {
+		return RuleView{}, err
 	}
 	if in.AccountID.Set {
 		return RuleView{}, apperr.Invalid("De eigenaar van een regel verandert niet. Maak een nieuwe regel.")
@@ -237,8 +237,8 @@ func (s *Store) DeleteRule(ctx context.Context, viewer, id int64) error {
 	if err != nil {
 		return err
 	}
-	if perm != "edit" {
-		return apperr.ErrForbidden
+	if err := (access{permission: perm}).edit(); err != nil {
+		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM rules WHERE id = ?`, id); err != nil {
 		return err
@@ -425,8 +425,8 @@ func (s *Store) PreviewRule(ctx context.Context, viewer int64, in RulePreviewInp
 		if err != nil {
 			return RulePreview{}, err
 		}
-		if perm != "edit" {
-			return RulePreview{}, apperr.ErrForbidden
+		if err := (access{permission: perm}).edit(); err != nil {
+			return RulePreview{}, err
 		}
 		if stored.AccountID != r.AccountID || stored.UserID != r.UserID {
 			return RulePreview{}, apperr.Invalid("De eigenaar van een regel verandert niet. Maak een nieuwe regel.")
@@ -464,8 +464,8 @@ func (s *Store) ApplyRule(ctx context.Context, viewer, id int64) (int, categoris
 	if err != nil {
 		return 0, categorise.Skipped{}, err
 	}
-	if perm != "edit" {
-		return 0, categorise.Skipped{}, apperr.ErrForbidden
+	if err := (access{permission: perm}).edit(); err != nil {
+		return 0, categorise.Skipped{}, err
 	}
 	res, err := categorise.Plan(ctx, tx, r, 0)
 	if err != nil {

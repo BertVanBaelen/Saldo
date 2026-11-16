@@ -308,6 +308,17 @@ describe('categorisation calls', () => {
     await expect(api.acceptJoinOffer(12)).rejects.toMatchObject({ status: 400, message: 'Koppel de rekening opnieuw om aan te sluiten.' });
   });
 
+  it('sets a member’s permission with PATCH on the member, and passes on a refusal', async () => {
+    const ok = respond(200, { id: 4 });
+    vi.stubGlobal('fetch', ok);
+    await expect(api.setMemberPermission(4, 2, 'read')).resolves.toEqual({ id: 4 });
+    const [url, init] = ok.mock.calls[0];
+    expect({ url, method: init.method, body: init.body }).toEqual({ url: '/api/accounts/4/members/2', method: 'PATCH', body: '{"permission":"read"}' });
+
+    vi.stubGlobal('fetch', respond(403, { error: { code: 'forbidden', message: 'Alleen de beheerder van de rekening kan dit.' } }));
+    await expect(api.setMemberPermission(4, 2, 'edit')).rejects.toMatchObject({ status: 403, message: 'Alleen de beheerder van de rekening kan dit.' });
+  });
+
   it('passes on the server’s message when a call is refused', async () => {
     vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' } }));
     await expect(api.updateTransaction(101, { categoryId: 2 })).rejects.toMatchObject({ status: 400, message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' });

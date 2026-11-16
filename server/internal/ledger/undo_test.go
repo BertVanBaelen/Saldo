@@ -128,14 +128,17 @@ func TestUndoRun(t *testing.T) {
 	if len(list) != 2 || list[0].Run == 0 || list[0].Run != list[1].Run {
 		t.Fatalf("run in the history: %+v", list)
 	}
-	// Account 1 stops being editable for the viewer: the run is refused whole.
-	if _, err := d.Exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 1 AND user_id = 1`); err != nil {
+	// Account 1 stops being editable for the viewer (user 2 takes over as its
+	// manager, who always edits): the run is refused whole.
+	if _, err := d.Exec(`UPDATE account_access SET role = CASE user_id WHEN 1 THEN 'member' ELSE 'manager' END,
+		permission = CASE user_id WHEN 1 THEN 'read' ELSE 'edit' END WHERE account_id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := s.Undo(ctx, 1, two[1].ID, true, undoNow); !errors.Is(err, apperr.ErrForbidden) || count(t, d, `SELECT COUNT(*) FROM transactions`) != 2 {
 		t.Fatalf("partial undo of a run: %v", err)
 	}
-	if _, err := d.Exec(`UPDATE account_access SET permission = 'edit' WHERE account_id = 1 AND user_id = 1`); err != nil {
+	if _, err := d.Exec(`UPDATE account_access SET role = CASE user_id WHEN 1 THEN 'manager' ELSE 'member' END,
+		permission = CASE user_id WHEN 1 THEN 'edit' ELSE 'read' END WHERE account_id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	batches, removed, err := s.Undo(ctx, 1, two[1].ID, true, undoNow)

@@ -45,6 +45,9 @@ export const accountState = (a: Account): AccountState => a.state ?? stateOf(a.b
 
 export const STATE_CHIP: Record<AccountState, string> = { ok: 'Boven buffer', buffer: 'In de buffer', neg: 'Rood' };
 
+/** Name, colour, buffer and balance are the manager's; every other write needs `permission === 'edit'`. */
+export const canManage = (a: Account) => a.role === 'manager' && a.permission === 'edit';
+
 export const manager = (a: Account): Member | undefined => a.members.find((m) => m.role === 'manager');
 export const others = (a: Account): Member[] => a.members.filter((m) => !m.me);
 

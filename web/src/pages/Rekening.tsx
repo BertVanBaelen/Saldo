@@ -1,19 +1,20 @@
 // Rekening: the page of one account (/rekeningen/:id). Balance and state against its own buffer, balance history,
 // "Saldo bijwerken" (manual accounts), recent transactions, Synchronisatie (bank accounts: source, consent,
-// re-authorise, remove the link), Instellen (the Rekeningen form) and deleting a manual account.
+// re-authorise, remove the link), Leden (shared accounts: the manager sets Lezen or Bewerken per member),
+// Instellen (the Rekeningen form) and deleting a manual account.
 // Design: finance-mockup/js/screens/rekening.js; spec: analysis/screens/rekeningen.md, analysis 4.8 and 6.3.
-// Leden and contributions arrive with shared accounts in 0.6.
+// Contributions arrive with 0.6-5.
 import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useTitle } from '../components/ui';
-import { accColour, accountState, isCurrent, isShared, manager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
+import { accColour, accountState, canManage, isCurrent, isShared, manager, memberTint, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { plural } from '../lib/categories';
 import { dateRelative, dateShort, dateYear, eur, momentLabel, names, parseMoney, toDate } from '../lib/format';
-import type { Account, BalancePoint, Connection, Transaction } from '../lib/types';
+import type { Account, BalancePoint, Connection, Member, Permission, Transaction } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { amountClass, catView } from './Transacties';
 import { Avatar, Editor, patchOf, values, type Draft } from './Rekeningen';
@@ -467,6 +468,89 @@ function TxCard({ a, page, error, onRetry, today }: { a: Account; page: Transact
     <section className="card rkd-card anim-in" style={delay(100)} id="transacties" aria-labelledby="rkd-h-tx">
       <CardHead id="rkd-h-tx" title="Recente transacties" extra={page?.length ? link : undefined} />
       {body}
+    </section>
+  );
+}
+
+// ---------- Leden (shared account): the manager sets Lezen or Bewerken per member ----------
+
+const PERMISSIONS: { value: Permission; label: string }[] = [
+  { value: 'read', label: 'Lezen' },
+  { value: 'edit', label: 'Bewerken' },
+];
+
+function MembersCard({ a, onChanged }: { a: Account; onChanged: (a: Account) => void }) {
+  const { online, toast } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const mgr = manager(a);
+  const isMgr = a.role === 'manager';
+  let other = 0;
+  const choose = (m: Member, permission: Permission) => {
+    if (busy || !online || permission === m.permission) return;
+    setBusy(true);
+    setError(null);
+    api.setMemberPermission(a.id, m.userId, permission).then(
+      (x) => {
+        setBusy(false);
+        toast(m.name + (permission === 'read' ? ' mag nu alleen lezen' : ' mag nu bewerken'));
+        onChanged(x);
+      },
+      (e) => {
+        setBusy(false);
+        setError(errorMessage(e));
+      },
+    );
+  };
+  return (
+    <section className="card rkd-card anim-in" style={delay(120)} id="leden" aria-labelledby="rkd-h-leden">
+      <CardHead id="rkd-h-leden" title="Leden" meta={a.members.length + ' leden · ' + (mgr ? (mgr.me ? 'jij bent beheerder' : mgr.name + ' is beheerder') : '')} />
+      <ul className="rkd-members">
+        {a.members.map((m) => (
+          <li className="rkd-member" key={m.userId}>
+            <span className="avatar avatar--md" style={{ background: memberTint(m, m.me ? 0 : other++) }} aria-hidden="true">
+              {m.initial}
+            </span>
+            <span className="rkd-member-main">
+              <span className="rkd-member-name">
+                {m.me ? 'Jij' : m.name}
+                <span className={'rkd-role' + (m.role === 'manager' ? ' rkd-role--mgr' : '')}>{m.role === 'manager' ? 'Beheerder' : 'Lid'}</span>
+              </span>
+              {m.joinedAt && <span className="rkd-member-sub">sinds {dateYear(m.joinedAt)}</span>}
+            </span>
+            <span className="rkd-perm">
+              {isMgr && m.role !== 'manager' ? (
+                <span className="rkd-seg" role="group" aria-label={'Rechten van ' + m.name}>
+                  {PERMISSIONS.map((p) => (
+                    <button key={p.value} type="button" aria-pressed={m.permission === p.value} aria-disabled={busy || !online || undefined} onClick={() => choose(m, p.value)}>
+                      {p.label}
+                    </button>
+                  ))}
+                </span>
+              ) : (
+                <span className="rkd-perm-text">
+                  {m.permission === 'read' && <Icon name="lock" size={13} stroke={2.2} />}
+                  {m.permission === 'read' ? 'Alleen lezen' : 'Bewerken'}
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {error && (
+        <p className="rk-err rk-save-err" role="alert">
+          {error}
+        </p>
+      )}
+      {isMgr && !online && (
+        <p className="rk-offline">
+          <Icon name="cloudOff" size={14} stroke={2.2} />
+          Je bent offline. Rechten aanpassen kan weer zodra je verbinding hebt.
+        </p>
+      )}
+      <p className="rkd-help">
+        <strong>Lezen</strong>: alleen bekijken. <strong>Bewerken</strong>: ook categoriseren, splitsen, notities, regels en importeren. {isMgr ? 'Alleen jij als beheerder past de rechten aan.' : 'Alleen de beheerder past de rechten aan.'}
+      </p>
     </section>
   );
 }
@@ -966,7 +1050,7 @@ export function Rekening() {
         </div>
         <div className="rkd-col rkd-col--main">
           <HistoryCard a={a} points={balances.data} error={balances.error} onRetry={balances.reload} today={today} />
-          {manual && a.permission === 'edit' && (
+          {manual && canManage(a) && (
             <UpdateCard
               a={a}
               points={balances.data || []}
@@ -977,6 +1061,7 @@ export function Rekening() {
             />
           )}
           <TxCard a={a} page={txs.data} error={txs.error} onRetry={txs.reload} today={today} />
+          {a.members.length > 1 && <MembersCard a={a} onChanged={replace} />}
         </div>
         <div className="rkd-col rkd-col--side">
           {a.role === 'manager' && a.convertibleRules > 0 && <ConvertRules a={a} onDone={accounts.reload} />}

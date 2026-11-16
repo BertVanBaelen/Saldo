@@ -3,7 +3,6 @@ package ledger
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"slices"
 	"strings"
 	"time"
@@ -71,11 +70,13 @@ type SyncReport struct {
 
 // Member is one member of a shared account.
 type Member struct {
+	UserID     int64  `json:"userId"`
 	Name       string `json:"name"`
 	Initial    string `json:"initial"`
 	Role       string `json:"role"`
 	Permission string `json:"permission"`
 	Me         bool   `json:"me"`
+	JoinedAt   string `json:"joinedAt"`
 }
 
 // State is the verdict for one current account's balance against its own
@@ -187,7 +188,7 @@ func (s *Store) accounts(ctx context.Context, viewer, only int64, now time.Time)
 
 func (s *Store) loadMembers(ctx context.Context, viewer int64, list []Account, index map[int64]int) error {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT x.account_id, u.id, u.display_name, x.role, x.permission
+		SELECT x.account_id, u.id, u.display_name, x.role, x.permission, x.joined_at
 		FROM account_access x
 		JOIN users u ON u.id = x.user_id
 		WHERE x.account_id IN (SELECT account_id FROM account_access WHERE user_id = ?)
@@ -197,9 +198,10 @@ func (s *Store) loadMembers(ctx context.Context, viewer int64, list []Account, i
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var accountID, userID int64
+		var accountID int64
 		var m Member
-		if err := rows.Scan(&accountID, &userID, &m.Name, &m.Role, &m.Permission); err != nil {
+		var joined string
+		if err := rows.Scan(&accountID, &m.UserID, &m.Name, &m.Role, &m.Permission, &joined); err != nil {
 			return err
 		}
 		i, ok := index[accountID]
@@ -207,7 +209,8 @@ func (s *Store) loadMembers(ctx context.Context, viewer int64, list []Account, i
 			continue
 		}
 		m.Initial = users.Initial(m.Name)
-		m.Me = userID == viewer
+		m.Me = m.UserID == viewer
+		m.JoinedAt, _, _ = formatTimestamp(joined)
 		list[i].Members = append(list[i].Members, m)
 	}
 	return rows.Err()
@@ -366,9 +369,9 @@ type AccountPatch struct {
 	IBAN *string `json:"iban"`
 }
 
-// UpdateAccount applies a patch for a viewer with edit permission and
-// returns the updated account. Hidden accounts answer apperr.ErrNotFound,
-// read-only ones apperr.ErrForbidden.
+// UpdateAccount applies a patch for the account's manager and returns the
+// updated account. Hidden accounts answer apperr.ErrNotFound, read-only ones
+// apperr.ErrForbidden, other members ErrNotManager.
 func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPatch, now time.Time) (Account, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -376,18 +379,16 @@ func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPa
 	}
 	defer tx.Rollback()
 
-	var accountType, source, permission string
-	err = tx.QueryRowContext(ctx, `
-		SELECT a.type, a.source, me.permission FROM account_access me JOIN accounts a ON a.id = me.account_id
-		WHERE me.user_id = ? AND a.id = ?`, viewer, id).Scan(&accountType, &source, &permission)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Account{}, apperr.ErrNotFound
-	}
+	a, err := accessOf(ctx, tx, viewer, id)
 	if err != nil {
 		return Account{}, err
 	}
-	if permission != "edit" {
-		return Account{}, apperr.ErrForbidden
+	if err := a.edit(); err != nil {
+		return Account{}, err
+	}
+	// The account itself is the manager's (the single member of a personal account is its manager).
+	if err := a.manage(); err != nil {
+		return Account{}, err
 	}
 
 	if p.Name == nil && p.Colour == nil && p.Buffer == nil && p.IBAN == nil {
@@ -405,7 +406,7 @@ func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPa
 		return Account{}, apperr.Invalid("Kies een van de acht rekeningkleuren.")
 	}
 	if p.Buffer != nil {
-		if err := validBuffer(accountType, *p.Buffer); err != nil {
+		if err := validBuffer(a.typ, *p.Buffer); err != nil {
 			return Account{}, err
 		}
 	}
@@ -416,7 +417,7 @@ func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPa
 	}
 	if p.IBAN != nil {
 		// A bank account's IBAN is its identity at the bank (analysis 6.3).
-		if source != "manual" {
+		if a.source != "manual" {
 			return Account{}, apperr.Invalid("Het IBAN van een bankrekening komt van de bank.")
 		}
 		iban, err := manualIBAN(p.IBAN)

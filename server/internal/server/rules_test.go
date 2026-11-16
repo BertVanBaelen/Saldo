@@ -196,6 +196,7 @@ func TestRulePreviewChecks(t *testing.T) {
 	// may not preview or apply its rules.
 	expectError(t, p.partner("POST", "/api/rules/preview", `{"ruleId":`+ruleID+`,"counterparty":"x"}`), http.StatusNotFound, "not_found")
 	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+	p.assertInvariant()
 	for _, body := range []string{`{"accountId":4,"counterparty":"x"}`, `{"ruleId":` + strconv.FormatInt(acc4, 10) + `,"counterparty":"x"}`,
 		`{"ruleId":` + strconv.FormatInt(acc4, 10) + `,"accountId":4,"counterparty":"x"}`} {
 		expectError(t, p.partner("POST", "/api/rules/preview", body), http.StatusForbidden, "forbidden")
@@ -301,6 +302,7 @@ func TestReorderRules(t *testing.T) {
 	// A read-only member orders only her own rules; the shared account's
 	// rule keeps its place among them, and Bert's rules stay as they are.
 	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+	p.assertInvariant()
 	p.exec(`UPDATE rules SET priority = 3 WHERE id = ?`, d)
 	q := p.newRule(p.partner, `{"counterparty":"q","priority":1,"categoryId":2}`)
 	bertsRules := p.query(`SELECT id, priority FROM rules WHERE user_id IS NOT ? ORDER BY id`, 2)

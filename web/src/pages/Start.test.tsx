@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api';
-import { CATEGORISE_ALERT, CONSENT_ALERT, EB_OFF, EB_ON, GEDEELD, MEMBER_ALERT, PENDING, renderAt, RULES_ALERT, SPAAR, stubApi, ZICHT } from '../test/helpers';
+import { asMember, CATEGORISE_ALERT, CONSENT_ALERT, EB_OFF, EB_ON, GEDEELD, MEMBER_ALERT, PENDING, renderAt, RULES_ALERT, SPAAR, stubApi, ZICHT } from '../test/helpers';
 import type { Account, Alert, SyncStatus } from '../lib/types';
 
 const hero = () => document.querySelector('.hero') as HTMLElement;
@@ -88,16 +88,7 @@ describe('Start · Saldo nu', () => {
   });
 
   it('marks a shared account the viewer may only read', async () => {
-    const ro: Account = {
-      ...GEDEELD,
-      permission: 'read',
-      role: 'member',
-      members: [
-        { name: 'Bert', initial: 'B', role: 'member', permission: 'read', me: true },
-        { name: 'Partner', initial: 'P', role: 'manager', permission: 'edit', me: false },
-      ],
-    };
-    stubApi({ accounts: [ZICHT, ro] });
+    stubApi({ accounts: [ZICHT, asMember('read')] });
     renderAt('/');
     expect(await screen.findByText('Alleen lezen')).toBeTruthy();
     expect(screen.getByText('Partner beheert deze rekening. Je ziet alles, maar wijzigt niets.')).toBeTruthy();

@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ACCOUNTS, CONNECTIONS, GEDEELD, NEW_MANUAL, renderAt, SPAAR, stubApi, UNLINKED, ZICHT } from '../test/helpers';
+import { ACCOUNTS, asMember, CONNECTIONS, GEDEELD, NEW_MANUAL, renderAt, SPAAR, stubApi, UNLINKED, ZICHT } from '../test/helpers';
 import { ApiError } from '../lib/api';
 import type { Account } from '../lib/types';
 import { removalSplit } from './Rekening';
@@ -144,11 +144,7 @@ describe('Rekening · a bank account', () => {
   });
 
   it('is read-only for a member with read permission', async () => {
-    const ro: Account = { ...GEDEELD, permission: 'read', role: 'member', members: [
-      { name: 'Partner', initial: 'P', role: 'manager', permission: 'edit', me: false },
-      { name: 'Bert', initial: 'B', role: 'member', permission: 'read', me: true },
-    ] };
-    stubApi({ accounts: [ZICHT, ro], connections: [] });
+    stubApi({ accounts: [ZICHT, asMember('read')], connections: [] });
     renderAt('/rekeningen/4');
     await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
     expect((screen.getByLabelText('Naam') as HTMLInputElement).disabled).toBe(true);
@@ -280,7 +276,7 @@ describe('Rekening · Je regels (the manager’s rules on a shared account)', ()
     first.unmount();
 
     // Only the manager's rules are converted: a member never sees the card.
-    const member = shared(2, { role: 'member', members: [{ name: 'Partner', initial: 'P', role: 'manager', permission: 'edit', me: false }, { name: 'Bert', initial: 'B', role: 'member', permission: 'edit', me: true }] });
+    const member = { ...asMember('edit'), convertibleRules: 2 };
     stubApi({ accounts: [ZICHT, member] });
     const second = renderAt('/rekeningen/4');
     await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
@@ -292,5 +288,114 @@ describe('Rekening · Je regels (the manager’s rules on a shared account)', ()
     await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
     expect(screen.queryByRole('heading', { name: 'Je regels' })).toBeNull();
     expect(screen.queryByRole('button', { name: BUTTON })).toBeNull();
+  });
+});
+
+describe('Rekening · Leden (members and permissions)', () => {
+  const toast = () => document.querySelector('.toast')?.textContent;
+  const leden = () => screen.findByRole('heading', { name: 'Leden' }).then((h) => h.closest('section') as HTMLElement);
+  const bewerkt = (box: HTMLElement, who: string) => within(within(box).getByRole('group', { name: 'Rechten van ' + who }));
+
+  it('lists the members for the manager, who sets Lezen or Bewerken per member but not on their own row', async () => {
+    stubApi({ accounts: [ZICHT, GEDEELD] });
+    renderAt('/rekeningen/4');
+    const box = await leden();
+    expect(within(box).getByText('2 leden · jij bent beheerder')).toBeTruthy();
+    const rows = within(box).getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText('Jij')).toBeTruthy();
+    expect(within(rows[0]).getByText('Beheerder')).toBeTruthy();
+    expect(within(rows[0]).getByText('sinds 3 juni 2026')).toBeTruthy();
+    expect(within(rows[0]).getByText('Bewerken')).toBeTruthy();
+    expect(within(rows[0]).queryByRole('group')).toBeNull();
+    expect(within(rows[1]).getByText('Partner')).toBeTruthy();
+    expect(within(rows[1]).getByText('Lid')).toBeTruthy();
+    const perm = bewerkt(box, 'Partner');
+    expect(perm.getByRole('button', { name: 'Bewerken' }).getAttribute('aria-pressed')).toBe('true');
+    expect(perm.getByRole('button', { name: 'Lezen' }).getAttribute('aria-pressed')).toBe('false');
+    expect(within(box).getByText(/Alleen jij als beheerder past de rechten aan/)).toBeTruthy();
+  });
+
+  it('saves a change at once, says so, and keeps what the server answers; pressing the active option does nothing', async () => {
+    const api = stubApi({ accounts: [ZICHT, GEDEELD] });
+    renderAt('/rekeningen/4');
+    const box = await leden();
+    fireEvent.click(bewerkt(box, 'Partner').getByRole('button', { name: 'Bewerken' }));
+    expect(api.setMemberPermission).not.toHaveBeenCalled();
+
+    fireEvent.click(bewerkt(box, 'Partner').getByRole('button', { name: 'Lezen' }));
+    await waitFor(() => expect(toast()).toBe('Partner mag nu alleen lezen'));
+    expect(api.setMemberPermission).toHaveBeenCalledTimes(1);
+    expect(api.setMemberPermission).toHaveBeenCalledWith(4, 2, 'read');
+    expect(bewerkt(box, 'Partner').getByRole('button', { name: 'Lezen' }).getAttribute('aria-pressed')).toBe('true');
+    expect(bewerkt(box, 'Partner').getByRole('button', { name: 'Bewerken' }).getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(bewerkt(box, 'Partner').getByRole('button', { name: 'Bewerken' }));
+    await waitFor(() => expect(toast()).toBe('Partner mag nu bewerken'));
+    expect(api.setMemberPermission).toHaveBeenLastCalledWith(4, 2, 'edit');
+  });
+
+  it('shows the server’s message and keeps the choice when saving fails', async () => {
+    const api = stubApi({ accounts: [ZICHT, GEDEELD] });
+    api.setMemberPermission.mockRejectedValue(new ApiError(403, 'forbidden', 'Alleen de beheerder van de rekening kan dit.'));
+    renderAt('/rekeningen/4');
+    const box = await leden();
+    fireEvent.click(bewerkt(box, 'Partner').getByRole('button', { name: 'Lezen' }));
+    expect((await within(box).findByRole('alert')).textContent).toBe('Alleen de beheerder van de rekening kan dit.');
+    expect(bewerkt(box, 'Partner').getByRole('button', { name: 'Bewerken' }).getAttribute('aria-pressed')).toBe('true');
+    expect(toast()).toBeUndefined();
+    // Free again for another try.
+    api.setMemberPermission.mockClear();
+    fireEvent.click(bewerkt(box, 'Partner').getByRole('button', { name: 'Lezen' }));
+    await waitFor(() => expect(api.setMemberPermission).toHaveBeenCalledTimes(1));
+  });
+
+  it('is a plain list for a member who may edit, who also loses name, colour, buffer and balance', async () => {
+    stubApi({ accounts: [ZICHT, asMember('edit')], connections: [] });
+    const first = renderAt('/rekeningen/4');
+    const box = await leden();
+    expect(within(box).getByText('2 leden · Partner is beheerder')).toBeTruthy();
+    expect(within(box).queryByRole('group')).toBeNull();
+    expect(within(box).queryByRole('button')).toBeNull();
+    const rows = within(box).getAllByRole('listitem');
+    expect(within(rows[0]).getByText('Partner')).toBeTruthy();
+    expect(within(rows[0]).getByText('Beheerder')).toBeTruthy();
+    expect(within(rows[1]).getByText('Jij')).toBeTruthy();
+    expect(within(rows[1]).getByText('Lid')).toBeTruthy();
+    expect(within(box).getByText(/Alleen de beheerder past de rechten aan/)).toBeTruthy();
+    // Edit permission is for transactions and rules, not for the account's own settings.
+    expect((screen.getByLabelText('Naam') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Minimumbuffer') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('radio', { name: 'Blauw' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Opslaan' })).toBeNull();
+    expect(screen.getByText('Partner (beheerder) past naam, kleur en buffer aan.')).toBeTruthy();
+    expect(screen.queryByText('Alleen lezen')).toBeNull();
+    first.unmount();
+
+    // The balance of a manual account is the manager's too.
+    stubApi({ accounts: [{ ...SPAAR, role: 'member' }] });
+    renderAt('/rekeningen/2');
+    await screen.findByRole('heading', { level: 1, name: 'Spaarrekening' });
+    expect(screen.queryByRole('heading', { name: 'Saldo bijwerken' })).toBeNull();
+  });
+
+  it('is a plain list with the lock for a member who may only read', async () => {
+    stubApi({ accounts: [ZICHT, asMember('read')], connections: [] });
+    renderAt('/rekeningen/4');
+    const box = await leden();
+    expect(within(box).queryByRole('group')).toBeNull();
+    expect(within(box).queryByRole('button')).toBeNull();
+    expect(within(within(box).getAllByRole('listitem')[1]).getByText('Alleen lezen')).toBeTruthy();
+    expect(within(within(box).getAllByRole('listitem')[0]).getByText('Bewerken')).toBeTruthy();
+    // The page says so as well: the lock chip in the header, and the note above the settings.
+    expect(document.querySelector('.rkd-ro-chip')?.textContent).toBe('Alleen lezen');
+    expect(screen.getByText('Partner (beheerder) gaf je leesrechten op deze rekening.')).toBeTruthy();
+  });
+
+  it('has no Leden on a personal account', async () => {
+    stubApi();
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(screen.queryByRole('heading', { name: 'Leden' })).toBeNull();
   });
 });

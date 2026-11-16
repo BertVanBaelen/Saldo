@@ -285,6 +285,7 @@ func TestSimilar(t *testing.T) {
 		expectError(t, p.partner("POST", txPath(id, "/similar"), ""), http.StatusNotFound, "not_found")
 	}
 	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+	p.assertInvariant()
 	expectError(t, p.partner("GET", txPath(x, "/similar"), ""), http.StatusForbidden, "forbidden")
 	expectError(t, p.partner("POST", txPath(x, "/similar"), ""), http.StatusForbidden, "forbidden")
 }
@@ -388,6 +389,7 @@ func TestSplit(t *testing.T) {
 	p.tx(p.bert, "PUT", txPath(shared, "/split"), `{"parts":[{"categoryId":3,"amount":-1000},{"categoryId":6,"amount":-1000}]}`)
 	p.tx(p.bert, "PATCH", txPath(shared, ""), `{"note":"samen betaald"}`)
 	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+	p.assertInvariant()
 	var seen ledger.Transaction
 	for _, it := range decode[ledger.Page](t, p.partner("GET", "/api/transactions?q=Gedeeld", "").body).Items {
 		if it.ID == shared {

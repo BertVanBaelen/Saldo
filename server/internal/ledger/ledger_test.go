@@ -107,8 +107,8 @@ func TestAccountsForBert(t *testing.T) {
 		t.Errorf("Gedeelde rekening: %+v", shared)
 	}
 	wantMembers := []ledger.Member{
-		{Name: "Bert", Initial: "B", Role: "manager", Permission: "edit", Me: true},
-		{Name: "Partner", Initial: "P", Role: "member", Permission: "edit", Me: false},
+		{UserID: 1, Name: "Bert", Initial: "B", Role: "manager", Permission: "edit", Me: true, JoinedAt: "2026-06-03T10:10:00+02:00"},
+		{UserID: 2, Name: "Partner", Initial: "P", Role: "member", Permission: "edit", Me: false, JoinedAt: "2026-06-05T21:00:00+02:00"},
 	}
 	if !slices.Equal(shared.Members, wantMembers) {
 		t.Errorf("members: %+v", shared.Members)

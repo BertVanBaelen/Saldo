@@ -20,6 +20,7 @@ import type {
   NewAccount,
   NewCategory,
   PendingJoinOffer,
+  Permission,
   Preferences,
   Redeem,
   RemovedLink,
@@ -154,6 +155,9 @@ export const api = {
   balances: (id: number, signal?: AbortSignal) => request<BalancePoint[]>('GET', '/api/accounts/' + id + '/balances', { signal }),
   /** Manual accounts only. */
   deleteAccount: (id: number) => request<null>('DELETE', '/api/accounts/' + id),
+  /** Manager only, never on the manager's own row: lets a member read or edit; answers the account. */
+  setMemberPermission: (accountId: number, userId: number, permission: Permission) =>
+    request<Account>('PATCH', '/api/accounts/' + accountId + '/members/' + userId, { body: { permission } }),
   /** The manager's own rules that no longer apply to this account become rules of the account. */
   convertRules: (id: number) => request<{ converted: number }>('POST', '/api/accounts/' + id + '/convert-rules'),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),

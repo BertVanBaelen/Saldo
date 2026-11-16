@@ -16,6 +16,7 @@ import type {
   JoinOffer,
   Me,
   PendingJoinOffer,
+  Permission,
   Rule,
   RulePreview,
   SimilarPreview,
@@ -76,11 +77,21 @@ export const GEDEELD: Account = {
   balance: 94608,
   state: 'ok',
   members: [
-    { name: 'Bert', initial: 'B', role: 'manager', permission: 'edit', me: true },
-    { name: 'Partner', initial: 'P', role: 'member', permission: 'edit', me: false },
+    { userId: 1, name: 'Bert', initial: 'B', role: 'manager', permission: 'edit', me: true, joinedAt: '2026-06-03T20:14:00+02:00' },
+    { userId: 2, name: 'Partner', initial: 'P', role: 'member', permission: 'edit', me: false, joinedAt: '2026-11-18T08:30:00+01:00' },
   ],
 };
 export const ACCOUNTS = [ZICHT, SPAAR, GEDEELD];
+/** The shared account as a plain member sees it: Partner is the manager, the viewer (Bert) holds it with `permission`. */
+export const asMember = (permission: Permission): Account => ({
+  ...GEDEELD,
+  role: 'member',
+  permission,
+  members: [
+    { userId: 2, name: 'Partner', initial: 'P', role: 'manager', permission: 'edit', me: false, joinedAt: '2026-06-03T20:14:00+02:00' },
+    { userId: 1, name: 'Bert', initial: 'B', role: 'member', permission, me: true, joinedAt: '2026-11-18T08:30:00+01:00' },
+  ],
+});
 
 const tx = (id: number, bookingDate: string, accountId: number, amount: number, counterparty: string, extra: Partial<Transaction> = {}): Transaction => ({
   id,
@@ -369,6 +380,11 @@ export function stubApi(s: Stub = {}) {
     declineJoinOffer: vi.spyOn(api, 'declineJoinOffer').mockResolvedValue(null),
     readNotice: vi.spyOn(api, 'readNotice').mockResolvedValue(null),
     convertRules: vi.spyOn(api, 'convertRules').mockResolvedValue({ converted: 3 }),
+    // Members and permissions (0.6-1b): answers the account with that member's permission changed.
+    setMemberPermission: vi.spyOn(api, 'setMemberPermission').mockImplementation(async (id, userId, permission) => {
+      const a = structuredClone((s.accounts ?? ACCOUNTS).find((x) => x.id === id)!);
+      return { ...a, members: a.members.map((m) => (m.userId === userId ? { ...m, permission } : m)) };
+    }),
     imports: vi.spyOn(api, 'imports').mockImplementation(async () => structuredClone(s.imports ?? BATCHES)),
     // Counts only when both the account and the mapping are sent, as the server does.
     previewImport: vi.spyOn(api, 'previewImport').mockImplementation(async (file, o = {}) => ({

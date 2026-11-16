@@ -148,6 +148,7 @@ func (s *Server) routes() {
 	m.HandleFunc("PATCH /api/accounts/{id}", s.patchAccount)
 	m.HandleFunc("DELETE /api/accounts/{id}", s.deleteAccount)
 	m.HandleFunc("PUT /api/accounts/{id}/balance", s.putBalance)
+	m.HandleFunc("PATCH /api/accounts/{id}/members/{userId}", s.patchMember)
 	m.HandleFunc("POST /api/accounts/{id}/convert-rules", s.postConvertRules)
 	m.HandleFunc("GET /api/join-offers", s.listJoinOffers)
 	m.HandleFunc("POST /api/join-offers/{id}/accept", s.acceptJoinOffer)

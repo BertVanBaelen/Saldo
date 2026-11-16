@@ -30,19 +30,25 @@ type UndoPreview struct {
 
 // undoBatches finds the batches an undo of id covers, after checking that the
 // viewer may edit every account involved: the batch itself, or with run every
-// batch of the same file import (one file split over several accounts is one
-// run: same file hash, creator and creation second). An unknown or hidden
+// batch of the same file import on an account the viewer holds (one file split
+// over several accounts is one run: same file hash, creator and creation
+// second; another member sees only their part of it). An unknown or hidden
 // batch is apperr.ErrNotFound, a read-only account apperr.ErrForbidden.
 // Batches that are undone already or brought nothing are left out; when none
 // is left that is an invalid request with the reason.
 func undoBatches(ctx context.Context, tx *sql.Tx, viewer, id int64, run bool) ([]int64, error) {
-	q := `SELECT id, account_id, rows_imported, undone_at IS NOT NULL FROM import_batches WHERE id = ?1`
+	q, args := `SELECT id, account_id, rows_imported, undone_at IS NOT NULL FROM import_batches WHERE id = ?1`, []any{id}
 	if run {
+		// The run as the viewer sees it: the batch itself must be visible,
+		// and only the run's batches on accounts the viewer holds count.
 		q = `SELECT r.id, r.account_id, r.rows_imported, r.undone_at IS NOT NULL FROM import_batches r
 			JOIN import_batches b ON b.id = ?1 AND r.file_hash = b.file_hash AND r.created_at = b.created_at AND r.created_by IS b.created_by
+			JOIN account_access rx ON rx.account_id = r.account_id AND rx.user_id = ?2
+			WHERE EXISTS (SELECT 1 FROM account_access bx WHERE bx.account_id = b.account_id AND bx.user_id = ?2)
 			ORDER BY r.id`
+		args = append(args, viewer)
 	}
-	rows, err := tx.QueryContext(ctx, q, id)
+	rows, err := tx.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

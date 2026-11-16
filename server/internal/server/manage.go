@@ -143,6 +143,11 @@ func (s *Server) deleteConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	viewer := viewerOf(r)
+	// Another user's link is 404 at once: waiting for its sync would tell it exists.
+	if err := s.store.OwnConnection(r.Context(), viewer, id); err != nil {
+		s.fail(w, r, err, msgConnectionNotFound)
+		return
+	}
 	var removed ledger.Removed
 	ran := false
 	remove := func() error {

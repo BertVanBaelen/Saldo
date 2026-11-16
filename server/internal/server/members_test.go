@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -27,24 +28,29 @@ func (p *pair) assertInvariant() {
 // must leave it as it was.
 func (p *pair) snapshot() string {
 	p.t.Helper()
-	rows, err := p.db.Query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT IN ('audit_log', 'sqlite_sequence') ORDER BY name`)
+	return snapshotDB(p.t, p.db)
+}
+
+func snapshotDB(t *testing.T, db *sql.DB) string {
+	t.Helper()
+	rows, err := db.Query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT IN ('audit_log', 'sqlite_sequence') ORDER BY name`)
 	if err != nil {
-		p.t.Fatal(err)
+		t.Fatal(err)
 	}
 	var tables []string
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
-			p.t.Fatal(err)
+			t.Fatal(err)
 		}
 		tables = append(tables, name)
 	}
 	rows.Close()
 	var b strings.Builder
 	for _, table := range tables {
-		rows, err := p.db.Query(`SELECT * FROM "` + table + `"`)
+		rows, err := db.Query(`SELECT * FROM "` + table + `"`)
 		if err != nil {
-			p.t.Fatal(err)
+			t.Fatal(err)
 		}
 		cols, _ := rows.Columns()
 		for rows.Next() {
@@ -54,7 +60,7 @@ func (p *pair) snapshot() string {
 				ptrs[i] = &vals[i]
 			}
 			if err := rows.Scan(ptrs...); err != nil {
-				p.t.Fatal(err)
+				t.Fatal(err)
 			}
 			fmt.Fprintf(&b, "%s%v\n", table, vals)
 		}

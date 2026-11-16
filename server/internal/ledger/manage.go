@@ -295,6 +295,26 @@ func (s *Store) Balances(ctx context.Context, viewer, id int64) ([]Balance, erro
 	return list, rows.Err()
 }
 
+// OwnConnection is nil when id is a link of the viewer that is not revoked,
+// else apperr.ErrNotFound.
+func (s *Store) OwnConnection(ctx context.Context, viewer, id int64) error {
+	return ownConnection(ctx, s.db, viewer, id)
+}
+
+func ownConnection(ctx context.Context, q interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}, viewer, id int64) error {
+	var found bool
+	if err := q.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM provider_connections
+		WHERE id = ? AND user_id = ? AND status <> 'revoked')`, id, viewer).Scan(&found); err != nil {
+		return err
+	}
+	if !found {
+		return apperr.ErrNotFound
+	}
+	return nil
+}
+
 // Removed is the outcome of removing a bank link.
 type Removed struct {
 	Deleted []int64 `json:"deleted"` // accounts deleted with their history
@@ -315,13 +335,8 @@ func (s *Store) RemoveConnection(ctx context.Context, viewer, id int64, deleteHi
 		return Removed{}, err
 	}
 	defer tx.Rollback()
-	var found bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM provider_connections
-		WHERE id = ? AND user_id = ? AND status <> 'revoked')`, id, viewer).Scan(&found); err != nil {
+	if err := ownConnection(ctx, tx, viewer, id); err != nil {
 		return Removed{}, err
-	}
-	if !found {
-		return Removed{}, apperr.ErrNotFound
 	}
 
 	rows, err := tx.QueryContext(ctx, `

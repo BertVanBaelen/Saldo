@@ -373,12 +373,14 @@ func aboveStored(ctx context.Context, tx *sql.Tx, accountID int64, kept []NewTra
 }
 
 // Batches lists the imports into accounts the viewer holds (any
-// permission), newest first.
+// permission), newest first. A run is the viewer's part of it: its batches
+// on accounts the viewer holds (never the id of a batch they cannot see).
 func (s *Store) Batches(ctx context.Context, viewer int64) ([]Batch, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT b.id, b.source, b.file_name, b.account_id, b.created_at,
 		       b.rows_imported, b.rows_duplicate, b.rows_skipped, b.undone_at,
-		       (SELECT MIN(r.id) FROM import_batches r WHERE r.file_hash = b.file_hash AND r.created_at = b.created_at AND r.created_by IS b.created_by)
-		FROM import_batches b JOIN account_access me ON me.account_id = b.account_id AND me.user_id = ?
+		       (SELECT MIN(r.id) FROM import_batches r JOIN account_access rx ON rx.account_id = r.account_id AND rx.user_id = ?1
+		        WHERE r.file_hash = b.file_hash AND r.created_at = b.created_at AND r.created_by IS b.created_by)
+		FROM import_batches b JOIN account_access me ON me.account_id = b.account_id AND me.user_id = ?1
 		ORDER BY b.created_at DESC, b.id DESC`, viewer)
 	if err != nil {
 		return nil, err

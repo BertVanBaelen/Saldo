@@ -155,11 +155,13 @@ func (s *Store) AcceptJoin(ctx context.Context, viewer, id int64, now time.Time)
 
 // noticeAlerts are the viewer's unread notices about accounts the viewer
 // still holds, and about accounts deleted for them, as alerts: the warnings
-// and the information.
+// and the information. A left, manager or deleted notice names the actor as
+// stored at the event: the actor may share no account with the viewer any
+// more, so a later rename is not theirs to see.
 func (s *Store) noticeAlerts(ctx context.Context, viewer int64) (warn, info []Alert, err error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT n.id, n.type, COALESCE(n.account_id, 0), COALESCE(a.name, n.account_name, ''),
-		       COALESCE(u.display_name, n.actor_name, ''), COALESCE(x.permission, '')
+		       COALESCE(n.actor_name, u.display_name, ''), COALESCE(x.permission, '')
 		FROM account_notices n
 		LEFT JOIN accounts a ON a.id = n.account_id
 		LEFT JOIN users u ON u.id = n.actor_id

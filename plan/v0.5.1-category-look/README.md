@@ -2,7 +2,7 @@
 
 **After this version you can** pick your own emoji as the icon of a category, give a category any of 16 pastels or your own colour, find a category on a transaction in two taps (main category, then subcategory) instead of a chip row and a long dropdown, and a bank link with two accounts syncs both of them.
 
-Status: built (16 Nov 2026), to verify on the live add-on; version in `saldo/config.yaml` is `0.5.1-dev` until then. Written on request after 0.5.0; not a roadmap version of the analysis, so no feature ids. Shared accounts stays 0.6 ([../v0.6-shared-accounts/README.md](../v0.6-shared-accounts/README.md)).
+Status: built (16 Nov 2026), to verify on the live add-on; version `0.5.1` set in `saldo/config.yaml` (16 Nov 2026). Written on request after 0.5.0; not a roadmap version of the analysis, so no feature ids. Shared accounts stays 0.6 ([../v0.6-shared-accounts/README.md](../v0.6-shared-accounts/README.md)).
 
 Set on 16 Nov 2026 (user): the work is a patch release on top of 0.5; emoji replace the line icons of categories; 16 palette colours plus a custom hex; the picker is a two-step drill-down.
 
@@ -27,4 +27,4 @@ Run in this order. 1 touches only the bank link and sync code, so it may run nex
 ## Process for the agents
 - Subagents run **unit tests only**: `cd server && go test ./internal/<pkg>/...` and, in `web`, `npx vitest run <files>` plus `npx tsc -b --noEmit`. No dev server, no browser, no commit, no push.
 - After each phase the lead runs the full gate: `go test ./...` (no `-race`: no gcc here), `npm run typecheck`, `npm test`, `npm run build`, then the demo (`scripts/dev.ps1 -Fresh`, through `preview_start`) in light and dark and at 375 px, and each new migration against a database created by the 0.5.0 code.
-- Version in `saldo/config.yaml` becomes `0.5.1-dev` (a bare `0.5.1` on main releases it); the changelog entry is written at the end and says the update rewrites icon values.
+- Version in `saldo/config.yaml` was `0.5.1-dev` while building; the bare `0.5.1` on main releases it; the changelog entry is written at the end and says the update rewrites icon values.

@@ -27,7 +27,7 @@ flowchart LR
 | [0.3](v0.3-bank-sync/README.md) | Bank sync | rely on a nightly sync without duplicates, consent reminders, Transacties, Rekeningen, manual accounts and a CSV import | M1 | 1 S · 4 M · 1 L | released (0.3.0), verifying |
 | [0.4](v0.4-categorisation/README.md) | Categorisation | have rules categorise transactions and fix the rest in a tap | M2 | 1 S · 3 M | released (0.4.0), verifying |
 | [0.5](v0.5-bilance-import/README.md) | Bilance import | bring in your full Bilance history, mapped to your categories, without duplicates | S2, M6 | 2 S · 4 M | released (0.5.0), verifying |
-| [0.5.1](v0.5.1-category-look/README.md) | Category look and picker | pick your own emoji and colours for categories, find a category in two taps, and a failed account of a bank link says why (sync hardened, live cause unconfirmed) | - | 1 S · 3 M | built (0.5.1-dev), to verify |
+| [0.5.1](v0.5.1-category-look/README.md) | Category look and picker | pick your own emoji and colours for categories, find a category in two taps, and a failed account of a bank link says why (sync hardened, live cause unconfirmed) | - | 1 S · 3 M | built (0.5.1), to verify |
 | [0.6](v0.6-shared-accounts/README.md) | Shared accounts | share the joint account with Partner, each seeing only your own accounts | M3 | 2 S · 2 M · 1 L | planned |
 | [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 1 S · 2 M | planned |
 | [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend | M5 | 1 S · 2 M · 3 L | planned |

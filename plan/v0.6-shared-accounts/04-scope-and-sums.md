@@ -22,5 +22,8 @@ The scope switch every later screen relies on, with sums that never pretend to b
 ## Done when
 Switching scope filters Transacties and Start correctly for both users, and no sum carries a state.
 
+## Built (16 Nov 2026)
+Checked in the demo as Bert and as Partner: the server `scope` filter on transactions (141 personal + 130 shared = 271), the Start sections and heroes per scope, the empty state "Nog geen gedeelde rekening", the scope remembered per user, and the "Alles" sum with no state. Fixed: `GET /api/alerts?scope=` (the "te categoriseren" alert counts the scope; the sidebar badge too). Overzicht and Planning follow the scope in 0.7 and 0.8.
+
 ## What exists (16 Nov 2026)
 `ScopeSwitch` (web), `Scope` on the transactions endpoint and the per-user preference (`PUT /api/me/preferences`) exist. Check which list endpoints still ignore the scope, the empty states of a scope without accounts, and the Start sums; reports follow in 0.7.

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -311,7 +312,7 @@ func TestDemoRowsAndUncategorised(t *testing.T) {
 		t.Errorf("CM Ziekenfonds: %+v", cm)
 	}
 
-	n, err := s.UncategorisedCount(ctx, bert)
+	n, err := s.UncategorisedCount(ctx, bert, "")
 	if err != nil || n != 4 {
 		t.Errorf("Bert's uncategorised count: %d, %v", n, err)
 	}
@@ -319,7 +320,7 @@ func TestDemoRowsAndUncategorised(t *testing.T) {
 	if len(open) != 4 {
 		t.Errorf("uncategorised filter: %d rows", len(open))
 	}
-	if n, _ := s.UncategorisedCount(ctx, partner); n != 0 {
+	if n, _ := s.UncategorisedCount(ctx, partner, ""); n != 0 {
 		t.Errorf("Partner's uncategorised count: %d", n)
 	}
 }
@@ -486,7 +487,7 @@ func TestConnectionsAndAlerts(t *testing.T) {
 		t.Errorf("Bert's connection: %+v", c)
 	}
 
-	alerts, err := s.Alerts(ctx, bert, demoNow)
+	alerts, err := s.Alerts(ctx, bert, "", demoNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,14 +498,14 @@ func TestConnectionsAndAlerts(t *testing.T) {
 	if !slices.Equal(alerts, want) {
 		t.Errorf("Bert's alerts:\n got %+v\nwant %+v", alerts, want)
 	}
-	partnerAlerts, _ := s.Alerts(ctx, partner, demoNow)
+	partnerAlerts, _ := s.Alerts(ctx, partner, "", demoNow)
 	if len(partnerAlerts) != 1 || partnerAlerts[0].Title != "Toestemming verloopt over 14 dagen" {
 		t.Errorf("Partner's alerts: %+v", partnerAlerts)
 	}
 
 	// Two days later without a sync: stale, and the consent nearly ends.
 	later := demoNow.Add(48 * time.Hour)
-	alerts, _ = s.Alerts(ctx, bert, later)
+	alerts, _ = s.Alerts(ctx, bert, "", later)
 	var titles []string
 	for _, a := range alerts {
 		titles = append(titles, a.Kind+": "+a.Title)
@@ -539,7 +540,7 @@ func TestConnectionsAndAlerts(t *testing.T) {
 	// More than 72 hours: "Synchronisatie gestopt" replaces the account
 	// warnings it explains.
 	stopped := demoNow.Add(72 * time.Hour)
-	alerts, _ = s.Alerts(ctx, bert, stopped)
+	alerts, _ = s.Alerts(ctx, bert, "", stopped)
 	want = []ledger.Alert{
 		{Kind: "neg", Type: "sync", Title: "Synchronisatie gestopt · Argenta", Note: "Niet bijgewerkt sinds woensdag 04:02 · bekijk de koppeling", Href: "/bankkoppelingen"},
 		{Kind: "warn", Type: "consent", Title: "Toestemming verloopt over 9 dagen", Note: "Argenta · opnieuw autoriseren", Href: "/bankkoppelingen"},
@@ -554,7 +555,7 @@ func TestConnectionsAndAlerts(t *testing.T) {
 	// over once his has been failing for longer than StaleAfter (0.6-1d).
 	d.Exec(`UPDATE provider_connections SET sync_status = 'failed', last_attempt_at = '2026-11-18T03:02:00Z' WHERE id = 1`)
 	d.Exec(`UPDATE account_sources SET status = 'failed' WHERE connection_id = 1`)
-	alerts, _ = s.Alerts(ctx, bert, demoNow)
+	alerts, _ = s.Alerts(ctx, bert, "", demoNow)
 	if alerts[0].Kind != "neg" || alerts[0].Title != "Synchronisatie mislukt · Argenta" ||
 		alerts[0].Note != "Laatste poging vandaag 04:02 · bekijk de koppeling" {
 		t.Errorf("failed sync alert: %+v", alerts)
@@ -575,7 +576,7 @@ func TestConnectionsAndAlerts(t *testing.T) {
 	if conns[0].Status != "expired" || *conns[0].DaysLeft != -1 {
 		t.Errorf("expired connection: %+v", conns[0])
 	}
-	alerts, _ = s.Alerts(ctx, bert, expired)
+	alerts, _ = s.Alerts(ctx, bert, "", expired)
 	if alerts[0].Kind != "neg" || alerts[0].Type != "consent" {
 		t.Errorf("expired consent alert: %+v", alerts)
 	}
@@ -588,7 +589,7 @@ func TestAccountSyncFailedAlertNamesTheAccount(t *testing.T) {
 	if _, err := d.Exec(`UPDATE account_sources SET status = 'failed' WHERE account_id = 1`); err != nil {
 		t.Fatal(err)
 	}
-	alerts, err := s.Alerts(context.Background(), bert, demoNow)
+	alerts, err := s.Alerts(context.Background(), bert, "", demoNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -687,6 +688,74 @@ func TestAccountsWithoutAccountsIsAnEmptyList(t *testing.T) {
 	}
 }
 
+// The "te categoriseren" alert counts what GET /api/transactions?scope=..&uncategorised=1
+// lists: only the accounts in the scope, and it is left out when that is none.
+func TestAlertsScope(t *testing.T) {
+	ctx := context.Background()
+	d, s := seeded(t)
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := d.Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Bert and Partner share account 4: one open row there next to Bert's four on his own accounts.
+	exec(`INSERT INTO transactions (account_id, amount, booking_date, counterparty_name, status, dedupe_key)
+		VALUES (4, -1234, '2026-11-10', 'Gedeelde proef', 'booked', 'scope-shared')`)
+	// Viewer 51 has one personal account and no shared one.
+	exec(`INSERT INTO users (id, email, display_name) VALUES (51, 'solo@example.com', 'Solo')`)
+	exec(`INSERT INTO accounts (id, type, source, name) VALUES (51, 'current', 'manual', 'Eigen rekening')`)
+	exec(`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (51, 51, 'manager', 'edit')`)
+	exec(`INSERT INTO transactions (account_id, amount, booking_date, counterparty_name, status, dedupe_key)
+		VALUES (51, -777, '2026-11-10', 'Eigen proef', 'booked', 'scope-solo')`)
+
+	for _, c := range []struct {
+		viewer int64
+		scope  string
+		want   int
+	}{
+		{bert, "", 5}, {bert, "alles", 5}, {bert, "persoonlijk", 4}, {bert, "gedeeld", 1},
+		{partner, "", 1}, {partner, "alles", 1}, {partner, "persoonlijk", 0}, {partner, "gedeeld", 1},
+		{51, "", 1}, {51, "persoonlijk", 1}, {51, "gedeeld", 0},
+	} {
+		listed, err := s.Transactions(ctx, c.viewer, ledger.TxQuery{Scope: c.scope, Uncategorised: true, Limit: 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, err := s.UncategorisedCount(ctx, c.viewer, c.scope)
+		if err != nil || n != c.want || listed.Total != c.want {
+			t.Errorf("viewer %d scope %q: count %d (%v), list %d, want %d", c.viewer, c.scope, n, err, listed.Total, c.want)
+		}
+		alerts, err := s.Alerts(ctx, c.viewer, c.scope, demoNow)
+		if err != nil {
+			t.Fatal(err)
+		}
+		title := ""
+		for _, a := range alerts {
+			if a.Type == "categorise" {
+				title = a.Title
+			}
+		}
+		if (c.want == 0) != (title == "") || (c.want > 1 && title != fmt.Sprintf("%d transacties te categoriseren", c.want)) {
+			t.Errorf("viewer %d scope %q: alert %q for %d rows", c.viewer, c.scope, title, c.want)
+		}
+	}
+
+	// The other alerts do not depend on the scope: Bert's consent warning stays.
+	alerts, err := s.Alerts(ctx, bert, "gedeeld", demoNow)
+	if err != nil || len(alerts) != 2 || alerts[0].Type != "consent" {
+		t.Errorf("Bert's alerts in the shared scope: %+v, %v", alerts, err)
+	}
+
+	var invalid *apperr.InvalidError
+	if _, err := s.Alerts(ctx, bert, "iedereen", demoNow); !errors.As(err, &invalid) {
+		t.Errorf("bad scope: %v", err)
+	}
+	if _, err := s.UncategorisedCount(ctx, bert, "iedereen"); !errors.As(err, &invalid) {
+		t.Errorf("bad scope: %v", err)
+	}
+}
+
 // The shapes a real link goes through: credentials saved (pending, no dates),
 // consent given but the first sync failed (no last sync), then three days of
 // failures, then an expired session.
@@ -704,7 +773,7 @@ func TestAlertsForARealLink(t *testing.T) {
 		VALUES (50, 50, 'enablebanking', 'Argenta', 'pending', '2026-11-01T10:00:00Z')`)
 	titles := func(now time.Time) []string {
 		t.Helper()
-		alerts, err := s.Alerts(ctx, 50, now)
+		alerts, err := s.Alerts(ctx, 50, "", now)
 		if err != nil {
 			t.Fatal(err)
 		}

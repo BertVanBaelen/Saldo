@@ -441,6 +441,23 @@ func TestAlerts(t *testing.T) {
 	]`)
 }
 
+func TestAlertsScope(t *testing.T) {
+	h, _ := demoServer(t)
+	// The default is every account, as with alles.
+	all := do(t, h, "GET", "/api/alerts", "").body
+	for _, q := range []string{"?scope=alles", "?scope=", "?scope=persoonlijk"} {
+		if r := do(t, h, "GET", "/api/alerts"+q, ""); r.status != 200 || r.body != all {
+			t.Errorf("%s: %d %s, want %s", q, r.status, r.body, all)
+		}
+	}
+	// Bert has no uncategorised row on a shared account: no "te categoriseren", the rest stays.
+	r := do(t, h, "GET", "/api/alerts?scope=gedeeld", "")
+	equalJSON(t, r.body, `[
+		{ "kind": "warn", "type": "consent", "title": "Toestemming verloopt over 12 dagen", "note": "Argenta · opnieuw autoriseren", "href": "/bankkoppelingen" }
+	]`)
+	expectError(t, do(t, h, "GET", "/api/alerts?scope=iedereen", ""), http.StatusBadRequest, "invalid")
+}
+
 func TestConnections(t *testing.T) {
 	h, _ := demoServer(t)
 	r := do(t, h, "GET", "/api/connections", "")

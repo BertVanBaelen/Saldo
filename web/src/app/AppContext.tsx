@@ -142,20 +142,24 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
   );
 
   const refreshShell = useCallback(() => {
-    api.alerts().then(
+    const s = scopeRef.current;
+    api.alerts(s).then(
       (a) => {
+        // An answer for a scope the user has left is stale.
+        if (s !== scopeRef.current) return;
         setAlerts(a);
         setLoadedAt(new Date());
       },
       () => setAlerts((a) => a ?? []),
     );
-    api.transactions({ uncategorised: true, limit: 1 }).then(
+    api.transactions({ uncategorised: true, scope: scopeRef.current, limit: 1 }).then(
       (p) => setUncategorised(p.total),
       () => undefined,
     );
   }, []);
 
-  useEffect(() => refreshShell(), [refreshShell]);
+  // The "te categoriseren" alert counts the accounts in the scope: load again when it changes.
+  useEffect(() => refreshShell(), [refreshShell, scope]);
 
   // The server syncs in the background: poll GET /api/sync until it is done (or gives up after a few
   // minutes), then the screens load their data again and the outcome is toasted.

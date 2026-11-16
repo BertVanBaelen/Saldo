@@ -149,6 +149,8 @@ Newest first (booking date, then id). `status`: `pending` | `booked`. `category`
 
 ### `GET /api/alerts`
 The alerts for Start, already scoped to the viewer.
+
+Query: `scope` (`alles` | `persoonlijk` | `gedeeld`, optional, default `alles`, also when missing or empty; anything else answers `400 invalid`). It narrows only the "te categoriseren" alert (0.6-4): it counts the uncategorised transactions of the accounts in the scope, the same rows as `GET /api/transactions?scope=...&uncategorised=1`, and is left out when that is 0. The other alerts do not change; the ones about one account carry its `accountId`, so the client hides them when that account is outside the scope.
 ```json
 [
   { "kind": "warn", "type": "sync", "title": "Gedeelde rekening niet bijgewerkt sinds zondag 04:02", "note": "Argenta stuurde geen nieuwe gegevens · bekijk de koppeling", "href": "/bankkoppelingen", "accountId": 4 },

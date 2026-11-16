@@ -254,7 +254,7 @@ func TestIdleFallbackIsNotAProblem(t *testing.T) {
 		if *a.SyncStatus != "ok" || a.SyncError != nil || *a.LastSync != "2026-11-20T04:00:00+01:00" {
 			t.Errorf("user %d: %s %v %s", viewer, *a.SyncStatus, a.SyncError, *a.LastSync)
 		}
-		alerts, err := e.store.Alerts(context.Background(), viewer, now)
+		alerts, err := e.store.Alerts(context.Background(), viewer, "", now)
 		if err != nil {
 			t.Fatal(err)
 		}

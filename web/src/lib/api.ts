@@ -30,6 +30,7 @@ import type {
   RuleApplyResult,
   RuleInput,
   RulePreview,
+  Scope,
   SimilarPreview,
   SimilarResult,
   SplitPartInput,
@@ -200,7 +201,8 @@ export const api = {
   backfillPreview: (signal?: AbortSignal) => request<BackfillPreview>('GET', '/api/suggestions/backfill', { signal }),
   applyBackfill: (items: { counterpartyKey: string; categoryId: number }[]) => request<BackfillResult>('POST', '/api/suggestions/backfill', { body: { items } }),
   dismissSuggestion: (counterpartyKey: string, categoryId: number) => request<null>('POST', '/api/suggestions/dismiss', { body: { counterpartyKey, categoryId } }),
-  alerts: (signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts', { signal }),
+  /** The alerts for Start; `scope` narrows only the "te categoriseren" count (left out: every account). */
+  alerts: (scope?: Scope, signal?: AbortSignal) => request<Alert[]>('GET', '/api/alerts' + (scope && scope !== 'alles' ? '?scope=' + scope : ''), { signal }),
   /** Dismisses the stored notice behind an alert (`noticeId`); it leaves the alerts. */
   readNotice: (id: number) => request<null>('POST', '/api/notices/' + id + '/read'),
   connections: (signal?: AbortSignal) => request<Connection[]>('GET', '/api/connections', { signal }),

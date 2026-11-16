@@ -79,7 +79,7 @@ func TestTransferDetectionSpeed(t *testing.T) {
 		return err
 	})
 	timed("UncategorisedCount", func() error {
-		_, err := s.UncategorisedCount(ctx, bert)
+		_, err := s.UncategorisedCount(ctx, bert, "")
 		return err
 	})
 }

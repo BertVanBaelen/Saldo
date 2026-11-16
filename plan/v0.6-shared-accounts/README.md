@@ -27,7 +27,7 @@ Status: in progress (16 Nov 2026), on branch `v0.6-shared-accounts`, version `0.
 | [0.6-1e](01-membership-and-lifecycle.md#1e-say-what-a-new-consent-left-out) | Say at link time which accounts a new consent left out | S | built, to verify |
 | [0.6-2](02-privacy.md) | Privacy suite for every endpoint | M | built, to verify |
 | [0.6-3](03-transfers-and-saved.md) | Transfer detection and saved | M | built, to verify |
-| [0.6-4](04-scope-and-sums.md) | Scope filter and sums | S | planned |
+| [0.6-4](04-scope-and-sums.md) | Scope filter and sums | S | built, to verify |
 | [0.6-5](05-contributions.md) | Contributions | S | planned |
 
 ## Decisions (16 Nov 2026)

@@ -133,7 +133,7 @@ func (s *Server) listTransactions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listAlerts(w http.ResponseWriter, r *http.Request) {
-	alerts, err := s.store.Alerts(r.Context(), viewerOf(r), s.now())
+	alerts, err := s.store.Alerts(r.Context(), viewerOf(r), r.URL.Query().Get("scope"), s.now())
 	if err != nil {
 		s.fail(w, r, err, msgNotFound)
 		return

@@ -249,3 +249,7 @@ The demo never runs the real sync (its "Nu synchroniseren" only records a sync),
 4. **As Partner** (`/api/demo/as/partner`): nothing of Bert's savings or Spaarrekening appears anywhere; `/api/accounts/2/transfers` answers "niet gevonden".
 5. Known cost: the transfer detection makes the first page of Transacties slower on very large histories (see the changelog); a real pair can be missed when a manual account carries another IBAN than the bank row names (then mark it by hand).
 
+### Scope (0.6-4, about three minutes)
+1. **As Bert**, Start: "Alles" shows the sum "Saldo nu · alle rekeningen € 2.914,90 · Samen, ter info · zonder spaarrekeningen" (no state on the sum) and both sections; "Persoonlijk" shows only Zichtrekening; "Gedeeld" only the Gedeelde rekening. Transacties follows the same scope (141 personal and 130 shared rows). Reload: the scope you chose is still selected.
+2. **As Partner** after she left the Gedeelde rekening (Leden card, "Rekening verlaten"): in "Gedeeld" Start says "Nog geen gedeelde rekening · Koppel je bank om ze hier te zien." and shows no "te categoriseren" alert; Transacties shows no rows; the sidebar badge counts only the scope too.
+

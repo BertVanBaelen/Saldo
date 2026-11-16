@@ -1,8 +1,8 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../lib/api';
-import type { BankLinkResult, SyncStatus } from '../lib/types';
-import { CONNECTIONS, ME, renderAt, stubApi, ZICHT } from '../test/helpers';
+import type { Alert, BankLinkResult, SyncStatus } from '../lib/types';
+import { CATEGORISE_ALERT, CONNECTIONS, CONSENT_ALERT, ME, renderAt, stubApi, ZICHT } from '../test/helpers';
 import { SYNC_MAX_MS, SYNC_POLL_MS } from './AppContext';
 
 const toast = () => document.querySelector('.toast')?.textContent;
@@ -92,5 +92,43 @@ describe('Back from the bank, the first sync', () => {
     await act(() => vi.advanceTimersByTimeAsync(SYNC_POLL_MS));
     expect(await screen.findByText('Je transacties en je saldo zijn binnen.')).toBeTruthy();
     expect(toast()).toBe('Gesynchroniseerd');
+  });
+});
+
+describe('The shell alerts follow the scope', () => {
+  it('asks for the alerts with the scope, and once more after each change of scope', async () => {
+    const stub = stubApi();
+    renderAt('/');
+    await waitFor(() => expect(stub.alerts).toHaveBeenCalledTimes(1));
+    expect(stub.alerts.mock.calls[0][0]).toBe('alles');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Gedeeld' }));
+    await waitFor(() => expect(stub.alerts).toHaveBeenCalledTimes(2));
+    expect(stub.alerts.mock.calls[1][0]).toBe('gedeeld');
+    // The same scope again is no change: no request.
+    fireEvent.click(screen.getByRole('button', { name: 'Gedeeld' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Persoonlijk' }));
+    await waitFor(() => expect(stub.alerts).toHaveBeenCalledTimes(3));
+    expect(stub.alerts.mock.calls[2][0]).toBe('persoonlijk');
+  });
+
+  it('starts with the saved scope', async () => {
+    const stub = stubApi();
+    renderAt('/', { ...ME, preferences: { ...ME.preferences, scope: 'gedeeld' } });
+    await waitFor(() => expect(stub.alerts).toHaveBeenCalledTimes(1));
+    expect(stub.alerts.mock.calls[0][0]).toBe('gedeeld');
+  });
+
+  it('ignores a slow answer for a scope the user has left', async () => {
+    const stub = stubApi();
+    let late!: (a: Alert[]) => void;
+    stub.alerts.mockImplementationOnce(() => new Promise<Alert[]>((resolve) => (late = resolve)));
+    stub.alerts.mockResolvedValue([CONSENT_ALERT]);
+    renderAt('/');
+    fireEvent.click(await screen.findByRole('button', { name: 'Gedeeld' }));
+    expect(await screen.findByText(CONSENT_ALERT.title)).toBeTruthy();
+    await act(async () => late([CATEGORISE_ALERT]));
+    expect(screen.queryByText(CATEGORISE_ALERT.title)).toBeNull();
+    expect(screen.getByText(CONSENT_ALERT.title)).toBeTruthy();
   });
 });

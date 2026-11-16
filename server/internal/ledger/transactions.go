@@ -374,12 +374,32 @@ func (s *Store) IncomingTransfers(ctx context.Context, viewer, id int64) ([]Inco
 }
 
 // UncategorisedCount counts the viewer's transactions that still need a
-// category: no category, no split and not a transfer for the viewer.
-func (s *Store) UncategorisedCount(ctx context.Context, viewer int64) (int, error) {
+// category (no category, no split and not a transfer for the viewer) on the
+// accounts in the scope: "", "alles", "persoonlijk" or "gedeeld", as in
+// TxQuery.
+func (s *Store) UncategorisedCount(ctx context.Context, viewer int64, scope string) (int, error) {
+	inScope, err := scopeCond(scope)
+	if err != nil {
+		return 0, err
+	}
 	var n int
-	err := s.db.QueryRowContext(ctx, visibleTx+` SELECT COUNT(*) FROM tx WHERE `+uncategorisedCond,
+	err = s.db.QueryRowContext(ctx, visibleTx+` SELECT COUNT(*) FROM tx WHERE `+uncategorisedCond+` AND `+inScope,
 		viewer, viewer).Scan(&n)
 	return n, err
+}
+
+// scopeCond is the condition on the tx CTE for a scope: Persoonlijk is the
+// accounts with one member, Gedeeld the accounts with more.
+func scopeCond(scope string) (string, error) {
+	switch scope {
+	case "", "alles":
+		return "1 = 1", nil
+	case "persoonlijk":
+		return "tx.members = 1", nil
+	case "gedeeld":
+		return "tx.members > 1", nil
+	}
+	return "", apperr.Invalid("Kies alles, persoonlijk of gedeeld.")
 }
 
 // filters turns a query into SQL conditions on the tx CTE.
@@ -400,15 +420,11 @@ func (s *Store) filters(ctx context.Context, viewer int64, q TxQuery) ([]string,
 		where = append(where, "tx.account_id = ?")
 		args = append(args, q.AccountID)
 	}
-	switch q.Scope {
-	case "", "alles":
-	case "persoonlijk":
-		where = append(where, "tx.members = 1")
-	case "gedeeld":
-		where = append(where, "tx.members > 1")
-	default:
-		return nil, nil, apperr.Invalid("Kies alles, persoonlijk of gedeeld.")
+	inScope, err := scopeCond(q.Scope)
+	if err != nil {
+		return nil, nil, err
 	}
+	where = append(where, inScope)
 	if text := strings.TrimSpace(q.Q); text != "" {
 		if utf8.RuneCountInString(text) > maxQuery {
 			return nil, nil, apperr.Invalid("De zoekterm is te lang.")

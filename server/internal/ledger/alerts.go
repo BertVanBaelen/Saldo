@@ -26,8 +26,11 @@ const (
 
 // Alerts returns the viewer's alerts, errors first, then warnings (stale
 // accounts before the consent that is ending), then information. They only
-// cover the viewer's own connections and the accounts the viewer can see.
-func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Alert, error) {
+// cover the viewer's own connections and the accounts the viewer can see. The
+// scope ("", "alles", "persoonlijk" or "gedeeld", else an apperr.Invalid)
+// narrows only the "te categoriseren" count: the alerts about one account
+// carry its id and the client hides them when it is outside the scope.
+func (s *Store) Alerts(ctx context.Context, viewer int64, scope string, now time.Time) ([]Alert, error) {
 	conns, err := s.Connections(ctx, viewer, now)
 	if err != nil {
 		return nil, err
@@ -36,7 +39,7 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, now time.Time) ([]Aler
 	if err != nil {
 		return nil, err
 	}
-	uncategorised, err := s.UncategorisedCount(ctx, viewer)
+	uncategorised, err := s.UncategorisedCount(ctx, viewer, scope)
 	if err != nil {
 		return nil, err
 	}

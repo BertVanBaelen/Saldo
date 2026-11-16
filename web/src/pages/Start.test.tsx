@@ -245,6 +245,18 @@ describe('Start · alerts', () => {
     expect(document.querySelector('.alerts')).toBeNull();
   });
 
+  it('has no "te categoriseren" alert in a scope where the server counts none', async () => {
+    // The server counts only the accounts in the scope; Gedeeld has nothing open here.
+    stubApi({ accounts: [ZICHT, GEDEELD], alerts: (scope) => (scope === 'gedeeld' ? [CONSENT_ALERT] : [CONSENT_ALERT, CATEGORISE_ALERT]) });
+    renderAt('/');
+    await screen.findByText(CATEGORISE_ALERT.title);
+    fireEvent.click(screen.getByRole('button', { name: 'Gedeeld' }));
+    await waitFor(() => expect(screen.queryByText(CATEGORISE_ALERT.title)).toBeNull());
+    expect(screen.getByText(CONSENT_ALERT.title)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Alles' }));
+    expect(await screen.findByText(CATEGORISE_ALERT.title)).toBeTruthy();
+  });
+
   it('shows no alerts block when there is nothing to warn about', async () => {
     stubApi({ alerts: [] });
     renderAt('/');

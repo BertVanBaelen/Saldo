@@ -253,7 +253,7 @@ describe('Rekening · a manual account', () => {
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/rekeningen'));
     // The sidebar badge and the Start alert load again: its transfers no longer count.
     expect(api.alerts).toHaveBeenCalledTimes(2);
-    expect(api.transactions).toHaveBeenCalledWith({ uncategorised: true, limit: 1 });
+    expect(api.transactions).toHaveBeenCalledWith({ uncategorised: true, scope: 'alles', limit: 1 });
   });
 
   it('refreshes the badge and alerts after a new IBAN, not after a rename', async () => {

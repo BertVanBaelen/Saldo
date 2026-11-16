@@ -20,6 +20,7 @@ import type {
   Permission,
   Rule,
   RulePreview,
+  Scope,
   SimilarPreview,
   SimilarResult,
   Suggestion,
@@ -279,7 +280,8 @@ interface Stub {
   accounts?: Account[];
   /** A list, or a page per query (`total` defaults to the page's rows). */
   transactions?: Transaction[] | ((q: TransactionQuery) => Omit<TransactionPage, 'total'> & { total?: number });
-  alerts?: Alert[];
+  /** A list, or one per scope of GET /api/alerts?scope=. */
+  alerts?: Alert[] | ((scope: Scope) => Alert[]);
   connections?: Connection[];
   balances?: Record<number, BalancePoint[]>;
   devices?: Device[];
@@ -370,7 +372,10 @@ export function stubApi(s: Stub = {}) {
     unsplitTransaction: vi.spyOn(api, 'unsplitTransaction').mockImplementation(async (id) => ({ ...rowOf(id), splits: null })),
     accounts: vi.spyOn(api, 'accounts').mockImplementation(async () => structuredClone(s.accounts ?? ACCOUNTS)),
     transactions: vi.spyOn(api, 'transactions').mockImplementation(async (q = {}) => page(q)),
-    alerts: vi.spyOn(api, 'alerts').mockResolvedValue(s.alerts ?? [CONSENT_ALERT, CATEGORISE_ALERT]),
+    alerts: vi.spyOn(api, 'alerts').mockImplementation(async (scope = 'alles') => {
+      const a = s.alerts ?? [CONSENT_ALERT, CATEGORISE_ALERT];
+      return typeof a === 'function' ? a(scope) : a;
+    }),
     connections: vi.spyOn(api, 'connections').mockResolvedValue(s.connections ?? CONNECTIONS),
     savePreferences: vi.spyOn(api, 'savePreferences').mockImplementation(async (p) => ({ ...ME.preferences, ...p })),
     sync: vi.spyOn(api, 'sync').mockResolvedValue({ started: true }),

@@ -22,7 +22,7 @@ Status: in progress (16 Nov 2026), on branch `v0.6-shared-accounts`, version `0.
 | [0.6-0](00-sync-diagnostics.md) | Sync diagnostics for the account that never syncs | S | built, to verify |
 | [0.6-1a](01-membership-and-lifecycle.md#1a-join) | Join an existing account | M | built, to verify |
 | [0.6-1b](01-membership-and-lifecycle.md#1b-members-and-permissions) | Members and permissions | M | built, to verify |
-| [0.6-1c](01-membership-and-lifecycle.md#1c-lifecycle) | Lifecycle: leave, hand-over, delete, delete a user | M | planned |
+| [0.6-1c](01-membership-and-lifecycle.md#1c-lifecycle) | Lifecycle: leave, hand-over, delete, delete a user | M | built, to verify |
 | [0.6-1d](01-membership-and-lifecycle.md#1d-primary-and-fallback-sources) | Primary and fallback sources | M | planned |
 | [0.6-2](02-privacy.md) | Privacy suite for every endpoint | M | planned |
 | [0.6-3](03-transfers-and-saved.md) | Transfer detection and saved | M | planned |

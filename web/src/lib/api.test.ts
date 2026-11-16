@@ -319,6 +319,41 @@ describe('categorisation calls', () => {
     await expect(api.setMemberPermission(4, 2, 'edit')).rejects.toMatchObject({ status: 403, message: 'Alleen de beheerder van de rekening kan dit.' });
   });
 
+  it('leaves and deletes accounts and users with the right path, method and confirm', async () => {
+    const sent = (fetch: ReturnType<typeof respond>) => {
+      const [url, init] = fetch.mock.calls[0];
+      return { url, method: init.method, body: init.body };
+    };
+    const leave = respond(200, { handedOverTo: { userId: 2, name: 'Partner' } });
+    vi.stubGlobal('fetch', leave);
+    await expect(api.leaveAccount(4)).resolves.toEqual({ handedOverTo: { userId: 2, name: 'Partner' } });
+    expect(sent(leave)).toEqual({ url: '/api/accounts/4/leave', method: 'POST', body: undefined });
+
+    // A single-member manual account is deleted without `confirm`; a shared one with its exact name, encoded.
+    const plain = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', plain);
+    await expect(api.deleteAccount(2)).resolves.toBeNull();
+    expect(sent(plain)).toEqual({ url: '/api/accounts/2', method: 'DELETE', body: undefined });
+    const everyone = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', everyone);
+    await expect(api.deleteAccount(4, 'Gedeelde rekening & kids')).resolves.toBeNull();
+    expect(sent(everyone)).toEqual({ url: '/api/accounts/4?confirm=Gedeelde%20rekening%20%26%20kids', method: 'DELETE', body: undefined });
+
+    const preview = { deletedAccounts: 2, leftAccounts: 1, connections: 1 };
+    const read = respond(200, preview);
+    vi.stubGlobal('fetch', read);
+    await expect(api.userRemovalPreview(2)).resolves.toEqual(preview);
+    expect(sent(read)).toEqual({ url: '/api/users/2/removal-preview', method: 'GET', body: undefined });
+
+    const gone = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', gone);
+    await expect(api.deleteUser(2)).resolves.toBeNull();
+    expect(sent(gone)).toEqual({ url: '/api/users/2', method: 'DELETE', body: undefined });
+
+    vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Je kunt jezelf niet verwijderen.' } }));
+    await expect(api.deleteUser(1)).rejects.toMatchObject({ status: 400, message: 'Je kunt jezelf niet verwijderen.' });
+  });
+
   it('passes on the server’s message when a call is refused', async () => {
     vi.stubGlobal('fetch', respond(400, { error: { code: 'invalid', message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' } }));
     await expect(api.updateTransaction(101, { categoryId: 2 })).rejects.toMatchObject({ status: 400, message: 'Deze transactie is gesplitst. Pas de splitsing aan of maak ze ongedaan.' });

@@ -27,6 +27,7 @@ import type {
   TransactionQuery,
   TreeCategory,
   UserList,
+  UserRemovalPreview,
 } from '../lib/types';
 
 export const ME: Me = {
@@ -215,6 +216,9 @@ export const DEVICES: Device[] = [
   { id: 6, name: 'Chrome op Windows', createdAt: '2026-11-01T09:30:00+01:00', lastUsedAt: '2026-11-17T07:41:00+01:00', current: false },
 ];
 
+/** What deleting Partner does, as counts: her own account goes, the shared one stays, her one bank link is cut. */
+export const REMOVAL: UserRemovalPreview = { deletedAccounts: 1, leftAccounts: 1, connections: 1 };
+
 export const USERS: UserList = {
   users: [ME.user, { id: 2, name: 'Partner', email: 'partner@example.com', role: 'user', initial: 'P' }],
   invitations: [{ id: 7, email: 'sam@example.com', role: 'user', expiresAt: '2026-11-25T20:14:00+01:00' }],
@@ -270,6 +274,8 @@ interface Stub {
   balances?: Record<number, BalancePoint[]>;
   devices?: Device[];
   enableBanking?: EnableBanking;
+  /** GET /api/users/{id}/removal-preview; default `REMOVAL`. */
+  removal?: UserRemovalPreview;
   /** GET /api/join-offers; default none. */
   joinOffers?: PendingJoinOffer[];
   imports?: ImportBatch[];
@@ -385,6 +391,10 @@ export function stubApi(s: Stub = {}) {
       const a = structuredClone((s.accounts ?? ACCOUNTS).find((x) => x.id === id)!);
       return { ...a, members: a.members.map((m) => (m.userId === userId ? { ...m, permission } : m)) };
     }),
+    // Lifecycle (0.6-1c): leaving hands nothing over by default; deleting a user answers its removal preview first.
+    leaveAccount: vi.spyOn(api, 'leaveAccount').mockResolvedValue({ handedOverTo: null }),
+    userRemovalPreview: vi.spyOn(api, 'userRemovalPreview').mockImplementation(async () => structuredClone(s.removal ?? REMOVAL)),
+    deleteUser: vi.spyOn(api, 'deleteUser').mockResolvedValue(null),
     imports: vi.spyOn(api, 'imports').mockImplementation(async () => structuredClone(s.imports ?? BATCHES)),
     // Counts only when both the account and the mapping are sent, as the server does.
     previewImport: vi.spyOn(api, 'previewImport').mockImplementation(async (file, o = {}) => ({

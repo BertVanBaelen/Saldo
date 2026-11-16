@@ -275,8 +275,9 @@ func TestJoinSharedAccount(t *testing.T) {
 	e.assertInvariant()
 }
 
-// A manager who removes his link (keep history) after someone joined, and
-// links again, feeds the account again: the member's fallback does not stop it.
+// A manager who removes his link (keep history) after someone joined: the
+// member's fallback becomes primary (0.6-1c), and the manager's new link is
+// taken back as a fallback, not skipped.
 func TestJoinManagerRelinks(t *testing.T) {
 	e := joinSetup(t)
 	e.link(e.partner, "")
@@ -290,6 +291,10 @@ func TestJoinManagerRelinks(t *testing.T) {
 	if n := e.count(`SELECT COUNT(*) FROM transactions WHERE account_id = 2`); n != 1 {
 		t.Errorf("shared history after Bert's removal: %d rows", n)
 	}
+	if n := e.count(`SELECT COUNT(*) FROM account_sources s JOIN provider_connections c ON c.id = s.connection_id
+		WHERE s.account_id = 2 AND s.priority = 'primary' AND c.user_id = ?`, e.partner); n != 1 {
+		t.Errorf("Partner's fallback was not promoted: %d", n)
+	}
 	e.saveCredentials(e.bert) // removing the link wiped them
 	e.bank.set(func(b *testBank) {
 		b.session = "sess-bert-2"
@@ -299,8 +304,11 @@ func TestJoinManagerRelinks(t *testing.T) {
 	if len(got.Skipped) != 0 || len(got.Offers) != 0 || !slices.Equal(accountIDs(got.Accounts), []int64{2}) {
 		t.Errorf("Bert's re-link: %+v", got)
 	}
-	if n := e.count(`SELECT COUNT(*) FROM account_sources WHERE account_id = 2 AND priority = 'primary' AND external_account_id = 'b-2'`); n != 1 {
-		t.Errorf("no primary source after the re-link: %d", n)
+	if n := e.count(`SELECT COUNT(*) FROM account_sources WHERE account_id = 2 AND priority = 'fallback' AND external_account_id = 'b-2'`); n != 1 {
+		t.Errorf("Bert's new link is not a fallback: %d", n)
+	}
+	if n := e.count(`SELECT COUNT(*) FROM account_sources WHERE account_id = 2 AND priority = 'primary'`); n != 1 {
+		t.Errorf("%d primary sources, want 1", n)
 	}
 	e.assertInvariant()
 }

@@ -56,6 +56,8 @@ const (
 	EventBankLinkRemoved    = "bank_link_removed"
 	EventAccountDeleted     = "account_deleted"
 	EventAccountJoined      = "account_joined"
+	EventAccountLeft        = "account_left"
+	EventUserDeleted        = "user_deleted"
 	EventMemberPermission   = "member_permission"
 	EventImportDone         = "import_done"
 	EventImportUndone       = "import_undone"

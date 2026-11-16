@@ -295,32 +295,6 @@ func (s *Store) Balances(ctx context.Context, viewer, id int64) ([]Balance, erro
 	return list, rows.Err()
 }
 
-// DeleteAccount deletes a manual account of which the viewer is the
-// manager, with its balance history (and anything else that hangs off it).
-// A bank account is removed through its link.
-func (s *Store) DeleteAccount(ctx context.Context, viewer, id int64) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	a, err := accessOf(ctx, tx, viewer, id)
-	if err != nil {
-		return err
-	}
-	if a.source != "manual" {
-		return apperr.Invalid("Een bankrekening verwijder je door haar koppeling te verwijderen.")
-	}
-	if err := a.manage(); err != nil {
-		return err
-	}
-	// Snapshots, transactions, splits and access go with it (ON DELETE CASCADE).
-	if _, err := tx.ExecContext(ctx, `DELETE FROM accounts WHERE id = ?`, id); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
 // Removed is the outcome of removing a bank link.
 type Removed struct {
 	Deleted []int64 `json:"deleted"` // accounts deleted with their history
@@ -332,7 +306,8 @@ type Removed struct {
 // accounts it fed lose it as a source. With deleteHistory, the accounts that
 // only this link feeds and that have no other member are deleted with their
 // transactions, balances and splits; an account another member still sees
-// is always kept (leaving a shared account arrives in 0.6). One database
+// is always kept, and when this link was its primary source the oldest
+// fallback becomes primary (promotePrimary). One database
 // transaction: everything or nothing.
 func (s *Store) RemoveConnection(ctx context.Context, viewer, id int64, deleteHistory bool) (Removed, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -379,13 +354,18 @@ func (s *Store) RemoveConnection(ctx context.Context, viewer, id int64, deleteHi
 	}
 
 	for _, account := range out.Deleted {
-		// Transactions, splits, snapshots, access and sources cascade.
-		if _, err := tx.ExecContext(ctx, `DELETE FROM accounts WHERE id = ?`, account); err != nil {
+		if err := dropAccount(ctx, tx, account); err != nil {
 			return Removed{}, err
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM account_sources WHERE connection_id = ?`, id); err != nil {
 		return Removed{}, err
+	}
+	// A kept account fed by a fallback goes on from it.
+	for _, account := range out.Kept {
+		if err := promotePrimary(ctx, tx, account); err != nil {
+			return Removed{}, err
+		}
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE provider_connections
 		SET status = 'revoked', session_id_enc = NULL, private_key_enc = NULL, application_id = NULL WHERE id = ?`, id); err != nil {

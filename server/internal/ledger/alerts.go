@@ -9,13 +9,13 @@ import (
 // Alert is one alert on Start (docs/api.md).
 type Alert struct {
 	Kind      string `json:"kind"` // neg, warn or ok
-	Type      string `json:"type"` // consent, sync, categorise, member or rules
+	Type      string `json:"type"` // consent, sync, categorise, member, rules, left, manager or deleted
 	Title     string `json:"title"`
 	Note      string `json:"note"`
 	Href      string `json:"href"`
-	AccountID int64  `json:"accountId,omitempty"` // only the alerts about one account (types sync, member, rules)
-	// NoticeID is the stored notice behind the alert (types member and
-	// rules); POST /api/notices/{id}/read dismisses it.
+	AccountID int64  `json:"accountId,omitempty"` // only the alerts about one account that still exists (types sync, member, rules, left, manager)
+	// NoticeID is the stored notice behind the alert (types member, rules,
+	// left, manager and deleted); POST /api/notices/{id}/read dismisses it.
 	NoticeID int64 `json:"noticeId,omitempty"`
 }
 

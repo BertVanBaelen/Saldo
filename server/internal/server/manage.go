@@ -102,12 +102,32 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	viewer := viewerOf(r)
-	if err := s.store.DeleteAccount(r.Context(), viewer, id); err != nil {
+	if err := s.store.DeleteAccount(r.Context(), viewer, id, r.URL.Query().Get("confirm"), s.now()); err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
 	s.audit(r, auth.EventAccountDeleted, viewer, "account="+strconv.FormatInt(id, 10))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// postLeave takes the viewer off a shared account (0.6-1c).
+func (s *Server) postLeave(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, msgAccountNotFound)
+	if !ok {
+		return
+	}
+	viewer := viewerOf(r)
+	h, err := s.store.Leave(r.Context(), viewer, id, s.now())
+	if err != nil {
+		s.fail(w, r, err, msgAccountNotFound)
+		return
+	}
+	detail := "account=" + strconv.FormatInt(id, 10)
+	if h != nil {
+		detail += " manager=" + strconv.FormatInt(h.UserID, 10)
+	}
+	s.audit(r, auth.EventAccountLeft, viewer, detail)
+	writeJSON(w, http.StatusOK, map[string]any{"handedOverTo": h})
 }
 
 // deleteConnection removes the viewer's bank link (analysis 4.8). history is

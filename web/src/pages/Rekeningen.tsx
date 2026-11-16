@@ -415,7 +415,7 @@ function Empty({ onManual }: { onManual: () => void }) {
           Handmatige rekening
         </button>
       </div>
-      <p className="rk-empty-note">Een gedeelde rekening voeg je toe door ze te koppelen. Aansluiten bij de koppeling van een mede-houder komt in versie 0.6.</p>
+      <p className="rk-empty-note">Een gedeelde rekening voeg je toe door ze te koppelen. Staat ze al in Saldo bij een mede-houder, dan krijg je daarna de vraag of je wilt aansluiten.</p>
     </section>
   );
 }

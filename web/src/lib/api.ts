@@ -15,6 +15,7 @@ import type {
   EnableBanking,
   Health,
   Invitation,
+  LeaveResult,
   LoginChallenge,
   Me,
   NewAccount,
@@ -42,6 +43,7 @@ import type {
   TreeCategory,
   User,
   UserList,
+  UserRemovalPreview,
 } from './types';
 import { importForm, type UndoPreview, type CategoryChoice, type ImportBatch, type ImportExtras, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
 
@@ -153,8 +155,10 @@ export const api = {
   /** Manual accounts: the balance on `date` (default today). */
   setBalance: (id: number, balance: number, date?: string) => request<Account>('PUT', '/api/accounts/' + id + '/balance', { body: date ? { balance, date } : { balance } }),
   balances: (id: number, signal?: AbortSignal) => request<BalancePoint[]>('GET', '/api/accounts/' + id + '/balances', { signal }),
-  /** Manual accounts only. */
-  deleteAccount: (id: number) => request<null>('DELETE', '/api/accounts/' + id),
+  /** Manager only. A single-member manual account needs no `confirm`; one with more members is deleted for everyone and needs its exact name. */
+  deleteAccount: (id: number, confirm?: string) => request<null>('DELETE', '/api/accounts/' + id + (confirm === undefined ? '' : '?confirm=' + encodeURIComponent(confirm))),
+  /** A member of a shared account leaves it (the manager hands the role over); the last member is refused. */
+  leaveAccount: (id: number) => request<LeaveResult>('POST', '/api/accounts/' + id + '/leave'),
   /** Manager only, never on the manager's own row: lets a member read or edit; answers the account. */
   setMemberPermission: (accountId: number, userId: number, permission: Permission) =>
     request<Account>('PATCH', '/api/accounts/' + accountId + '/members/' + userId, { body: { permission } }),
@@ -242,6 +246,10 @@ export const api = {
   invite: (email: string, role: User['role']) => request<Invitation>('POST', '/api/users/invitations', { body: { email, role } }),
   cancelInvitation: (id: number) => request<null>('DELETE', '/api/users/invitations/' + id),
   sendPasswordReset: (userId: number) => request<null>('POST', '/api/users/' + userId + '/password-reset'),
+  /** Admin only: what deleting this user removes, keeps and cuts. Writes nothing. */
+  userRemovalPreview: (id: number, signal?: AbortSignal) => request<UserRemovalPreview>('GET', '/api/users/' + id + '/removal-preview', { signal }),
+  /** Admin only, never yourself or the last admin. */
+  deleteUser: (id: number) => request<null>('DELETE', '/api/users/' + id),
 };
 
 /** Full page loads, behind a seam so tests can watch them (jsdom cannot navigate). */

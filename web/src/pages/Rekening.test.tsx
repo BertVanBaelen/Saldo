@@ -356,7 +356,8 @@ describe('Rekening · Leden (members and permissions)', () => {
     const box = await leden();
     expect(within(box).getByText('2 leden · Partner is beheerder')).toBeTruthy();
     expect(within(box).queryByRole('group')).toBeNull();
-    expect(within(box).queryByRole('button')).toBeNull();
+    // Nothing to change in the card but leaving.
+    expect(within(box).getAllByRole('button').map((b) => b.textContent)).toEqual(['Rekening verlaten']);
     const rows = within(box).getAllByRole('listitem');
     expect(within(rows[0]).getByText('Partner')).toBeTruthy();
     expect(within(rows[0]).getByText('Beheerder')).toBeTruthy();
@@ -384,7 +385,7 @@ describe('Rekening · Leden (members and permissions)', () => {
     renderAt('/rekeningen/4');
     const box = await leden();
     expect(within(box).queryByRole('group')).toBeNull();
-    expect(within(box).queryByRole('button')).toBeNull();
+    expect(within(box).getAllByRole('button').map((b) => b.textContent)).toEqual(['Rekening verlaten']);
     expect(within(within(box).getAllByRole('listitem')[1]).getByText('Alleen lezen')).toBeTruthy();
     expect(within(within(box).getAllByRole('listitem')[0]).getByText('Bewerken')).toBeTruthy();
     // The page says so as well: the lock chip in the header, and the note above the settings.
@@ -397,5 +398,140 @@ describe('Rekening · Leden (members and permissions)', () => {
     renderAt('/rekeningen/1');
     await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
     expect(screen.queryByRole('heading', { name: 'Leden' })).toBeNull();
+  });
+});
+
+describe('Rekening · verlaten en verwijderen van een gedeelde rekening', () => {
+  const toast = () => document.querySelector('.toast')?.textContent;
+  const leden = () => screen.findByRole('heading', { name: 'Leden' }).then((h) => h.closest('section') as HTMLElement);
+  const open = async (name: string | RegExp) => {
+    fireEvent.click(within(await leden()).getByRole('button', { name }));
+    return screen.findByRole('dialog');
+  };
+  const here = () => screen.getByTestId('location').textContent;
+  // Kim joined between Bert and Partner: she is the longest-standing member after the manager.
+  const KIM = { userId: 3, name: 'Kim', initial: 'K', role: 'member', permission: 'read', me: false, joinedAt: '2026-08-01' } as const;
+
+  it('lets a member leave after saying what happens, then goes back to Rekeningen', async () => {
+    const api = stubApi({ accounts: [ZICHT, asMember('edit')] });
+    renderAt('/rekeningen/4');
+    const box = await leden();
+    // A member does not delete for everyone and has no hand-over to announce.
+    expect(within(box).queryByRole('button', { name: /voor iedereen/ })).toBeNull();
+    expect(within(box).queryByText(/wordt beheerder/)).toBeNull();
+
+    const dialog = await open('Rekening verlaten');
+    expect(within(dialog).getByRole('heading', { name: 'Gedeelde rekening verlaten?' })).toBeTruthy();
+    expect(within(dialog).getByText('Je ziet deze rekening, haar transacties en haar geschiedenis niet meer. Partner houdt alles.')).toBeTruthy();
+    expect(within(dialog).getByText(/Je bankkoppeling blijft bestaan, maar houdt deze rekening niet meer bij/)).toBeTruthy();
+    expect(within(dialog).queryByText(/wordt beheerder/)).toBeNull();
+    expect(api.leaveAccount).not.toHaveBeenCalled();
+
+    const before = api.alerts.mock.calls.length;
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rekening verlaten' }));
+    await waitFor(() => expect(api.leaveAccount).toHaveBeenCalledWith(4));
+    await waitFor(() => expect(here()).toBe('/rekeningen'));
+    await waitFor(() => expect(toast()).toBe('Je hebt Gedeelde rekening verlaten'));
+    // The shell reloads: the account's rows leave the badge and the alerts.
+    expect(api.alerts.mock.calls.length).toBeGreaterThan(before);
+  });
+
+  it('tells the manager who takes over: the longest-standing member, not the newest', async () => {
+    const api = stubApi({ accounts: [ZICHT, { ...GEDEELD, members: [...GEDEELD.members, KIM] }] });
+    renderAt('/rekeningen/4');
+    expect(within(await leden()).getByText('Verlaat jij de rekening, dan wordt Kim beheerder: het langst aangesloten lid.')).toBeTruthy();
+    const dialog = await open('Rekening verlaten');
+    expect(within(dialog).getByText('Kim wordt beheerder: het langst aangesloten lid.')).toBeTruthy();
+    expect(within(dialog).getByText(/Partner en Kim houden alles/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rekening verlaten' }));
+    await waitFor(() => expect(api.leaveAccount).toHaveBeenCalledWith(4));
+    await waitFor(() => expect(here()).toBe('/rekeningen'));
+  });
+
+  it('shows the server refusal (the last member) and stays on the account', async () => {
+    const api = stubApi({ accounts: [ZICHT, GEDEELD] });
+    api.leaveAccount.mockRejectedValue(new ApiError(400, 'invalid', 'Je bent het laatste lid. Verwijder de rekening of haal je koppeling weg.'));
+    renderAt('/rekeningen/4');
+    const dialog = await open('Rekening verlaten');
+    const go = within(dialog).getByRole('button', { name: 'Rekening verlaten' }) as HTMLButtonElement;
+    fireEvent.click(go);
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Je bent het laatste lid. Verwijder de rekening of haal je koppeling weg.');
+    expect(here()).toBe('/rekeningen/4');
+    expect(toast()).toBeUndefined();
+    expect(go.disabled).toBe(false);
+  });
+
+  it('deletes for everyone only after the exact account name is typed', async () => {
+    const api = stubApi({ accounts: [ZICHT, GEDEELD] });
+    renderAt('/rekeningen/4');
+    const dialog = await open(/Rekening voor iedereen verwijderen/);
+    expect(within(dialog).getByRole('heading', { name: 'Gedeelde rekening voor iedereen verwijderen?' })).toBeTruthy();
+    expect(within(dialog).getByText(/worden gewist, ook voor Partner\. Dit kan je niet ongedaan maken\./)).toBeTruthy();
+    const go = within(dialog).getByRole('button', { name: 'Verwijder voor iedereen' }) as HTMLButtonElement;
+    const input = within(dialog).getByLabelText('Typ Gedeelde rekening om te bevestigen') as HTMLInputElement;
+    expect(document.activeElement).toBe(input);
+    expect(go.disabled).toBe(true);
+
+    for (const wrong of ['gedeelde rekening', 'Gedeelde', 'Gedeelde rekening 2']) {
+      fireEvent.change(input, { target: { value: wrong } });
+      expect(go.disabled).toBe(true);
+    }
+    fireEvent.click(go);
+    expect(api.deleteAccount).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: 'Gedeelde rekening' } });
+    expect(go.disabled).toBe(false);
+    fireEvent.click(go);
+    await waitFor(() => expect(api.deleteAccount).toHaveBeenCalledWith(4, 'Gedeelde rekening'));
+    await waitFor(() => expect(here()).toBe('/rekeningen'));
+    await waitFor(() => expect(toast()).toBe('Gedeelde rekening is verwijderd'));
+  });
+
+  it('shows the server message when deleting for everyone is refused', async () => {
+    const api = stubApi({ accounts: [ZICHT, GEDEELD] });
+    api.deleteAccount.mockRejectedValue(new ApiError(400, 'invalid', 'Typ de naam van de rekening om te bevestigen.'));
+    renderAt('/rekeningen/4');
+    const dialog = await open(/Rekening voor iedereen verwijderen/);
+    fireEvent.change(within(dialog).getByLabelText(/Typ/), { target: { value: 'Gedeelde rekening' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Verwijder voor iedereen' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Typ de naam van de rekening om te bevestigen.');
+    expect(here()).toBe('/rekeningen/4');
+  });
+
+  it('has neither on a personal account, and a shared manual account goes through the name check, not the plain delete', async () => {
+    stubApi();
+    const first = renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(screen.queryByRole('button', { name: 'Rekening verlaten' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /voor iedereen/ })).toBeNull();
+    first.unmount();
+
+    stubApi({ accounts: [{ ...SPAAR, kind: 'shared', members: GEDEELD.members }] });
+    renderAt('/rekeningen/2');
+    await leden();
+    expect(screen.getByRole('button', { name: /Rekening voor iedereen verwijderen/ })).toBeTruthy();
+    // The plain delete would be refused by the server for an account with more members.
+    expect(screen.queryByRole('heading', { name: 'Rekening verwijderen' })).toBeNull();
+  });
+
+  it('says in the link removal that a shared account stays for the other members, and how to leave it', async () => {
+    const huishouden: Account = { ...GEDEELD, id: 5, name: 'Huishouden' };
+    const only = (accounts: number[]) => [{ ...CONNECTIONS[0], accounts }];
+    const choice = (dialog: HTMLElement) => within(dialog).getByRole('radio', { name: /Geschiedenis verwijderen/ });
+
+    stubApi({ accounts: [ZICHT, GEDEELD], connections: only([4]) });
+    const first = renderAt('/rekeningen/4');
+    fireEvent.click(await screen.findByRole('button', { name: /Koppeling verwijderen/ }));
+    let dialog = await screen.findByRole('dialog');
+    expect((choice(dialog) as HTMLButtonElement).disabled).toBe(true);
+    expect(choice(dialog).textContent).toContain('Kan niet: Gedeelde rekening blijft bestaan voor de andere leden. Een gedeelde rekening verlaat je via "Rekening verlaten" op haar pagina.');
+    expect(dialog.textContent).not.toContain('versie 0.6');
+    first.unmount();
+
+    stubApi({ accounts: [ZICHT, GEDEELD, huishouden], connections: only([4, 5]) });
+    renderAt('/rekeningen/4');
+    fireEvent.click(await screen.findByRole('button', { name: /Koppeling verwijderen/ }));
+    dialog = await screen.findByRole('dialog');
+    expect(choice(dialog).textContent).toContain('Kan niet: Gedeelde rekening en Huishouden blijven bestaan voor de andere leden.');
   });
 });

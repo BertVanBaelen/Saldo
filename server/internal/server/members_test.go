@@ -230,7 +230,7 @@ func TestWritePermissions(t *testing.T) {
 			return do(t, h, "POST", "/api/accounts/4/convert-rules", "")
 		}},
 		{"delete account", true, func(p *pair, h http.Handler, f fixture) response {
-			return do(t, h, "DELETE", "/api/accounts/2", "")
+			return do(t, h, "DELETE", "/api/accounts/2?confirm=Spaarrekening", "")
 		}},
 	}
 	roles := []struct {

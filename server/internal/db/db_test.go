@@ -752,3 +752,94 @@ func TestMigration0011AddsSyncReportWithoutTouchingRows(t *testing.T) {
 		t.Errorf("want one backup before 0011, found %v", files)
 	}
 }
+
+// 0013 rebuilds account_notices: every row keeps its id and values, the new
+// types are accepted, and a notice can outlive its account.
+func TestMigration0013RebuildsNoticesWithoutLosingRows(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	full := Migrations()
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(full, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() < "0013" {
+			b, err := fs.ReadFile(full, e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			old[e.Name()] = &fstest.MapFile{Data: b}
+		}
+	}
+	if len(old) != 12 {
+		t.Fatalf("%d migrations before 0013, want 12", len(old))
+	}
+	backups := filepath.Join(t.TempDir(), "backups")
+	if _, err := Migrate(ctx, db, old, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO users (id, email, display_name) VALUES (1, 'a@example.com', 'A'), (2, 'b@example.com', 'B')`,
+		`INSERT INTO accounts (id, type, source, iban, name) VALUES (1, 'current', 'bank', 'BE68539007547034', 'Zicht'), (2, 'current', 'manual', NULL, 'Pot')`,
+		`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (1, 1, 'manager', 'edit'), (1, 2, 'member', 'edit'), (2, 1, 'manager', 'edit')`,
+		`INSERT INTO provider_connections (id, user_id, provider, aspsp_name, status) VALUES (1, 2, 'fake', 'Argenta', 'active')`,
+		`INSERT INTO join_offers (id, user_id, connection_id, account_id, external_account_id, created_at) VALUES (1, 2, 1, 2, 'x', '2026-11-16T10:00:00Z')`,
+		`INSERT INTO transactions (id, account_id, amount, booking_date, status, dedupe_key) VALUES (1, 1, -500, '2026-11-10', 'booked', 'hash:1')`,
+		`INSERT INTO account_notices (id, user_id, account_id, type, actor_id, created_at, read_at) VALUES
+		     (7, 1, 1, 'member', 2, '2026-11-16T10:00:00Z', NULL), (9, 1, 1, 'rules', 2, '2026-11-16T10:00:00Z', '2026-11-16T11:00:00Z')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dump := func() string {
+		t.Helper()
+		var out string
+		for _, tbl := range []string{"users", "accounts", "account_access", "provider_connections", "join_offers", "transactions", "account_notices"} {
+			var n int
+			if err := db.QueryRow(`SELECT COUNT(*) FROM ` + tbl).Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			out += tbl + "=" + strconv.Itoa(n) + " "
+		}
+		var notices string
+		if err := db.QueryRow(`SELECT group_concat(id || '|' || user_id || '|' || account_id || '|' || type || '|' || actor_id || '|' || created_at || '|' || COALESCE(read_at, '-'), ';')
+			FROM (SELECT * FROM account_notices ORDER BY id)`).Scan(&notices); err != nil {
+			t.Fatal(err)
+		}
+		return out + notices
+	}
+	before := dump()
+	applied, err := Migrate(ctx, db, full, backups, nil)
+	if err != nil || !slices.Contains(applied, 13) {
+		t.Fatalf("applied %v, %v", applied, err)
+	}
+	if got := dump(); got != before {
+		t.Errorf("rows changed:\n%s\nwas\n%s", got, before)
+	}
+	for _, q := range []string{
+		`INSERT INTO account_notices (user_id, account_id, type, actor_id, actor_name, created_at) VALUES (2, 1, 'left', 1, 'A', '2026-11-17T10:00:00Z')`,
+		`INSERT INTO account_notices (user_id, account_id, type, actor_id, actor_name, created_at) VALUES (2, 1, 'manager', 2, 'B', '2026-11-17T10:00:00Z')`,
+		`INSERT INTO account_notices (user_id, account_id, type, actor_id, actor_name, account_name, created_at) VALUES (2, NULL, 'deleted', 1, 'A', 'Zicht', '2026-11-17T10:00:00Z')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Errorf("%s: %v", q, err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO account_notices (user_id, account_id, type, created_at) VALUES (1, 1, 'other', '2026-11-17T10:00:00Z')`); err == nil {
+		t.Error("an unknown notice type was accepted")
+	}
+	var indexes int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('account_notices_user', 'account_notices_account')`).Scan(&indexes); err != nil || indexes != 2 {
+		t.Errorf("%d notice indexes, want 2 (%v)", indexes, err)
+	}
+	if again, err := Migrate(ctx, db, full, backups, nil); err != nil || len(again) != 0 {
+		t.Errorf("second run applied %v, %v", again, err)
+	}
+}

@@ -51,6 +51,10 @@ export const canManage = (a: Account) => a.role === 'manager' && a.permission ==
 export const manager = (a: Account): Member | undefined => a.members.find((m) => m.role === 'manager');
 export const others = (a: Account): Member[] => a.members.filter((m) => !m.me);
 
+/** Who becomes manager when the viewer leaves: the longest-standing other member (`joinedAt`, then user id), as the server picks. */
+export const nextManager = (a: Account): Member | undefined =>
+  others(a).sort((x, y) => Date.parse(x.joinedAt) - Date.parse(y.joinedAt) || x.userId - y.userId)[0];
+
 /** Avatar tint per member: the viewer on --c2 (as on the boards), others on the next pastels. */
 export function memberTint(m: Member, index: number): string {
   if (m.me) return 'var(--c2)';

@@ -98,8 +98,21 @@ Body `{"balance": 1275000, "date": "2026-11-18"}`; `date` is optional (default t
 ### `GET /api/accounts/{id}/balances` (0.3-4)
 The balance history, oldest first, one point per date: `[{"date": "2026-10-02", "balance": 1200000, "origin": "manual"}]` (`origin`: `bank` | `manual`; a manual balance wins over the bank's on the same date). `[]` without history. An account the viewer cannot see answers `404`.
 
-### `DELETE /api/accounts/{id}` (0.3-4)
-Deletes a **manual** account and its balance history; `204`. Only its manager (`403` "Alleen de beheerder kan dit wijzigen." for a member); a bank account answers `400` (it goes with its link, below). Audit-logged (`account_deleted`).
+### `DELETE /api/accounts/{id}[?confirm=<account name>]` (0.3-4, 0.6-1c)
+Deletes an account for everyone, with its transactions, splits, balances, sources, join offers and notices; `204`. The members' connections keep their other accounts. Only its manager: a member gets `403` "Alleen de beheerder kan dit wijzigen.", someone without access `404`.
+- **One member**: a manual account goes without confirmation (as in 0.3-4); a bank account answers `400 invalid` "Een bankrekening verwijder je door haar koppeling te verwijderen." (it goes with its link, below).
+- **More than one member** (bank or manual, 0.6-1c): `confirm` must be the account's name (trimmed, any case), else `400 invalid` "Typ de naam van de rekening om te bevestigen." and nothing changes. The other members get a `deleted` notice that outlives the account (see `GET /api/alerts`).
+
+Audit-logged (`account_deleted`, `account=<id>`).
+
+### `POST /api/accounts/{id}/leave` (0.6-1c)
+The viewer leaves an account (manager or not). Answers `200 {"handedOverTo": null}`, or, when the viewer was the manager, `200 {"handedOverTo": {"userId": 2, "name": "Partner"}}`. In one transaction:
+- the viewer's `account_access` row and the viewer's own source of this account go (with the viewer's notices about it, their join offers for it, their recurring items on it and their transfer overrides on its transactions); the viewer's connection stays and keeps its other accounts. The other members' `member` notices about the viewer joining go too.
+- **Hand-over**: when the viewer was the manager, the role passes to the longest-standing remaining member (`joined_at` ascending, then user id), who also gets permission `edit`.
+- **Primary promotion** (shared with `DELETE /api/connections/{id}` and `DELETE /api/users/{id}`): when the account has sources left but no primary any more, the oldest fallback becomes primary: the fallback whose owner joined the account first, then the lowest connection id (sources have no timestamp of their own). The account's pending rows then belong to the new primary (only the source of a pending row replaces it).
+- Notices: every remaining member gets `left`; the new manager also gets `manager`.
+
+The last member cannot leave: `400 invalid` "Je bent het laatste lid. Verwijder de rekening of haal je koppeling weg." No access: `404`. Audit-logged (`account_left`, `account=<id>`, plus ` manager=<userId>` on a hand-over).
 
 ### `GET /api/transactions`
 Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, optional, default `alles`), `q` (search in counterparty, communication and amount), `uncategorised=1`, `from` and `to` (booking dates `YYYY-MM-DD`, both inclusive, each optional), `before` (opaque cursor from `next`), `limit` (default 50, max 200).
@@ -137,13 +150,18 @@ The alerts for Start, already scoped to the viewer.
   { "kind": "ok", "type": "categorise", "title": "4 transacties te categoriseren", "note": "", "href": "/transacties?filter=niet-gecategoriseerd" }
 ]
 ```
-`kind`: `neg` | `warn` | `ok`; `type`: `consent` | `sync` | `categorise` | `member` | `rules`. Planning alerts (`type: planning`) arrive with the forecast in version 0.8.
+`kind`: `neg` | `warn` | `ok`; `type`: `consent` | `sync` | `categorise` | `member` | `rules` | `left` | `manager` | `deleted`. Planning alerts (`type: planning`) arrive with the forecast in version 0.8.
 
-`accountId` (optional) is on the alerts about one account (`sync`: an account that is no longer synced, or not updated for 36 hours; `member`, `rules`) and left out of the others, so a client can hide an alert about an account outside the scope. `noticeId` (optional, 0.6-1a) is on the alerts that come from a stored notice (`member`, `rules`); `POST /api/notices/{id}/read` dismisses them. Order: red (`neg`) first, then the stale-account warnings, then the consent-expiring warnings, then the `rules` notices, then the `member` notices, then "te categoriseren".
+`accountId` (optional) is on the alerts about one account (`sync`: an account that is no longer synced, or not updated for 36 hours; `member`, `rules`, `left`, `manager`) and left out of the others (also of `deleted`: the account is gone), so a client can hide an alert about an account outside the scope. `noticeId` (optional, 0.6-1a) is on the alerts that come from a stored notice (`member`, `rules`, `left`, `manager`, `deleted`); `POST /api/notices/{id}/read` dismisses them. Order: red (`neg`) first, then the stale-account warnings, then the consent-expiring warnings, then the `rules` notices, then the `member` notices, then "te categoriseren".
 
 Notices (0.6-1a), stored when someone joins an account (see "Join"), one per addressee, shown until that addressee reads it and only while the addressee still holds the account; no e-mail or push (0.9):
-- `member`, `ok`, for every other member: `{"kind": "ok", "type": "member", "title": "Partner sluit aan bij Gezinsrekening", "note": "Partner mag bewerken · ziet de geschiedenis van deze rekening, nooit je persoonlijke rekeningen", "href": "/rekeningen/2", "accountId": 2, "noticeId": 1}`. The note follows the member's permission when the alerts are read (0.6-1b): "Partner mag alleen lezen · …" once the manager made Partner read-only.
+- `member`, `ok`, for every other member: `{"kind": "ok", "type": "member", "title": "Partner sluit aan bij Gezinsrekening", "note": "Partner mag bewerken · ziet de geschiedenis van deze rekening, nooit je persoonlijke rekeningen", "href": "/rekeningen/2", "accountId": 2, "noticeId": 1}`. The note follows the member's permission when the alerts are read (0.6-1b): "Partner mag alleen lezen · …" once the manager made Partner read-only. Dropped when Partner leaves the account.
 - `rules`, `warn`, for the manager only, when the account went from one to two members and the manager has user rules: `{"kind": "warn", "type": "rules", "title": "Je regels voor Gezinsrekening gelden niet meer", "note": "Een regel van jezelf geldt alleen op een rekening met één lid · zet ze om naar regels van de rekening", "href": "/rekeningen/2", "accountId": 2, "noticeId": 2}`.
+
+Lifecycle notices (0.6-1c), in the same lists as the `member` notices (information) and the `rules` notices (warnings). The actor's name is stored with the notice, so it still reads right after the actor's user is deleted.
+- `left`, `ok`, for every remaining member when someone leaves (also through a deleted user): `{"kind": "ok", "type": "left", "title": "Partner heeft Gezinsrekening verlaten", "note": "Partner ziet deze rekening niet meer", "href": "/rekeningen/2", "accountId": 2, "noticeId": 3}`.
+- `manager`, `ok`, for the new manager after a hand-over (the actor is the new manager): `{"kind": "ok", "type": "manager", "title": "Je bent nu beheerder van Gezinsrekening", "note": "De beheerder beslist wie de rekening mag bewerken", "href": "/rekeningen/2", "accountId": 2, "noticeId": 4}`.
+- `deleted`, `warn`, for every other member when the manager deletes a shared account; it outlives the account (the account name is stored on it) and has no `accountId`: `{"kind": "warn", "type": "deleted", "title": "Bert heeft Gezinsrekening verwijderd", "note": "De rekening en haar geschiedenis zijn voor alle leden weg · je koppeling en je andere rekeningen blijven", "href": "/rekeningen", "noticeId": 5}`.
 
 ### `POST /api/notices/{id}/read` (0.6-1a)
 Marks the notice read for the viewer only and answers `204` (again `204` when it was read). A notice addressed to someone else, or unknown: `404`.
@@ -167,7 +185,9 @@ The viewer's own bank connections.
 ### `DELETE /api/connections/{id}?history=keep|delete` (0.3-4)
 Removes the viewer's own bank link (analysis 4.8); `history` is required (`400` without it), another user's connection answers `404`. It waits for a sync of the link that is running; when that sync is still running after 30 seconds it answers `503 unavailable` ("Er loopt nog een synchronisatie. Probeer het over een minuut opnieuw.") and nothing is removed: the link can be removed again afterwards. When it goes ahead, always: the connection becomes `revoked` (it leaves `GET /api/connections`, is never synced and sends no reminders), its sealed session and the sealed Enable Banking key and application id on it are wiped (link again: store the key in Instellingen and link; the IBAN match re-attaches the kept accounts, without duplicates), and the accounts it fed lose it as a source.
 - `keep`: every account and all its transactions and balances stay; the accounts show `syncStatus: unlinked`.
-- `delete`: additionally deletes, in one database transaction, the accounts that only this link feeds **and** of which the viewer is the only member, with their transactions, splits, balances and everything else of theirs. An account another member still sees is kept (as with `keep`): leaving a shared account arrives in 0.6.
+- `delete`: additionally deletes, in one database transaction, the accounts that only this link feeds **and** of which the viewer is the only member, with their transactions, splits, balances and everything else of theirs. An account another member still sees is kept (as with `keep`), never deleted by one member's link removal.
+
+In both cases (0.6-1c), when this link was the primary source of a kept account that has a fallback, the oldest fallback becomes primary (see "Primary promotion" under `POST /api/accounts/{id}/leave`). The manager linking again afterwards is attached to such an account as a fallback instead of being skipped.
 
 Answers `200 {"deleted": [1], "kept": [4]}` (account ids). Audit-logged (`bank_link_removed`, with the choice and the counts).
 
@@ -232,7 +252,19 @@ Body `{"email": "…", "role": "user" | "admin"}`. `201` with the invitation; e-
 ### `POST /api/users/{id}/password-reset` (admin)
 `204`; e-mails that user a reset link (1 hour, replacing an earlier unused one) and signs out none of their devices until it is used. An unknown user answers `404`; `503` as for invitations.
 
-Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window), a bank link removed, a manual account deleted, an account joined (`account_joined`), a member's permission changed (`member_permission`), a CSV import done (`import_done`: account, batch and counts, never file content), an import undone (`import_undone`: batch id and counts), a category removed (`category_removed`: the category's id and `moveTo`, never counts). Rules, categories set by hand, notes and splits are not audit-logged. IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
+### `GET /api/users/{id}/removal-preview` (admin, 0.6-1c)
+What `DELETE /api/users/{id}` would do, in counts only (an admin learns no names or ids of accounts they do not hold): `200 {"deletedAccounts": 2, "leftAccounts": 1, "connections": 1}`. `deletedAccounts`: the accounts where the user is the only member (personal accounts, and shared accounts the others already left), deleted with their history; `leftAccounts`: the shared accounts that stay for the other members, with the hand-over; `connections`: the user's links that are not revoked yet. It runs the delete in a transaction that is rolled back, so it equals what the delete then does. Changes nothing. Errors as for the delete.
+
+### `DELETE /api/users/{id}` (admin, 0.6-1c)
+Deletes a user; `204`. A caller who is not an admin gets `403` "Alleen een beheerder kan gebruikers beheren.", yourself `400 invalid` "Je kunt jezelf niet verwijderen.", the last admin `400 invalid` "Je kunt de laatste beheerder niet verwijderen." (over HTTP the caller is another admin, so this only guards the store), an unknown user `404` "Gebruiker niet gevonden.". In one database transaction:
+- every account where the user is the only member is deleted with its history;
+- every other account the user holds is left as with `POST /api/accounts/{id}/leave` (hand-over, primary promotion, `left` and `manager` notices);
+- the user's connections are revoked and their sealed session, key and application id wiped; their join offers go;
+- the user row goes. Devices, sign-in codes, tokens, preferences, connections (and so their remaining sources), user rules, mappings, suggestions, notification rows, transfer overrides and notices addressed to the user cascade; `audit_log.user_id`, `created_by` columns and notice actors become `NULL`.
+
+Audit-logged (`user_deleted`, by the admin, `user=<id> deleted=<n> left=<n> connections=<n>`); that line survives the user.
+
+Audit log (`audit_log`): code sent, sign-in ok or failed, new device, device signed out, password changed or a wrong current password, invitation sent and accepted, reset sent, setup done, rate limit hit (once per window), a bank link removed, an account deleted, an account joined (`account_joined`), an account left (`account_left`), a user deleted (`user_deleted`), a member's permission changed (`member_permission`), a CSV import done (`import_done`: account, batch and counts, never file content), an import undone (`import_undone`: batch id and counts), a category removed (`category_removed`: the category's id and `moveTo`, never counts). Rules, categories set by hand, notes and splits are not audit-logged. IP from `CF-Connecting-IP` only when the connection comes from a private or loopback address (the Cloudflared add-on), else the remote address.
 
 ## Bank link (phase 0.2-6)
 

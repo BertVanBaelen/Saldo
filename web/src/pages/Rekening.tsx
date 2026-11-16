@@ -1,7 +1,7 @@
 // Rekening: the page of one account (/rekeningen/:id). Balance and state against its own buffer, balance history,
 // "Saldo bijwerken" (manual accounts), recent transactions, Synchronisatie (bank accounts: source, consent,
 // re-authorise, remove the link), Leden (shared accounts: the manager sets Lezen or Bewerken per member),
-// Instellen (the Rekeningen form) and deleting a manual account.
+// Instellen (the Rekeningen form), deleting a manual account, and for a shared account leaving it or (manager) deleting it for everyone.
 // Design: finance-mockup/js/screens/rekening.js; spec: analysis/screens/rekeningen.md, analysis 4.8 and 6.3.
 // Contributions arrive with 0.6-5.
 import { useState, type CSSProperties } from 'react';
@@ -10,7 +10,7 @@ import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useTitle } from '../components/ui';
-import { accColour, accountState, canManage, isCurrent, isShared, manager, memberTint, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
+import { accColour, accountState, canManage, isCurrent, isShared, manager, memberTint, nextManager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { plural } from '../lib/categories';
 import { dateRelative, dateShort, dateYear, eur, momentLabel, names, parseMoney, toDate } from '../lib/format';
@@ -479,12 +479,13 @@ const PERMISSIONS: { value: Permission; label: string }[] = [
   { value: 'edit', label: 'Bewerken' },
 ];
 
-function MembersCard({ a, onChanged }: { a: Account; onChanged: (a: Account) => void }) {
+function MembersCard({ a, onChanged, onExit }: { a: Account; onChanged: (a: Account) => void; onExit: (all: boolean) => void }) {
   const { online, toast } = useApp();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mgr = manager(a);
   const isMgr = a.role === 'manager';
+  const next = nextManager(a);
   let other = 0;
   const choose = (m: Member, permission: Permission) => {
     if (busy || !online || permission === m.permission) return;
@@ -551,6 +552,18 @@ function MembersCard({ a, onChanged }: { a: Account; onChanged: (a: Account) => 
       <p className="rkd-help">
         <strong>Lezen</strong>: alleen bekijken. <strong>Bewerken</strong>: ook categoriseren, splitsen, notities, regels en importeren. {isMgr ? 'Alleen jij als beheerder past de rechten aan.' : 'Alleen de beheerder past de rechten aan.'}
       </p>
+      <div className="rkd-danger">
+        {isMgr && next && <p className="rkd-help">Verlaat jij de rekening, dan wordt {next.name} beheerder: het langst aangesloten lid.</p>}
+        <button type="button" className="btn btn--danger btn--block" aria-haspopup="dialog" onClick={() => onExit(false)}>
+          Rekening verlaten
+        </button>
+        {isMgr && (
+          <button type="button" className="btn btn--danger btn--block" aria-haspopup="dialog" onClick={() => onExit(true)}>
+            <Icon name="trash" size={18} stroke={2.2} />
+            Rekening voor iedereen verwijderen
+          </button>
+        )}
+      </div>
     </section>
   );
 }
@@ -750,6 +763,7 @@ export function RemoveLink({ conn, accounts, onClose, onDone }: { conn: Connecti
   const goneNames = names(gone.map((a) => a.name));
   const keptNames = names(kept.map((a) => a.name));
   const fedNames = names([...gone, ...kept].map((a) => a.name)) || 'je rekeningen';
+  const blijft = kept.length === 1 ? 'blijft' : 'blijven';
 
   const remove = () => {
     setBusy(true);
@@ -837,9 +851,9 @@ export function RemoveLink({ conn, accounts, onClose, onDone }: { conn: Connecti
                 'delete',
                 'Geschiedenis verwijderen',
                 gone.length
-                  ? goneNames + ' en alle transacties en saldi ervan worden gewist.' + (kept.length ? ' ' + keptNames + ' blijft bestaan voor de andere leden.' : '')
+                  ? goneNames + ' en alle transacties en saldi ervan worden gewist.' + (kept.length ? ' ' + keptNames + ' ' + blijft + ' bestaan voor de andere leden.' : '')
                   : kept.length
-                    ? 'Kan niet: ' + keptNames + ' ziet een ander lid nog. Een gedeelde rekening verlaten komt in versie 0.6.'
+                    ? 'Kan niet: ' + keptNames + ' ' + blijft + ' bestaan voor de andere leden. Een gedeelde rekening verlaat je via "Rekening verlaten" op haar pagina.'
                     : 'Deze koppeling heeft nog geen rekeningen of geschiedenis.',
                 !gone.length,
               )}
@@ -870,7 +884,7 @@ export function RemoveLink({ conn, accounts, onClose, onDone }: { conn: Connecti
               {goneNames} en alle transacties, saldi en splitsingen ervan worden gewist. Dit kan je niet ongedaan maken.
             </span>
           </div>
-          {kept.length > 0 && <p className="rkd-dlg-text">{keptNames} blijft bestaan voor de andere leden, zonder jouw koppeling.</p>}
+          {kept.length > 0 && <p className="rkd-dlg-text">{keptNames} {blijft} bestaan voor de andere leden, zonder jouw koppeling.</p>}
           <label className="rkd-check">
             <input type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} />
             <span>Ik begrijp dat deze geschiedenis weg is</span>
@@ -943,6 +957,109 @@ function DeleteManual({ a, updates, onClose, onDone }: { a: Account; updates: nu
   );
 }
 
+// ---------- Leave a shared account, or (manager) delete it for everyone ----------
+
+function ExitSheet({ a, all, onClose }: { a: Account; all: boolean; onClose: () => void }) {
+  const { online, toast, refreshShell } = useApp();
+  const navigate = useNavigate();
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const next = nextManager(a);
+  const rest = names(others(a).map((m) => m.name));
+  const ready = !all || typed.trim() === a.name;
+  const go = () => {
+    if (!ready || busy) return;
+    setBusy(true);
+    setError(null);
+    // The server checks the name too: send the real one, not what was typed around it.
+    const call: Promise<unknown> = all ? api.deleteAccount(a.id, a.name) : api.leaveAccount(a.id);
+    call.then(
+      () => {
+        toast(all ? a.name + ' is verwijderd' : 'Je hebt ' + a.name + ' verlaten');
+        // The account leaves the lists, its transactions the uncategorised count.
+        refreshShell();
+        navigate('/rekeningen', { replace: true });
+      },
+      (e) => {
+        setBusy(false);
+        setError(errorMessage(e));
+      },
+    );
+  };
+  const items = [
+    'Je ziet deze rekening, haar transacties en haar geschiedenis niet meer. ' + rest + (others(a).length === 1 ? ' houdt' : ' houden') + ' alles.',
+    ...(a.role === 'manager' ? [next ? next.name + ' wordt beheerder: het langst aangesloten lid.' : 'Het langst aangesloten lid wordt beheerder.'] : []),
+    ...(a.source === 'bank' ? ['Je bankkoppeling blijft bestaan, maar houdt deze rekening niet meer bij. Wil je later terug, koppel de rekening dan opnieuw bij ' + (a.bank ?? 'je bank') + '.'] : []),
+  ];
+  return (
+    <Sheet onClose={() => !busy && onClose()} labelledBy="rkd-dlg-title" className="rk-sheet rkd-dialog" backdropClassName="rk-backdrop">
+      <div className="rkd-dlg-head">
+        <span className="rkd-dlg-icon">
+          <Icon name={all ? 'trash' : 'logout'} size={20} stroke={2.2} />
+        </span>
+        <h2 className="rkd-dlg-title" id="rkd-dlg-title">
+          {a.name + (all ? ' voor iedereen verwijderen?' : ' verlaten?')}
+        </h2>
+        <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
+          <Icon name="close" size={18} stroke={2.4} />
+        </button>
+      </div>
+      {all ? (
+        <>
+          <div className="rkd-dlg-warn">
+            <Icon name="warning" size={18} stroke={2.2} />
+            <span>
+              {a.name}, alle transacties, saldi en splitsingen ervan en de geschiedenis worden gewist, ook voor {rest}. Dit kan je niet ongedaan maken.
+            </span>
+          </div>
+          <p className="rkd-dlg-text">De bankkoppelingen van alle leden blijven bestaan voor hun andere rekeningen.</p>
+          <div className="rk-field rk-field--tight">
+            <label className="rk-label" htmlFor="rkd-dlg-confirm">
+              Typ <span className="rkd-dlg-name">{a.name}</span> om te bevestigen
+            </label>
+            <input
+              className="input"
+              id="rkd-dlg-confirm"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-autofocus
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </div>
+        </>
+      ) : (
+        <ul className="rkd-dlg-list">
+          {items.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+      )}
+      {error && (
+        <p className="rk-err rk-save-err" role="alert">
+          {error}
+        </p>
+      )}
+      {!online && (
+        <p className="rk-offline">
+          <Icon name="cloudOff" size={14} stroke={2.2} />
+          Je bent offline. Dit kan weer zodra je verbinding hebt.
+        </p>
+      )}
+      <div className="rk-actions">
+        <button type="button" className="rk-btn rk-btn--ghost" onClick={onClose}>
+          Annuleren
+        </button>
+        <button type="button" className="rk-btn rkd-btn--neg" disabled={!online || !ready || busy} onClick={go}>
+          {busy ? 'Even geduld…' : all ? 'Verwijder voor iedereen' : 'Rekening verlaten'}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 // ---------- Screen ----------
 
 function Back() {
@@ -972,7 +1089,7 @@ export function Rekening() {
   const [draft, setDraft] = useState<Draft>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<'unlink' | 'delete' | null>(null);
+  const [dialog, setDialog] = useState<'unlink' | 'delete' | 'leave' | 'deleteAll' | null>(null);
 
   if (!accounts.data) {
     return (
@@ -1061,7 +1178,7 @@ export function Rekening() {
             />
           )}
           <TxCard a={a} page={txs.data} error={txs.error} onRetry={txs.reload} today={today} />
-          {a.members.length > 1 && <MembersCard a={a} onChanged={replace} />}
+          {a.members.length > 1 && <MembersCard a={a} onChanged={replace} onExit={(all) => setDialog(all ? 'deleteAll' : 'leave')} />}
         </div>
         <div className="rkd-col rkd-col--side">
           {a.role === 'manager' && a.convertibleRules > 0 && <ConvertRules a={a} onDone={accounts.reload} />}
@@ -1086,7 +1203,7 @@ export function Rekening() {
               onSave={save}
             />
           </section>
-          {manual && a.role === 'manager' && (
+          {manual && a.role === 'manager' && a.members.length <= 1 && (
             <section className="card rkd-card anim-in" style={delay(110)} aria-labelledby="rkd-h-del">
               <CardHead id="rkd-h-del" title="Rekening verwijderen" />
               <p className="rkd-help">De rekening en haar saldogeschiedenis worden gewist.{a.iban && ' Overschrijvingen ernaar tellen daarna niet meer als overschrijving.'}</p>
@@ -1102,6 +1219,7 @@ export function Rekening() {
       {dialog === 'delete' && (
         <DeleteManual a={a} updates={balances.data?.length ?? 0} onClose={() => setDialog(null)} onDone={() => navigate('/rekeningen', { replace: true })} />
       )}
+      {(dialog === 'leave' || dialog === 'deleteAll') && <ExitSheet a={a} all={dialog === 'deleteAll'} onClose={() => setDialog(null)} />}
     </div>
   );
 }

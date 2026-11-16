@@ -748,6 +748,7 @@ function EnableBankingSection({ eb }: { eb: AsyncState<EnableBanking> }) {
 function Gebruikers({ users, inviting, setInviting }: { users: AsyncState<UserList | null>; inviting: boolean; setInviting: (o: boolean) => void }) {
   const { me, toast } = useApp();
   const [pending, setPending] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<User | null>(null);
   const data = users.data;
 
   if (!data) return users.error ? <ErrorState message={users.error} onRetry={users.reload} /> : <SkelList rows={2} label="Gebruikers laden" />;
@@ -807,6 +808,12 @@ function Gebruikers({ users, inviting, setInviting }: { users: AsyncState<UserLi
                   <span className="in-uact-label">Nieuwe wachtwoordlink sturen</span>
                   <span className="in-uact-sub">1 uur geldig</span>
                 </button>
+                <button type="button" className="in-uact in-uact--neg" aria-haspopup="dialog" aria-label={u.name + ' verwijderen'} onClick={() => setRemoving(u)}>
+                  <span className="in-uact-icon" aria-hidden="true">
+                    <Icon name="trash" size={18} />
+                  </span>
+                  <span className="in-uact-label">Verwijderen</span>
+                </button>
               </div>
             )}
           </article>
@@ -853,11 +860,87 @@ function Gebruikers({ users, inviting, setInviting }: { users: AsyncState<UserLi
       </button>
       <div className="in-notes">
         <Note icon="shield">
-          <strong>Een beheerder beheert alleen gebruikers.</strong> Je ziet nooit de rekeningen van een andere gebruiker.
+          <strong>Een beheerder beheert alleen gebruikers.</strong> Je ziet nooit de rekeningen, saldi of transacties van een andere gebruiker. Alleen bij het verwijderen van een gebruiker zie je hoeveel rekeningen en bankkoppelingen er meegaan.
         </Note>
       </div>
       {inviting && <InviteSheet onClose={() => setInviting(false)} onInvited={invited} />}
+      {removing && (
+        <RemoveUserSheet
+          user={removing}
+          onClose={() => setRemoving(null)}
+          onRemoved={() => {
+            toast(removing.name + ' is verwijderd');
+            setRemoving(null);
+            users.reload();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+// What deleting a user does, from the server's preview, before the admin confirms.
+function RemoveUserSheet({ user, onClose, onRemoved }: { user: User; onClose: () => void; onRemoved: () => void }) {
+  const preview = useAsync((signal) => api.userRemovalPreview(user.id, signal), [user.id]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const p = preview.data;
+  const close = () => !busy && onClose();
+
+  function confirmed() {
+    setBusy(true);
+    setError(null);
+    api.deleteUser(user.id).then(onRemoved, (e) => {
+      setBusy(false);
+      setError(errorMessage(e));
+    });
+  }
+
+  return (
+    <Sheet onClose={close} labelledBy="in-sh-t" className="in-sheet">
+      <SheetHead title={user.name + ' verwijderen?'} onClose={close} />
+      <p className="in-text">
+        {user.name} kan daarna niet meer inloggen. Toestellen, voorkeuren en regels van deze gebruiker verdwijnen ook. Dit kan je niet ongedaan maken.
+      </p>
+      {!p && !preview.error && (
+        <p className="in-help" role="status">
+          Even kijken wat er verdwijnt…
+        </p>
+      )}
+      {!p && preview.error && (
+        <>
+          <ErrorLine>{preview.error}</ErrorLine>
+          <button type="button" className="in-btn in-btn--ghost" onClick={preview.reload}>
+            Opnieuw proberen
+          </button>
+        </>
+      )}
+      {p && (
+        <>
+          {p.deletedAccounts > 0 && (
+            <p className="in-text">
+              {p.deletedAccounts === 1 ? '1 rekening' : p.deletedAccounts + ' rekeningen'} van {user.name} {p.deletedAccounts === 1 ? 'wordt met haar' : 'worden met hun'} geschiedenis verwijderd.
+            </p>
+          )}
+          {p.leftAccounts > 0 && (
+            <p className="in-text">
+              {p.leftAccounts === 1 ? '1 gedeelde rekening blijft' : p.leftAccounts + ' gedeelde rekeningen blijven'} bestaan voor de andere leden.
+            </p>
+          )}
+          {p.connections > 0 && <p className="in-text">{plural(p.connections, 'bankkoppeling wordt', 'bankkoppelingen worden')} verbroken.</p>}
+          {!p.deletedAccounts && !p.leftAccounts && !p.connections && <p className="in-text">Deze gebruiker heeft geen rekeningen of bankkoppelingen.</p>}
+        </>
+      )}
+      {error && <ErrorLine>{error}</ErrorLine>}
+      <div className="in-actions in-actions--sheet">
+        <button type="button" className="in-btn in-btn--ghost" onClick={close}>
+          Annuleren
+        </button>
+        <button type="button" className="in-btn in-btn--danger" disabled={!p || busy} onClick={confirmed}>
+          {busy ? 'Verwijderen…' : 'Verwijder ' + user.name}
+        </button>
+      </div>
+    </Sheet>
   );
 }
 

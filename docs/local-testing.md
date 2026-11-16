@@ -228,3 +228,11 @@ Start from a fresh demo (Partner is a member of the Gedeelde rekening).
 2. **As Partner** (`/api/demo/as/partner`), open the same account: the chip "Alleen lezen", a plain list in the Leden card (no buttons, "Alleen de beheerder past de rechten aan."), no "Saldo bijwerken" and no "Instellen". Open a transaction of the account in Transacties: no category pills, no split, no note field. Importeren offers only accounts she may edit.
 3. Set Partner back to Bewerken as Bert. As Partner a member with edit rights still cannot change the name, colour, buffer or balance of the shared account (they show read-only, with a note naming the manager).
 
+### Lifecycle (0.6-1c, about eight minutes)
+Start from a fresh demo; Bert is the admin and the manager of the Gedeelde rekening, Partner a member.
+1. **As Bert**, Meer, Instellingen, Gebruikers, Partner, "Verwijderen": the sheet says "1 rekening van Partner wordt met haar geschiedenis verwijderd.", "1 gedeelde rekening blijft bestaan voor de andere leden." and "1 bankkoppeling wordt verbroken." (counts only, no account names). Press "Annuleren": nothing changes. You cannot remove yourself.
+2. **As Partner** (`/api/demo/as/partner`), Rekeningen, Gedeelde rekening, Leden card, "Rekening verlaten": the sheet says Bert keeps everything and that her bank link stays. Confirm: toast "Je hebt Gedeelde rekening verlaten", back on Rekeningen, the account is gone for her (its address answers "niet gevonden").
+3. **As Bert**, Start: a notice "Partner heeft Gedeelde rekening verlaten" (close it); the account is personal again and has no Leden card, so Bert (now the only member) cannot leave it.
+4. **Delete for everyone** (needs two members again: add Partner back with Python, `insert into account_access (account_id,user_id,role,permission,joined_at) values (4,2,'member','edit','2026-11-18T08:00:00Z');`): as Bert, Leden card, "Rekening voor iedereen verwijderen": the button "Verwijder voor iedereen" stays disabled until you type `Gedeelde rekening` exactly; then the toast "Gedeelde rekening is verwijderd" and the account is gone. As Partner, Start shows "Bert heeft Gedeelde rekening verwijderd" and her own Zichtrekening is untouched.
+5. **Delete a user**: as Bert, Instellingen, Gebruikers, Partner, "Verwijder Partner": Partner is gone from the list; her sign-in and her devices go too.
+

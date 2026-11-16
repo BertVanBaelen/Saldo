@@ -486,6 +486,21 @@ export interface UserList {
   invitations: Invitation[];
 }
 
+/** Answer of POST /api/accounts/{id}/leave: who became manager when the manager left, else `null`. */
+export interface LeaveResult {
+  handedOverTo: { userId: number; name: string } | null;
+}
+
+/** GET /api/users/{id}/removal-preview: counts only, never names (an admin does not see another user's accounts). */
+export interface UserRemovalPreview {
+  /** Accounts only they hold: deleted with their history. */
+  deletedAccounts: number;
+  /** Shared accounts that stay for the other members. */
+  leftAccounts: number;
+  /** Bank links that are cut. */
+  connections: number;
+}
+
 export interface ApiErrorBody {
   error?: { code?: string; message?: string };
 }

@@ -154,16 +154,18 @@ func (s *Store) AcceptJoin(ctx context.Context, viewer, id int64, now time.Time)
 }
 
 // noticeAlerts are the viewer's unread notices about accounts the viewer
-// still holds, as alerts: the warnings and the information.
+// still holds, and about accounts deleted for them, as alerts: the warnings
+// and the information.
 func (s *Store) noticeAlerts(ctx context.Context, viewer int64) (warn, info []Alert, err error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT n.id, n.type, n.account_id, a.name, COALESCE(u.display_name, ''), COALESCE(x.permission, '')
+		SELECT n.id, n.type, COALESCE(n.account_id, 0), COALESCE(a.name, n.account_name, ''),
+		       COALESCE(u.display_name, n.actor_name, ''), COALESCE(x.permission, '')
 		FROM account_notices n
-		JOIN account_access me ON me.account_id = n.account_id AND me.user_id = n.user_id
-		JOIN accounts a ON a.id = n.account_id
+		LEFT JOIN accounts a ON a.id = n.account_id
 		LEFT JOIN users u ON u.id = n.actor_id
 		LEFT JOIN account_access x ON x.account_id = n.account_id AND x.user_id = n.actor_id
 		WHERE n.user_id = ? AND n.read_at IS NULL
+		  AND (n.type = 'deleted' OR EXISTS (SELECT 1 FROM account_access me WHERE me.account_id = n.account_id AND me.user_id = n.user_id))
 		ORDER BY n.id`, viewer)
 	if err != nil {
 		return nil, nil, err
@@ -179,11 +181,30 @@ func (s *Store) noticeAlerts(ctx context.Context, viewer int64) (warn, info []Al
 			actor = "Iemand"
 		}
 		a.Type, a.Href = kind, fmt.Sprintf("/rekeningen/%d", a.AccountID)
-		if kind == "rules" {
+		switch kind {
+		case "rules":
 			a.Kind = "warn"
 			a.Title = "Je regels voor " + account + " gelden niet meer"
 			a.Note = "Een regel van jezelf geldt alleen op een rekening met één lid · zet ze om naar regels van de rekening"
 			warn = append(warn, a)
+			continue
+		case "deleted":
+			a.Kind, a.Href = "warn", "/rekeningen"
+			a.Title = actor + " heeft " + account + " verwijderd"
+			a.Note = "De rekening en haar geschiedenis zijn voor alle leden weg · je koppeling en je andere rekeningen blijven"
+			warn = append(warn, a)
+			continue
+		case "left":
+			a.Kind = "ok"
+			a.Title = actor + " heeft " + account + " verlaten"
+			a.Note = actor + " ziet deze rekening niet meer"
+			info = append(info, a)
+			continue
+		case "manager":
+			a.Kind = "ok"
+			a.Title = "Je bent nu beheerder van " + account
+			a.Note = "De beheerder beslist wie de rekening mag bewerken"
+			info = append(info, a)
 			continue
 		}
 		a.Kind = "ok"

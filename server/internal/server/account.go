@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -242,5 +243,39 @@ func (s *Server) postPasswordReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, auth.EventResetSent, target.ID, "by "+strconv.FormatInt(admin.ID, 10))
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// getUserRemovalPreview says what deleting a user would do (0.6-1c).
+func (s *Server) getUserRemovalPreview(w http.ResponseWriter, r *http.Request) {
+	s.removeUser(w, r, false)
+}
+
+// deleteUser deletes a user with the hand-over of their shared accounts (0.6-1c).
+func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
+	s.removeUser(w, r, true)
+}
+
+func (s *Server) removeUser(w http.ResponseWriter, r *http.Request, commit bool) {
+	admin, ok := s.admin(w, r)
+	if !ok {
+		return
+	}
+	id, ok := pathID(w, r, msgUserNotFound)
+	if !ok {
+		return
+	}
+	out, err := s.store.RemoveUser(r.Context(), admin.ID, id, s.now(), commit)
+	if err != nil {
+		s.fail(w, r, err, msgUserNotFound)
+		return
+	}
+	if !commit {
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+	// The audit line names the admin: the deleted user's own lines lose their user id.
+	s.audit(r, auth.EventUserDeleted, admin.ID, fmt.Sprintf("user=%d deleted=%d left=%d connections=%d",
+		id, out.DeletedAccounts, out.LeftAccounts, out.Connections))
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -1,8 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '../lib/api';
-import type { Me } from '../lib/types';
-import { EB_OFF, EB_ON, ME, renderAt, stubApi } from '../test/helpers';
+import type { Me, UserRemovalPreview } from '../lib/types';
+import { EB_OFF, EB_ON, ME, REMOVAL, renderAt, stubApi, USERS } from '../test/helpers';
 
 const content = () => document.getElementById('in-content') as HTMLElement;
 const nav = () => screen.getByRole('navigation', { name: 'Instellingen' });
@@ -202,5 +202,126 @@ describe('Instellingen · Gebruikers', () => {
     expect(invite).toHaveBeenCalledWith('kim@example.com', 'admin');
     expect(screen.getByText('kim@example.com')).toBeTruthy();
     expect(toast()).toBe('Uitnodiging verstuurd · 7 dagen geldig');
+  });
+});
+
+describe('Instellingen · Gebruikers verwijderen', () => {
+  const open = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: 'Partner verwijderen' }));
+    return screen.findByRole('dialog', { name: 'Partner verwijderen?' });
+  };
+
+  it('offers it per other user for an admin: not on yourself, and not at all for a user who is not an admin', async () => {
+    const stub = stubApi();
+    const first = renderAt('/instellingen/gebruikers');
+    expect(await screen.findByRole('button', { name: 'Partner verwijderen' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Bert verwijderen' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /verwijderen$/ })).toHaveLength(1);
+    first.unmount();
+
+    renderAt('/instellingen/gebruikers', { ...ME, user: { ...ME.user, role: 'user' } });
+    expect(await within(nav()).findByRole('link', { name: /Toestellen/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /verwijderen$/ })).toBeNull();
+    expect(stub.userRemovalPreview).not.toHaveBeenCalled();
+  });
+
+  it('shows what goes, what stays and what is cut, and only then lets the admin confirm', async () => {
+    const stub = stubApi();
+    let answer!: (p: UserRemovalPreview) => void;
+    stub.userRemovalPreview.mockImplementation(() => new Promise((r) => (answer = r)));
+    renderAt('/instellingen/gebruikers');
+    const dialog = await open();
+    expect(stub.userRemovalPreview).toHaveBeenCalledWith(2, expect.anything());
+    // Nothing to confirm while the preview loads.
+    expect(within(dialog).getByText('Even kijken wat er verdwijnt…')).toBeTruthy();
+    expect((within(dialog).getByRole('button', { name: 'Verwijder Partner' }) as HTMLButtonElement).disabled).toBe(true);
+
+    answer(REMOVAL);
+    expect(await within(dialog).findByText('1 rekening van Partner wordt met haar geschiedenis verwijderd.')).toBeTruthy();
+    expect(within(dialog).getByText('1 gedeelde rekening blijft bestaan voor de andere leden.')).toBeTruthy();
+    expect(within(dialog).getByText('1 bankkoppeling wordt verbroken.')).toBeTruthy();
+    expect((within(dialog).getByRole('button', { name: 'Verwijder Partner' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('words the other cases in the plural, leaves out a part that is zero, and says so when nothing goes', async () => {
+    const stub = stubApi({ removal: { deletedAccounts: 2, leftAccounts: 2, connections: 2 } });
+    const first = renderAt('/instellingen/gebruikers');
+    let dialog = await open();
+    expect(await within(dialog).findByText('2 rekeningen van Partner worden met hun geschiedenis verwijderd.')).toBeTruthy();
+    expect(within(dialog).getByText('2 gedeelde rekeningen blijven bestaan voor de andere leden.')).toBeTruthy();
+    expect(within(dialog).getByText('2 bankkoppelingen worden verbroken.')).toBeTruthy();
+    first.unmount();
+
+    // Only shared accounts: no line about deleted accounts or links.
+    stub.userRemovalPreview.mockResolvedValue({ deletedAccounts: 0, leftAccounts: 1, connections: 0 });
+    const second = renderAt('/instellingen/gebruikers');
+    dialog = await open();
+    expect(await within(dialog).findByText('1 gedeelde rekening blijft bestaan voor de andere leden.')).toBeTruthy();
+    expect(within(dialog).queryByText(/geschiedenis verwijderd/)).toBeNull();
+    expect(within(dialog).queryByText(/verbroken/)).toBeNull();
+    expect(within(dialog).queryByText(/geen rekeningen/)).toBeNull();
+    second.unmount();
+
+    stub.userRemovalPreview.mockResolvedValue({ deletedAccounts: 0, leftAccounts: 0, connections: 0 });
+    renderAt('/instellingen/gebruikers');
+    dialog = await open();
+    expect(await within(dialog).findByText('Deze gebruiker heeft geen rekeningen of bankkoppelingen.')).toBeTruthy();
+    expect(within(dialog).queryByText(/geschiedenis verwijderd/)).toBeNull();
+    expect(within(dialog).queryByText(/blijft bestaan|blijven bestaan/)).toBeNull();
+    expect(within(dialog).queryByText(/verbroken/)).toBeNull();
+    expect((within(dialog).getByRole('button', { name: 'Verwijder Partner' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('never shows an account name of the user, and the note says only counts are shown when removing', async () => {
+    stubApi();
+    renderAt('/instellingen/gebruikers');
+    const note = (await screen.findByText(/Een beheerder beheert alleen gebruikers/)).closest('p') as HTMLElement;
+    expect(note.textContent).toContain('Je ziet nooit de rekeningen, saldi of transacties van een andere gebruiker.');
+    expect(note.textContent).toContain('Alleen bij het verwijderen van een gebruiker zie je hoeveel rekeningen en bankkoppelingen er meegaan.');
+    const dialog = await open();
+    await within(dialog).findByText(/1 rekening van Partner/);
+    expect(dialog.textContent).not.toMatch(/Zichtrekening|Gedeelde rekening|Spaarrekening/);
+  });
+
+  it('deletes the user, says so and reloads the list', async () => {
+    const stub = stubApi();
+    renderAt('/instellingen/gebruikers');
+    const dialog = await open();
+    await within(dialog).findByText(/1 rekening van Partner/);
+    expect(stub.deleteUser).not.toHaveBeenCalled();
+    // The server's list after the deletion.
+    stub.users.mockImplementation(async () => ({ ...structuredClone(USERS), users: [ME.user] }));
+    const before = stub.users.mock.calls.length;
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Verwijder Partner' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(stub.deleteUser).toHaveBeenCalledWith(2);
+    expect(toast()).toBe('Partner is verwijderd');
+    await waitFor(() => expect(stub.users.mock.calls.length).toBeGreaterThan(before));
+    await waitFor(() => expect(screen.queryByText('partner@example.com')).toBeNull());
+  });
+
+  it('shows the server message when deleting is refused and keeps the sheet', async () => {
+    const stub = stubApi();
+    stub.deleteUser.mockRejectedValue(new ApiError(400, 'invalid', 'Je kunt de laatste beheerder niet verwijderen.'));
+    renderAt('/instellingen/gebruikers');
+    const dialog = await open();
+    await within(dialog).findByText(/1 rekening van Partner/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Verwijder Partner' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Je kunt de laatste beheerder niet verwijderen.');
+    expect(toast()).toBeUndefined();
+    expect((within(dialog).getByRole('button', { name: 'Verwijder Partner' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('shows the server message when the preview fails, cannot confirm, and tries again', async () => {
+    const stub = stubApi();
+    stub.userRemovalPreview.mockRejectedValueOnce(new ApiError(404, 'not_found', 'Deze gebruiker bestaat niet.'));
+    renderAt('/instellingen/gebruikers');
+    const dialog = await open();
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Deze gebruiker bestaat niet.');
+    expect((within(dialog).getByRole('button', { name: 'Verwijder Partner' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Opnieuw proberen' }));
+    expect(await within(dialog).findByText(/1 rekening van Partner/)).toBeTruthy();
+    expect((within(dialog).getByRole('button', { name: 'Verwijder Partner' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

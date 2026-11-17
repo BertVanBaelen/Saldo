@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.6 Shared accounts](README.md) |
-| Status | planned, split into four slices on 16 Nov 2026 |
+| Status | built (16 Nov 2026), to verify |
 | Size | L (four M slices) |
 | Features | SHARE-1, SHARE-2 |
 | Concepts | [shared-account](../../analysis/concepts/shared-account.md), [account](../../analysis/concepts/account.md), [bank-connection](../../analysis/concepts/bank-connection.md), [user-and-visibility](../../analysis/concepts/user-and-visibility.md) |

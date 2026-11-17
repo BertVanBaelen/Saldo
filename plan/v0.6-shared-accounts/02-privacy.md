@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.6 Shared accounts](README.md) |
-| Status | planned |
+| Status | built (16 Nov 2026), to verify |
 | Size | M |
 | Features | SHARE-3 |
 | Concepts | [user-and-visibility](../../analysis/concepts/user-and-visibility.md) |

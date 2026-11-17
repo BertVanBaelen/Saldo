@@ -261,3 +261,6 @@ Start from a fresh demo (the demo holds both monthly € 450 payments, but no de
 4. Remove your own sender ("Verwijderen", confirm): the chip goes back to "nog niet ingesteld". Leaving the account (Leden card) clears your claim and resets the split.
 5. Known limits: a manual account's IBAN is typed by its owner, so a member who knows an IBAN could claim it (the manager can remove claims); "ontvangen ✓" is not "paid the whole share" until the monthly target exists (0.8); claims and shares are not in the audit log.
 
+### Joining through the link wizard (checked 17 Nov 2026)
+The hand-made offer of the "Join" section above is a shortcut; this is the real path in the demo. Fresh demo, then with Python remove Partner from the shared account: `delete from account_access where account_id=4 and user_id=2; delete from account_sources where account_id=4 and connection_id=2;`. **As Partner**, Bankkoppelingen, "Nieuwe bankkoppeling", "Naar Argenta": the demo bank sends you straight back, "Klaar. Je rekening is gekoppeld." lists her own Zichtrekening, and the sheet "Deze rekening bestaat al." opens by itself with only `BE12 •••• •••• 7730`. "Aansluiten": toast "Je bent aangesloten bij Gedeelde rekening"; her link is the reserve ("Je koppeling is reserve …") and Bert's carries the account; Bert gets "Partner sluit aan bij Gedeelde rekening".
+

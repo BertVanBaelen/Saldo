@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.6 Shared accounts](README.md) |
-| Status | planned |
+| Status | built (16 Nov 2026), to verify |
 | Size | M |
 | Features | SHARE-4 |
 | Concepts | [internal-transfer](../../analysis/concepts/internal-transfer.md), [transaction](../../analysis/concepts/transaction.md) |

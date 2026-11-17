@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.6 Shared accounts](README.md) |
-| Status | planned |
+| Status | built (16 Nov 2026), to verify |
 | Size | S |
 | Features | SHARE-6 |
 | Concepts | [shared-account](../../analysis/concepts/shared-account.md), [categorisation-rule](../../analysis/concepts/categorisation-rule.md) |

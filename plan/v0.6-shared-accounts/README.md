@@ -2,7 +2,7 @@
 
 **After this version you can** share the joint account with Partner: she links it with her own bank login and joins it, each of you sees only your own accounts, transfers between your own accounts no longer count as income or expenses, the Alles · Persoonlijk · Gedeeld switch filters every list, and you see both contributions arrive.
 
-Status: built (16 Nov 2026), to verify on the live add-on, on branch `v0.6-shared-accounts` (not merged, not pushed), version `0.6.0-dev`. Analysis milestone: M3. Roadmap: [../README.md](../README.md).
+Status: released as 0.6.0 (17 Nov 2026), verifying on the live add-on. Built on branch `v0.6-shared-accounts` (16 Nov 2026). Analysis milestone: M3. Roadmap: [../README.md](../README.md).
 
 ## Features
 | Id | Feature |

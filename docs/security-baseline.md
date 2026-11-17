@@ -62,8 +62,17 @@ Result per item: **ok** (checked, nothing to change), **fixed** (in this phase, 
 | Dockerfile: multi-stage, static binary, `ca-certificates` and `tzdata` only, healthcheck | ok. Runs as root: accepted for a Home Assistant add-on (`/data` is root-owned, the Supervisor sandboxes the container); 1.0-2. `alpine:3` not pinned by digest: 1.0-2 |
 | CI: actions pinned by commit, `persist-credentials: false`, read-only token, gitleaks on the full history | ok. The gitleaks download has no checksum check: 1.0-2 |
 | `govulncheck ./...` | fixed: 14 standard-library findings in Go 1.27.0 (`net/http`, `html/template`, `crypto/tls`, `crypto/x509`, ...); `go.mod` now asks for toolchain 1.27.3, then 0 findings |
-| `npm audit --omit=dev` | ok: 0 vulnerabilities |
+| `npm audit --omit=dev` | ok: 0 vulnerabilities. This is the blocking CI check: it covers what ships (React, the router, the fonts) |
+| `npm audit` (all dependencies) | warns only, see "Known advisories in build and test tools" below |
 | Audit log has no screen yet | 1.0-2 (planned with Instellingen) |
+
+## Known advisories in build and test tools
+**Warning.** `npm audit` of all dependencies currently reports one high advisory that CI does not block on: `picomatch` ReDoS (GHSA-fc5q-39xc-vjpf, CVSS 7.5, availability only), reached through `vite`, `vitest`, `tinyglobby` and `fdir`. Found 17 Nov 2026 while releasing 0.6.0.
+- **No patched version exists.** The advisory covers every `picomatch` version up to 4.0.7, the newest. Older versions are worse (they also hit GHSA-c2c7-rcm5-vvqj), so downgrading does not help; checked with `overrides` in a scratch copy.
+- **It does not ship.** `picomatch` is installed only in the `web` stage of the Dockerfile (`node:26-alpine`) while `npm run build` runs on the build machine. The final image is `alpine:3` with the Go binary and `web/dist` only: no Node.js, no `node_modules`, and the built JavaScript does not contain `picomatch`.
+- **Why the risk is small.** An attacker would have to control a glob pattern given to `picomatch`. Here the patterns are in our own build and test configuration; no user input or bank data reaches it. The worst case is a hung build or test run.
+- **How CI treats it.** The blocking step is `npm audit --omit=dev --audit-level=high` (what ships). A second step runs the full `npm audit` and only warns. A new high advisory in a shipped dependency still stops the release.
+- **To undo.** When `picomatch` publishes a patched version and `package-lock.json` has it, make the full `npm audit --audit-level=high` blocking again (one step in `.github/workflows/ci.yml`). Check this in 1.0-2 at the latest.
 
 ## Needs the user
 1. Cloudflared route to the add-on and `public_url` set to the https address (`saldo/DOCS.md`, "Public access").

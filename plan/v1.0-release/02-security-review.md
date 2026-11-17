@@ -15,7 +15,7 @@ A full review of everything that was built on top of the security baseline of 0.
 
 ## Steps
 1. Review sign-in, trusted devices, CSRF, CSP, rate limits, the bank callback and `state` handling, secret encryption, privacy scoping, imports, exports, push and outbound traffic.
-2. Dependency and container check; scan the public repository history for secrets and personal data.
+2. Dependency and container check; scan the public repository history for secrets and personal data. Also: the full `npm audit` only warns since 17 Nov 2026 because of the `picomatch` advisory in the build tools (no patched version yet, not shipped; docs/security-baseline.md, "Known advisories in build and test tools"). Make it blocking again when a patched version is in `package-lock.json`.
 3. Write `docs/security-review-v1.md` with findings and fixes.
 
 ## Done when

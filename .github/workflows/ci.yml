@@ -52,7 +52,14 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - run: npm audit --audit-level=high
+      # What ships (React, the router, the fonts) must have no high advisory: this blocks.
+      - name: npm audit (shipped dependencies, blocks)
+        run: npm audit --omit=dev --audit-level=high
+      # Build and test tools (vite, vitest, ...) never reach the add-on image (docs/security-baseline.md,
+      # "Known advisories in build and test tools"). They are audited too, but only as a warning, so an
+      # advisory without a patched version does not stop a release.
+      - name: npm audit (all dependencies, warns)
+        run: npm audit --audit-level=high || echo "::warning title=npm audit::A build or test tool has a high advisory. It does not ship in the add-on image; see docs/security-baseline.md."
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

@@ -1,8 +1,8 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api';
-import { asMember, CATEGORISE_ALERT, CONSENT_ALERT, EB_OFF, EB_ON, GEDEELD, MEMBER_ALERT, PENDING, renderAt, RULES_ALERT, SPAAR, stubApi, ZICHT } from '../test/helpers';
-import type { Account, Alert, SyncStatus } from '../lib/types';
+import { asMember, CATEGORISE_ALERT, CONSENT_ALERT, EB_OFF, EB_ON, GEDEELD, ME, MEMBER_ALERT, PENDING, renderAt, RULES_ALERT, SPAAR, stubApi, ZICHT } from '../test/helpers';
+import type { Account, Alert, ReportMonths, ReportQuery, Scope, SyncStatus } from '../lib/types';
 
 const hero = () => document.querySelector('.hero') as HTMLElement;
 /** The text of every account subline, in page order. */
@@ -439,5 +439,222 @@ describe('Start · without a current account in view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Gedeeld' }));
     expect(screen.getByText('Nog geen gedeelde rekening')).toBeTruthy();
     expect(document.querySelector('.hero')).toBeNull();
+  });
+});
+
+describe('Start · Uitgaven november', () => {
+  // The demo answers of 0.7-1 for November 2026 to the 18th (plan 0.7-5). Keys are category ids (1 Wonen, 2 Boodschappen,
+  // 3 Vrije tijd, 4 Vervoer, 5 Abonnementen) and the pseudo keys. Each account counts its own transfers; the total does not.
+  const ZICHT_NOV: Record<string, number> = { '1': 100500, toShared: 45000, '4': 13410, '3': 6690, none: 4125, '5': 2598 }; // 172323
+  const GEDEELD_NOV: Record<string, number> = { '2': 29521, '1': 14500, '5': 4298 }; // 48319
+  const TOTAL_NOV: Record<string, number> = { '1': 115000, '2': 29521, '4': 13410, '3': 6690, none: 4125, '5': 6896 }; // 175642, no transfer
+  const flows = (expenses: Record<string, number>) => ({ income: 0, saved: 0, expenses });
+  const report = (accounts: number[], expenses: Record<string, number>, perAccount?: [number, Record<string, number>][], month = '2026-11'): ReportMonths => ({
+    accounts,
+    firstMonth: '2025-11',
+    firstDate: '2025-11-01',
+    months: [{ month, ...flows(expenses), accounts: perAccount?.map(([id, e]) => ({ id, ...flows(e) })) }],
+  });
+  const alles = () =>
+    report(
+      [1, 4],
+      TOTAL_NOV,
+      [
+        [1, ZICHT_NOV],
+        [4, GEDEELD_NOV],
+      ],
+    );
+  const byScope = (q: ReportQuery) => (q.scope === 'persoonlijk' ? report([1], ZICHT_NOV) : q.scope === 'gedeeld' ? report([4], GEDEELD_NOV) : alles());
+  const inScope = (scope: Scope) => ({ ...ME, preferences: { ...ME.preferences, scope } });
+  const FOOTNOTE = 'Overschrijvingen tussen je eigen rekeningen (€ 450,00) tellen per rekening mee, maar niet in het totaal samen.';
+  const ZICHT_ROWS = [
+    ['Wonen 58%', '€ 1.005,00'],
+    ['Naar gedeelde rekening 26%', '€ 450,00'],
+    ['Vervoer 8%', '€ 134,10'],
+    ['Vrije tijd 4%', '€ 66,90'],
+    ['Niet gecategoriseerd 2%', '€ 41,25'],
+    ['Abonnementen 2%', '€ 25,98'],
+  ];
+  const GEDEELD_ROWS = [
+    ['Boodschappen 61%', '€ 295,21'],
+    ['Wonen 30%', '€ 145,00'],
+    ['Abonnementen 9%', '€ 42,98'],
+  ];
+
+  const heading = () => screen.findByRole('heading', { name: /^Uitgaven [a-z]+$/ });
+  const card = () => screen.getByRole('heading', { name: /^Uitgaven [a-z]+$/ }).closest('section') as HTMLElement;
+  const rowsOf = (root: ParentNode) => Array.from(root.querySelectorAll('.share-row')).map((r) => [r.querySelector('.name')!.textContent, r.querySelector('.amount')!.textContent]);
+  const groups = () => Array.from(card().querySelectorAll('.start-spend-group')) as HTMLElement[];
+  const groupHead = (g: HTMLElement) => [g.querySelector('.start-spend-name')!.textContent, g.querySelector('.start-spend-head .mono')!.textContent];
+  const loading = () => screen.queryByRole('status', { name: 'Uitgaven laden' });
+
+  it('shows a block per account in Alles, "samen" as the total and the footnote about the transfer', async () => {
+    const api = stubApi({ reports: byScope });
+    renderAt('/');
+    await heading();
+    expect(screen.getByRole('heading', { name: 'Uitgaven november' })).toBeTruthy();
+    expect(api.reportMonths).toHaveBeenCalledTimes(1);
+    expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', from: '2026-11', to: '2026-11' });
+
+    expect(groups().map(groupHead)).toEqual([
+      ['Zichtrekening', '€ 1.723,23'],
+      ['Gedeelde rekening', '€ 483,19'],
+    ]);
+    expect(rowsOf(groups()[0])).toEqual(ZICHT_ROWS);
+    expect(rowsOf(groups()[1])).toEqual(GEDEELD_ROWS);
+
+    // The head: the report's total, which leaves the € 450 between the own accounts out.
+    const samen = screen.getByRole('link', { name: 'Samen € 1.756,42, ter info' });
+    expect(samen.textContent).toBe('samen € 1.756,42');
+    // The footnote sits under the card, outside the link.
+    expect(screen.getByText(FOOTNOTE).closest('a')).toBeNull();
+  });
+
+  it('draws the share bar from the rows, a dashed dot for "Niet gecategoriseerd"', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/');
+    await heading();
+    const segments = Array.from(groups()[0].querySelectorAll('.share-bar > span')) as HTMLElement[];
+    expect(segments).toHaveLength(6);
+    expect(segments[0].style.width).toBe('58.3%');
+    expect(groups()[0].querySelector('.share-bar')!.getAttribute('aria-hidden')).toBe('true');
+    const dots = Array.from(groups()[0].querySelectorAll('.share-row i')) as HTMLElement[];
+    expect(dots.map((d) => d.classList.contains('start-spend-dot--uncat'))).toEqual([false, false, false, false, true, false]);
+  });
+
+  it('shows one block in Persoonlijk with the transfer row, the total in the head and no footnote', async () => {
+    const api = stubApi({ reports: byScope });
+    renderAt('/', inScope('persoonlijk'));
+    await heading();
+    expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'persoonlijk', from: '2026-11', to: '2026-11' });
+    expect(groups()).toHaveLength(0);
+    expect(rowsOf(card())).toEqual(ZICHT_ROWS);
+    const total = card().querySelector('.section-meta') as HTMLElement;
+    expect(total.textContent).toBe('€ 1.723,23');
+    expect(total.getAttribute('aria-label')).toBeNull();
+    expect(screen.queryByText(/Overschrijvingen tussen je eigen rekeningen/)).toBeNull();
+  });
+
+  it('shows one block in Gedeeld', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/', inScope('gedeeld'));
+    await heading();
+    expect(groups()).toHaveLength(0);
+    expect(rowsOf(card())).toEqual(GEDEELD_ROWS);
+    expect(card().querySelector('.section-meta')!.textContent).toBe('€ 483,19');
+    expect(screen.queryByText(/Overschrijvingen tussen je eigen rekeningen/)).toBeNull();
+  });
+
+  it('links the head and the card to Overzicht', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/');
+    await heading();
+    const links = within(card()).getAllByRole('link');
+    expect(links).toHaveLength(2);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/overzicht', '/overzicht']);
+    expect(links[1].classList.contains('card')).toBe(true);
+  });
+
+  it('says so for an account without spending, and uses the month of today, not a fixed one', async () => {
+    const api = stubApi({
+      reports: () =>
+        report(
+          [1, 4],
+          { '1': 100500 },
+          [
+            [1, { '1': 100500 }],
+            [4, {}],
+          ],
+          '2026-12',
+        ),
+    });
+    renderAt('/', { ...ME, today: '2026-12-02' });
+    expect(await screen.findByRole('heading', { name: 'Uitgaven december' })).toBeTruthy();
+    expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', from: '2026-12', to: '2026-12' });
+    expect(groups().map(groupHead)).toEqual([
+      ['Zichtrekening', '€ 1.005,00'],
+      ['Gedeelde rekening', '€ 0,00'],
+    ]);
+    expect(within(groups()[1]).getByText('Nog niets uitgegeven in december.')).toBeTruthy();
+    expect(groups()[1].querySelector('.share-bar')).toBeNull();
+  });
+
+  it('says so when the only account has no spending', async () => {
+    stubApi({ accounts: [ZICHT], reports: () => report([1], {}) });
+    renderAt('/');
+    await heading();
+    expect(screen.getByText('Nog niets uitgegeven in november.')).toBeTruthy();
+    expect(card().querySelector('.section-meta')!.textContent).toBe('€ 0,00');
+  });
+
+  it('leaves the card out when the report fails, and the rest of Start stays', async () => {
+    const api = stubApi({ reports: byScope });
+    api.reportMonths.mockRejectedValue(new Error('x'));
+    renderAt('/');
+    await screen.findByText('Saldo nu · alle rekeningen');
+    await waitFor(() => expect(api.reportMonths).toHaveBeenCalled());
+    await waitFor(() => expect(loading()).toBeNull());
+    expect(screen.queryByRole('heading', { name: /^Uitgaven / })).toBeNull();
+    expect(screen.getByText('Alleen jij ziet deze rekeningen')).toBeTruthy();
+    expect(screen.getByText('Met Partner · jij bent beheerder')).toBeTruthy();
+  });
+
+  it('shows no card, and asks for nothing, in a scope without a current account', async () => {
+    const api = stubApi({ accounts: [ZICHT, SPAAR], reports: byScope });
+    renderAt('/', inScope('gedeeld'));
+    expect(await screen.findByText('Nog geen gedeelde rekening')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: /^Uitgaven / })).toBeNull();
+    expect(loading()).toBeNull();
+    expect(api.reportMonths).not.toHaveBeenCalled();
+  });
+
+  it('shows no card for savings accounts only', async () => {
+    const api = stubApi({ accounts: [SPAAR], reports: byScope });
+    renderAt('/');
+    expect(await screen.findByText('Nog geen zichtrekening')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: /^Uitgaven / })).toBeNull();
+    expect(api.reportMonths).not.toHaveBeenCalled();
+  });
+
+  it('holds its place with a skeleton while the report loads, and never shows the answer of another scope', async () => {
+    const api = stubApi({ reports: byScope });
+    renderAt('/');
+    await heading();
+    expect(groups()).toHaveLength(2);
+
+    // The next scope's answer is slow: the Alles blocks do not stand in for it.
+    api.reportMonths.mockImplementation(() => new Promise<ReportMonths>(() => {}));
+    fireEvent.click(screen.getByRole('button', { name: 'Persoonlijk' }));
+    expect(await screen.findByRole('status', { name: 'Uitgaven laden' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: /^Uitgaven / })).toBeNull();
+    expect(api.reportMonths.mock.calls.at(-1)![0]).toEqual({ scope: 'persoonlijk', from: '2026-11', to: '2026-11' });
+  });
+
+  it('loads again after a sync (a dataVersion bump) and shows the new amounts', async () => {
+    const api = stubApi({ reports: byScope });
+    renderAt('/');
+    await heading();
+    expect(groupHead(groups()[1])).toEqual(['Gedeelde rekening', '€ 483,19']);
+
+    let finish = (_r: ReportMonths) => {};
+    api.reportMonths.mockImplementation(() => new Promise<ReportMonths>((resolve) => (finish = resolve)));
+    fireEvent.click(screen.getByRole('button', { name: 'Nu synchroniseren' }));
+    await waitFor(() => expect(api.reportMonths).toHaveBeenCalledTimes(2), { timeout: 3000 });
+    // The old amounts stay on screen while the new answer is on its way: no skeleton in between.
+    expect(loading()).toBeNull();
+    expect(groupHead(groups()[1])).toEqual(['Gedeelde rekening', '€ 483,19']);
+    await act(async () =>
+      finish(
+        report(
+          [1, 4],
+          { ...TOTAL_NOV, '2': 1000 },
+          [
+            [1, ZICHT_NOV],
+            [4, { '2': 1000 }],
+          ],
+        ),
+      ),
+    );
+    await waitFor(() => expect(groupHead(groups()[1])).toEqual(['Gedeelde rekening', '€ 10,00']));
   });
 });

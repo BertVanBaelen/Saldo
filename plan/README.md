@@ -29,7 +29,7 @@ flowchart LR
 | [0.5](v0.5-bilance-import/README.md) | Bilance import | bring in your full Bilance history, mapped to your categories, without duplicates | S2, M6 | 2 S · 4 M | released (0.5.0), verifying |
 | [0.5.1](v0.5.1-category-look/README.md) | Category look and picker | pick your own emoji and colours for categories, find a category in two taps, and a failed account of a bank link says why (sync hardened, live cause unconfirmed) | - | 1 S · 3 M | released (0.5.1), verifying |
 | [0.6](v0.6-shared-accounts/README.md) | Shared accounts | share the joint account with Partner, each seeing only your own accounts | M3 | 2 S · 2 M · 1 L | released (0.6.0), verifying |
-| [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 1 S · 2 M | planned |
+| [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 3 S · 2 M | built (0.7.0-dev), to verify |
 | [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend | M5 | 1 S · 2 M · 3 L | planned |
 | [0.9](v0.9-notifications/README.md) | Notifications | get push (Android and iPhone) and e-mail warnings before an account goes into its buffer or below zero | 4.9 | 2 S · 3 M | planned |
 | [1.0](v1.0-release/README.md) | Release | run Saldo with a full security review, tested backups and an export | 13.4 | 3 S · 1 M | planned |
@@ -83,7 +83,7 @@ Sizes are in the version READMEs. "Needs" lists the phases that must be done fir
 | [0.6-4](v0.6-shared-accounts/04-scope-and-sums.md) | Scope filter and sums | S | 0.6-3 |
 | [0.6-5](v0.6-shared-accounts/05-contributions.md) | Contributions | S | 0.6-4 |
 
-The phases of 0.6 depend on 0.3 only, and nothing in 0.4 or 0.5 depends on 0.6. So the order is a choice, not a technical limit: if Partner should be using Saldo sooner, 0.6 can go before 0.4 and 0.5 without breaking anything. After that: **0.7 Overview** (3 phases), **0.8 Planning** (6 phases, the heaviest with 3 L, and it needs the 12+ months of history from 0.5), **0.9 Notifications** (5 phases), **1.0 Release** (4 phases); see the table above.
+The phases of 0.6 depend on 0.3 only, and nothing in 0.4 or 0.5 depends on 0.6. So the order is a choice, not a technical limit: if Partner should be using Saldo sooner, 0.6 can go before 0.4 and 0.5 without breaking anything. After that: **0.7 Overview** (5 phases), **0.8 Planning** (6 phases, the heaviest with 3 L, and it needs the 12+ months of history from 0.5), **0.9 Notifications** (5 phases), **1.0 Release** (4 phases); see the table above.
 
 ### Carried over from 0.3
 Each item is also written in the phase file that will do it, under "Carried over from 0.3".
@@ -181,9 +181,9 @@ Feature ids are stable; phase files list the features they deliver. **[S]** = sh
 ### 0.7 · Overview
 | Id | Feature | Phase |
 |---|---|---|
-| OVER-1 | Income, expenses and saved per month, quarter, year or custom range, per account and as a sum | 0.7-1, 0.7-2 |
-| OVER-2 | Category breakdown with share, trend and drill-down to transactions | 0.7-1, 0.7-2 |
-| OVER-3 | Start: spending this month and contributions | 0.7-3 |
+| OVER-1 | Income, expenses and saved per month, quarter, year or custom range, per account and as a sum | 0.7-1, 0.7-3, 0.7-4 |
+| OVER-2 | Category breakdown with share, trend and drill-down to transactions | 0.7-1, 0.7-2, 0.7-3 |
+| OVER-3 | Start: spending this month and contributions | 0.7-5 (contributions built in 0.6-5) |
 
 ### 0.8 · Planning
 | Id | Feature | Phase |

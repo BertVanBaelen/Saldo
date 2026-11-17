@@ -118,6 +118,8 @@ describe('api client', () => {
     expect(transactionsPath({ scope: 'gedeeld', q: 'colruyt', uncategorised: true, limit: 50 })).toBe('/api/transactions?scope=gedeeld&q=colruyt&uncategorised=1&limit=50');
     expect(transactionsPath({ account: 4, before: 'abc==' })).toBe('/api/transactions?account=4&before=abc%3D%3D');
     expect(transactionsPath({ from: '2026-10-01', to: '2026-10-31' })).toBe('/api/transactions?from=2026-10-01&to=2026-10-31');
+    expect(transactionsPath({ category: '2' })).toBe('/api/transactions?category=2');
+    expect(transactionsPath({ category: 'toShared', account: 1, from: '2026-10-01' })).toBe('/api/transactions?account=1&category=toShared&from=2026-10-01');
   });
 });
 

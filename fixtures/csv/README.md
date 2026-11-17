@@ -27,6 +27,7 @@ Results were measured on a fresh demo database through the real API (`POST /api/
 | `several-accounts.csv` | 11 | Jun 2025 | three IBANs | Testrekening, and Reserve | Testrekening: new 4, invalid 7. Reserve: new 0, invalid 11; the import is refused |
 | `large.csv` | 1 500 | Jan 2023 to May 2025 | empty | Zichtrekening | new 1 500, present 0, invalid 0, overlap 0 |
 | `bilance-voorbeeld.csv` | 28 | Jan to Oct 2025, Oct to Nov 2026 | account names (3) | Zichtrekening, Spaarrekening and Reserve | see below: with the suggested cutoff new 21, after cutoff 6, invalid 1; with *Geen afkapdatum* new 23, present 2, probable duplicates 2, invalid 1 |
+| `bilance-bijdrage.csv` | 36 | Jan to Dec 2024 | account name (1) | Zichtrekening | 0.7 scenario (docs/local-testing.md): new 36, present 0, invalid 0. Huur, Loon and a −€ 450 "Bijdrage gedeelde rekening" per month, in the Bilance layout of `bilance-voorbeeld.csv`; the contributions carry no category and no IBAN, so Overzicht shows them as "Niet gecategoriseerd" |
 | `bilance-tweede.csv` | 12 | Mar to Aug 2025 | account names (3) | Zichtrekening, Spaarrekening and Reserve | see below: new 12, present 0, invalid 0, overlap 0 |
 
 "Overlap" is how many of the new rows are dated in the period the account already syncs (from 1 November 2025 for the demo's Zichtrekening); the wizard warns about them for a generic file. For a Bilance file it shows the probable duplicates and the cutoff instead (0.5-4).

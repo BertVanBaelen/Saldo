@@ -2,8 +2,9 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderAt, stubApi, TRANSACTIONS } from '../test/helpers';
 import { ApiError } from '../lib/api';
+import { columns, periodParam } from '../lib/reports';
 import type { Transaction } from '../lib/types';
-import { amountClass, catView, groupByDay, period } from './Transacties';
+import { amountClass, catView, categoryFromParam, groupByDay, period, periodFromParam } from './Transacties';
 
 const days = () => Array.from(document.querySelectorAll<HTMLElement>('.tx-day'));
 
@@ -188,17 +189,168 @@ describe('Transacties · grouping by day', () => {
     expect(await screen.findByText('Bol.com', { selector: '.tx-name' })).toBeTruthy();
   });
 
-  it('offers only "Niet gecategoriseerd" in the category dropdown until categories exist', async () => {
+  it('offers the top categories in the category dropdown, grouped, and "Niet gecategoriseerd" last', async () => {
     stubApi();
     renderAt('/transacties');
     await screen.findByText('Bol.com', { selector: '.tx-name' });
     fireEvent.click(screen.getByRole('button', { name: 'Categorie: Categorie' }));
     const dialog = await screen.findByRole('dialog');
-    const options = within(dialog).getAllByRole('button', { pressed: false }).concat(within(dialog).getAllByRole('button', { pressed: true }));
-    expect(options.map((o) => o.querySelector('.tx-opt-name')?.textContent).sort()).toEqual(['Alle categorieën', 'Niet gecategoriseerd']);
+    await within(dialog).findByRole('button', { name: /^Boodschappen/ });
+    // Subcategories (Energie) roll up into their top and are not offered.
+    expect(Array.from(dialog.querySelectorAll('.tx-opt-name')).map((o) => o.textContent)).toEqual([
+      'Alle categorieën',
+      'Wonen',
+      'Boodschappen',
+      'Vrije tijd',
+      'Vervoer',
+      'Abonnementen',
+      'Overig',
+      'Niet gecategoriseerd',
+    ]);
+    expect(Array.from(dialog.querySelectorAll('.tx-dd-label')).map((o) => o.textContent)).toEqual(['Uitgaven']);
+    expect(dialog.querySelectorAll('.tx-dd-sep')).toHaveLength(1);
+
     fireEvent.click(within(dialog).getByRole('button', { name: /^Niet gecategoriseerd/ }));
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/transacties?filter=niet-gecategoriseerd'));
     await waitFor(() => expect(screen.queryByText('Colruyt Laagste Prijzen', { selector: '.tx-name' })).toBeNull());
+  });
+
+  it('opens a drill-down link: the category and the month are filters, in the URL and as chips', async () => {
+    const api = stubApi();
+    renderAt('/transacties?categorie=2&periode=2026-10');
+    await waitFor(() => expect(api.transactions).toHaveBeenCalledWith(expect.objectContaining({ category: '2', from: '2026-10-01', to: '2026-10-31', limit: 50 }), expect.anything()));
+    expect(await screen.findByRole('button', { name: 'Categorie: Boodschappen' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Periode: Oktober 2026' })).toBeTruthy();
+    // Nothing in October in the fixtures: the note names the filters, not only the period.
+    expect(await screen.findByText('Niets dat past bij deze filters.')).toBeTruthy();
+  });
+
+  it('sends the pseudo rows of Overzicht as toShared, toOwn and none, with their chips', async () => {
+    for (const [param, key, chip] of [
+      ['naar-gedeeld', 'toShared', 'Naar gedeelde rekening'],
+      ['naar-eigen', 'toOwn', 'Naar eigen rekening'],
+      ['geen', 'none', 'Niet gecategoriseerd'],
+    ]) {
+      const api = stubApi();
+      const { unmount } = renderAt('/transacties?categorie=' + param);
+      await waitFor(() => expect(api.transactions).toHaveBeenCalledWith(expect.objectContaining({ category: key, limit: 50 }), expect.anything()));
+      expect(await screen.findByRole('button', { name: 'Categorie: ' + chip })).toBeTruthy();
+      // `geen` is the report's row; the "Niet gecategoriseerd" filter of the Start alert stays another one.
+      expect(api.transactions).not.toHaveBeenCalledWith(expect.objectContaining({ uncategorised: true, limit: 50 }), expect.anything());
+      unmount();
+    }
+  });
+
+  it('ignores a category that is not an id or a pseudo row', async () => {
+    const api = stubApi();
+    renderAt('/transacties?categorie=abc');
+    await screen.findByText('Bol.com', { selector: '.tx-name' });
+    expect(api.transactions.mock.calls.every(([q]) => q?.category === undefined)).toBe(true);
+    expect(screen.getByRole('button', { name: 'Categorie: Categorie' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Wis filters' })).toBeNull();
+  });
+
+  it('keeps the category filter and the "Niet gecategoriseerd" filter apart: setting one removes the other', async () => {
+    const api = stubApi();
+    renderAt('/transacties?categorie=2&periode=2026-10');
+    fireEvent.click(await screen.findByRole('button', { name: 'Categorie: Boodschappen' }));
+    let dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Niet gecategoriseerd/ }));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/transacties?periode=2026-10&filter=niet-gecategoriseerd'));
+    await waitFor(() => expect(api.transactions).toHaveBeenCalledWith(expect.objectContaining({ uncategorised: true, category: undefined, from: '2026-10-01' }), expect.anything()));
+
+    // Back to a category from the dropdown: the other filter goes.
+    fireEvent.click(await screen.findByRole('button', { name: 'Categorie: Niet gecategoriseerd' }));
+    dialog = await screen.findByRole('dialog');
+    fireEvent.click(await within(dialog).findByRole('button', { name: /^Vervoer/ }));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/transacties?periode=2026-10&categorie=4'));
+
+    // And the chip of the Start alert replaces the category.
+    fireEvent.click(screen.getByRole('button', { name: /^Niet gecategoriseerd/ }));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/transacties?periode=2026-10&filter=niet-gecategoriseerd'));
+  });
+
+  it('marks the chosen category in the dropdown, and "Alle categorieën" clears it', async () => {
+    stubApi();
+    renderAt('/transacties?categorie=2');
+    fireEvent.click(await screen.findByRole('button', { name: 'Categorie: Boodschappen' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: /^Boodschappen/ }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Alle categorieën/ }));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/transacties'));
+  });
+
+  it('"Wis filters" removes every filter, the category and the period of a link included', async () => {
+    stubApi();
+    renderAt('/transacties?categorie=2&periode=2026-K4&filter=niet-gecategoriseerd&rekening=1');
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Wis filters' }))[0]);
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/transacties'));
+    expect(await screen.findByText('Bol.com', { selector: '.tx-name' })).toBeTruthy();
+  });
+
+  it('asks for older pages with the category filter too', async () => {
+    const api = stubApi({ transactions: (q) => (q.before ? { items: TRANSACTIONS.slice(2), next: null } : { items: TRANSACTIONS.slice(0, 2), next: 'c2' }) });
+    renderAt('/transacties?categorie=naar-gedeeld');
+    fireEvent.click(await screen.findByRole('button', { name: 'Oudere transacties laden' }));
+    await waitFor(() => expect(api.transactions).toHaveBeenCalledWith(expect.objectContaining({ before: 'c2', category: 'toShared' })));
+  });
+
+  it('parses ?categorie= into the API value', () => {
+    expect(categoryFromParam('2')).toEqual({ param: '2', key: '2' });
+    expect(categoryFromParam('geen')).toEqual({ param: 'geen', key: 'none' });
+    expect(categoryFromParam('naar-gedeeld')).toEqual({ param: 'naar-gedeeld', key: 'toShared' });
+    expect(categoryFromParam('naar-eigen')).toEqual({ param: 'naar-eigen', key: 'toOwn' });
+    for (const bad of [null, '', 'abc', '0', '02', '-1', '1.5', 'toShared', 'constructor', '__proto__']) expect(categoryFromParam(bad)).toBeUndefined();
+  });
+
+  it('reads a month, a quarter or a year from ?periode= (periodFromParam)', () => {
+    const today = '2026-11-18';
+    expect(periodFromParam('2026-10', today)).toMatchObject({ from: '2026-10-01', to: '2026-10-31', chip: 'Oktober 2026', label: 'Oktober 2026', sub: '1 okt – 31 okt' });
+    expect(periodFromParam('2028-02', today)).toMatchObject({ from: '2028-02-01', to: '2028-02-29' });
+    expect(periodFromParam('2026-K2', today)).toMatchObject({ from: '2026-04-01', to: '2026-06-30', chip: 'K2 2026' });
+    expect(periodFromParam('2026-K1', today)).toMatchObject({ from: '2026-01-01', to: '2026-03-31' });
+    expect(periodFromParam('2026-K4', today)).toMatchObject({ from: '2026-10-01', to: '2026-12-31', chip: 'K4 2026' });
+    expect(periodFromParam('2026', today)).toMatchObject({ from: '2026-01-01', to: '2026-12-31', chip: '2026', sub: '1 jan – 31 dec' });
+    // A period of the past or the future is as valid as the current one.
+    expect(periodFromParam('2024-12', today)).toMatchObject({ from: '2024-12-01', to: '2024-12-31', chip: 'December 2024' });
+    for (const bad of ['2026-13', '2026-00', '2026-K5', '2026-K0', 'abc', '', null, '26', '20266', '2026-1', '2026-10-01', '2026-k2']) expect(periodFromParam(bad, today)).toBeUndefined();
+    // The keys of the dropdown still work.
+    for (const key of ['deze', 'vorige', '3-maanden', 'dit-jaar'] as const) expect(periodFromParam(key, today)).toEqual(period(key, today));
+  });
+
+  it('reads a range of months from ?periode= (a column cut to the history) and rejects years before 1900', () => {
+    const today = '2026-11-18';
+    expect(periodFromParam('2026-01..2026-10', today)).toEqual({ from: '2026-01-01', to: '2026-10-31', label: 'jan – okt 2026', chip: 'jan – okt 2026', sub: '1 jan – 31 okt' });
+    expect(periodFromParam('2025-11..2026-02', today)).toMatchObject({ from: '2025-11-01', to: '2026-02-28', chip: 'nov 2025 – feb 2026' });
+    expect(periodFromParam('2026-11..2026-11', today)).toMatchObject({ from: '2026-11-01', to: '2026-11-30', chip: 'nov 2026' });
+    for (const bad of ['2026-10..2026-01', '2026-13..2027-01', '2026-01..', '..2026-01', '2026-01...2026-02', '2026-1..2026-2', '0050', '0050-03', '1899-K1', '1899-12..1900-01']) expect(periodFromParam(bad, today), bad).toBeUndefined();
+    expect(periodFromParam('1900-02', today)).toMatchObject({ from: '1900-02-01', to: '1900-02-28' });
+  });
+
+  it('covers exactly the months of every Overzicht column (periodFromParam of periodParam)', () => {
+    const today = '2026-11-18';
+    const histories = [
+      { firstMonth: '2025-11', firstDate: '2025-11-01' },
+      { firstMonth: '2026-08', firstDate: '2026-08-20' },
+      { firstMonth: '2024-03', firstDate: '2024-03-14' },
+    ];
+    // Last day of a month by plain arithmetic (UTC: no time zone involved).
+    const lastDay = (ym: string) => ym + '-' + String(new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate()).padStart(2, '0');
+    for (const h of histories) {
+      for (const view of ['maand', 'kwartaal', 'jaar', 'eigen'] as const) {
+        const ranges = view === 'eigen' ? [undefined, { from: '2024-01', to: '2026-11' }, { from: h.firstMonth, to: '2026-10' }] : [undefined];
+        for (const custom of ranges) {
+          for (const c of columns(view, h, today, custom).columns) {
+            const p = periodFromParam(periodParam(c), today);
+            expect(p, view + ' ' + c.key).toBeDefined();
+            expect([p!.from, p!.to], view + ' ' + c.title).toEqual([c.months[0] + '-01', lastDay(c.months[c.months.length - 1])]);
+          }
+        }
+      }
+    }
+    // The demo's "2026 · tot oktober" sends the range, "2025 · vanaf november" too; whole periods keep the short key.
+    expect(columns('jaar', histories[0], today).columns.map(periodParam)).toEqual(['2025-11..2025-12', '2026-01..2026-10']);
+    expect(columns('kwartaal', histories[0], today).columns.map(periodParam)).toEqual(['2026-K1', '2026-K2', '2026-K3']);
   });
 
   it('counts the uncategorised rows with the total, not a page of rows', async () => {

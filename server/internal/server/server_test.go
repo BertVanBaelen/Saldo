@@ -151,6 +151,8 @@ func TestOutsideDemoModeEverythingButHealthIs401(t *testing.T) {
 		{"PATCH", "/api/accounts/1", `{"name":"x"}`},
 		{"GET", "/api/transactions", ""},
 		{"GET", "/api/transactions?account=1", ""},
+		{"GET", "/api/reports/months", ""},
+		{"GET", "/api/reports/months?account=1", ""},
 		{"GET", "/api/alerts", ""},
 		{"GET", "/api/connections", ""},
 		{"POST", "/api/sync", ""},

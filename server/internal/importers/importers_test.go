@@ -702,3 +702,37 @@ func TestOptions(t *testing.T) {
 		t.Fatalf("%+v %v", in, err)
 	}
 }
+
+// fixtures/csv/bilance-bijdrage.csv (0.7-1): 2024 months of rent, salary and a
+// -450,00 contribution to the shared account, all on Zichtrekening and with no
+// counterparty IBAN, for the Bilance scenario of the 0.7 local test.
+func TestBilanceBijdrageFixture(t *testing.T) {
+	data, err := os.ReadFile("../../../fixtures/csv/bilance-bijdrage.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in, err := Inspect(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in.Preset != PresetBilance || in.Delimiter != ',' || in.Encoding != EncodingUTF8 || in.Mapping.CounterpartyIBAN != NoColumn {
+		t.Fatalf("Inspect = %+v", in)
+	}
+	p, err := Parse(data, in.Mapping, today)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Rows) != 36 || len(p.Errors) != 0 || len(p.Accounts) != 1 || p.Accounts[0] != (AccountCount{"Zichtrekening", 36}) {
+		t.Fatalf("rows %d, errors %+v, accounts %+v", len(p.Rows), p.Errors, p.Accounts)
+	}
+	byAmount := map[int64]int{}
+	for _, r := range p.Rows {
+		byAmount[r.Tx.Amount]++
+		if !strings.HasPrefix(r.Tx.BookingDate, "2024-") || r.Tx.CounterpartyIBAN != "" {
+			t.Errorf("row %d: %+v", r.Line, r.Tx)
+		}
+	}
+	if byAmount[-100500] != 12 || byAmount[285000] != 12 || byAmount[-45000] != 12 {
+		t.Errorf("amounts %v", byAmount)
+	}
+}

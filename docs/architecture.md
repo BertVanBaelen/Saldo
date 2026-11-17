@@ -19,7 +19,7 @@ saldo (one Go binary, Home Assistant add-on)
 ## Repository
 | Folder | What |
 |---|---|
-| `server/` | Go module `github.com/BertVanBaelen/Saldo/server`: `cmd/saldo` (serve, healthcheck, version) and `internal/` packages (`config`, `db`, `bank`, `banklink`, `demo`, `ledger`, `categorise`, `users`, `auth`, `mail`, `importers`, `notify`, `jobs`, `ratelimit`, `secrets`, `clock`, `apperr`, `server`; later `reports`, `planning`) |
+| `server/` | Go module `github.com/BertVanBaelen/Saldo/server`: `cmd/saldo` (serve, healthcheck, version) and `internal/` packages (`config`, `db`, `bank`, `banklink`, `demo`, `ledger`, `categorise`, `users`, `auth`, `mail`, `importers`, `notify`, `jobs`, `ratelimit`, `secrets`, `clock`, `apperr`, `server`; later `planning`; the reports of 0.7 live in `ledger/reports.go` because they share the per-viewer transfer rule of `ledger/transactions.go`) |
 | `web/` | React 19 + Vite + TypeScript. `src/lib` (api client, types, formatting), `src/components` (shell, icons, shared UI), `src/pages` (one file per screen), global styles ported from the mockup |
 | `saldo/` | The Home Assistant add-on: `config.yaml`, `DOCS.md`, `CHANGELOG.md`, translations |
 | `Dockerfile`, `repository.yaml` | Multi-arch image (amd64, aarch64) and the add-on store entry |

@@ -1,7 +1,8 @@
 // Start: Saldo nu per account, alerts and the accounts by Persoonlijk and Gedeeld.
 // Design: finance-mockup/js/screens/start.js; spec: analysis/screens/start.md.
 // Every current account is judged on its own buffer; a sum is information only (decisions 3 Nov 2026).
-// The forecast (0.8) and the spending card (0.7) arrive later: no figures for them until then.
+// The forecast (0.8) arrives later: no figures for it until then.
+// The spending card (0.7-5, StartSpending.tsx) holds the running month's expenses per account, counted as Overzicht counts them.
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
@@ -26,6 +27,7 @@ import { dateLong, eur, eur0, names } from '../lib/format';
 import type { Account, Alert, Connection, Contributions, EnableBanking, Scope } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { ContributionRow } from './Bijdragen';
+import { SpendingCard, SpendingSkeleton, type Spending } from './StartSpending';
 import './Start.css';
 
 const SCOPE_LABEL: Record<Scope, string> = {
@@ -538,6 +540,23 @@ export function Start() {
     );
     return found;
   }, [sharedIds, dataVersion]);
+  // The running month's spending (with the category names) for the card, once per scope, month and dataVersion. Without a
+  // current account nothing is asked. A failure leaves the card out (`spending: null`): Start works without it.
+  const month = today.slice(0, 7);
+  const hasCurrent = (all ?? []).some((a) => inScope(a, scope) && isCurrent(a));
+  const spend = useAsync<{ scope: Scope; month: string; spending: Spending | null } | undefined>(
+    (signal) =>
+      hasCurrent
+        ? Promise.all([api.reportMonths({ scope, from: month, to: month }, signal), api.categories(signal)]).then(
+            ([r, cats]) => ({ scope, month, spending: r.accounts.length ? { r, cats } : null }),
+            () => ({ scope, month, spending: null }),
+          )
+        : Promise.resolve(undefined),
+    [hasCurrent, scope, month, dataVersion],
+  );
+  // useAsync keeps the last answer while it reloads: an answer for another scope or month is not shown, the card waits.
+  const spent = spend.data && spend.data.scope === scope && spend.data.month === month ? spend.data : undefined;
+  const showSpending = hasCurrent && (!spent || !!spent.spending);
   const first = useAsync<[EnableBanking | null, Connection[]] | null>(
     (signal) => (empty ? Promise.all([api.enableBanking(signal).catch(() => null), api.connections(signal).catch(() => [])]) : Promise.resolve(null)),
     [empty, dataVersion],
@@ -556,7 +575,7 @@ export function Start() {
     const shared = inView.filter(isShared);
     const showPersonal = scope !== 'gedeeld' && personal.length > 0;
     const showShared = scope !== 'persoonlijk' && shared.length > 0;
-    const sections = Number(showPersonal) + Number(showShared);
+    const slots = Number(showSpending) + Number(showPersonal) + Number(showShared);
     // Keyed by scope, so switching re-runs the entry animation as in the mockup.
     body = (
       <Fragment key={scope}>
@@ -569,7 +588,8 @@ export function Start() {
             <ForecastSoon />
           </div>
         )}
-        <div className={'start-bottom' + (sections < 2 ? ' start-bottom--one' : '')}>
+        <div className={'start-bottom' + (slots < 2 ? ' start-bottom--one' : '')}>
+          {showSpending && (spent?.spending ? <SpendingCard spending={spent.spending} accounts={all} month={month} /> : <SpendingSkeleton />)}
           {showPersonal && <Personal list={personal} today={today} />}
           {showShared && <Shared list={shared} today={today} contributions={contribs.data} />}
         </div>

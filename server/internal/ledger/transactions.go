@@ -74,6 +74,7 @@ type TxQuery struct {
 	Scope         string // "", "alles", "persoonlijk" or "gedeeld"
 	Q             string // search in counterparty, communication and amount
 	Uncategorised bool
+	Category      string // a report expense key: top category id, "none", "toShared" or "toOwn"; "" = all (0.7-2)
 	From, To      string // booking dates YYYY-MM-DD, inclusive; "" = open
 	Before        string // cursor from Page.Next
 	Limit         int    // 0 = DefaultLimit
@@ -177,8 +178,12 @@ func (s *Store) Transactions(ctx context.Context, viewer int64, q TxQuery) (Page
 	if err != nil {
 		return Page{}, err
 	}
+	prefix := visibleTx
+	if q.Category != "" {
+		prefix = reportBase // no parameters added, so the argument order is the same
+	}
 	page := Page{Items: []Transaction{}}
-	if err := s.db.QueryRowContext(ctx, visibleTx+` SELECT COUNT(*) FROM tx WHERE `+strings.Join(where, " AND "),
+	if err := s.db.QueryRowContext(ctx, prefix+` SELECT COUNT(*) FROM tx WHERE `+strings.Join(where, " AND "),
 		append([]any{viewer, viewer}, args...)...).Scan(&page.Total); err != nil {
 		return Page{}, err
 	}
@@ -190,7 +195,7 @@ func (s *Store) Transactions(ctx context.Context, viewer int64, q TxQuery) (Page
 		where = append(where, `(tx.booking_date < ? OR (tx.booking_date = ? AND tx.id < ?))`)
 		args = append(args, c.date, c.date, c.id)
 	}
-	items, err := s.items(ctx, viewer, where, args, limit+1)
+	items, err := s.items(ctx, viewer, prefix, where, args, limit+1)
 	if err != nil {
 		return Page{}, err
 	}
@@ -211,9 +216,10 @@ const visibleRule = `(SELECT r.id FROM rules r WHERE r.id = tx.rule_id
     AND (r.user_id = ? OR EXISTS (SELECT 1 FROM account_access a WHERE a.account_id = r.account_id AND a.user_id = ?)))`
 
 // items reads at most limit of the viewer's transactions that match where,
-// newest first, with their split parts (one query for the whole page).
-func (s *Store) items(ctx context.Context, viewer int64, where []string, args []any, limit int) ([]Transaction, error) {
-	query := visibleTx + `
+// newest first, with their split parts (one query for the whole page). prefix
+// is visibleTx, plus reportParts when where uses the drill-down fragment.
+func (s *Store) items(ctx context.Context, viewer int64, prefix string, where []string, args []any, limit int) ([]Transaction, error) {
+	query := prefix + `
 		SELECT tx.id, tx.account_id, tx.booking_date, tx.amount, tx.counterparty_name, tx.communication,
 		       tx.status, c.id, c.name, ` + effectiveColour("c") + `, tx.category_origin, ` + visibleRule + `, tx.note, tx.is_transfer,
 		       ` + transferKind + `, tx.override, cs.user_id, cu.display_name
@@ -293,7 +299,7 @@ func (s *Store) splits(ctx context.Context, items []Transaction) error {
 // transaction reads one of the viewer's transactions as GET
 // /api/transactions shows it.
 func (s *Store) transaction(ctx context.Context, viewer, id int64) (Transaction, error) {
-	items, err := s.items(ctx, viewer, []string{"tx.id = ?"}, []any{id}, 1)
+	items, err := s.items(ctx, viewer, visibleTx, []string{"tx.id = ?"}, []any{id}, 1)
 	if err != nil {
 		return Transaction{}, err
 	}
@@ -416,16 +422,16 @@ func scopeCond(scope string) (string, error) {
 func (s *Store) filters(ctx context.Context, viewer int64, q TxQuery) ([]string, []any, error) {
 	where := []string{"1 = 1"}
 	var args []any
+	var kind string // the type of the account, with AccountID
 	if q.AccountID != 0 {
-		var ok bool
 		err := s.db.QueryRowContext(ctx,
-			`SELECT EXISTS (SELECT 1 FROM account_access WHERE user_id = ? AND account_id = ?)`,
-			viewer, q.AccountID).Scan(&ok)
+			`SELECT a.type FROM account_access x JOIN accounts a ON a.id = x.account_id WHERE x.user_id = ? AND a.id = ?`,
+			viewer, q.AccountID).Scan(&kind)
+		if err == sql.ErrNoRows {
+			return nil, nil, apperr.ErrNotFound
+		}
 		if err != nil {
 			return nil, nil, err
-		}
-		if !ok {
-			return nil, nil, apperr.ErrNotFound
 		}
 		where = append(where, "tx.account_id = ?")
 		args = append(args, q.AccountID)
@@ -434,7 +440,10 @@ func (s *Store) filters(ctx context.Context, viewer int64, q TxQuery) ([]string,
 	if err != nil {
 		return nil, nil, err
 	}
-	where = append(where, inScope)
+	// As in the report, an account wins over the scope: the drill-down is that account.
+	if q.Category == "" || q.AccountID == 0 {
+		where = append(where, inScope)
+	}
 	if text := strings.TrimSpace(q.Q); text != "" {
 		if utf8.RuneCountInString(text) > maxQuery {
 			return nil, nil, apperr.Invalid("De zoekterm is te lang.")
@@ -466,7 +475,37 @@ func (s *Store) filters(ctx context.Context, viewer int64, q TxQuery) ([]string,
 	if q.From != "" && q.To != "" && q.From > q.To {
 		return nil, nil, apperr.Invalid("De begindatum ligt na de einddatum.")
 	}
+	if q.Category != "" {
+		key, err := categoryKey(q.Category)
+		if err != nil {
+			return nil, nil, err
+		}
+		if q.AccountID != 0 && kind != "current" {
+			// No report row sits behind a savings or investment account: an empty list, not the report's 400.
+			where = append(where, "1 = 0")
+			return where, args, nil
+		}
+		sel, err := s.reportSelection(ctx, viewer, q.Scope, q.AccountID)
+		if err != nil {
+			return nil, nil, err
+		}
+		where = append(where, reportDrillDown(sel))
+		args = append(args, key)
+	}
 	return where, args, nil
+}
+
+// categoryKey is the report key of a category value: none, toShared and toOwn
+// as they are, else a decimal id, written like the report's CAST(top_id AS TEXT).
+func categoryKey(v string) (string, error) {
+	switch v {
+	case "none", "toShared", "toOwn":
+		return v, nil
+	}
+	if id, err := strconv.ParseUint(v, 10, 63); err == nil && id > 0 { // no sign, no spaces
+		return strconv.FormatUint(id, 10), nil
+	}
+	return "", apperr.Invalid("Kies een categorie.")
 }
 
 func escapeLike(s string) string {

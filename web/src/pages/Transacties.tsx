@@ -1,17 +1,19 @@
 // Transacties: search, "Niet gecategoriseerd", account filter, the list grouped by day and the detail
 // (desktop side panel, phone bottom sheet) where a row is categorised, split and noted (TransactieDetail).
 // Design: finance-mockup/js/screens/transacties.js; spec: analysis/screens/transacties.md.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
-import { CatEmoji } from '../components/CatIcon';
+import { CatEmoji, CatIcon } from '../components/CatIcon';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, ScopeSwitch, useIsDesktop, useTitle } from '../components/ui';
 import { accColour, contributionLabel, inScope, isShared } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
+import { catColours, groupTree } from '../lib/categories';
 import { cap, dateShort, dayHeading, eur, MONTHS, toDate } from '../lib/format';
-import type { Account, Transaction, TransactionPage } from '../lib/types';
+import type { Account, Transaction, TransactionPage, TreeCategory } from '../lib/types';
+import { rangeShort } from '../lib/reports';
 import { useAsync } from '../lib/useAsync';
 import { AccLabel, amountClass, Avatar, catView, Detail, type JustRule } from './TransactieDetail';
 import './Transacties.css';
@@ -21,7 +23,7 @@ export { amountClass, catView };
 const PAGE = 50;
 export const UNCAT_FILTER = 'niet-gecategoriseerd';
 
-/** `?periode=` values; without one the list shows every period. */
+/** `?periode=` values of the dropdown; without one the list shows every period. Links also use `YYYY-MM`, `YYYY-Kn` and `YYYY`. */
 export type PeriodKey = 'deze' | 'vorige' | '3-maanden' | 'dit-jaar';
 const PERIOD_KEYS: PeriodKey[] = ['deze', 'vorige', '3-maanden', 'dit-jaar'];
 
@@ -48,6 +50,37 @@ export function period(key: PeriodKey, today: string): { from: string; to: strin
     default:
       return { from: iso(first(0)), to: iso(end), label: 'Deze maand', chip: cap(MONTHS[t.getMonth()]), sub: month(t) };
   }
+}
+
+/** Days in a month (month 0–11), by plain arithmetic: no Date, so no time zones and no 1900 mapping of years below 100. */
+const daysIn = (year: number, month: number) => (month === 1 ? (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28) : [31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month]);
+const ymd = (year: number, month: number, day: number) => year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+
+/**
+ * The period of a `?periode=` value: a key of the dropdown, or from a link of Overzicht the month `2026-10`, the
+ * calendar quarter `2026-K2`, the year `2026` or the range of months `2026-01..2026-10` (a column cut to the history).
+ * Anything else, a range that runs backwards and years before 1900, gives `undefined` (the filter is ignored).
+ */
+export function periodFromParam(value: string | null, today: string): ReturnType<typeof period> | undefined {
+  const key = PERIOD_KEYS.find((k) => k === value);
+  if (key) return period(key, today);
+  const r = /^(\d{4})-(0[1-9]|1[0-2])\.\.(\d{4})-(0[1-9]|1[0-2])$/.exec(value ?? '');
+  const m = r ? null : /^(\d{4})(?:-(0[1-9]|1[0-2])|-K([1-4]))?$/.exec(value ?? '');
+  if (!r && !m) return undefined;
+  // First and last month as [year, month 0–11].
+  let y0: number, a: number, y1: number, b: number;
+  if (r) {
+    [y0, a, y1, b] = [Number(r[1]), Number(r[2]) - 1, Number(r[3]), Number(r[4]) - 1];
+    if (y0 * 12 + a > y1 * 12 + b) return undefined;
+  } else {
+    y0 = y1 = Number(m![1]);
+    [a, b] = m![2] ? [Number(m![2]) - 1, Number(m![2]) - 1] : m![3] ? [(Number(m![3]) - 1) * 3, Number(m![3]) * 3 - 1] : [0, 11];
+  }
+  if (y0 < 1900) return undefined;
+  const from = ymd(y0, a, 1);
+  const to = ymd(y1, b, daysIn(y1, b));
+  const name = r ? rangeShort(r[1] + '-' + r[2], r[3] + '-' + r[4]) : m![2] ? cap(MONTHS[a]) + ' ' + y0 : m![3] ? 'K' + m![3] + ' ' + y0 : String(y0);
+  return { from, to, label: name, chip: name, sub: dateShort(from) + ' – ' + dateShort(to) };
 }
 
 /** Rows grouped by booking date, newest first, keeping the server's order within a day. */
@@ -164,6 +197,10 @@ interface Option {
   name: string;
   sub?: string;
   end?: React.ReactNode;
+  /** A label above this option (a group heading of the list). */
+  heading?: string;
+  /** A separator above this option. */
+  sepBefore?: boolean;
 }
 
 const optIcon = (name: 'grid' | 'calendar' | 'tag') => (
@@ -186,15 +223,19 @@ function Options({ items, value, onPick }: { items: Option[]; value: string; onP
       {items.map((o) => {
         const on = o.key === value;
         return (
-          <button key={o.key} type="button" className="tx-opt" aria-pressed={on} onClick={() => onPick(o.key)} data-autofocus={on || undefined}>
-            <span className="tx-opt-lead">{o.lead}</span>
-            <span className="tx-opt-main">
-              <span className="tx-opt-name">{o.name}</span>
-              {o.sub && <span className="tx-opt-sub">{o.sub}</span>}
-            </span>
-            {o.end}
-            <span className="tx-opt-check">{on && <Icon name="check" size={18} stroke={2.6} />}</span>
-          </button>
+          <Fragment key={o.key}>
+            {o.sepBefore && <div className="tx-dd-sep" />}
+            {o.heading && <div className="tx-dd-label">{o.heading}</div>}
+            <button type="button" className="tx-opt" aria-pressed={on} onClick={() => onPick(o.key)} data-autofocus={on || undefined}>
+              <span className="tx-opt-lead">{o.lead}</span>
+              <span className="tx-opt-main">
+                <span className="tx-opt-name">{o.name}</span>
+                {o.sub && <span className="tx-opt-sub">{o.sub}</span>}
+              </span>
+              {o.end}
+              <span className="tx-opt-check">{on && <Icon name="check" size={18} stroke={2.6} />}</span>
+            </button>
+          </Fragment>
         );
       })}
     </div>
@@ -223,15 +264,43 @@ function periodOptions(today: string): Option[] {
   ];
 }
 
-// Filtering on one category arrives with the drill-down of 0.7-2: until then only "Niet gecategoriseerd" filters.
-function categoryOptions(countText: string): Option[] {
+/**
+ * `?categorie=` values: a top category id, or `geen` / `naar-gedeeld` / `naar-eigen` (the pseudo rows of Overzicht),
+ * sent to the API as the id, `none`, `toShared` and `toOwn`. Anything else is ignored.
+ */
+const CATEGORY_KEYS: Record<string, string> = { geen: 'none', 'naar-gedeeld': 'toShared', 'naar-eigen': 'toOwn' };
+export function categoryFromParam(value: string | null): { param: string; key: string } | undefined {
+  if (value && /^[1-9]\d*$/.test(value)) return { param: value, key: value };
+  if (value && Object.hasOwn(CATEGORY_KEYS, value)) return { param: value, key: CATEGORY_KEYS[value] };
+  return undefined;
+}
+
+const catDot = (c: TreeCategory) => <CatIcon icon={c.icon} colour={c.colour} size="sm" />;
+
+/** The text and dot of the category chip: the chosen category, one of the pseudo rows of Overzicht, or "Niet gecategoriseerd". */
+function categoryChip(param: string | undefined, uncat: boolean, tree: TreeCategory[] | undefined): { text: string; lead?: React.ReactNode } {
+  const dot = (cls: string, style?: React.CSSProperties) => <i className={'tx-dot ' + cls} style={style} aria-hidden="true" />;
+  if (param === 'naar-gedeeld') return { text: 'Naar gedeelde rekening', lead: dot('tx-dot--shared') };
+  if (param === 'naar-eigen') return { text: 'Naar eigen rekening', lead: dot('tx-dot--own') };
+  if (param === 'geen' || (param === undefined && uncat)) return { text: 'Niet gecategoriseerd', lead: dot('tx-dot--uncat') };
+  const c = param === undefined ? undefined : tree?.find((x) => String(x.id) === param);
+  return c ? { text: c.name, lead: dot('', { background: catColours(c.colour).bg }) } : { text: 'Categorie' };
+}
+
+/** "Alle categorieën", the expense top categories (a subcategory rolls up into its top), "Niet gecategoriseerd". No income categories: the drill-down only has the report's expense keys, income is one total on Overzicht. */
+function categoryOptions(tree: TreeCategory[], countText: string): Option[] {
+  const { expense } = groupTree(tree);
+  const tops = (groups: typeof expense, heading: string): Option[] =>
+    groups.map((g, i) => ({ key: String(g.top.id), lead: catDot(g.top), name: g.top.name, heading: i === 0 ? heading : undefined }));
   return [
     { key: '', lead: optIcon('tag'), name: 'Alle categorieën' },
+    ...tops(expense, 'Uitgaven'),
     {
       key: UNCAT_FILTER,
       lead: <i className="tx-dot tx-dot--uncat" aria-hidden="true" />,
       name: 'Niet gecategoriseerd',
       end: countText ? <span className="tx-count">{countText}</span> : undefined,
+      sepBefore: true,
     },
   ];
 }
@@ -355,8 +424,11 @@ export function Transacties() {
   const [params, setParams] = useSearchParams();
   const uncat = params.get('filter') === UNCAT_FILTER;
   const accountParam = Number(params.get('rekening')) || undefined;
-  const periodKey = PERIOD_KEYS.find((k) => k === params.get('periode'));
-  const range = periodKey ? period(periodKey, me.today) : undefined;
+  const periodParam = params.get('periode');
+  const periodKey = PERIOD_KEYS.find((k) => k === periodParam);
+  const range = periodFromParam(periodParam, me.today);
+  const categoryFilter = categoryFromParam(params.get('categorie'));
+  const category = categoryFilter?.key;
   const from = range?.from;
   const to = range?.to;
   const [query, setQuery] = useState('');
@@ -368,8 +440,8 @@ export function Transacties() {
   const account = accountParam !== undefined && (!accounts.data || inView.some((a) => a.id === accountParam)) ? accountParam : undefined;
   const filterAccount = account !== undefined ? byId.get(account) : undefined;
 
-  const filter = { scope, q, uncategorised: uncat, account, from, to, limit: PAGE };
-  const first = useAsync((signal) => api.transactions(filter, signal), [scope, q, uncat, account, from, to, dataVersion]);
+  const filter = { scope, q, uncategorised: uncat, category, account, from, to, limit: PAGE };
+  const first = useAsync((signal) => api.transactions(filter, signal), [scope, q, uncat, category, account, from, to, dataVersion]);
   const count = useAsync((signal) => api.transactions({ scope, uncategorised: true, limit: 1 }, signal), [scope, dataVersion]);
   // The detail's category tree and the rules that name the source of a category.
   const cats = useAsync((signal) => api.categories(signal), [dataVersion]);
@@ -379,7 +451,7 @@ export function Transacties() {
   // Rows changed in the detail, as the server answered, shown over the loaded pages. They stay until the
   // filters change: a row categorised under "Niet gecategoriseerd" keeps its place until then.
   const [changed, setChanged] = useState<Map<number, Transaction>>(() => new Map());
-  useEffect(() => setChanged(new Map()), [scope, q, uncat, account, from, to, dataVersion]);
+  useEffect(() => setChanged(new Map()), [scope, q, uncat, category, account, from, to, dataVersion]);
   const [justRule, setJustRule] = useState<(JustRule & { txId: number }) | null>(null);
 
   // Older pages, loaded with the cursor. They belong to one first page (`base`) and are ignored as soon as
@@ -408,7 +480,7 @@ export function Transacties() {
     if (!next || !base) return;
     const gen = generation.current;
     setLoadingMore(true);
-    api.transactions({ scope, q, uncategorised: uncat, account, from, to, limit: PAGE, before: next }).then(
+    api.transactions({ scope, q, uncategorised: uncat, category, account, from, to, limit: PAGE, before: next }).then(
       (p) => {
         if (gen !== generation.current) return;
         setOlder((o) => ({ base, items: [...(o && o.base === base ? o.items : []), ...p.items], next: p.next }));
@@ -420,7 +492,7 @@ export function Transacties() {
         toast(errorMessage(e));
       },
     );
-  }, [first.data, next, scope, q, uncat, account, from, to, toast]);
+  }, [first.data, next, scope, q, uncat, category, account, from, to, toast]);
 
   // Selection: the desktop panel always shows one row; the phone opens a sheet.
   const [sel, setSel] = useState<number | null>(null);
@@ -465,8 +537,9 @@ export function Transacties() {
     [desktop],
   );
 
-  // Filters live in the URL: ?filter=niet-gecategoriseerd (from the Start alert), ?rekening=<id> (from an
-  // account's page) and ?periode=deze|vorige|3-maanden|dit-jaar.
+  // Filters live in the URL: ?filter=niet-gecategoriseerd (from the Start alert), ?categorie=<id>|geen|naar-gedeeld|
+  // naar-eigen (from Overzicht), ?rekening=<id> (from an account's page) and ?periode=deze|vorige|3-maanden|dit-jaar
+  // or a month, quarter or year (from Overzicht).
   const setParam = (key: string, value: string | null) =>
     setParams(
       (p) => {
@@ -477,7 +550,20 @@ export function Transacties() {
       },
       { replace: true },
     );
-  const filtersSet = uncat || account !== undefined || periodKey !== undefined;
+  // `filter` and `categorie` exclude each other: setting one removes the other, in one change of the URL.
+  const setCategoryFilter = (key: string) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        n.delete('filter');
+        n.delete('categorie');
+        if (key === UNCAT_FILTER) n.set('filter', UNCAT_FILTER);
+        else if (key) n.set('categorie', key);
+        return n;
+      },
+      { replace: true },
+    );
+  const filtersSet = uncat || category !== undefined || account !== undefined || range !== undefined;
 
   // An account filter outside the chosen scope is dropped (as in the mockup).
   useEffect(() => {
@@ -489,6 +575,7 @@ export function Transacties() {
       (p) => {
         const n = new URLSearchParams(p);
         n.delete('filter');
+        n.delete('categorie');
         n.delete('rekening');
         n.delete('periode');
         return n;
@@ -500,8 +587,8 @@ export function Transacties() {
   const chipRefs = useRef<Partial<Record<DropKind, HTMLButtonElement | null>>>({});
   const closeDd = () => setDdOpen(null);
   const pick = (kind: DropKind, key: string) => {
-    const param = kind === 'rekening' ? 'rekening' : kind === 'periode' ? 'periode' : 'filter';
-    setParam(param, key || null);
+    if (kind === 'categorie') setCategoryFilter(key);
+    else setParam(kind === 'rekening' ? 'rekening' : 'periode', key || null);
     setDdOpen(null);
     chipRefs.current[kind]?.focus();
   };
@@ -528,6 +615,7 @@ export function Transacties() {
     </button>
   );
   const periodYear = periodKey === 'deze' || periodKey === 'vorige' ? ' ' + toDate(range!.from).getFullYear() : undefined;
+  const catChip = categoryChip(categoryFilter?.param, uncat, cats.data);
 
   const header = noAccounts ? (
     <div className="tx-head tx-head--empty">
@@ -561,7 +649,7 @@ export function Transacties() {
       <div className="tx-filters">
         <ScopeSwitch className="tx-scope anim-in" />
         <div className="tx-chips anim-in" style={delay(60)}>
-          <button type="button" className="filter-chip tx-chip tx-chip--uncat" aria-pressed={uncat} onClick={() => setParam('filter', uncat ? null : UNCAT_FILTER)}>
+          <button type="button" className="filter-chip tx-chip tx-chip--uncat" aria-pressed={uncat} onClick={() => (uncat ? setParam('filter', null) : setCategoryFilter(UNCAT_FILTER))}>
             Niet gecategoriseerd
             {countText && (
               <span className="tx-count" aria-label={countText + ' te categoriseren'}>
@@ -576,7 +664,7 @@ export function Transacties() {
             filterAccount && <i className="tx-dot" style={{ background: accColour(filterAccount.colour) }} aria-hidden="true" />,
           )}
           {chip('periode', range ? range.chip : 'Periode', !!range, undefined, periodYear)}
-          {chip('categorie', uncat ? 'Niet gecategoriseerd' : 'Categorie', uncat, uncat && <i className="tx-dot tx-dot--uncat" aria-hidden="true" />)}
+          {chip('categorie', catChip.text, uncat || category !== undefined, catChip.lead)}
           {filtersSet && (
             <button type="button" className="tx-clear" onClick={clearFilters}>
               Wis filters
@@ -603,7 +691,7 @@ export function Transacties() {
     } else if (uncat) {
       title = 'Niets meer te categoriseren';
       note = 'Alle transacties in deze lijst hebben een categorie.';
-    } else if (range && !account) {
+    } else if (range && !account && category === undefined) {
       note = 'Niets in ' + range.label.toLowerCase() + ' (' + range.sub + ').';
     } else if (filtersSet) {
       note = 'Niets dat past bij deze filters.';
@@ -652,8 +740,13 @@ export function Transacties() {
 
   let dropBody: React.ReactNode = null;
   if (ddOpen === 'rekening') dropBody = <Options items={accountOptions(inView)} value={account === undefined ? '' : String(account)} onPick={(k) => pick('rekening', k)} />;
-  else if (ddOpen === 'periode') dropBody = <Options items={periodOptions(me.today)} value={periodKey ?? ''} onPick={(k) => pick('periode', k)} />;
-  else if (ddOpen === 'categorie') dropBody = <Options items={categoryOptions(countText)} value={uncat ? UNCAT_FILTER : ''} onPick={(k) => pick('categorie', k)} />;
+  // A deep-link period (a month, quarter or year) is no option of the list: none is marked then.
+  else if (ddOpen === 'periode') dropBody = <Options items={periodOptions(me.today)} value={range ? (periodParam ?? '') : ''} onPick={(k) => pick('periode', k)} />;
+  else if (ddOpen === 'categorie') {
+    // `geen`, `naar-gedeeld` and `naar-eigen` come from Overzicht only: no option is marked for them.
+    const value = categoryFilter ? categoryFilter.param : uncat ? UNCAT_FILTER : '';
+    dropBody = <Options items={categoryOptions(cats.data || [], countText)} value={value} onPick={(k) => pick('categorie', k)} />;
+  }
 
   return (
     <div className="page tx-page">

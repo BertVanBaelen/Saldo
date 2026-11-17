@@ -30,7 +30,7 @@ jobs:
       - run: go test -race -timeout 30m ./...
       # The timing bound of the transfer detection means nothing under -race (the test skips itself there).
       - name: Transfer detection speed (without the race detector)
-        run: go test -count=1 -run TestTransferDetectionSpeed ./internal/ledger/
+        run: go test -count=1 -run 'TestTransferDetectionSpeed|TestReportMonthsSpeed' ./internal/ledger/
       - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
         with:
           repo-checkout: false

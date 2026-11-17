@@ -19,6 +19,8 @@ import type {
   Me,
   PendingJoinOffer,
   Permission,
+  ReportMonths,
+  ReportQuery,
   Rule,
   RulePreview,
   Scope,
@@ -315,6 +317,8 @@ interface Stub {
   transfers?: AccountTransfer[];
   /** GET /api/accounts/{id}/contributions; default a personal answer (`members: []`), so nothing shows. */
   contributions?: Contributions | ((id: number) => Contributions);
+  /** GET /api/reports/months (0.7-3); default no history. */
+  reports?: ReportMonths | ((q: ReportQuery) => ReportMonths);
 }
 
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
@@ -342,6 +346,10 @@ export function stubApi(s: Stub = {}) {
     return { id: c.id, name: c.name, colour: c.colour };
   };
   return {
+    reportMonths: vi.spyOn(api, 'reportMonths').mockImplementation(async (q = {}) => {
+      const r = s.reports ?? { accounts: [], firstMonth: null, firstDate: null, months: [] };
+      return structuredClone(typeof r === 'function' ? r(q) : r);
+    }),
     categories: vi.spyOn(api, 'categories').mockImplementation(async () => structuredClone(s.categories ?? CATEGORIES)),
     rules: vi.spyOn(api, 'rules').mockImplementation(async () => structuredClone(s.rules ?? RULES)),
     updateTransaction: vi.spyOn(api, 'updateTransaction').mockImplementation(async (id, patch) => {

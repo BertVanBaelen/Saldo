@@ -625,6 +625,22 @@ func privacyRows() []privacyRow {
 				hidden("partner", "GET", "/api/transactions?account="+id(w.bertManual)+"&q=x", "", "/api/transactions?account="+none+"&q=x", "", "bert"),
 				hidden("bert", "GET", "/api/transactions?account="+id(w.partnerAcc), "", "/api/transactions?account="+none, "", "partner"))
 		}, []string{"TestPrivacyPagesAndTotals", "TestTransferIsPerViewer"}},
+		{"GET /api/reports/months", "list", "visibleTx: sums of the viewer's current accounts only, the other side of a transfer only among them; account must be a current account the viewer holds: another user's (current or savings) is the 404 of a missing one, before its type is looked at", func(w *world) []probe {
+			const path = "/api/reports/months"
+			ps := []probe{}
+			for _, q := range []string{"", "?scope=alles", "?scope=persoonlijk", "?scope=gedeeld", "?from=2026-11&to=2026-11",
+				"?account=" + id(w.shared), "?scope=gedeeld&account=" + id(w.shared)} {
+				ps = append(ps, read(path+q, 200))
+			}
+			return append(ps,
+				probe{as: "bert", method: "GET", path: path + "?account=" + id(w.bertAcc), status: 200},
+				probe{as: "partner", method: "GET", path: path + "?account=" + id(w.partnerAcc), status: 200},
+				hidden("partner", "GET", path+"?account="+id(w.bertAcc), "", path+"?account="+none, "", "bert"),
+				hidden("bert", "GET", path+"?account="+id(w.partnerAcc), "", path+"?account="+none, "", "partner"),
+				// A savings account of another user is not "Kies een betaalrekening." (400): the owner gets that.
+				hidden("partner", "GET", path+"?account="+id(w.bertManual), "", path+"?account="+none, "", "bert"),
+				hidden("bert", "GET", path+"?account="+id(w.partnerManual), "", path+"?account="+none, "", "partner"))
+		}, []string{"TestReportMonthsErrors", "TestReportIsPerViewer"}},
 		{"PATCH /api/transactions/{id}", "byid", "editable(): the row's account through account_access", func(w *world) []probe {
 			return []probe{
 				hidden("partner", "PATCH", txPath(w.bertTx, ""), `{"note":"Gezien"}`, txPath(999999, ""), `{"note":"Gezien"}`, "bert"),
@@ -996,6 +1012,30 @@ func TestPrivacySentinels(t *testing.T) {
 				w.ok(w.bert, "DELETE", "/api/accounts/"+id(w.shared)+"?confirm=Gezinsrekening", "", 204)
 			case "user-deleted":
 				w.ok(w.bert, "DELETE", "/api/users/"+id(w.partner), "", 204)
+			}
+			// Reports (0.7-1): Partner's amounts (her salary, her balance) are in
+			// none of Bert's reports, whatever the scope, and her accounts are
+			// missing ones to him.
+			for _, q := range []string{"", "?scope=alles", "?scope=persoonlijk", "?scope=gedeeld", "?account=" + id(w.shared)} {
+				r, _ := w.send(read("/api/reports/months"+q, 200), "bert")
+				for _, s := range []string{"246000", "143215"} {
+					if strings.Contains(r.body, s) {
+						t.Errorf("%s: Bert's report %q shows Partner's %s: %s", state, q, s, r.body)
+					}
+				}
+			}
+			for _, account := range []int64{w.partnerAcc, w.partnerManual} {
+				r, _ := w.send(read("/api/reports/months?account="+id(account), 404), "bert")
+				m, _ := w.send(read("/api/reports/months?account="+none, 404), "bert")
+				if r.status != http.StatusNotFound || r.body != m.body {
+					t.Errorf("%s: Bert asks for Partner's account %d: %d %s", state, account, r.status, r.body)
+				}
+			}
+			// The sentinel is not dead: it is in Partner's own report.
+			if state == "baseline" {
+				if r, _ := w.send(read("/api/reports/months?scope=persoonlijk", 200), "partner"); r.status != 200 || !strings.Contains(r.body, "246000") {
+					t.Errorf("Partner's report lacks her salary: %d %s", r.status, r.body)
+				}
 			}
 			seen := map[string]*strings.Builder{"bert": {}, "partner": {}}
 			for _, row := range privacyRows() {
@@ -1384,5 +1424,46 @@ func TestLeaverLosesHerSharedObjects(t *testing.T) {
 	} {
 		w.run(t, "", probe{as: "partner", method: c.method, path: c.path, body: c.body, status: 404, owner: "bert", pattern: "-",
 			missing: &probe{as: "partner", method: c.method, path: c.missing, body: c.body, status: 404}})
+	}
+}
+
+// Reports (0.7-1) sum the viewer's own accounts only: rows added to Partner's
+// accounts (a big income, a contribution-sized transfer on the day of Bert's
+// own, a row older than anything of Bert's, a transfer into her savings
+// account) change none of Bert's reports, byte for byte, but do change hers.
+func TestReportIsPerViewer(t *testing.T) {
+	w := newWorld(t)
+	queries := func(as string) []string {
+		own := map[string]int64{"bert": w.bertAcc, "partner": w.partnerAcc}[as]
+		return []string{"", "?scope=alles", "?scope=persoonlijk", "?scope=gedeeld", "?account=" + id(own), "?account=" + id(w.shared), "?from=2020-01"}
+	}
+	reports := func(as string) []string {
+		out := []string{}
+		for _, q := range queries(as) {
+			r, _ := w.send(probe{method: "GET", path: "/api/reports/months" + q}, as)
+			if r.status != http.StatusOK {
+				t.Fatalf("%s %s: %d %s", as, q, r.status, r.body)
+			}
+			out = append(out, r.body)
+		}
+		return out
+	}
+	bert, partner := reports("bert"), reports("partner")
+
+	w.addRow(w.partnerAcc, 9999900, "2026-11-10", "PR groot loon", "booked", "EUR", "")
+	w.addRow(w.partnerAcc, -45000, "2026-11-13", "PR bijdrage", "booked", "EUR", "")
+	w.addRow(w.partnerAcc, -1234, "2020-01-05", "PR heel oud", "booked", "EUR", "")
+	w.addRow(w.partnerAcc, -8100, "2026-11-12", "PR naar potje", "booked", "EUR", "")
+	w.addRow(w.partnerManual, 8100, "2026-11-12", "PR van rekening", "booked", "EUR", "")
+
+	if after := reports("bert"); !slices.Equal(after, bert) {
+		for i := range after {
+			if after[i] != bert[i] {
+				t.Errorf("Bert's report %q changed with Partner's rows:\nbefore %s\nafter  %s", queries("bert")[i], bert[i], after[i])
+			}
+		}
+	}
+	if after := reports("partner"); slices.Equal(after, partner) {
+		t.Error("Partner's own report did not change with her own rows: the test proves nothing")
 	}
 }

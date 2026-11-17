@@ -416,11 +416,54 @@ export interface TransactionQuery {
   scope?: Scope;
   q?: string;
   uncategorised?: boolean;
+  /** One expense row of the report (0.7-2): a top category id (`"2"`), `none`, `toShared` or `toOwn`. Needs a current account. */
+  category?: string;
   /** Booking dates `YYYY-MM-DD`, inclusive. */
   from?: string;
   to?: string;
   before?: string;
   limit?: number;
+}
+
+// ---------- Reports (docs/api.md, "Reports"; plan 0.7-1) ----------
+
+/**
+ * Income, saved and expenses of one month, in cents. Expense keys: a top category id (`"1"`), `none`
+ * (uncategorised), `toShared` (Naar gedeelde rekening) or `toOwn` (Naar eigen rekening); only keys that are not 0.
+ * An expense key can be negative (refunds above spending); `saved` can be negative (a withdrawal).
+ */
+export interface ReportFlows {
+  income: number;
+  saved: number;
+  expenses: Record<string, number>;
+}
+
+export interface ReportMonth extends ReportFlows {
+  /** `YYYY-MM`. */
+  month: string;
+  /** Per account of the selection, only when it holds more than one account. */
+  accounts?: (ReportFlows & { id: number })[];
+}
+
+/** GET /api/reports/months. */
+export interface ReportMonths {
+  /** The selection: current accounts, in GET /api/accounts order. */
+  accounts: number[];
+  /** `YYYY-MM` of the first booked row in the selection; `null` without history. */
+  firstMonth: string | null;
+  /** `YYYY-MM-DD` of the first booked row; `null` without history. */
+  firstDate: string | null;
+  /** Every month from `from` to `to`, zeros included. */
+  months: ReportMonth[];
+}
+
+export interface ReportQuery {
+  scope?: Scope;
+  /** One current account of the scope. */
+  account?: number;
+  /** `YYYY-MM`. */
+  from?: string;
+  to?: string;
 }
 
 export interface Alert {

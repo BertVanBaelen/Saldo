@@ -102,6 +102,13 @@
 .start-spend-head i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .start-spend-name { flex: 1; min-width: 0; }
 .start-spend-head .mono { font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.start-spend-dot--uncat { border: 1.5px dashed var(--muted); background: transparent; }
+.start-spend-empty { font-size: 14px; color: var(--muted); }
+/* The note under the card about transfers between own accounts */
+.start-spend-foot { padding: 0 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+@media (min-width: 1024px) {
+  .start-spend-foot { font-size: 13px; }
+}
 
 /* Sync status in account sublines */
 .start-sub--warn { color: var(--warn); }
@@ -205,7 +212,7 @@
   .start-soon-text { align-items: center; max-width: 340px; }
 }
 
-/* Until the spending card arrives (0.7) a single account section keeps the hero's column width */
+/* A lone block (one account section, no spending card) keeps the hero's column width */
 @media (min-width: 1024px) {
   .start-bottom--one { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

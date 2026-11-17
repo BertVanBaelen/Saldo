@@ -49,6 +49,12 @@ describe.each(Object.entries(BLOCKS))('tokens.css, %s block', (_name, open) => {
     }
   });
 
+  it('has the Overzicht bar colours: expenses and saved as hex, income the green', () => {
+    expect(v.get('ov-exp')).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(v.get('ov-sav')).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(v.get('ov-inc')).toBe('var(--green)');
+  });
+
   it('has the unitless tint tokens of a custom colour', () => {
     const [lMin, lMax, cMax] = ['tint-l-min', 'tint-l-max', 'tint-c-max'].map((k) => v.get(k));
     for (const n of [lMin, lMax, cMax]) expect(n).toMatch(/^\d*\.?\d+$/);
@@ -59,9 +65,9 @@ describe.each(Object.entries(BLOCKS))('tokens.css, %s block', (_name, open) => {
 });
 
 describe('tokens.css, dark blocks', () => {
-  it('agree on the category colours and the tint tokens', () => {
+  it('agree on the category colours, the tint tokens and the Overzicht bar colours', () => {
     const a = vars(BLOCKS['dark (system)']);
     const b = vars(BLOCKS['dark (chosen)']);
-    for (const k of [...Array.from({ length: 16 }, (_, i) => 'c' + (i + 1)), 'onPastel', 'onC6', 'tint-l-min', 'tint-l-max', 'tint-c-max']) expect(a.get(k), k).toBe(b.get(k));
+    for (const k of [...Array.from({ length: 16 }, (_, i) => 'c' + (i + 1)), 'onPastel', 'onC6', 'tint-l-min', 'tint-l-max', 'tint-c-max', 'ov-inc', 'ov-exp', 'ov-sav']) expect(a.get(k), k).toBe(b.get(k));
   });
 });

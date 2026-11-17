@@ -14,7 +14,7 @@ The web app talks to the Go server over JSON under `/api`. This file is the cont
 ## Endpoints
 
 ### `GET /api/health`
-`200 {"status": "ok", "version": "0.6.0", "demo": true}`. Also served as `GET /healthz` for the Home Assistant watchdog.
+`200 {"status": "ok", "version": "0.7.0-dev", "demo": true}`. Also served as `GET /healthz` for the Home Assistant watchdog.
 
 ### `GET /api/me`
 ```json
@@ -143,7 +143,9 @@ Answers `201 {"id": 3, "iban": "BE68 •••• •••• 4821"}`. Checked 
 **Membership changes reset them.** When a member leaves or is removed (leave, delete user), their claims on that account are deleted and every share of the account is set back to `NULL` (equal); when a member joins, every share is reset too (shares stop adding up when the members change). Deleting the account or the user cascades their claims. A remaining member's claims stay, but an account with one member has no contributions and no `contribution` labels.
 
 ### `GET /api/transactions`
-Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, optional, default `alles`), `q` (search in counterparty, communication and amount), `uncategorised=1`, `from` and `to` (booking dates `YYYY-MM-DD`, both inclusive, each optional), `before` (opaque cursor from `next`), `limit` (default 50, max 200).
+Query: `account` (id, optional), `scope` (`alles` | `persoonlijk` | `gedeeld`, optional, default `alles`), `q` (search in counterparty, communication and amount), `uncategorised=1`, `category` (0.7-2, below), `from` and `to` (booking dates `YYYY-MM-DD`, both inclusive, each optional), `before` (opaque cursor from `next`), `limit` (default 50, max 200).
+
+**`category`** lists the rows behind one expense row of `GET /api/reports/months`, so Overzicht can open what it counts. The value is a **top category** id (its subcategories roll up into it; a subcategory id matches nothing), `none` (the report's "Niet gecategoriseerd" expense row), `toShared` or `toOwn` (the two transfer rows). It uses the report's rule and selection (`ledger/reports.go`, one source), with `from` and `to` as the month: only **booked** rows of the viewer's **current** accounts (the account if `account` is given, and then `scope` does not filter, as in the report; else the accounts of the `scope`), so pending rows and rows of savings and investment accounts never match; a transfer never matches a category (it matches `toShared` / `toOwn`, or nothing when it is inside the selection); a split row matches under each category one of its parts has (listed once, with its full amount), and under `toShared` / `toOwn` when it is such a transfer. `Total` and the cursor count the filtered rows. `uncategorised=1` is a different filter and unchanged. A value that is no id, `none`, `toShared` or `toOwn` answers `400` "Kies een categorie." (an unknown id is an empty list); with `category`, an `account` that is a savings or investment account answers `200` with an empty list (`items` `[]`, `total` 0: no report row sits behind such an account; `GET /api/reports/months` keeps its `400` "Kies een betaalrekening." there), and a hidden or unknown account stays `404`.
 ```json
 {
   "items": [
@@ -630,6 +632,51 @@ The recognised transfers into an account ("Overschrijvingen naar deze rekening" 
 [{"id": 41, "bookingDate": "2026-11-05", "amount": -20000, "from": {"id": 1, "name": "Zichtrekening"}, "counterparty": "Spaarrekening"}]
 ```
 `from` is the account the row is on, `counterparty` its counterparty name. An account without IBAN answers `[]`; an account the viewer cannot see answers `404` like a missing one. Overrides do not filter this list.
+
+## Reports (phase 0.7-1)
+One query for what came in, what was put aside and what went out per month, for the viewer, with the rules written once (`ledger/reports.go`) and reused by the Transactions drill-down (0.7-2). Another user's accounts never enter a sum (privacy rule 5).
+
+### `GET /api/reports/months` (0.7-1)
+Query (all optional):
+- `scope` (`alles` | `persoonlijk` | `gedeeld`, default `alles`): which current accounts are summed, as in `GET /api/transactions`. Anything else answers `400 invalid` "Kies alles, persoonlijk of gedeeld.". With `account` the scope does not narrow the selection.
+- `account` (id): that one account instead of every current account of the scope. It must be a `current` account the viewer holds.
+- `from`, `to` (months `YYYY-MM`, both inclusive): `from` defaults to `firstMonth`, `to` to the current month (Brussels, from the server clock).
+
+**The selection S** is the `account`, or else every account of the scope the viewer holds with `type = 'current'`. Savings and investment accounts are never in S, so their own rows (interest) never count. **Rows** are the viewer's `booked` rows on accounts in S whose booking date lies in the month; pending rows never count, and a split row counts by its parts, not by its own category.
+
+**Buckets**, in this order, for a row (or a split part):
+1. A transfer (the viewer's flag, override included, see "Transfers") whose other side is in S and whose history has started (its first booked row is on or before this row's date plus 3 days, the pairing window), or that has no other side at all: **left out** (money moving inside S is neither income nor expense).
+2. A transfer to a `savings` or `investment` account: **saved**, `-amount` (net: a withdrawal lowers it, a month can be negative).
+3. A transfer out (`amount < 0`): an expense under the key `toShared` ("Naar gedeelde rekening", from a personal account to a shared one) or `toOwn` ("Naar eigen rekening", any other).
+4. A transfer in (`amount > 0`): **income**.
+5. A category of type `income`: **income** (net, a correction lowers it).
+6. A category of type `expense`: an expense under the key of its **top category** (its parent's id, else its own), `-amount` (a refund lowers it; the key can end below 0).
+7. No category: `amount < 0` is an expense under the key `none` ("Niet gecategoriseerd"), `amount > 0` is income.
+
+The per-account list uses the same rules with S = {that account}, so every transfer of it is a flow: the per-account lists add up to more than the total by the transfers inside S.
+
+```json
+{
+  "accounts": [1, 4],
+  "firstMonth": "2025-11",
+  "firstDate": "2025-11-01",
+  "months": [
+    {
+      "month": "2026-10",
+      "income": 335000,
+      "saved": 20000,
+      "expenses": { "1": 115000, "2": 25236, "3": 2795, "4": 14060, "5": 6896, "6": 6562 },
+      "accounts": [
+        { "id": 1, "income": 290000, "saved": 20000, "expenses": { "1": 100500, "3": 2795, "4": 14060, "5": 2598, "toShared": 45000 } },
+        { "id": 4, "income": 90000, "saved": 0, "expenses": { "1": 14500, "2": 25236, "5": 4298, "6": 6562 } }
+      ]
+    }
+  ]
+}
+```
+Money in cents. `accounts` (top level) is S, in the order of `GET /api/accounts`. `firstDate` is the first booked date of a row with an amount (not 0) in S (a partial first month is drawn from it) and `firstMonth` its month. Every month from `from` to `to` is present, zeros included (`"expenses": {}`); an expense key appears only when its sum is not 0 and is a top category id (names, colours and icons come from `GET /api/categories`) or one of the fixed `none`, `toShared`, `toOwn`. The per-month `accounts` list (`id`, `income`, `saved`, `expenses` of each account of S) is present only when S holds more than one account. When S has no booked rows `firstMonth` and `firstDate` are `null`, and without `from` the answer has `months: []` (so it has when `to` lies before `firstMonth` and `from` is left out: `200`, not an error); when S is empty (no current account in the scope) the answer is `{"accounts": [], "firstMonth": null, "firstDate": null, "months": []}`, also with `from`.
+
+**Errors**, all `400 invalid` unless noted, checked in this order: a month that is not `YYYY-MM` "Kies een maand als JJJJ-MM." (the message of the contributions route); `to` after the current month "De eindmaand ligt na deze maand."; `from` after `to` (also the default `to`) "De beginmaand ligt na de eindmaand."; an unknown `scope` (see above); then the account: an account of `type` savings or investment that the viewer holds "Kies een betaalrekening."; an account the viewer cannot see, an unknown one and a malformed `account` (not a positive whole number) answer the same `404 not_found` "Rekening niet gevonden.", so nothing tells whether another user holds it, and the access check comes before the type check. Last, a range of more than 600 months (50 years) answers `400` "Kies een periode van hooguit 50 jaar.", because every month in range is present in the answer.
 
 ## Categorise a transaction (phase 0.4-3)
 

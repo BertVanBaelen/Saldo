@@ -29,6 +29,8 @@ import type {
   Preferences,
   Redeem,
   RemovedLink,
+  ReportMonths,
+  ReportQuery,
   Rule,
   RuleApplyResult,
   RuleInput,
@@ -142,6 +144,7 @@ export function transactionsPath(q: TransactionQuery = {}): string {
   if (q.scope && q.scope !== 'alles') p.set('scope', q.scope);
   if (q.q && q.q.trim()) p.set('q', q.q.trim());
   if (q.uncategorised) p.set('uncategorised', '1');
+  if (q.category) p.set('category', q.category);
   if (q.from) p.set('from', q.from);
   if (q.to) p.set('to', q.to);
   if (q.before) p.set('before', q.before);
@@ -150,7 +153,19 @@ export function transactionsPath(q: TransactionQuery = {}): string {
   return '/api/transactions' + (s ? '?' + s : '');
 }
 
+export function reportMonthsPath(q: ReportQuery = {}): string {
+  const p = new URLSearchParams();
+  if (q.scope && q.scope !== 'alles') p.set('scope', q.scope);
+  if (q.account !== undefined) p.set('account', String(q.account));
+  if (q.from) p.set('from', q.from);
+  if (q.to) p.set('to', q.to);
+  const s = p.toString();
+  return '/api/reports/months' + (s ? '?' + s : '');
+}
+
 export const api = {
+  /** Income, expenses per category and saved per month for a selection (docs/api.md, "Reports"). */
+  reportMonths: (q: ReportQuery = {}, signal?: AbortSignal) => request<ReportMonths>('GET', reportMonthsPath(q), { signal }),
   health: (signal?: AbortSignal) => request<Health>('GET', '/api/health', { signal }),
   me: (signal?: AbortSignal) => request<Me>('GET', '/api/me', { signal }),
   savePreferences: (prefs: Partial<Preferences>) => request<Preferences>('PUT', '/api/me/preferences', { body: prefs }),

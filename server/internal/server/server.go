@@ -164,6 +164,7 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/accounts/{id}/balances", s.listBalances)
 	m.HandleFunc("GET /api/accounts/{id}/transfers", s.listIncomingTransfers)
 	m.HandleFunc("GET /api/transactions", s.listTransactions)
+	m.HandleFunc("GET /api/reports/months", s.getReportMonths)
 	m.HandleFunc("PATCH /api/transactions/{id}", s.patchTransaction)
 	m.HandleFunc("GET /api/transactions/{id}/similar", s.getSimilar)
 	m.HandleFunc("POST /api/transactions/{id}/similar", s.postSimilar)

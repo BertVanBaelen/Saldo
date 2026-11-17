@@ -18,6 +18,9 @@ func TestTransferDetectionSpeed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("seeds 20 000 rows")
 	}
+	if raceEnabled {
+		t.Skip("the timing bound only means something without the race detector (CI runs this test in its plain run)")
+	}
 	ctx := context.Background()
 	d, s := seeded(t)
 	var accounts []int64

@@ -11,6 +11,7 @@ permissions:
 jobs:
   server:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: server
@@ -25,7 +26,11 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
-      - run: go test -race ./...
+      # The race detector makes SQLite about 85 times slower: the suite needs more than the default 10 minutes.
+      - run: go test -race -timeout 30m ./...
+      # The timing bound of the transfer detection means nothing under -race (the test skips itself there).
+      - name: Transfer detection speed (without the race detector)
+        run: go test -count=1 -run TestTransferDetectionSpeed ./internal/ledger/
       - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
         with:
           repo-checkout: false

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.7 Overview](README.md) |
-| Status | built (0.7.0-dev), to verify |
+| Status | released (0.7.0), verifying |
 | Size | S |
 | Features | OVER-1 |
 | Concepts | [period-overview](../../analysis/concepts/period-overview.md), [scope](../../analysis/concepts/scope.md) |

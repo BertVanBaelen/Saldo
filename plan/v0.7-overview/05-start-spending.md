@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Version | [0.7 Overview](README.md) |
-| Status | built (0.7.0-dev), to verify |
+| Status | released (0.7.0), verifying |
 | Size | S |
 | Features | OVER-3 |
 | Concepts | [scope](../../analysis/concepts/scope.md), [category](../../analysis/concepts/category.md), [internal-transfer](../../analysis/concepts/internal-transfer.md) |

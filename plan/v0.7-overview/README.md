@@ -2,7 +2,7 @@
 
 **After this version you can** see what you earned, spent and saved per month, quarter, year or your own range, per account and together, per category with its share and trend, and open the transactions behind any number. Start shows this month's spending.
 
-Status: built on branch v0.7-overview as 0.7.0-dev (17 Nov 2026), to verify; not released. Analysis milestone: M4. Roadmap: [../README.md](../README.md).
+Status: released as 0.7.0 (17 Nov 2026), verifying. Analysis milestone: M4. Roadmap: [../README.md](../README.md).
 
 ## Features
 | Id | Feature |
@@ -14,11 +14,11 @@ Status: built on branch v0.7-overview as 0.7.0-dev (17 Nov 2026), to verify; not
 ## Phases
 | Phase | Title | Size | Features | Depends on | Status |
 |---|---|---|---|---|---|
-| [0.7-1](01-reports-api.md) | Reports engine and API | M | OVER-1, OVER-2 | 0.6-4 | built, to verify |
-| [0.7-2](02-transacties-drill-down.md) | Transacties: category and period filters for the drill-down | S | OVER-2 | 0.7-1 (the selection rule) | built, to verify |
-| [0.7-3](03-overzicht-screen.md) | Overzicht screen: chart, tiles, per account, categories | M | OVER-1, OVER-2 | 0.7-1, 0.7-2 (links) | built, to verify |
-| [0.7-4](04-overzicht-pickers.md) | Overzicht: custom range, account filter, deep links | S | OVER-1 | 0.7-3 | built, to verify |
-| [0.7-5](05-start-spending.md) | Start: "Uitgaven november" card | S | OVER-3 | 0.7-1 | built, to verify |
+| [0.7-1](01-reports-api.md) | Reports engine and API | M | OVER-1, OVER-2 | 0.6-4 | released (0.7.0) |
+| [0.7-2](02-transacties-drill-down.md) | Transacties: category and period filters for the drill-down | S | OVER-2 | 0.7-1 (the selection rule) | released (0.7.0) |
+| [0.7-3](03-overzicht-screen.md) | Overzicht screen: chart, tiles, per account, categories | M | OVER-1, OVER-2 | 0.7-1, 0.7-2 (links) | released (0.7.0) |
+| [0.7-4](04-overzicht-pickers.md) | Overzicht: custom range, account filter, deep links | S | OVER-1 | 0.7-3 | released (0.7.0) |
+| [0.7-5](05-start-spending.md) | Start: "Uitgaven november" card | S | OVER-3 | 0.7-1 | released (0.7.0) |
 
 0.7-2 and 0.7-5 can run in parallel with 0.7-3 once 0.7-1 is done. The "Bijdragen" row and the "N transacties te categoriseren" alert of the old 0.7-3 were built in 0.6-5 and 0.4-3; only the spending card is left.
 
@@ -57,7 +57,7 @@ Status: built on branch v0.7-overview as 0.7.0-dev (17 Nov 2026), to verify; not
 - **Bilance scenario** (the risky cases): import `fixtures/csv/bilance-voorbeeld.csv` (2025 history, a −€ 200 / +€ 200 savings pair without IBAN on 2025-09-16, interest on Spaarrekening) and the new `fixtures/csv/bilance-bijdrage.csv` (0.7-1 step 5: 2024 months with −€ 450 to the shared account, before its history). Then check on Overzicht: the history now starts in 2024 (short-history note moves, Jaar shows 2024); 2024 in Alles shows € 450 per month under "Niet gecategoriseerd" (a Bilance row has no counterparty IBAN, so it has no known other side and is not a "Naar gedeelde rekening" flow; with a category from the import mapping it shows there instead; marking the rows "Is een overschrijving" removes them from Overzicht entirely, see Known limits); September 2025 shows € 200 Gespaard (paired by amount with the Spaarrekening row) and no interest as income; the drill-down from "Niet gecategoriseerd" in 2024 lists the imported rows. The pre-history path of the rule ("Naar gedeelde rekening" before the shared account's history) is covered by unit tests only: the importer drops counterparty IBANs that fail mod-97, and the demo IBANs fail it on purpose.
 
 ## Release checklist (lead, after 0.7-5)
-- Version `0.7.0-dev` while building, `0.7.0` only to release: `saldo/config.yaml`, `server/cmd/saldo/main.go` (`version` and the ldflags comment), `web/package.json` and `web/package-lock.json`, the health example in `docs/api.md`.
+- Version `0.7.0` (the `-dev` suffix was dropped on 17 Nov 2026 with the user's OK, so it releases when it reaches main): `saldo/config.yaml`, `server/cmd/saldo/main.go` (`version` and the ldflags comment), `web/package.json` and `web/package-lock.json`, the health example in `docs/api.md`.
 - `saldo/CHANGELOG.md` entry; `docs/api.md` "Reports" section and the new `GET /api/transactions` parameters; `docs/local-testing.md` section "Overview (0.7)" (a ten-minute click-through with the demo numbers of 0.7-1).
 - Statuses: this README, the phase files, the 0.7 row in [`../README.md`](../README.md) and in the root `README.md`; `analysis/screens/overzicht.md` phase links.
 

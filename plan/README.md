@@ -29,7 +29,7 @@ flowchart LR
 | [0.5](v0.5-bilance-import/README.md) | Bilance import | bring in your full Bilance history, mapped to your categories, without duplicates | S2, M6 | 2 S · 4 M | released (0.5.0), verifying |
 | [0.5.1](v0.5.1-category-look/README.md) | Category look and picker | pick your own emoji and colours for categories, find a category in two taps, and a failed account of a bank link says why (sync hardened, live cause unconfirmed) | - | 1 S · 3 M | released (0.5.1), verifying |
 | [0.6](v0.6-shared-accounts/README.md) | Shared accounts | share the joint account with Partner, each seeing only your own accounts | M3 | 2 S · 2 M · 1 L | released (0.6.0), verifying |
-| [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 3 S · 2 M | built (0.7.0-dev), to verify |
+| [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 3 S · 2 M | released (0.7.0), verifying |
 | [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend | M5 | 1 S · 2 M · 3 L | planned |
 | [0.9](v0.9-notifications/README.md) | Notifications | get push (Android and iPhone) and e-mail warnings before an account goes into its buffer or below zero | 4.9 | 2 S · 3 M | planned |
 | [1.0](v1.0-release/README.md) | Release | run Saldo with a full security review, tested backups and an export | 13.4 | 3 S · 1 M | planned |

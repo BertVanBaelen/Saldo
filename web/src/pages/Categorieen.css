@@ -504,3 +504,16 @@
   flex: none;
 }
 .ct-skel-panel { display: flex; flex-direction: column; gap: 14px; }
+
+/* "Telt als gespaard" (0.8-0a): the switch row keeps a 44 px target (the switch itself is 32 px), and saving categories carry a chip in the tree. */
+.ct-label-row--switch { min-height: 44px; }
+.ct-label-row--switch .switch::before { content: ""; position: absolute; inset: -6px; }
+.ct-saving-chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--soft); color: var(--greenText);
+  font-size: 11px; font-weight: 600;
+}
+/* A subcategory inherits the flag: the same word, quieter. */
+.ct-saving-chip--sub { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }

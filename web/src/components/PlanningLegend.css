@@ -1,0 +1,11 @@
+/* Legend keys shared by the Planning calendar grid and the charts (finance-mockup planning.css). */
+.pl-legend { display: flex; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.pl-legend > span { display: flex; align-items: center; gap: 5px; }
+.pl-legend b { font-weight: 700; }
+.pl-key-dot { width: 7px; height: 7px; border-radius: 50%; }
+.pl-key-box { width: 12px; height: 10px; border-radius: 3px; }
+.pl-key-box--warn { background: var(--warnSoft); border: 1px solid var(--warn); }
+.pl-key-box--neg { background: var(--negSoft); border: 1px solid var(--neg); }
+.pl-key-box--zone { background: var(--warnChip); }
+.pl-key-dash { width: 14px; border-top: 2px dashed var(--muted); }
+.pl-key-zero { width: 14px; border-top: 1.5px solid var(--muted); }

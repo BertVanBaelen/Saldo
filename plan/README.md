@@ -30,7 +30,7 @@ flowchart LR
 | [0.5.1](v0.5.1-category-look/README.md) | Category look and picker | pick your own emoji and colours for categories, find a category in two taps, and a failed account of a bank link says why (sync hardened, live cause unconfirmed) | - | 1 S · 3 M | released (0.5.1), verifying |
 | [0.6](v0.6-shared-accounts/README.md) | Shared accounts | share the joint account with Partner, each seeing only your own accounts | M3 | 2 S · 2 M · 1 L | released (0.6.0), verifying |
 | [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 3 S · 2 M | released (0.7.0), verifying |
-| [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend | M5 | 1 S · 2 M · 3 L | planned |
+| [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend; savings categories, shared accounts by invitation, Overzicht sheets | M5 | 7 M · 3 L | released (0.8.0), verifying |
 | [0.9](v0.9-notifications/README.md) | Notifications | get push (Android and iPhone) and e-mail warnings before an account goes into its buffer or below zero | 4.9 | 2 S · 3 M | planned |
 | [1.0](v1.0-release/README.md) | Release | run Saldo with a full security review, tested backups and an export | 13.4 | 3 S · 1 M | planned |
 | [2.0](v2.0-investments/README.md) | Investments | see net worth per platform | v2 | 1 S · 2 M | later |
@@ -83,7 +83,7 @@ Sizes are in the version READMEs. "Needs" lists the phases that must be done fir
 | [0.6-4](v0.6-shared-accounts/04-scope-and-sums.md) | Scope filter and sums | S | 0.6-3 |
 | [0.6-5](v0.6-shared-accounts/05-contributions.md) | Contributions | S | 0.6-4 |
 
-The phases of 0.6 depend on 0.3 only, and nothing in 0.4 or 0.5 depends on 0.6. So the order is a choice, not a technical limit: if Partner should be using Saldo sooner, 0.6 can go before 0.4 and 0.5 without breaking anything. After that: **0.7 Overview** (5 phases), **0.8 Planning** (6 phases, the heaviest with 3 L, and it needs the 12+ months of history from 0.5), **0.9 Notifications** (5 phases), **1.0 Release** (4 phases); see the table above.
+The phases of 0.6 depend on 0.3 only, and nothing in 0.4 or 0.5 depends on 0.6. So the order is a choice, not a technical limit: if Partner should be using Saldo sooner, 0.6 can go before 0.4 and 0.5 without breaking anything. After that: **0.7 Overview** (5 phases), **0.8 Planning** (10 phases, re-cut on 18 Nov 2026: three phase-0 user requests (saving categories, shared flag and invitations, Overzicht sheets), then data, detection and the engine, then the screen in three parts; the heaviest with 3 L, and it needs the 12+ months of history from 0.5), **0.9 Notifications** (5 phases), **1.0 Release** (4 phases); see the table above.
 
 ### Carried over from 0.3
 Each item is also written in the phase file that will do it, under "Carried over from 0.3".
@@ -96,7 +96,7 @@ Each item is also written in the phase file that will do it, under "Carried over
 | `import_batches` and the history list already exist, and a re-import already adds nothing: 0.5-5 shrinks to undo. Deleting a batch also deletes the categories set on its rows, so say so in the confirmation. | [0.5-5](v0.5-bilance-import/05-batches-and-undo.md) |
 | A `Referentie` mapping field (only if the real check shows it equals the sync's `external_id`) and `Beschrijving` as a fallback for an empty `Mededeling` | [0.5-2](v0.5-bilance-import/02-import-wizard.md), after check 3 |
 | The "Overschrijvingen naar deze rekening" card on a manual account | [0.6-3](v0.6-shared-accounts/03-transfers-and-saved.md) |
-| The Start hero and the forecast block link to Planning | [0.8-6](v0.8-planning/06-planning-screen.md) |
+| The Start hero and the forecast block link to Planning | [0.8-4](v0.8-planning/04-forecast-api-and-start.md) |
 
 Small items, to do when the area is touched: `ValidIBAN` does not check the length per country; the empty-body message of `PATCH /api/accounts/{id}` does not mention the IBAN; `Munt` written as "€" is refused (accept it only if a real export shows it); the sync toast reads "Gesynchroniseerd" because the server sends no count of new transactions; a booked CSV row and its pending sync twin both count in the Transacties total until the next sync clears the pending one; the web app has no lint step; `plan/v0.1-mockup/07-missing-designs.md` still lists Importeren as never opened in a browser.
 
@@ -188,12 +188,13 @@ Feature ids are stable; phase files list the features they deliver. **[S]** = sh
 ### 0.8 · Planning
 | Id | Feature | Phase |
 |---|---|---|
-| PLAN-1 | Recurring items detected from history and confirmed by you, or added by hand | 0.8-1 |
-| PLAN-2 | Budgets per account and category, or the average of past months | 0.8-2 |
-| PLAN-3 | Plan a one-off expense or income from the calendar | 0.8-3 |
-| PLAN-4 | Forecast per account: months (3 to 24) and daily balance, buffer and red states | 0.8-4 |
-| PLAN-5 | Free to spend per account and month | 0.8-5 |
-| PLAN-6 | Planning screen with five tabs; forecast and warnings on Start | 0.8-6 |
+| PLAN-0 | Saving categories and the Gespaard drill-down; declare an account shared and invite people; Overzicht bottom sheets | 0.8-0a, 0.8-0b, 0.8-0c |
+| PLAN-1 | Recurring items detected from history and confirmed by you, or added by hand | 0.8-1, 0.8-2, 0.8-7 |
+| PLAN-2 | Budgets per account and category, or the average of past months | 0.8-1, 0.8-3, 0.8-6 |
+| PLAN-3 | Plan a one-off expense or income from the calendar | 0.8-1, 0.8-5, 0.8-7 |
+| PLAN-4 | Forecast per account: months (3 to 24) and daily balance, buffer and red states | 0.8-3, 0.8-4 |
+| PLAN-5 | Free to spend per account and month | 0.8-3, 0.8-6 |
+| PLAN-6 | Planning screen with five tabs; forecast and warnings on Start | 0.8-4, 0.8-5, 0.8-6, 0.8-7 |
 
 ### 0.9 · Notifications
 | Id | Feature | Phase |
@@ -232,7 +233,7 @@ Generated from the "Concepts" row of every phase file.
 | [budget](../analysis/concepts/budget.md) | ● |  |  |  |  |  |  | ● |  |  |  |
 | [buffer-and-states](../analysis/concepts/buffer-and-states.md) | ● |  | ● |  |  | ● |  | ● | ● |  |  |
 | [categorisation-rule](../analysis/concepts/categorisation-rule.md) | ● |  |  | ● | ● | ● |  |  | ● |  |  |
-| [category](../analysis/concepts/category.md) | ● |  |  | ● | ● |  | ● |  |  |  |  |
+| [category](../analysis/concepts/category.md) | ● |  |  | ● | ● |  | ● | ● |  |  |  |
 | [demo-data](../analysis/concepts/demo-data.md) | ● | ● |  |  |  |  |  |  |  |  |  |
 | [design-system](../analysis/concepts/design-system.md) | ● | ● |  |  |  |  |  |  | ● |  |  |
 | [forecast](../analysis/concepts/forecast.md) | ● |  |  |  |  |  |  | ● | ● |  |  |
@@ -240,7 +241,7 @@ Generated from the "Concepts" row of every phase file.
 | [internal-transfer](../analysis/concepts/internal-transfer.md) | ● |  |  |  |  | ● | ● | ● |  |  |  |
 | [money-and-format](../analysis/concepts/money-and-format.md) | ● | ● |  |  |  |  |  |  |  |  |  |
 | [notification](../analysis/concepts/notification.md) | ● | ● | ● |  |  |  |  |  | ● |  |  |
-| [period-overview](../analysis/concepts/period-overview.md) | ● |  |  |  |  |  | ● |  |  |  |  |
+| [period-overview](../analysis/concepts/period-overview.md) | ● |  |  |  |  |  | ● | ● |  |  |  |
 | [planned-item](../analysis/concepts/planned-item.md) | ● |  |  |  |  |  |  | ● |  |  |  |
 | [recurring-item](../analysis/concepts/recurring-item.md) | ● |  |  |  |  |  |  | ● |  |  |  |
 | [scope](../analysis/concepts/scope.md) | ● |  | ● |  |  | ● | ● | ● |  |  | ● |

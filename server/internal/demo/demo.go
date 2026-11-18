@@ -179,6 +179,13 @@ func seed(ctx context.Context, tx *sql.Tx, p bank.Provider) (int, error) {
 	if err := categorise.SeedDefaults(ctx, tx); err != nil {
 		return 0, err
 	}
+	// One saving category without rows (0.8-0a), appended so no default id
+	// moves: the switch is there to try, every 0.7 number stays. c9 is a tint
+	// (colour holds the c6 placeholder, see ledger.colourColumns).
+	if err := exec(`INSERT INTO categories (name, type, colour, tint, icon, saving, sort_order)
+		VALUES ('Sparen', 'expense', 'c6', 'c9', '🏦', 1, (SELECT MAX(sort_order) + 1 FROM categories WHERE parent_id IS NULL))`); err != nil {
+		return 0, err
+	}
 	for _, m := range manualAccounts {
 		if err := insertAccount(ctx, tx, m.account, "manual", ""); err != nil {
 			return 0, err
@@ -266,6 +273,9 @@ func seed(ctx context.Context, tx *sql.Tx, p bank.Provider) (int, error) {
 		return 0, err
 	}
 	if err := categoriseHistory(ctx, tx); err != nil {
+		return 0, err
+	}
+	if err := seedPlanning(ctx, tx); err != nil {
 		return 0, err
 	}
 	return n, nil

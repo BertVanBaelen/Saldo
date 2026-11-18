@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppProvider } from './app/AppContext';
 import { Shell } from './components/Shell';
 import { Icon, Logo } from './components/Icon';
-import { Bare } from './components/ui';
+import { Bare, Skel } from './components/ui';
 import { api, ApiError, errorMessage, isAbort, onUnauthorized } from './lib/api';
 import type { Me } from './lib/types';
 import { Start } from './pages/Start';
@@ -19,6 +19,10 @@ import { Importeren } from './pages/Importeren';
 import { Categorieen } from './pages/Categorieen';
 import { LinkPage, SignIn } from './pages/Inloggen';
 
+// Planning brings the UI library (React Aria, ~70 kB gzipped): its own chunk, loaded when the screen opens. The service worker
+// precaches every bundle file, so the chunk is there offline too.
+const Planning = lazy(() => import('./pages/Planning').then((m) => ({ default: m.Planning })));
+
 /** The pages of a signed-in viewer, inside the shell. */
 export function AppRoutes() {
   return (
@@ -30,7 +34,21 @@ export function AppRoutes() {
         <Route path="rekeningen/:id" element={<Rekening />} />
         <Route path="meer" element={<Meer />} />
         <Route path="overzicht" element={<Overzicht />} />
-        <Route path="planning" element={<NotBuilt id="planning" />} />
+        <Route
+          path="planning"
+          element={
+            <Suspense
+              fallback={
+                <div className="page" role="status" aria-label="Planning laden">
+                  <Skel w={160} h={32} />
+                  <Skel w="100%" h={280} />
+                </div>
+              }
+            >
+              <Planning />
+            </Suspense>
+          }
+        />
         <Route path="bankkoppelingen" element={<Bankkoppelingen />} />
         <Route path="bankkoppelingen/koppelen" element={<BankKoppelen />} />
         <Route path="bankkoppelingen/terug" element={<BankTerug />} />

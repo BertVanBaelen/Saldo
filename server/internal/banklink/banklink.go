@@ -259,6 +259,7 @@ type Linked struct {
 	Connection int64
 	Accounts   []int64 // the accounts this consent feeds, new or matched again
 	Offers     []Offer
+	Joined     []ledger.AccountRef // accounts joined at once through an open invitation (0.8-0b)
 	Skipped    []Skipped
 	Missing    []Missing
 }
@@ -346,7 +347,7 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 	if _, err := tx.ExecContext(ctx, `UPDATE account_sources SET external_account_id = NULL WHERE connection_id = ?`, c.id); err != nil {
 		return Linked{}, err
 	}
-	linked := Linked{Connection: c.id, Accounts: []int64{}, Offers: []Offer{}, Skipped: []Skipped{}, Missing: []Missing{}}
+	linked := Linked{Connection: c.id, Accounts: []int64{}, Offers: []Offer{}, Joined: []ledger.AccountRef{}, Skipped: []Skipped{}, Missing: []Missing{}}
 	stamp := now.UTC().Format(time.RFC3339)
 	for _, a := range info.Accounts {
 		iban := ledger.NormalizeIBAN(a.IBAN)
@@ -355,7 +356,7 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 			s.log.Warn("bank account without IBAN left out", "connection", c.id)
 			continue
 		}
-		id, outcome, err := match(ctx, tx, c, iban, a)
+		id, outcome, err := match(ctx, tx, c, iban, a, now)
 		if err != nil {
 			return Linked{}, err
 		}
@@ -370,6 +371,13 @@ func (s *Service) storeConsent(ctx context.Context, c connection, info bank.Sess
 			if !slices.ContainsFunc(linked.Offers, func(o Offer) bool { return o.ID == offer }) {
 				linked.Offers = append(linked.Offers, Offer{ID: offer, IBAN: ledger.MaskIBAN(iban), Bank: c.aspsp})
 			}
+		case matchJoined:
+			var name string
+			if err := tx.QueryRowContext(ctx, `SELECT name FROM accounts WHERE id = ?`, id).Scan(&name); err != nil {
+				return Linked{}, err
+			}
+			linked.Joined = append(linked.Joined, ledger.AccountRef{ID: id, Name: name})
+			fallthrough
 		case matchLinked:
 			if !slices.Contains(linked.Accounts, id) {
 				linked.Accounts = append(linked.Accounts, id)
@@ -430,14 +438,16 @@ const (
 	matchLinked  = iota // the connection feeds the account
 	matchOffer          // someone else's account: the viewer may join it
 	matchSkipped        // the viewer holds it, but this connection cannot feed it
+	matchJoined         // someone else's account with an open invitation: joined at once (0.8-0b)
 )
 
 // match links one account by IBAN: a new IBAN becomes a current account that
 // the viewer manages; an IBAN this connection already feeds gets its new
 // provider id (re-authorisation); an IBAN of an account the viewer does not
-// hold is a join offer; an account the viewer holds that this connection
-// cannot feed is skipped.
-func match(ctx context.Context, tx *sql.Tx, c connection, iban string, a bank.Account) (id int64, outcome int, err error) {
+// hold is a join offer, unless the viewer holds an open invitation for it
+// (then the viewer joins at once, this connection a fallback); an account the
+// viewer holds that this connection cannot feed is skipped.
+func match(ctx context.Context, tx *sql.Tx, c connection, iban string, a bank.Account, now time.Time) (id int64, outcome int, err error) {
 	err = tx.QueryRowContext(ctx, `SELECT id FROM accounts WHERE source = 'bank' AND iban = ?`, iban).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		res, err := tx.ExecContext(ctx, `INSERT INTO accounts (type, source, iban, name, currency, bank_name, created_by)
@@ -474,6 +484,13 @@ func match(ctx context.Context, tx *sql.Tx, c connection, iban string, a bank.Ac
 		return 0, 0, err
 	}
 	if !holds {
+		joined, err := ledger.JoinByInvitation(ctx, tx, id, c.user, c.id, a.ID, now)
+		if err != nil {
+			return 0, 0, err
+		}
+		if joined {
+			return id, matchJoined, nil
+		}
 		return id, matchOffer, nil
 	}
 	res, err := tx.ExecContext(ctx, `UPDATE account_sources SET external_account_id = ? WHERE account_id = ? AND connection_id = ?`,

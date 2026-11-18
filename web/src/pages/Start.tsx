@@ -1,7 +1,7 @@
 // Start: Saldo nu per account, alerts and the accounts by Persoonlijk and Gedeeld.
 // Design: finance-mockup/js/screens/start.js; spec: analysis/screens/start.md.
 // Every current account is judged on its own buffer; a sum is information only (decisions 3 Nov 2026).
-// The forecast (0.8) arrives later: no figures for it until then.
+// "Komende maanden" (StartForecast.tsx, 0.8-4) holds each account's expected end balance for the next months; the hero and that card lead to Planning.
 // The spending card (0.7-5, StartSpending.tsx) holds the running month's expenses per account, counted as Overzicht counts them.
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -27,6 +27,7 @@ import { dateLong, eur, eur0, names } from '../lib/format';
 import type { Account, Alert, Connection, Contributions, EnableBanking, Scope } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { ContributionRow } from './Bijdragen';
+import { StartForecast } from './StartForecast';
 import { SpendingCard, SpendingSkeleton, type Spending } from './StartSpending';
 import './Start.css';
 
@@ -67,7 +68,7 @@ function Header({ bare }: { bare: boolean }) {
 function alertIcon(a: Alert): IconName {
   if (a.type === 'consent') return 'clock';
   if (a.type === 'categorise') return 'tag';
-  if (a.type === 'member') return 'people';
+  if (a.type === 'member' || a.type === 'invite') return 'people';
   if (a.type === 'sync') return a.kind === 'neg' ? 'warning' : 'sync';
   return 'warning';
 }
@@ -159,7 +160,10 @@ export function SingleHero({ a, today, contributions }: { a: Account; today: str
   return (
     <section className={'hero' + (isShared(a) ? ' hero--shared' : '') + ' anim-in'} style={delay(40)} aria-label={'Saldo nu · ' + a.name}>
       <span className="hero-top">
-        <span className="hero-label">Saldo nu · {a.name}</span>
+        <Link className="hero-label hero-link" to="/planning">
+          Saldo nu · {a.name}
+          <span className="visually-hidden"> · naar Planning</span>
+        </Link>
         <span className="chip chip--hero">{STATE_CHIP[st]}</span>
       </span>
       <span className="hero-amount mono">{eur(a.balance)}</span>
@@ -191,7 +195,10 @@ export function MultiHero({ scope, list, withSavings }: { scope: Scope; list: Ac
   return (
     <section className="hero anim-in" style={delay(40)} aria-label={'Saldo nu · ' + SCOPE_LABEL[scope]}>
       <span className="hero-top">
-        <span className="hero-label">Saldo nu · {SCOPE_LABEL[scope]}</span>
+        <Link className="hero-label hero-link" to="/planning">
+          Saldo nu · {SCOPE_LABEL[scope]}
+          <span className="visually-hidden"> · naar Planning</span>
+        </Link>
       </span>
       <span className="hero-amount mono">{eur(total)}</span>
       <span className="hero-info">Samen, ter info{withSavings ? ' · zonder spaarrekeningen' : ''}</span>
@@ -236,34 +243,6 @@ export function MultiHero({ scope, list, withSavings }: { scope: Scope; list: Ac
           })}
         </span>
       </span>
-    </section>
-  );
-}
-
-// The forecast per account arrives with Planning in version 0.8: a calm note in its place, no figures.
-function ForecastSoon() {
-  return (
-    <section className="section start-forecast anim-in" style={delay(70)} aria-labelledby="start-fc-title">
-      <div className="section-head only-phone">
-        <h2 className="section-title">Komende maanden</h2>
-      </div>
-      <div className="card start-forecast-card start-soon">
-        <span className="start-forecast-head">
-          <span className="section-title only-desktop" id="start-fc-title">
-            Komende maanden
-          </span>
-          <span className="start-forecast-sub">Verwacht eindsaldo per rekening</span>
-        </span>
-        <span className="start-soon-body">
-          <span className="start-soon-icon" aria-hidden="true">
-            <Icon name="calendar" size={18} stroke={2.2} />
-          </span>
-          <span className="start-soon-text">
-            Hier zie je straks per rekening hoe de komende maanden aflopen, tegen de eigen buffer.
-            <span className="start-soon-tag">Komt in versie 0.8</span>
-          </span>
-        </span>
-      </div>
     </section>
   );
 }
@@ -585,7 +564,7 @@ export function Start() {
         ) : (
           <div className="start-top">
             {current.length === 1 ? <SingleHero a={current[0]} today={today} contributions={contribs.data?.get(current[0].id)} /> : <MultiHero scope={scope} list={current} withSavings={savings > 0} />}
-            <ForecastSoon />
+            <StartForecast accounts={current} />
           </div>
         )}
         <div className={'start-bottom' + (slots < 2 ? ' start-bottom--one' : '')}>

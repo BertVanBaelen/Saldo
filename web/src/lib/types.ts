@@ -97,11 +97,33 @@ export interface Account {
   members: Member[];
   /** The manager of an account with more than one member: how many of their own rules no longer apply to it; else 0. */
   convertibleRules: number;
+  /** The open invitations of the account for its manager, oldest first; `[]` for everyone else. Always sent; optional here so older fixtures compile. */
+  invitations?: AccountInvitation[];
+}
+
+/** An open invitation to an account (0.8-0b), as the manager sees it. */
+export interface AccountInvitation {
+  id: number;
+  userId: number;
+  name: string;
+  createdAt: string;
+}
+
+/** A person the manager can invite (GET /api/accounts/{id}/invitable): display name and initial only. */
+export interface InvitableUser {
+  id: number;
+  name: string;
+  initial: string;
+  /** `member`: holds the account already; `invited`: an invitation is open (`invitationId`); `free`. */
+  state: 'member' | 'invited' | 'free';
+  invitationId: number | null;
 }
 
 export interface AccountPatch {
   name?: string;
   colour?: AccountColour;
+  /** The manager declares the account shared (true) or switches it back (false, only while nobody else is a member or invited). */
+  shared?: boolean;
   /** Cents, ≥ 0, a multiple of 100, current accounts only. */
   buffer?: number;
   /** Manual accounts only; `""` removes it. */
@@ -191,13 +213,17 @@ export interface ContributionMember {
   userId: number;
   name: string;
   me: boolean;
-  /** The manager's fixed percentage (0 to 100); `null` while the split is equal (the default). It has no effect yet. */
+  /** The manager's fixed percentage (0 to 100); `null` while the split is equal (the default). It sets this member's part of `required`. */
   share: number | null;
   /** How many sending accounts the member declared; the IBANs of other members are never shown. */
   senders: number;
   /** Cents received this month from the member's declared senders. */
   received: number;
   confirmed: boolean;
+  /** Cents (a whole number of euros) this member has to send in for the month (0.8-4); absent or `null` outside the forecast or without a balance. */
+  required?: number | null;
+  /** `received` reaches `required`; `null` together with `required`. */
+  covered?: boolean | null;
 }
 
 /** A sending account the viewer declared as theirs, masked like every IBAN. */
@@ -212,6 +238,8 @@ export interface Contributions {
   month: string;
   members: ContributionMember[];
   mySenders: ContributionSender[];
+  /** What the account needs this month in cents, rounded up to whole euros (0.8-4); absent or `null` like `required`. */
+  need?: number | null;
 }
 
 /** POST /api/accounts/{id}/contribution-senders: one of the viewer's own accounts, or an incoming row of the shared account. */
@@ -236,6 +264,8 @@ export interface TreeCategory {
   icon: string | null;
   parentId: number | null;
   count: number;
+  /** "Telt als gespaard" (0.8-0a), the effective value: a subcategory shows its parent's. Only a top expense category stores it. */
+  saving: boolean;
 }
 
 /** An item of GET /api/rules (docs/api.md, "Rules"). */
@@ -265,6 +295,8 @@ export interface NewCategory {
   parentId?: number;
   /** One emoji; the server answers 400 for anything else. */
   icon?: string;
+  /** `true` on a top expense category only (400 on a subcategory and on an income category). */
+  saving?: boolean;
 }
 
 /** PATCH /api/categories/{id}: `parentId: null` makes it a top category. */
@@ -275,6 +307,8 @@ export interface CategoryPatch {
   colour?: CategoryColour;
   /** One emoji; `null` or `''` clears it (shows as the default `🏷️`). */
   icon?: string | null;
+  /** `true` only while it is (or becomes) a top expense category; a move or a type change clears the flag by itself. */
+  saving?: boolean;
 }
 
 /**
@@ -416,7 +450,7 @@ export interface TransactionQuery {
   scope?: Scope;
   q?: string;
   uncategorised?: boolean;
-  /** One expense row of the report (0.7-2): a top category id (`"2"`), `none`, `toShared` or `toOwn`. Needs a current account. */
+  /** One expense row of the report (0.7-2): a top category id (`"2"`), `none`, `toShared` or `toOwn`; `saved` (0.8-0a): every row behind the Gespaard number. Needs a current account. */
   category?: string;
   /** Booking dates `YYYY-MM-DD`, inclusive. */
   from?: string;
@@ -468,7 +502,7 @@ export interface ReportQuery {
 
 export interface Alert {
   kind: 'neg' | 'warn' | 'ok';
-  type: 'consent' | 'sync' | 'categorise' | 'planning' | 'member' | 'rules';
+  type: 'consent' | 'sync' | 'categorise' | 'planning' | 'member' | 'rules' | 'invite';
   title: string;
   note: string;
   href: string;
@@ -476,6 +510,8 @@ export interface Alert {
   accountId?: number;
   /** A stored notice (types member and rules): the viewer can dismiss it with `POST /api/notices/{id}/read`. */
   noticeId?: number;
+  /** Type invite (0.8-0b): the invitation to accept (`POST /api/invitations/{id}/accept`) or decline (`DELETE`); there is no `accountId` before accepting. */
+  invitationId?: number;
 }
 
 export interface Connection {
@@ -544,6 +580,8 @@ export interface BankLinkResult {
   offers: JoinOffer[];
   /** Always sent; optional here so older fixtures compile. */
   missing?: MissingAccount[];
+  /** Accounts the viewer joined at once because they were invited (0.8-0b); they are in `accounts` too. Always sent; optional here so older fixtures compile. */
+  joined?: { id: number; name: string }[];
 }
 
 // ---------- Sign-in, devices and users (docs/api.md, "Sign-in") ----------

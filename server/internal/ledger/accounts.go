@@ -59,6 +59,9 @@ type Account struct {
 	CarriedBy *CarriedBy `json:"carriedBy"`
 	// ViaReserve is true while a fallback carries the account.
 	ViaReserve bool `json:"viaReserve"`
+	// Invitations are the open invitations of the account, for its manager
+	// only (0.8-0b); [] for everyone else.
+	Invitations []Invitation `json:"invitations"`
 
 	sources []int64 // connections whose failure explains this account's state
 }
@@ -108,6 +111,13 @@ func State(accountType string, balance, buffer int64) *string {
 	return ptr("ok")
 }
 
+// IsShared is the one rule for personal or shared (0.8-0b): the manager
+// declared the account shared (accounts.shared) or it has more than one
+// member. The SQL twin is the shared column of visibleTx's vis.
+func IsShared(flag bool, members int) bool {
+	return flag || members > 1
+}
+
 // SyncUnlinked is the syncStatus of a bank account that no link feeds any more.
 const SyncUnlinked = "unlinked"
 
@@ -132,7 +142,7 @@ func (s *Store) Account(ctx context.Context, viewer, id int64, now time.Time) (A
 func (s *Store) accounts(ctx context.Context, viewer, only int64, now time.Time) ([]Account, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT a.id, a.name, a.type, a.source, COALESCE(a.iban, ''), a.colour, a.buffer,
-		       COALESCE(a.bank_name, ''), me.role, me.permission,
+		       COALESCE(a.bank_name, ''), me.role, me.permission, a.shared = 1,
 		       (SELECT COUNT(*) FROM account_access m WHERE m.account_id = a.id),
 		       bs.balance, bs.date
 		FROM account_access me
@@ -153,17 +163,18 @@ func (s *Store) accounts(ctx context.Context, viewer, only int64, now time.Time)
 		var a Account
 		var iban, bankName string
 		var members int
+		var flag bool
 		var balance sql.NullInt64
 		var balanceDate sql.NullString
 		if err := rows.Scan(&a.ID, &a.Name, &a.Type, &a.Source, &iban, &a.Colour, &a.Buffer,
-			&bankName, &a.Role, &a.Permission, &members, &balance, &balanceDate); err != nil {
+			&bankName, &a.Role, &a.Permission, &flag, &members, &balance, &balanceDate); err != nil {
 			return nil, err
 		}
 		if m := MaskIBAN(iban); m != "" {
 			a.IBAN = &m
 		}
 		a.Kind = "personal"
-		if members > 1 {
+		if IsShared(flag, members) {
 			a.Kind = "shared"
 		}
 		if a.Type != "current" {
@@ -178,6 +189,7 @@ func (s *Store) accounts(ctx context.Context, viewer, only int64, now time.Time)
 			a.Bank = &bankName
 		}
 		a.Members = []Member{}
+		a.Invitations = []Invitation{}
 		index[a.ID] = len(list)
 		list = append(list, a)
 	}
@@ -195,6 +207,9 @@ func (s *Store) accounts(ctx context.Context, viewer, only int64, now time.Time)
 		return nil, err
 	}
 	if err := s.loadConvertible(ctx, viewer, list, index); err != nil {
+		return nil, err
+	}
+	if err := s.loadInvitations(ctx, viewer, list, index, now); err != nil {
 		return nil, err
 	}
 	return list, nil
@@ -534,6 +549,9 @@ type AccountPatch struct {
 	Buffer *int64  `json:"buffer"`
 	// IBAN of a manual account ("" removes it); only to recognise transfers.
 	IBAN *string `json:"iban"`
+	// Shared declares the account shared (0.8-0b). Switching it off is
+	// refused while another member or an open invitation exists.
+	Shared *bool `json:"shared"`
 }
 
 // UpdateAccount applies a patch for the account's manager and returns the
@@ -558,7 +576,7 @@ func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPa
 		return Account{}, err
 	}
 
-	if p.Name == nil && p.Colour == nil && p.Buffer == nil && p.IBAN == nil {
+	if p.Name == nil && p.Colour == nil && p.Buffer == nil && p.IBAN == nil && p.Shared == nil {
 		return Account{}, apperr.Invalid("Geef een naam, een kleur of een buffer op.")
 	}
 	var name *string
@@ -592,6 +610,11 @@ func (s *Store) UpdateAccount(ctx context.Context, viewer, id int64, p AccountPa
 			return Account{}, err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET iban = ? WHERE id = ?`, iban, id); err != nil {
+			return Account{}, err
+		}
+	}
+	if p.Shared != nil {
+		if err := setShared(ctx, tx, a, id, *p.Shared, now); err != nil {
 			return Account{}, err
 		}
 	}

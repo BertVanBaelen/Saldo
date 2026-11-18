@@ -1,7 +1,7 @@
 {
   "name": "saldo-web",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Saldo web app (PWA)",
   "type": "module",
   "scripts": {
@@ -15,11 +15,15 @@
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
+    "@internationalized/date": "^3.12.4",
     "react": "^19.3.1",
+    "react-aria-components": "^1.22.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.5"
   },
   "devDependencies": {
+    "@react-aria/optimize-locales-plugin": "^2.1.0",
+    "@tailwindcss/vite": "^4.3.5",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.6",
@@ -28,6 +32,7 @@
     "@vitejs/plugin-react": "^6.3.0",
     "jsdom": "^31.0.1",
     "sharp": "^0.35.5",
+    "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"

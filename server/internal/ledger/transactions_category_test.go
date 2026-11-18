@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"testing"
 	"time"
@@ -53,7 +54,7 @@ func TestTransactionsCategoryFilter(t *testing.T) {
 		if r.AccountID != 4 {
 			t.Errorf("groceries row %d on account %d", r.ID, r.AccountID)
 		}
-		spent += behind(r, "2", top)
+		spent += behind(r, "2", top, nil)
 	}
 	if len(groceries) == 0 || spent != 25236 {
 		t.Errorf("groceries of October: %d rows, € %d cents; want the report's 25236", len(groceries), spent)
@@ -219,25 +220,27 @@ func TestTransactionsCategoryFilterWorld(t *testing.T) {
 		{"alles", 0, "toShared", []string{"r1", "r26"}},
 		{"alles", 0, "none", []string{"r17", "r18"}},
 		{"", rwZicht, "toOwn", []string{"r22", "r24", "r9"}}, // saved (r5, r13) is not toOwn
-		{"persoonlijk", 0, "toShared", []string{"r1", "r14", "r2", "r25", "r26"}},
+		// t1: A9 is shared by its flag (0.8-0b).
+		{"persoonlijk", 0, "toShared", []string{"r1", "r14", "r2", "r25", "r26", "t1"}},
 		{"gedeeld", rwZicht, "none", []string{"r17", "r18"}}, // the account wins over the scope, as in the report
 		{"gedeeld", 0, "toOwn", []string{"r11"}},
 		{"alles", 0, "3", []string{"r15"}},
 		// r14 is a split row and a transfer: its parts (Wonen, Overig) are toShared, in no category, and out in Alles.
 		{"persoonlijk", 0, "1", []string{}},
-		{"persoonlijk", 0, "6", []string{}},
+		{"persoonlijk", 0, "6", []string{"s7"}}, // s7's Overig part (0.8-0a)
 		{"alles", 0, "1", []string{}},
+		{"gedeeld", 0, "saved", []string{"s9"}},
 	} {
 		if got := list(c.scope, c.account, c.key); !slices.Equal(got, c.want) {
 			t.Errorf("%s/%d %s: %v, want %v", c.scope, c.account, c.key, got, c.want)
 		}
 	}
 	// The savings account (r6, r7) and the investment account answer an empty list, not an error.
-	if rows := list("", rwSpaar, ""); len(rows) != 2 {
-		t.Errorf("the savings account without a category: %v, want r6 and r7", rows)
+	if rows := list("", rwSpaar, ""); len(rows) != 3 {
+		t.Errorf("the savings account without a category: %v, want r6, r7 and s5b", rows)
 	}
 	for _, account := range []int64{rwSpaar, rwBeleggen} {
-		for _, key := range []string{"1", "none", "toShared", "toOwn"} {
+		for _, key := range []string{"1", "none", "toShared", "toOwn", "saved"} {
 			if got := list("", account, key); len(got) != 0 {
 				t.Errorf("account %d, category %s: %v, want none", account, key, got)
 			}
@@ -298,18 +301,37 @@ func topCategories(t *testing.T, d *sql.DB) map[int64]int64 {
 	return top
 }
 
+// savingTops are the top categories that count as saved (0.8-0a).
+func savingTops(t *testing.T, d *sql.DB) map[int64]bool {
+	t.Helper()
+	rows, err := d.Query(`SELECT id FROM categories WHERE saving = 1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	out := map[int64]bool{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		out[id] = true
+	}
+	return out
+}
+
 // behind is what a listed row adds to the report's expense row key, as spending
 // (positive). A split row is listed with its full amount, so only its parts
-// that carry the key count: all of them for a transfer key (toShared, toOwn:
-// the row is one transfer whatever the part categories), else the parts whose
-// top category it is.
-func behind(r ledger.Transaction, key string, top map[int64]int64) int64 {
+// that carry the key count: for a transfer key (toShared, toOwn: the row is
+// one transfer) every part not in a saving category (those are saved,
+// 0.8-0a), else the parts whose top category it is.
+func behind(r ledger.Transaction, key string, top map[int64]int64, saving map[int64]bool) int64 {
 	if r.Splits == nil {
 		return -r.Amount
 	}
 	var sum int64
 	for _, p := range r.Splits {
-		if key == "toShared" || key == "toOwn" || fmt.Sprint(top[p.Category.ID]) == key {
+		if (key == "toShared" || key == "toOwn") && !saving[top[p.Category.ID]] || fmt.Sprint(top[p.Category.ID]) == key {
 			sum -= p.Amount
 		}
 	}
@@ -325,10 +347,14 @@ func behind(r ledger.Transaction, key string, top map[int64]int64) int64 {
 func checkDrillDown(t *testing.T, d *sql.DB, s *ledger.Store, now time.Time, viewers ...int64) {
 	t.Helper()
 	ctx := context.Background()
-	top := topCategories(t, d)
-	keys := []string{"none", "toShared", "toOwn"}
+	top, saving := topCategories(t, d), savingTops(t, d)
+	keys := []string{"none", "toShared", "toOwn"} // the expense keys; a saving top is never one
+	var savingKeys []string
 	for id, parent := range top {
-		if id == parent {
+		switch {
+		case id == parent && saving[id]:
+			savingKeys = append(savingKeys, fmt.Sprint(id))
+		case id == parent:
 			keys = append(keys, fmt.Sprint(id))
 		}
 	}
@@ -367,7 +393,7 @@ func checkDrillDown(t *testing.T, d *sql.DB, s *ledger.Store, now time.Time, vie
 					rows := allTransactions(t, s, viewer, ledger.TxQuery{Scope: sel.scope, AccountID: sel.account, Category: key, From: from, To: to, Limit: ledger.MaxLimit})
 					var got int64
 					for _, r := range rows {
-						got += behind(r, key, top)
+						got += behind(r, key, top, saving)
 					}
 					if got != want {
 						t.Errorf("%s: the rows add up to %d, the report says %d", label, got, want)
@@ -392,7 +418,7 @@ func checkDrillDown(t *testing.T, d *sql.DB, s *ledger.Store, now time.Time, vie
 			for _, key := range keys {
 				sums, signs := map[string]int64{}, map[string][2]bool{}
 				for _, r := range allTransactions(t, s, viewer, ledger.TxQuery{Scope: sel.scope, AccountID: sel.account, Category: key, Limit: ledger.MaxLimit}) {
-					month, amount := r.BookingDate[:7], behind(r, key, top)
+					month, amount := r.BookingDate[:7], behind(r, key, top, saving)
 					sums[month] += amount
 					sg := signs[month]
 					sg[0], sg[1] = sg[0] || amount > 0, sg[1] || amount < 0
@@ -417,6 +443,39 @@ func checkDrillDown(t *testing.T, d *sql.DB, s *ledger.Store, now time.Time, vie
 				}
 				checked++
 			}
+			// The Gespaard drill-down (0.8-0a), every month: category=saved lists exactly the rows with a
+			// saved part, and their saved parts add up to the report's saved.
+			for _, m := range rep.Months {
+				start, _ := time.Parse("2006-01", m.Month)
+				from, to := m.Month+"-01", start.AddDate(0, 1, -1).Format(time.DateOnly)
+				label := fmt.Sprintf("viewer %d %s/%d %s saved", viewer, sel.scope, sel.account, m.Month)
+				parts, err := s.SavedParts(ctx, viewer, sel.scope, sel.account, from, to)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var sum int64
+				for _, v := range parts {
+					sum += v
+				}
+				listed := rowIDs(allTransactions(t, s, viewer, ledger.TxQuery{Scope: sel.scope, AccountID: sel.account, Category: "saved", From: from, To: to, Limit: ledger.MaxLimit}))
+				fragment, err := s.DrillDown(ctx, viewer, sel.scope, sel.account, from, to, "saved")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if want := slices.Sorted(maps.Keys(parts)); sum != m.Saved || !slices.Equal(slices.Sorted(slices.Values(listed)), want) || !slices.Equal(fragment, want) {
+					t.Errorf("%s: saved parts %d (report %d), rows %v, fragment %v, want %v", label, sum, m.Saved, listed, fragment, want)
+				}
+				checked++
+			}
+			// A saving top category lists only rows that are saved (its expense half is always empty).
+			saved := rowIDs(allTransactions(t, s, viewer, ledger.TxQuery{Scope: sel.scope, AccountID: sel.account, Category: "saved", Limit: ledger.MaxLimit}))
+			for _, key := range savingKeys {
+				for _, id := range rowIDs(allTransactions(t, s, viewer, ledger.TxQuery{Scope: sel.scope, AccountID: sel.account, Category: key, Limit: ledger.MaxLimit})) {
+					if !slices.Contains(saved, id) {
+						t.Errorf("viewer %d %s/%d key %s lists row %d, which is not saved", viewer, sel.scope, sel.account, key, id)
+					}
+				}
+			}
 		}
 	}
 	if checked == 0 {
@@ -434,7 +493,7 @@ func TestDrillDownMatchesReport(t *testing.T) {
 	// Bert only: each listed month and key costs two transfer-detection queries.
 	t.Run("demo", func(t *testing.T) {
 		if testing.Short() {
-			t.Skip("about 15 s")
+			t.Skip("about 30 s")
 		}
 		d, s := seeded(t)
 		splitDemoRow(t, d)

@@ -1,0 +1,130 @@
+/* Planning · Budget (plan 0.8-6), ported class by class from finance-mockup/css/screens/planning.css with the app's tokens, plus the
+   required contribution, the budget editor and the stacked bar (.pl-segs itself is in Planning.css). The breakdown lines and the
+   result bar are in PlanningMaanden.css. */
+
+/* ---------- Stacked bar ---------- */
+
+.pl-segs--lg { height: 14px; border-radius: 7px; }
+
+/* ---------- Free to spend per account ---------- */
+
+.pl-budget { display: flex; flex-direction: column; gap: 10px; }
+.pl-bcards { display: flex; flex-direction: column; gap: 10px; }
+.card.pl-bcard { padding: 14px 16px; gap: 12px; }
+.pl-bcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.pl-bcard-name { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.pl-bcard-free { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.pl-bcard-free-label { font-size: 12px; color: var(--muted); }
+.pl-bcard-amount { font-size: 22px; font-weight: 600; white-space: nowrap; }
+.pl-brows { display: flex; flex-direction: column; }
+.pl-brow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0;
+  border: none; border-top: 1px solid var(--line);
+  background: transparent; color: var(--text);
+  font-size: 14px; font-weight: 500; text-align: left;
+  width: 100%;
+}
+button.pl-brow { cursor: pointer; }
+.pl-brow--sub { padding-left: 18px; font-size: 13px; font-weight: 400; }
+.pl-brow--bold { font-weight: 600; }
+.pl-brow-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pl-brow-note { font-size: 12px; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-brow-amount { font-weight: 500; white-space: nowrap; }
+.pl-brow-chev { display: flex; color: var(--muted); flex: none; }
+.pl-brows .pl-result { margin-top: 4px; }
+
+/* "+ Budget voor een andere categorie": a dashed button as the mockup's one on Eenmalig, 44 px high */
+.pl-badd {
+  min-height: 44px; padding: 0 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--dashed);
+  background: transparent; color: var(--greenText);
+  font-size: 14px; font-weight: 600;
+}
+
+/* ---------- Required contribution (shared account) ---------- */
+
+.pl-need { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; background: var(--sharedSoft); color: var(--text); }
+.pl-need-title { font-size: 13px; font-weight: 600; color: var(--sharedText); }
+.pl-need-total { font-size: 15px; font-weight: 600; }
+.pl-need-note { font-size: 12px; line-height: 1.4; color: var(--muted); }
+.pl-need-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pl-need-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+
+/* ---------- Per categorie ---------- */
+
+.pl-cats-title { margin: 6px 4px 0; }
+.pl-cats {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 4px 16px;
+  display: flex; flex-direction: column;
+}
+.pl-cat { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; }
+.pl-cat + .pl-cat { border-top: 1px solid var(--line); }
+.pl-cat-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.pl-cat-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.pl-cat-name { flex: 1; font-weight: 500; }
+.pl-cat-acc { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: var(--r-pill); font-size: 11px; font-weight: 600; white-space: nowrap; background: var(--soft); color: var(--greenText); }
+.pl-cat-acc--shared { background: var(--sharedSoft); color: var(--sharedText); }
+.pl-cat-acc i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.pl-cat-track { display: block; height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.pl-cat-fill { display: block; height: 100%; border-radius: inherit; }
+.pl-cat-amount { font-size: 13px; color: var(--muted); }
+.pl-note { font-size: 13px; line-height: 1.45; color: var(--muted); }
+
+@media (min-width: 1024px) {
+  .pl-budget { gap: 12px; }
+  .pl-bcards { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .pl-brow { padding: 5px 0; }
+  .pl-brow--sub { padding-left: 18px; }
+  .pl-cats-title { margin-top: 8px; }
+  .pl-cats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0; background: none; border: none; border-radius: 0; }
+  .pl-cat, .pl-cat + .pl-cat {
+    padding: 16px; gap: 10px;
+    border-radius: 18px;
+    background: var(--surface); border: 1px solid var(--line);
+  }
+  .pl-cat-head { gap: 10px; font-size: 15px; }
+  .pl-cat-dot { width: 12px; height: 12px; }
+  .pl-cat-name { font-weight: 600; }
+  .pl-cat-track { height: 10px; border-radius: 5px; }
+}
+
+/* ---------- Budget editor (a sheet; no mockup) ---------- */
+
+.pb-sheet { gap: 16px; }
+.pb-head { display: flex; align-items: center; gap: 12px; }
+.pb-title { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.pb-close {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: none; background: var(--bg); color: var(--text);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.pb-help { font-size: 13px; line-height: 1.45; color: var(--muted); }
+.pb-err { font-size: 13px; line-height: 1.4; color: var(--negText); }
+.pb-amount { display: flex; align-items: flex-end; gap: 8px; }
+.pb-amount > :nth-child(2) { flex: 1; min-width: 0; }
+.pb-step {
+  width: 44px; height: 44px; flex: none;
+  border-radius: 12px;
+  border: 1px solid var(--lineStrong); background: var(--surface); color: var(--text);
+  font-family: var(--mono); font-size: 20px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.pb-avg { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; font-size: 14px; }
+.pb-avg .btn { height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; }
+.pb-actions { display: flex; gap: 8px; }
+.pb-actions .btn { flex: 1; }
+.pb-choices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pb-choice {
+  width: 100%; min-height: 48px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 0;
+  border: none; border-top: 1px solid var(--line);
+  background: transparent; color: var(--text);
+  font-size: 15px; font-weight: 500; text-align: left;
+}
+.pb-choices li:first-child .pb-choice { border-top: none; }

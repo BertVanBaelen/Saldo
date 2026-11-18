@@ -1,0 +1,133 @@
+/* Planning page shell (plan 0.8-5): header buffer pill, summary, tab bar, month switcher and the Kalender's layout. Ported class by class
+   from finance-mockup/css/screens/planning.css with the app's tokens. The chart (.pl-chart*, .pl-stats, .pl-lowtext), the grid (.pl-day*,
+   .pl-grid), the legends (.pl-legend*, .pl-key-*), the day card (.dc-*) and the plan form (.pf-*) live with their components. */
+
+.page.pl-page { gap: 14px; }
+
+/* ---------- Header buffer pill (desktop): each account's own buffer, never a sum ---------- */
+
+.pl-bufpill {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 4px 4px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.pl-bufpill-rows { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
+.pl-bufpill-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.pl-bufpill-label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.pl-bufpill-amount { font-size: 15px; font-weight: 500; white-space: nowrap; }
+.pl-wijzig {
+  height: 36px; padding: 0 14px;
+  border-radius: 10px;
+  background: var(--soft); color: var(--greenText);
+  font-size: 14px; font-weight: 600;
+  display: flex; align-items: center;
+  text-decoration: none;
+  flex: none;
+}
+
+/* ---------- Summary per account (opens Budget) ---------- */
+
+.pl-sq.pl-sq--sm { width: 8px; height: 8px; border-radius: 2px; }
+
+/* Stacked budget bar; the Budget tab fills the segments (0.8-6), until then it is the track */
+.pl-segs { display: flex; gap: 2px; overflow: hidden; background: var(--track); }
+.pl-segs > span { flex: none; transition: width 400ms var(--ease-out); }
+.pl-segs--sm { height: 6px; border-radius: 3px; }
+
+.pl-sum { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 8px; }
+.pl-sum-card {
+  min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+.pl-sum-name { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; min-width: 0; }
+.pl-sum-name > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-sum-free { font-size: 18px; font-weight: 600; white-space: nowrap; }
+.pl-sum-note { font-size: 12px; color: var(--muted); padding-bottom: 2px; }
+.pl-sum-stale { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+
+@media (min-width: 1024px) {
+  .pl-sum { display: flex; gap: 12px; }
+  .pl-sum-card { flex: 1 1 0; max-width: 470px; gap: 8px; padding: 12px 16px; }
+  .pl-sum-row { display: flex; align-items: center; gap: 10px; }
+  .pl-sum-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .pl-sum-text .pl-sum-name { font-size: 14px; }
+  .pl-sum-text .pl-sum-note { padding-bottom: 0; }
+  .pl-sum-chev { display: flex; color: var(--muted); }
+}
+
+/* ---------- Tab bar: the library Tabs (src/ui) with Saldo's phone and desktop sizes ---------- */
+
+/* Phone: full bleed, five tabs sharing the width. Two-class selectors beat the library's single-class utilities. */
+.pl-tabs { margin: 0 -20px; padding: 0 10px; }
+.pl-tabs [role="tablist"] { justify-content: space-between; gap: 2px; }
+.pl-tabs .pl-tab { flex: 1 1 auto; justify-content: center; padding: 0 4px; font-size: 13px; font-weight: 500; }
+.pl-tabs .pl-tab[aria-selected="true"] { font-weight: 600; }
+.pl-tabs > span[aria-hidden] { height: 3px; }
+@media (min-width: 1024px) {
+  .pl-tabs { margin: 0; padding: 0; }
+  .pl-tabs [role="tablist"] { justify-content: flex-start; gap: 4px; }
+  .pl-tabs .pl-tab { flex: none; padding: 0 14px; font-size: 15px; }
+}
+
+.pl-panel { display: flex; flex-direction: column; gap: 14px; }
+.pl-page .pl-panel { padding-top: 14px; }
+
+/* ---------- Month switcher ---------- */
+
+.pl-mnav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pl-mnav-btn {
+  width: 44px; height: 44px; flex: none;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+}
+.pl-mnav-btn:disabled { opacity: 0.4; }
+.pl-mnav-title { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.pl-mnav-name { font-size: 17px; font-weight: 600; }
+.pl-mnav-note { font-size: 12px; color: var(--muted); }
+
+/* ---------- Kalender ---------- */
+
+.card.pl-cal { padding: 12px; gap: 6px; }
+.pl-cal-skel { display: flex; flex-direction: column; gap: 10px; }
+.pl-nosaldo { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+.pl-charts {
+  display: flex; flex-direction: column; gap: 8px;
+  padding-top: 10px; margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.pl-selhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; font-weight: 600; }
+.pl-selhead-bal { font-size: 13px; font-weight: 600; }
+
+@media (min-width: 1024px) {
+  .pl-mnav-btn { width: 40px; height: 40px; }
+  /* Kalender: title left, both buttons right, inside the card */
+  .pl-mnav--card { gap: 6px; padding: 0 2px 4px; }
+  .pl-mnav--card .pl-mnav-title { order: -1; flex: 1; align-items: flex-start; text-align: left; margin-right: 4px; }
+  .pl-mnav--card .pl-mnav-name { font-size: 18px; }
+  .pl-mnav--card .pl-mnav-btn { border-radius: 10px; }
+
+  .pl-kal { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+  .pl-side { display: flex; flex-direction: column; gap: 14px; }
+  .card.pl-cal { padding: 14px; gap: 8px; }
+  .pl-charts { gap: 10px; padding-top: 12px; }
+  .pl-selhead, .pl-selhead-bal { font-size: 14px; }
+}
+
+/* ---------- Empty and loading states ---------- */
+
+.pl-none { flex-direction: row; align-items: center; gap: 12px; }
+.pl-none-text { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--muted); }
+.pl-none-text strong { font-size: 15px; font-weight: 600; color: var(--text); }
+.pl-page-skel { display: flex; flex-direction: column; gap: 14px; }

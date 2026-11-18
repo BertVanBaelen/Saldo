@@ -6,7 +6,7 @@ const TODAY = '2026-11-18';
 const DEMO = { firstMonth: '2025-11', firstDate: '2025-11-01' };
 const titles = (p: ReturnType<typeof columns>) => p.columns.map((c) => c.title);
 
-const cat = (id: number, name: string, colour: TreeCategory['colour']): TreeCategory => ({ id, name, type: 'expense', colour, icon: null, parentId: null, count: 0 });
+const cat = (id: number, name: string, colour: TreeCategory['colour']): TreeCategory => ({ id, name, type: 'expense', colour, icon: null, parentId: null, count: 0, saving: false });
 const CATS = [cat(1, 'Wonen', 'c1'), cat(2, 'Boodschappen', 'c2'), cat(3, 'Vrije tijd', 'c3'), cat(4, 'Vervoer', 'c4'), cat(5, 'Abonnementen', 'c5'), cat(6, 'Overig', 'c6')];
 
 // The demo answer of 0.7-1 (alles), the months the tests need.

@@ -556,32 +556,59 @@ a.card { text-decoration: none; }
   animation-duration: 6s;
 }
 .toast-link { color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
+button.toast-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; cursor: pointer; }
 @keyframes sToastLong {
   0% { opacity: 0; transform: translate(-50%, 8px); }
   4%, 90% { opacity: 1; transform: translate(-50%, 0); }
   100% { opacity: 0; transform: translate(-50%, 0); }
 }
 
+/* Sheets and side panels (phase 0.8-0c; the motion tokens are in tokens.css). Only transform and opacity animate.
+   The phone sheet slides up, the desktop dialog rises a little, the panel slides in from the right; the in-curve
+   overshoots by 2.25 %, which lifts the sheet off the bottom edge (the panel off the right edge). A solid second
+   shadow layer paints --surface 48px beyond that edge so no gap shows (a ::after would sit inside the scroll area). */
 .sheet-backdrop {
   position: fixed; inset: 0;
   background: rgba(14, 19, 17, 0.45);
   z-index: 40;
   display: flex; align-items: flex-end; justify-content: center;
-  animation: sFade 160ms ease-out both;
+  animation: sFade 200ms ease-out both;
 }
-.sheet {
-  width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
+.sheet-backdrop--panel { align-items: stretch; justify-content: flex-end; }
+.sheet-backdrop.sheet-backdrop--closing { animation: sFadeOut var(--dur-sheet-out) ease-in both; }
+.sheet, .panel {
   background: var(--surface);
   color: var(--text);
-  border-radius: 24px 24px 0 0;
-  padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px));
-  box-shadow: var(--pop);
-  animation: sSheet 220ms var(--ease-out) both;
+  overflow-y: auto;
   display: flex; flex-direction: column; gap: 14px;
 }
+.sheet {
+  width: 100%; max-width: 520px; max-height: 88vh;
+  border-radius: 24px 24px 0 0;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 48px 0 var(--surface), var(--pop);
+  animation: sSheetUp var(--dur-sheet-in) var(--ease-sheet-in) backwards;
+}
+.sheet.sheet--closing { animation: sSheetDown var(--dur-sheet-out) var(--ease-sheet-out) forwards; }
 .sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 4px; }
+.panel {
+  width: 440px; max-width: 90vw; height: 100%;
+  border-radius: 24px 0 0 24px;
+  padding: 20px 24px 24px;
+  box-shadow: 48px 0 0 var(--surface), var(--pop);
+  animation: sPanelIn var(--dur-sheet-in) var(--ease-sheet-in) backwards;
+}
+.panel.panel--closing { animation: sPanelOut var(--dur-sheet-out) var(--ease-sheet-out) forwards; }
 @media (min-width: 1024px) {
   .sheet-backdrop { align-items: center; }
-  .sheet { border-radius: 24px; padding: 20px 24px 24px; }
+  .sheet-backdrop--panel { align-items: stretch; }
+  .sheet { border-radius: 24px; padding: 20px 24px 24px; box-shadow: var(--pop); animation-name: sSheet; }
+  .sheet.sheet--closing { animation-name: sSheetOut; }
   .sheet-grip { display: none; }
+}
+/* Reduced motion: no movement, a short fade in and out (the global rule in tokens.css would make it 1 ms, hence !important) */
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .panel { animation: sFade 150ms ease-out backwards !important; }
+  .sheet.sheet--closing, .panel.panel--closing { animation: sFadeOut 150ms ease-in forwards !important; }
+  .sheet-backdrop, .sheet-backdrop.sheet-backdrop--closing { animation-duration: 150ms !important; }
 }

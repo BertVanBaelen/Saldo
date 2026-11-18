@@ -51,16 +51,43 @@ func (s *Store) ReportRows(ctx context.Context, viewer int64, scope string, acco
 	return out, rows.Err()
 }
 
-// DrillDown lists the ids behind one expense key of the report, through the
+// SavedParts is, per transaction of the selection booked between from and to,
+// what its parts in the saved bucket add to the report's saved (−amount).
+// Only rows with a saved part are present. For tests only.
+func (s *Store) SavedParts(ctx context.Context, viewer int64, scope string, account int64, from, to string) (map[int64]int64, error) {
+	sel, err := s.reportSelection(ctx, viewer, scope, account)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, visibleTx+reportParts+`
+		SELECT id, -SUM(amount) FROM parts WHERE `+inSelection("account_id", sel)+` AND booking_date BETWEEN ? AND ?
+		AND `+reportBucket(inSelection("other_id", sel))+` = 'saved' GROUP BY id`, viewer, viewer, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]int64{}
+	for rows.Next() {
+		var id, saved int64
+		if err := rows.Scan(&id, &saved); err != nil {
+			return nil, err
+		}
+		out[id] = saved
+	}
+	return out, rows.Err()
+}
+
+// DrillDown lists the ids behind one key of the report, through the
 // drill-down fragment (0.7-2 uses the same one). For tests only.
 func (s *Store) DrillDown(ctx context.Context, viewer int64, scope string, account int64, from, to, key string) ([]int64, error) {
 	sel, err := s.reportSelection(ctx, viewer, scope, account)
 	if err != nil {
 		return nil, err
 	}
+	cond, args := reportDrillDown(sel, key)
 	rows, err := s.db.QueryContext(ctx, visibleTx+reportParts+`
-		SELECT tx.id FROM tx WHERE tx.booking_date BETWEEN ? AND ? AND `+reportDrillDown(sel)+` ORDER BY tx.id`,
-		viewer, viewer, from, to, key)
+		SELECT tx.id FROM tx WHERE tx.booking_date BETWEEN ? AND ? AND `+cond+` ORDER BY tx.id`,
+		append([]any{viewer, viewer, from, to}, args...)...)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@
 // ApiError that carries the server's Dutch message, ready to show to the user.
 import type {
   Account,
+  AccountInvitation,
   AccountPatch,
   AccountTransfer,
   Alert,
@@ -18,6 +19,7 @@ import type {
   Device,
   EnableBanking,
   Health,
+  InvitableUser,
   Invitation,
   LeaveResult,
   LoginChallenge,
@@ -52,6 +54,8 @@ import type {
   UserList,
   UserRemovalPreview,
 } from './types';
+import type { Horizon, NewBudget, Planning, PlannedItem, SavedBudget } from './planning';
+import type { ItemPatch, NewItem, RecurringItem, RecurringSuggestion } from './planningItems';
 import { importForm, type UndoPreview, type CategoryChoice, type ImportBatch, type ImportExtras, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
 
 export class ApiError extends Error {
@@ -166,6 +170,27 @@ export function reportMonthsPath(q: ReportQuery = {}): string {
 export const api = {
   /** Income, expenses per category and saved per month for a selection (docs/api.md, "Reports"). */
   reportMonths: (q: ReportQuery = {}, signal?: AbortSignal) => request<ReportMonths>('GET', reportMonthsPath(q), { signal }),
+  /** The forecast per current account of the scope; `month` (`YYYY-MM`, default the running month) selects the month whose days come along. */
+  planning: (scope: Scope, horizon: Horizon = 3, month?: string, signal?: AbortSignal) =>
+    request<Planning>('GET', '/api/planning?scope=' + scope + '&horizon=' + horizon + (month ? '&month=' + encodeURIComponent(month) : ''), { signal }),
+  /** Plans a one-off expense or income (`amount` signed cents) on an account the viewer may edit (docs/api.md, "Planning data (0.8-1)"). */
+  createPlanned: (body: Omit<PlannedItem, 'id'>) => request<PlannedItem>('POST', '/api/planning/planned', { body }),
+  deletePlanned: (id: number) => request<null>('DELETE', '/api/planning/planned/' + id),
+  /** The planned one-off items from the first of this month on, by date (docs/api.md, "Planning data (0.8-1)"). */
+  plannedItems: (scope: Scope, signal?: AbortSignal) => request<{ planned: PlannedItem[] }>('GET', '/api/planning/planned?scope=' + scope, { signal }),
+  /** Any of description, amount (signed cents) and date; an unchanged date is not checked, so a passed item stays editable. */
+  updatePlanned: (id: number, patch: Partial<Pick<PlannedItem, 'description' | 'amount' | 'date'>>) => request<PlannedItem>('PATCH', '/api/planning/planned/' + id, { body: patch }),
+  /** The recurring items of the current accounts of the scope, confirmed and ignored (docs/api.md, "Planning data (0.8-1)"). */
+  planningItems: (scope: Scope, signal?: AbortSignal) => request<{ items: RecurringItem[] }>('GET', '/api/planning/items?scope=' + scope, { signal }),
+  /** Confirmed (default) or, with `state: 'ignored'`, ignored; `fromSuggestion` lets the server copy the counterparty IBAN. */
+  createPlanningItem: (body: NewItem) => request<RecurringItem>('POST', '/api/planning/items', { body }),
+  updatePlanningItem: (id: number, patch: ItemPatch) => request<RecurringItem>('PATCH', '/api/planning/items/' + id, { body: patch }),
+  /** Deleting an ignored item brings its suggestion back. */
+  deletePlanningItem: (id: number) => request<null>('DELETE', '/api/planning/items/' + id),
+  /** Recurring items found in the history, computed on read (docs/api.md, "Suggestions and the detection report (0.8-2)"). */
+  planningSuggestions: (scope: Scope, signal?: AbortSignal) => request<{ suggestions: RecurringSuggestion[] }>('GET', '/api/planning/suggestions?scope=' + scope, { signal }),
+  /** A category's budget from `fromMonth` on (`amount: null` = no budget, the forecast uses the average); answers the rows of that account and category (docs/api.md, "Planning data (0.8-1)"). */
+  setBudget: (body: NewBudget) => request<{ budgets: SavedBudget[] }>('PUT', '/api/planning/budgets', { body }),
   health: (signal?: AbortSignal) => request<Health>('GET', '/api/health', { signal }),
   me: (signal?: AbortSignal) => request<Me>('GET', '/api/me', { signal }),
   savePreferences: (prefs: Partial<Preferences>) => request<Preferences>('PUT', '/api/me/preferences', { body: prefs }),
@@ -182,6 +207,14 @@ export const api = {
   /** Manager only, never on the manager's own row: lets a member read or edit; answers the account. */
   setMemberPermission: (accountId: number, userId: number, permission: Permission) =>
     request<Account>('PATCH', '/api/accounts/' + accountId + '/members/' + userId, { body: { permission } }),
+  /** Manager only: everyone else on this Saldo, by name, as `member`, `invited` (with `invitationId`) or `free`. */
+  invitable: (id: number, signal?: AbortSignal) => request<{ users: InvitableUser[] }>('GET', '/api/accounts/' + id + '/invitable', { signal }),
+  /** Manager of a shared account only; 400 for yourself or a member, 409 when already invited. */
+  inviteToAccount: (id: number, userId: number) => request<AccountInvitation>('POST', '/api/accounts/' + id + '/invitations', { body: { userId } }),
+  /** The invitee joins at once (member with edit); answers the bare account. 404 when the invitation is gone. */
+  acceptInvitation: (id: number) => request<Account>('POST', '/api/invitations/' + id + '/accept'),
+  /** The invitee declines or the manager revokes. 404 when the invitation is gone. */
+  declineInvitation: (id: number) => request<null>('DELETE', '/api/invitations/' + id),
   /** The manager's own rules that no longer apply to this account become rules of the account. */
   convertRules: (id: number) => request<{ converted: number }>('POST', '/api/accounts/' + id + '/convert-rules'),
   /** What each member of a shared account sent in `month` (`YYYY-MM`, default this month); `members: []` for a personal account. */
@@ -191,7 +224,7 @@ export const api = {
   addContributionSender: (id: number, body: ContributionSenderBody) => request<ContributionSender>('POST', '/api/accounts/' + id + '/contribution-senders', { body }),
   /** The claimant or the manager takes a declared sender away. */
   removeContributionSender: (id: number, senderId: number) => request<null>('DELETE', '/api/accounts/' + id + '/contribution-senders/' + senderId),
-  /** Manager only: percentage per user id (0 to 100, every member, sum 100), or `null` for equal. It has no effect yet. */
+  /** Manager only: percentage per user id (0 to 100, every member, sum 100), or `null` for equal. The shares set each member's part of the required contribution. */
   setContributionShares: (id: number, shares: Record<number, number> | null) => request<Contributions>('PUT', '/api/accounts/' + id + '/contribution-shares', { body: { shares } }),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
   updateTransaction: (id: number, patch: TransactionPatch) => request<Transaction>('PATCH', '/api/transactions/' + id, { body: patch }),

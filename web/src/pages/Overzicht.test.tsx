@@ -1,11 +1,12 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../App';
 import { AppProvider, useApp } from '../app/AppContext';
 import { ApiError } from '../lib/api';
+import { drillQuery } from '../lib/drilldown';
 import type { ReportMonth, ReportMonths, ReportQuery } from '../lib/types';
-import { ME, renderAt, SPAAR, stubApi, ZICHT } from '../test/helpers';
+import { ME, renderAt, SPAAR, stubApi, TRANSACTIONS, ZICHT } from '../test/helpers';
 
 // The demo answer of 0.7-1, close enough: income € 3.300 a month (€ 3.350 in October), € 200 saved,
 // the story's October and September expenses; per account the € 450 contribution counts on both sides.
@@ -86,14 +87,15 @@ describe('Overzicht', () => {
     expect(api.reportMonths).toHaveBeenCalledTimes(1);
   });
 
-  it('links a category row to its transactions for the selected period', async () => {
+  it('shows a category row as a button that opens its sheet, with its share and trend in the label', async () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht');
-    const row = (await screen.findByText('Boodschappen')).closest('a')!;
-    expect(row.getAttribute('href')).toBe('/transacties?categorie=2&periode=2026-10');
+    const row = (await screen.findByText('Boodschappen')).closest('button')!;
+    expect(row.getAttribute('aria-haspopup')).toBe('dialog');
     expect(within(row).getByText('15%', { exact: false })).toBeTruthy();
     // Boodschappen against September: −7%, with the compare text for screen readers.
     expect(row.querySelector('.ov-cat-trend')!.textContent).toBe('t.o.v. vorige maand −7%');
+    expect(row.getAttribute('aria-label')).toBe('Boodschappen: € 252,36, 15 %, −7% t.o.v. vorige maand. Bekijk de transacties.');
   });
 
   it('shows Per rekening in Alles, with the footnote about the transfers between own accounts', async () => {
@@ -101,18 +103,17 @@ describe('Overzicht', () => {
     renderAt('/overzicht');
     await screen.findByText('Per rekening');
     expect(screen.getByText('Alle rekeningen samen')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^Alleen Zichtrekening bekijken: in € 2\.900,00/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Zichtrekening: in € 2\.900,00.*Bekijk de details\.$/ }).getAttribute('aria-haspopup')).toBe('dialog');
     expect(screen.getByText('Overschrijvingen tussen je eigen rekeningen (€ 450,00) tellen per rekening mee, maar niet in het totaal samen.')).toBeTruthy();
-    // A tap filters on that account: a new request for it.
-    fireEvent.click(screen.getByRole('button', { name: /^Alleen Gedeelde rekening bekijken/ }));
-    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/overzicht?rekening=4'));
+    // A tap opens the account's sheet (the filter is its button).
+    fireEvent.click(screen.getByRole('button', { name: /^Gedeelde rekening: in/ }));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/overzicht?blad=rekening-4'));
   });
 
   it('shows "Naar gedeelde rekening" in Persoonlijk, with the account as head and no Per rekening', async () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht', { ...ME, preferences: { ...ME.preferences, scope: 'persoonlijk' } });
-    const row = (await screen.findByText('Naar gedeelde rekening')).closest('a')!;
-    expect(row.getAttribute('href')).toBe('/transacties?categorie=naar-gedeeld&periode=2026-10');
+    expect((await screen.findByText('Naar gedeelde rekening')).closest('button')!.getAttribute('aria-haspopup')).toBe('dialog');
     expect(screen.queryByText('Per rekening')).toBeNull();
     expect(document.querySelector('.ov-totals-title')!.textContent).toBe('Zichtrekening');
   });
@@ -127,12 +128,12 @@ describe('Overzicht', () => {
     expect(screen.getByText(/Je geschiedenis begint in november 2025\./)).toBeTruthy();
   });
 
-  it('asks for one account when ?rekening is a current account of the scope; links carry it', async () => {
+  it('asks for one account when ?rekening is a current account of the scope; the sheet and its link carry it', async () => {
     const api = stubApi({ reports: () => ({ ...persoonlijk(), accounts: [4] }) });
     renderAt('/overzicht?rekening=4');
-    const row = (await screen.findByText('Naar gedeelde rekening')).closest('a')!;
+    fireEvent.click((await screen.findByText('Naar gedeelde rekening')).closest('button')!);
     expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', account: 4 });
-    expect(row.getAttribute('href')).toBe('/transacties?categorie=naar-gedeeld&periode=2026-10&rekening=4');
+    expect(within(dialog('Naar gedeelde rekening · oktober 2026')).getByRole('link', { name: 'Open in Transacties' }).getAttribute('href')).toBe('/transacties?categorie=naar-gedeeld&periode=2026-10&rekening=4');
     expect(screen.getByText('Gedeelde rekening', { selector: '.ov-chip span' })).toBeTruthy();
   });
 
@@ -283,7 +284,7 @@ describe('Overzicht · account filter', () => {
     await loaded();
     fireEvent.click(accountChip());
     escape();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(accountChip().getAttribute('aria-expanded')).toBe('false');
     await waitFor(() => expect(document.activeElement).toBe(accountChip()));
     expect(where()).toBe('/overzicht');
@@ -303,7 +304,7 @@ describe('Overzicht · account filter', () => {
     renderAt('/overzicht?rekening=4#rekening');
     const d = within(await screen.findByRole('dialog', { name: 'Rekening kiezen' }));
     expect(d.getByRole('button', { pressed: true }).textContent).toMatch(/^Gedeelde rekening/);
-    expect(document.activeElement).toBe(d.getByRole('button', { pressed: true }));
+    await waitFor(() => expect(document.activeElement).toBe(d.getByRole('button', { pressed: true })));
   });
 
   it('on desktop it is a popover under the chip, closed by Escape and by a click outside, and the chip toggles it', async () => {
@@ -498,7 +499,7 @@ describe('Overzicht · custom range', () => {
     fireEvent.click(eigenButton());
     expect(van().textContent).toContain('augustus 2026');
     escape();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(eigenButton().getAttribute('aria-expanded')).toBe('false');
     await waitFor(() => expect(document.activeElement).toBe(eigenButton()));
     expect(where()).toBe('/overzicht');
@@ -510,7 +511,7 @@ describe('Overzicht · custom range', () => {
     await loaded();
     fireEvent.click(eigenButton());
     fireEvent.click(range().getByRole('button', { name: 'Sluiten' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(eigenButton()));
   });
 
@@ -621,7 +622,7 @@ describe('Overzicht · custom range', () => {
     expect(dialog('Eigen periode').closest('.sheet-backdrop')?.parentElement).toBe(document.body);
     expect(document.body.classList.contains('sheet-open')).toBe(true);
     escape();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.body.classList.contains('sheet-open')).toBe(false);
     fireEvent.click(accountChip());
     expect(dialog('Rekening kiezen').classList.contains('sheet')).toBe(true);
@@ -642,5 +643,204 @@ describe('Overzicht · custom range', () => {
     fireEvent.click(preset);
     expect(document.activeElement).toBe(range().getByRole('button', { name: 'Dit jaar' }));
     expect(range().getByRole('button', { name: 'Dit jaar' }).getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+// ---------- The content sheets (0.8-0c) ----------
+
+/** A matchMedia that answers the desktop query from a flag and tells its listeners when `set` flips it. */
+function mockDesktop(initial: boolean) {
+  let on = initial;
+  const listeners = new Set<() => void>();
+  vi.stubGlobal('matchMedia', (q: string) => ({
+    get matches() {
+      return q.includes('min-width') && on;
+    },
+    addEventListener: (_type: string, cb: () => void) => listeners.add(cb),
+    removeEventListener: (_type: string, cb: () => void) => listeners.delete(cb),
+  }));
+  return (value: boolean) =>
+    act(() => {
+      on = value;
+      listeners.forEach((cb) => cb());
+    });
+}
+
+/** The page with a button that goes Back in the history, like the browser's Back. */
+function renderWithBack(path: string) {
+  function Back() {
+    const navigate = useNavigate();
+    const { pathname, search } = useLocation();
+    return (
+      <>
+        <button type="button" onClick={() => navigate(-1)}>
+          test-back
+        </button>
+        <output data-testid="where">{pathname + search}</output>
+      </>
+    );
+  }
+  return render(
+    <AppProvider me={ME}>
+      <MemoryRouter initialEntries={[path]}>
+        <AppRoutes />
+        <Back />
+      </MemoryRouter>
+    </AppProvider>,
+  );
+}
+
+// Colruyt on the shared account, TotalEnergies and Bol.com (pending) on the Zichtrekening; one more row on the next page.
+const ROWS = [TRANSACTIONS[0], TRANSACTIONS[1], TRANSACTIONS[2]];
+const pages = (q: { before?: string }) => (q.before ? { items: [TRANSACTIONS[3]], next: null, total: 4 } : { items: ROWS, next: 'cursor-1', total: 4 });
+
+describe('Overzicht · sheets', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const rowButton = async (name: string) => (await screen.findByText(name, { selector: '.ov-cat-name' })).closest('button')!;
+
+  it('a category row pushes ?blad=, asks for exactly the drill-down rows and shows the totals line, the rows and the link', async () => {
+    const api = stubApi({ reports: byScope, transactions: pages });
+    renderAt('/overzicht');
+    await loaded();
+    fireEvent.click(await rowButton('Boodschappen'));
+    const d = within(dialog('Boodschappen · oktober 2026'));
+    expect(where()).toBe('/overzicht?blad=categorie-2');
+    expect(d.getByRole('status', { name: 'Transacties laden' })).toBeTruthy();
+
+    const link = d.getByRole('link', { name: 'Open in Transacties' });
+    expect(link.getAttribute('href')).toBe('/transacties?categorie=2&periode=2026-10');
+    // The request is the one the page behind that link makes (Transacties reads its URL through drillQuery as well).
+    const query = drillQuery(new URL(link.getAttribute('href')!, 'http://saldo.test').searchParams, ME.today);
+    expect(query).toEqual({ uncategorised: false, category: '2', account: undefined, from: '2026-10-01', to: '2026-10-31' });
+    await d.findByText('TotalEnergies');
+    expect(api.transactions).toHaveBeenCalledWith({ ...query, scope: 'alles', limit: 30 }, expect.anything());
+
+    expect(d.getByText('€ 252,36').parentElement!.textContent).toBe('€ 252,36 · 4 transacties');
+    expect(d.getByText('Colruyt Laagste Prijzen')).toBeTruthy();
+    expect(d.getByText('In behandeling')).toBeTruthy();
+    // The Zichtrekening and the shared account are both in the view: each row names its account.
+    expect(d.getAllByText('Persoonlijk')).toHaveLength(2);
+    expect(d.getAllByText('Gedeeld')).toHaveLength(1);
+    expect(d.getByText('Colruyt Laagste Prijzen').closest('a')!.getAttribute('href')).toBe(link.getAttribute('href'));
+
+    // "Meer laden" asks with the cursor and appends the next page.
+    fireEvent.click(d.getByRole('button', { name: 'Meer laden' }));
+    await d.findByText('Bakkerij De Graankorrel');
+    expect(api.transactions).toHaveBeenLastCalledWith({ ...query, scope: 'alles', limit: 30, before: 'cursor-1' });
+    expect(d.queryByRole('button', { name: 'Meer laden' })).toBeNull();
+    expect(d.getByText('€ 252,36').parentElement!.textContent).toContain('4 transacties');
+  });
+
+  it('shows the loading rows, then an error with retry, then the empty list', async () => {
+    const api = stubApi({ reports: byScope });
+    renderAt('/overzicht');
+    await loaded();
+    let fail!: (e: Error) => void;
+    api.transactions.mockImplementationOnce(() => new Promise((_resolve, reject) => (fail = reject)));
+    fireEvent.click(await rowButton('Wonen'));
+    const d = within(dialog('Wonen · oktober 2026'));
+    expect(d.getByRole('status', { name: 'Transacties laden' })).toBeTruthy();
+    fail(new ApiError(500, 'internal', 'Er ging iets mis.'));
+    await d.findByText('Er ging iets mis.');
+    api.transactions.mockResolvedValueOnce({ items: [], next: null, total: 0 });
+    fireEvent.click(d.getByRole('button', { name: 'Opnieuw proberen' }));
+    await d.findByText('Geen transacties meer in deze periode.');
+  });
+
+  it('the Gespaard tile opens ?blad=gespaard with category saved and the note', async () => {
+    const api = stubApi({ reports: byScope, transactions: pages });
+    renderAt('/overzicht');
+    await loaded();
+    const tile = screen.getByRole('button', { name: 'Gespaard in oktober 2026: € 200,00. Bekijk de transacties.' });
+    expect(tile.getAttribute('aria-haspopup')).toBe('dialog');
+    fireEvent.click(tile);
+    expect(where()).toBe('/overzicht?blad=gespaard');
+    const d = within(dialog('Gespaard · oktober 2026'));
+    await d.findByText('TotalEnergies');
+    expect(api.transactions).toHaveBeenCalledWith({ uncategorised: false, category: 'saved', account: undefined, from: '2026-10-01', to: '2026-10-31', scope: 'alles', limit: 30 }, expect.anything());
+    expect(d.getByRole('link', { name: 'Open in Transacties' }).getAttribute('href')).toBe('/transacties?categorie=gespaard&periode=2026-10');
+    expect(d.getByText(/^Gespaard telt overschrijvingen naar je spaar- en beleggingsrekeningen/)).toBeTruthy();
+  });
+
+  it('an account row opens its figures without a request; "Alleen deze rekening tonen" filters and closes in one step', async () => {
+    const api = stubApi({ reports: byScope, transactions: pages });
+    renderAt('/overzicht');
+    await loaded();
+    const callsBefore = api.transactions.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: /^Zichtrekening: in/ }));
+    expect(where()).toBe('/overzicht?blad=rekening-1');
+    const d = within(dialog('Zichtrekening · oktober 2026'));
+    const figure = (label: string) => d.getByText(label, { selector: '.ov-per-label' }).nextElementSibling!.textContent;
+    expect([figure('In'), figure('Uit'), figure('Gespaard')]).toEqual(['€ 2.900,00', '€ 1.482,95', '€ 200,00']);
+    expect(d.getByText('Wonen')).toBeTruthy();
+    expect(d.getByText('Naar gedeelde rekening')).toBeTruthy();
+    expect(d.getByText('Overschrijvingen tussen je eigen rekeningen (€ 450,00) tellen per rekening mee, maar niet in het totaal samen.')).toBeTruthy();
+    expect(d.getByRole('link', { name: 'Naar de rekening' }).getAttribute('href')).toBe('/rekeningen/1');
+    expect(api.transactions.mock.calls).toHaveLength(callsBefore);
+
+    fireEvent.click(d.getByRole('button', { name: 'Alleen deze rekening tonen' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(where()).toBe('/overzicht?rekening=1');
+    await waitFor(() => expect(api.reportMonths.mock.calls.at(-1)![0]).toEqual({ scope: 'alles', account: 1 }));
+  });
+
+  it('Back closes the sheet; Escape closes it through the history and puts focus back on the row', async () => {
+    stubApi({ reports: byScope, transactions: pages });
+    renderWithBack('/overzicht');
+    await loaded();
+    const row = await rowButton('Boodschappen');
+    fireEvent.click(row);
+    dialog('Boodschappen · oktober 2026');
+    fireEvent.click(screen.getByRole('button', { name: 'test-back' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByTestId('where').textContent).toBe('/overzicht');
+
+    fireEvent.click(row);
+    dialog('Boodschappen · oktober 2026');
+    escape();
+    // The sheet is gone as soon as its exit is over; the location follows with the history.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/overzicht'));
+    await waitFor(() => expect(document.activeElement).toBe(row));
+  });
+
+  it('opens from the URL after the load, and closing then drops ?blad= without leaving the page', async () => {
+    stubApi({ reports: byScope, transactions: pages });
+    renderAt('/overzicht?blad=categorie-2');
+    const dialog = await screen.findByRole('dialog', { name: 'Boodschappen · oktober 2026' });
+    // The sheet registers its Escape handler in the effect that also moves the focus in: wait for that before pressing the key.
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    escape();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(where()).toBe('/overzicht'));
+  });
+
+  it.each(['categorie-99', 'rekening-9', 'onzin'])('drops ?blad=%s without opening anything', async (value) => {
+    stubApi({ reports: byScope, transactions: pages });
+    renderAt('/overzicht?blad=' + value);
+    await loaded();
+    await waitFor(() => expect(where()).toBe('/overzicht'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('is a bottom sheet on a phone and a side panel from 1024 px, switching while it stays open', async () => {
+    const setDesktop = mockDesktop(false);
+    stubApi({ reports: byScope, transactions: pages });
+    renderAt('/overzicht');
+    await loaded();
+    fireEvent.click(await rowButton('Boodschappen'));
+    const d = dialog('Boodschappen · oktober 2026');
+    expect([d.classList.contains('sheet'), d.classList.contains('panel')]).toEqual([true, false]);
+    await within(d).findByText('TotalEnergies');
+
+    setDesktop(true);
+    expect(dialog('Boodschappen · oktober 2026')).toBe(d);
+    expect([d.classList.contains('sheet'), d.classList.contains('panel')]).toEqual([false, true]);
+    expect(d.closest('.sheet-backdrop--panel')).not.toBeNull();
+    expect(d.getAttribute('aria-modal')).toBe('true');
+    expect(within(d).getByText('TotalEnergies')).toBeTruthy();
+
+    setDesktop(false);
+    expect([d.classList.contains('sheet'), d.classList.contains('panel')]).toEqual([true, false]);
   });
 });

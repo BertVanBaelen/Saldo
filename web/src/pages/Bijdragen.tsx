@@ -1,7 +1,7 @@
 // Bijdragen (phase 0.6-5): what each member of a shared account sent into it this month, and how a member
 // declares which of their own accounts do the sending. "Ontvangen" means something arrived from the member's
-// declared senders, not that their part is paid: there is no target before the forecast of 0.8-4.
-// The shares have no effect yet; they feed the required monthly contribution later.
+// declared senders; only with the target of the forecast (0.8-4, `required`) does the ✓ mean the part is covered.
+// The shares set each member's part of the required monthly contribution, which the planning calculates (0.8-4, 0.8-6).
 // Design: finance-mockup/js/screens/start.js (contributionRow) and rekening.js (ledenCard); spec: analysis/screens/start.md.
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -9,7 +9,7 @@ import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Select } from '../components/Select';
 import { Sheet } from '../components/Sheet';
-import { delay, ErrorState, SkelList } from '../components/ui';
+import { delay, ErrorState, SheetX, SkelList } from '../components/ui';
 import { canManage } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { eur0, MONTHS } from '../lib/format';
@@ -41,7 +41,9 @@ function Chip({ m, to }: { m: ContributionMember; to?: string }) {
       <li className="contrib-chip contrib-chip--wait">{text}</li>
     );
   }
-  if (!m.confirmed) return <li className="contrib-chip contrib-chip--wait">{who + ' · nog niets ontvangen deze maand'}</li>;
+  // With a forecast (0.8-4) the ✓ means the member's part is covered; without one it only means something arrived.
+  if (m.required != null && !m.covered) return <li className="contrib-chip contrib-chip--warn">{who + ' ' + eur0(m.received) + ' · nodig ' + eur0(m.required)}</li>;
+  if (m.required == null && !m.confirmed) return <li className="contrib-chip contrib-chip--wait">{who + ' · nog niets ontvangen deze maand'}</li>;
   return (
     <li className="contrib-chip">
       {who + ' ' + eur0(m.received) + ' ontvangen'}
@@ -97,9 +99,7 @@ function RemoveSender({ a, sender, onClose, onDone }: { a: Account; sender: Cont
         <h2 className="rkd-dlg-title" id="rkd-dlg-title">
           Afzender verwijderen?
         </h2>
-        <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
-          <Icon name="close" size={18} stroke={2.4} />
-        </button>
+        <SheetX className="rk-close" onClose={onClose} instant={busy} />
       </div>
       <p className="rkd-dlg-text">
         Betalingen van <span className="mono">{sender.iban}</span> tellen daarna niet meer als jouw bijdrage. De rekening zelf blijft zoals ze is.
@@ -182,7 +182,29 @@ function Body({ a, accounts, c, onChanged }: { a: Account; accounts: Account[]; 
   return (
     <>
       <ContributionRow c={data} className="contrib-row" />
-      {ro && <p className="rkd-help">Je hebt alleen leesrechten op deze rekening. Je kan geen bijdrage instellen, maar je ziet wat er binnenkwam.</p>}
+      {data.need != null && (
+        <div className="contrib-need">
+          <p className="contrib-need-total">
+            Nodig in {monthName(data.month)}: <span className="mono">{eur0(data.need)}</span>
+          </p>
+          <ul className="contrib-need-list">
+            {members.map((m) =>
+              m.required == null ? null : (
+                <li key={m.userId}>
+                  {m.me ? 'Jij' : m.name} · nodig <span className="mono">{eur0(m.required)}</span>
+                </li>
+              ),
+            )}
+          </ul>
+          <p className="rkd-help">
+            Op basis van de planning: vaste kosten, budgetten en de buffer van deze rekening.{' '}
+            <Link className="contrib-need-link" to={'/planning?maand=' + data.month + '#budget'}>
+              Bekijk de berekening
+            </Link>
+          </p>
+        </div>
+      )}
+      {ro &&<p className="rkd-help">Je hebt alleen leesrechten op deze rekening. Je kan geen bijdrage instellen, maar je ziet wat er binnenkwam.</p>}
       <div className="rkd-sub">
         <h3 className="rkd-sub-title">Mijn bijdrage</h3>
         {mine.length > 0 ? (
@@ -266,7 +288,7 @@ function Body({ a, accounts, c, onChanged }: { a: Account; accounts: Account[]; 
             <span>{valid ? 'Samen 100 %' : nums.some((n) => Number.isNaN(n) || n > 100) ? 'Vul per lid een getal van 0 tot 100 in.' : 'Samen ' + total + ' % · moet 100 % zijn'}</span>
           </div>
         )}
-        <p className="rkd-help">De verdeling heeft nog geen effect: ze wordt gebruikt zodra de nodige bijdrage per maand wordt berekend.</p>
+        <p className="rkd-help">Het aandeel bepaalt ieders deel van wat nodig is.</p>
         {mgr ? (
           <div className="rkd-actions contrib-actions">
             <button type="button" className="btn btn--primary" disabled={!draft || !valid || !online || busy} onClick={save}>

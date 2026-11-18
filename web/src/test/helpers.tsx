@@ -6,6 +6,8 @@ import { AppRoutes, Root } from '../App';
 import { AppProvider } from '../app/AppContext';
 import { api } from '../lib/api';
 import type { ImportBatch, ImportCounts, ImportPreview, ImportResult, RowError } from '../lib/imports';
+import type { Planning, PlannedItem } from '../lib/planning';
+import type { RecurringItem, RecurringSuggestion } from '../lib/planningItems';
 import type {
   Account,
   AccountTransfer,
@@ -15,6 +17,7 @@ import type {
   Contributions,
   Device,
   EnableBanking,
+  InvitableUser,
   JoinOffer,
   Me,
   PendingJoinOffer,
@@ -143,6 +146,7 @@ const cat = (id: number, name: string, colour: TreeCategory['colour'], parentId:
   icon,
   parentId,
   count: 0,
+  saving: false,
 });
 export const CATEGORIES: TreeCategory[] = [
   cat(1, 'Wonen', 'c1', null, 'expense', '🏠'),
@@ -197,6 +201,21 @@ export const RULES_ALERT: Alert = {
   href: '/rekeningen/4',
   accountId: 4,
   noticeId: 8,
+};
+
+/** 0.8-0b: what Bert (manager) sees of the people he can invite to his account, and what the invitee (Partner) gets as alert and account. */
+export const INVITABLE: InvitableUser[] = [
+  { id: 3, name: 'Derde', initial: 'D', state: 'free', invitationId: null },
+  { id: 2, name: 'Partner', initial: 'P', state: 'invited', invitationId: 7 },
+  { id: 5, name: 'Sam', initial: 'S', state: 'member', invitationId: null },
+];
+export const INVITE_ALERT: Alert = {
+  kind: 'ok',
+  type: 'invite',
+  title: 'Bert nodigt je uit voor Vakantiepot',
+  note: 'Voeg de rekening toe om ze samen te volgen',
+  href: '/rekeningen?uitnodiging=7',
+  invitationId: 7,
 };
 
 /** GET /api/accounts/4/contributions in November: both members have a sender and both amounts came in. Bert declared one sender. */
@@ -303,6 +322,8 @@ interface Stub {
   removal?: UserRemovalPreview;
   /** GET /api/join-offers; default none. */
   joinOffers?: PendingJoinOffer[];
+  /** GET /api/accounts/{id}/invitable; default `INVITABLE`. */
+  invitable?: InvitableUser[];
   imports?: ImportBatch[];
   categories?: TreeCategory[];
   /** GET /api/transactions/{id}/similar; default 14 others, nothing skipped. */
@@ -319,6 +340,12 @@ interface Stub {
   contributions?: Contributions | ((id: number) => Contributions);
   /** GET /api/reports/months (0.7-3); default no history. */
   reports?: ReportMonths | ((q: ReportQuery) => ReportMonths);
+  /** GET /api/planning (0.8-4); default an empty answer, so no forecast shows. */
+  planning?: Planning | ((scope: Scope, horizon: number, month?: string) => Planning);
+  /** GET /api/planning/planned, /items and /suggestions (0.8-7); default none. */
+  planned?: PlannedItem[];
+  items?: RecurringItem[];
+  planningSuggestions?: RecurringSuggestion[];
 }
 
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
@@ -350,6 +377,21 @@ export function stubApi(s: Stub = {}) {
       const r = s.reports ?? { accounts: [], firstMonth: null, firstDate: null, months: [] };
       return structuredClone(typeof r === 'function' ? r(q) : r);
     }),
+    planning: vi.spyOn(api, 'planning').mockImplementation(async (scope, horizon = 3, month) => {
+      const p = s.planning ?? { today: ME.today, accounts: [], missing: [] };
+      return structuredClone(typeof p === 'function' ? p(scope, horizon, month) : p);
+    }),
+    // Planning a one-off item (0.8-5): answers the stored item; removing answers nothing.
+    createPlanned: vi.spyOn(api, 'createPlanned').mockImplementation(async (b) => ({ id: 9, ...b })),
+    deletePlanned: vi.spyOn(api, 'deletePlanned').mockResolvedValue(null),
+    // Terugkerend and Eenmalig (0.8-7): the lists answer from the stub (default none); a write answers the item with the change applied.
+    plannedItems: vi.spyOn(api, 'plannedItems').mockImplementation(async () => ({ planned: structuredClone(s.planned ?? []) })),
+    updatePlanned: vi.spyOn(api, 'updatePlanned').mockImplementation(async (id, patch) => ({ ...(s.planned ?? []).find((p) => p.id === id)!, ...patch })),
+    planningItems: vi.spyOn(api, 'planningItems').mockImplementation(async () => ({ items: structuredClone(s.items ?? []) })),
+    createPlanningItem: vi.spyOn(api, 'createPlanningItem').mockImplementation(async (b) => ({ id: 20, counterparty: '', amountRule: 'fixed', month: null, endDate: null, state: 'confirmed', ...b })),
+    updatePlanningItem: vi.spyOn(api, 'updatePlanningItem').mockImplementation(async (id, patch) => ({ ...(s.items ?? []).find((i) => i.id === id)!, ...patch })),
+    deletePlanningItem: vi.spyOn(api, 'deletePlanningItem').mockResolvedValue(null),
+    planningSuggestions: vi.spyOn(api, 'planningSuggestions').mockImplementation(async () => ({ suggestions: structuredClone(s.planningSuggestions ?? []) })),
     categories: vi.spyOn(api, 'categories').mockImplementation(async () => structuredClone(s.categories ?? CATEGORIES)),
     rules: vi.spyOn(api, 'rules').mockImplementation(async () => structuredClone(s.rules ?? RULES)),
     updateTransaction: vi.spyOn(api, 'updateTransaction').mockImplementation(async (id, patch) => {
@@ -418,7 +460,11 @@ export function stubApi(s: Stub = {}) {
       finishedAt: '2026-11-18T20:00:01+01:00',
       connections: (s.connections ?? CONNECTIONS).map((c) => ({ id: c.id, status: c.status, lastSync: c.lastSync, error: null })),
     })),
-    updateAccount: vi.spyOn(api, 'updateAccount').mockImplementation(async (id, patch) => ({ ...(s.accounts ?? ACCOUNTS).find((a) => a.id === id)!, ...patch })),
+    // `shared` is no field of the account: `kind` follows it, and a flagged account lists its manager as its one member (0.8-0b).
+    updateAccount: vi.spyOn(api, 'updateAccount').mockImplementation(async (id, { shared, ...patch }) => {
+      const a = { ...(s.accounts ?? ACCOUNTS).find((x) => x.id === id)!, ...patch };
+      return shared === undefined ? a : { ...a, kind: shared ? 'shared' : 'personal', members: shared ? [GEDEELD.members[0]] : [] };
+    }),
     devices: vi.spyOn(api, 'devices').mockImplementation(async () => structuredClone(s.devices ?? DEVICES)),
     users: vi.spyOn(api, 'users').mockImplementation(async () => structuredClone(USERS)),
     enableBanking: vi.spyOn(api, 'enableBanking').mockImplementation(async () => structuredClone(s.enableBanking ?? EB_ON)),
@@ -440,6 +486,16 @@ export function stubApi(s: Stub = {}) {
     joinOffers: vi.spyOn(api, 'joinOffers').mockImplementation(async () => structuredClone(s.joinOffers ?? [])),
     acceptJoinOffer: vi.spyOn(api, 'acceptJoinOffer').mockImplementation(async () => ({ account: structuredClone(GEDEELD) })),
     declineJoinOffer: vi.spyOn(api, 'declineJoinOffer').mockResolvedValue(null),
+    // Invitations (0.8-0b): the picker's list, the invitation made, and accepting answers the bare account like the server.
+    invitable: vi.spyOn(api, 'invitable').mockImplementation(async () => ({ users: structuredClone(s.invitable ?? INVITABLE) })),
+    inviteToAccount: vi.spyOn(api, 'inviteToAccount').mockImplementation(async (_id, userId) => ({
+      id: 8,
+      userId,
+      name: (s.invitable ?? INVITABLE).find((u) => u.id === userId)?.name ?? 'Partner',
+      createdAt: '2026-11-18T20:00:00+01:00',
+    })),
+    acceptInvitation: vi.spyOn(api, 'acceptInvitation').mockImplementation(async () => ({ ...asMember('edit'), id: 8, name: 'Vakantiepot' })),
+    declineInvitation: vi.spyOn(api, 'declineInvitation').mockResolvedValue(null),
     readNotice: vi.spyOn(api, 'readNotice').mockResolvedValue(null),
     convertRules: vi.spyOn(api, 'convertRules').mockResolvedValue({ converted: 3 }),
     // Members and permissions (0.6-1b): answers the account with that member's permission changed.
@@ -473,7 +529,7 @@ export function stubApi(s: Stub = {}) {
     applyBackfill: vi.spyOn(api, 'applyBackfill').mockResolvedValue({ categorised: 0, groups: 0, stale: 0 }),
     createCategory: vi.spyOn(api, 'createCategory').mockImplementation(async (b) => {
       const parent = b.parentId === undefined ? undefined : (s.categories ?? CATEGORIES).find((c) => c.id === b.parentId);
-      return { id: 40, name: b.name, type: parent?.type ?? b.type ?? 'expense', colour: parent?.colour ?? b.colour ?? (b.type === 'income' ? 'soft' : 'c6'), icon: b.icon ?? null, parentId: b.parentId ?? null, count: 0 };
+      return { id: 40, name: b.name, type: parent?.type ?? b.type ?? 'expense', colour: parent?.colour ?? b.colour ?? (b.type === 'income' ? 'soft' : 'c6'), icon: b.icon ?? null, parentId: b.parentId ?? null, count: 0, saving: parent ? parent.saving : (b.saving ?? false) };
     }),
     updateCategory: vi.spyOn(api, 'updateCategory').mockImplementation(async (id, patch) => ({ ...(s.categories ?? CATEGORIES).find((c) => c.id === id)!, ...patch }) as TreeCategory),
     deleteCategory: vi.spyOn(api, 'deleteCategory').mockResolvedValue(null),

@@ -936,3 +936,104 @@ func TestMigration0014AddsContributionSendersWithoutTouchingRows(t *testing.T) {
 		t.Errorf("second run applied %v, %v", again, err)
 	}
 }
+
+// 0017 rebuilds recurring_items and budgets: every row keeps its id and
+// values, an item may be a contribution and carry an IBAN, a budget may have
+// no amount, and the constraints and the cascade survive the rebuild.
+func TestMigration0017KeepsRows(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(filepath.Join(t.TempDir(), "saldo.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	full := Migrations()
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(full, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() < "0017" {
+			b, err := fs.ReadFile(full, e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			old[e.Name()] = &fstest.MapFile{Data: b}
+		}
+	}
+	if len(old) != 16 {
+		t.Fatalf("%d migrations before 0017, want 16", len(old))
+	}
+	backups := filepath.Join(t.TempDir(), "backups")
+	if _, err := Migrate(ctx, db, old, backups, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO users (id, email, display_name) VALUES (1, 'a@example.com', 'A')`,
+		`INSERT INTO accounts (id, type, source, iban, name) VALUES (1, 'current', 'bank', 'BE68539007547034', 'Zicht')`,
+		`INSERT INTO categories (id, name, type) VALUES (2, 'Boodschappen', 'expense')`,
+		`INSERT INTO recurring_items (id, account_id, user_id, counterparty, description, amount, frequency, expected_day, expected_month, end_date, kind, state, created_at)
+		     VALUES (5, 1, NULL, 'Netflix', 'Netflix', -1399, 'yearly', 12, 3, '2027-01-31', 'expense', 'confirmed', '2026-11-01T10:00:00Z')`,
+		`INSERT INTO budgets (id, account_id, category_id, monthly_amount, from_month) VALUES (7, 1, 2, 30000, '2026-11')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dump := func() string {
+		t.Helper()
+		var items, budgets string
+		if err := db.QueryRow(`SELECT group_concat(id || '|' || account_id || '|' || COALESCE(user_id, '-') || '|' || counterparty || '|' || description || '|' || amount || '|' ||
+			amount_rule || '|' || frequency || '|' || expected_day || '|' || COALESCE(expected_month, '-') || '|' || COALESCE(end_date, '-') || '|' || kind || '|' || state || '|' || created_at, ';')
+			FROM recurring_items`).Scan(&items); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.QueryRow(`SELECT group_concat(id || '|' || account_id || '|' || category_id || '|' || COALESCE(monthly_amount, '-') || '|' || from_month, ';') FROM budgets`).Scan(&budgets); err != nil {
+			t.Fatal(err)
+		}
+		return items + " / " + budgets
+	}
+	before := dump()
+	applied, err := Migrate(ctx, db, full, backups, nil)
+	if err != nil || !slices.Contains(applied, 17) {
+		t.Fatalf("applied %v, %v", applied, err)
+	}
+	if got := dump(); got != before {
+		t.Errorf("rows changed:\n%s\nwas\n%s", got, before)
+	}
+	for _, q := range []string{
+		`INSERT INTO recurring_items (account_id, counterparty, counterparty_iban, description, amount, frequency, expected_day, kind, state)
+		     VALUES (1, 'Bert', 'BE62510007547061', 'Bijdrage Bert', 45000, 'monthly', 1, 'contribution', 'confirmed')`,
+		`INSERT INTO budgets (account_id, category_id, monthly_amount, from_month) VALUES (1, 2, NULL, '2027-01')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Errorf("%s: %v", q, err)
+		}
+	}
+	for name, q := range map[string]string{
+		"unknown kind":          `INSERT INTO recurring_items (account_id, amount, frequency, expected_day, kind) VALUES (1, 1, 'monthly', 1, 'other')`,
+		"day 32":                `INSERT INTO recurring_items (account_id, amount, frequency, expected_day, kind) VALUES (1, 1, 'monthly', 32, 'income')`,
+		"unknown frequency":     `INSERT INTO recurring_items (account_id, amount, frequency, expected_day, kind) VALUES (1, 1, 'weekly', 1, 'income')`,
+		"negative budget":       `INSERT INTO budgets (account_id, category_id, monthly_amount, from_month) VALUES (1, 2, -1, '2027-02')`,
+		"second budget a month": `INSERT INTO budgets (account_id, category_id, monthly_amount, from_month) VALUES (1, 2, 5, '2026-11')`,
+	} {
+		if _, err := db.Exec(q); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+	var indexes int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'recurring_items_account'`).Scan(&indexes); err != nil || indexes != 1 {
+		t.Errorf("%d recurring_items indexes, want 1 (%v)", indexes, err)
+	}
+	if _, err := db.Exec(`DELETE FROM accounts WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	var left int
+	if err := db.QueryRow(`SELECT (SELECT COUNT(*) FROM recurring_items) + (SELECT COUNT(*) FROM budgets)`).Scan(&left); err != nil || left != 0 {
+		t.Errorf("%d rows outlive their account (%v)", left, err)
+	}
+	if again, err := Migrate(ctx, db, full, backups, nil); err != nil || len(again) != 0 {
+		t.Errorf("second run applied %v, %v", again, err)
+	}
+}

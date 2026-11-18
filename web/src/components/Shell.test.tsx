@@ -51,8 +51,9 @@ describe('app shell', () => {
     expect(current(sidebar())).toEqual(['Rekeningen']);
 
     fireEvent.click(within(sidebar()).getByRole('link', { name: /^Planning/ }));
-    expect(await screen.findByText('Komt in versie 0.8')).toBeTruthy();
-  });
+    // The lazy route: the page shows its title once the chunk is in.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Planning' }, { timeout: 25_000 })).toBeTruthy();
+  }, 30_000); // the lazy chunk pulls in react-aria: slow in a full parallel run
 
   it('filters with the scope switch and saves the choice', async () => {
     const api = stubApi();

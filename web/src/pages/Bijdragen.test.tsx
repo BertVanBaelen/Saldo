@@ -12,6 +12,7 @@ const hero = () => document.querySelector('.hero') as HTMLElement;
 const sharedCard = () => document.querySelector('.shared-card') as HTMLElement;
 /** The text of every chip in a container, in order. */
 const chips = (box: HTMLElement) => Array.from(box.querySelectorAll('.contrib-chip')).map((e) => e.textContent);
+const texts = (box: HTMLElement, selector: string) => Array.from(box.querySelectorAll(selector)).map((e) => e.textContent);
 
 /** CONTRIBUTIONS with another state for Bert (me) and Partner. */
 const members = (me: Partial<ContributionMember>, partner: Partial<ContributionMember> = {}): Contributions => ({
@@ -119,6 +120,35 @@ describe('Start · Bijdragen', () => {
   });
 });
 
+describe('ContributionRow · nodig (0.8-4)', () => {
+  // November on the demo: the Gedeelde rekening needs € 872, so each member's part is € 436 (43600 cents).
+  const need = (me: Partial<ContributionMember>, partner: Partial<ContributionMember>): Contributions => ({ ...members(me, partner), need: 87200 });
+  const covered = { required: 43600, covered: true };
+
+  it('takes the ✓ from covered when a required part is present, not from received alone', async () => {
+    stubApi({ accounts: [ZICHT, GEDEELD], contributions: need(covered, { ...covered, received: 43600 }) });
+    renderAt('/');
+    await screen.findByText('Bijdragen november');
+    expect(chips(sharedCard())).toEqual(['Jij € 450 ontvangen ✓', 'Partner € 436 ontvangen ✓']);
+  });
+
+  it('says what is still needed, in the warn colour and without a ✓, for a member below the required part', async () => {
+    stubApi({ accounts: [ZICHT, GEDEELD], contributions: need(covered, { required: 43600, covered: false, received: 20000 }) });
+    renderAt('/');
+    await screen.findByText('Bijdragen november');
+    expect(chips(sharedCard())).toEqual(['Jij € 450 ontvangen ✓', 'Partner € 200 · nodig € 436']);
+    expect(within(sharedCard()).getByText('Partner € 200 · nodig € 436').classList.contains('contrib-chip--warn')).toBe(true);
+  });
+
+  it('behaves as in 0.6-5 without a required part (outside the forecast, or no balance)', async () => {
+    stubApi({ accounts: [ZICHT, GEDEELD], contributions: { ...members({ required: null, covered: null }, { received: 20000, confirmed: true }), need: null } });
+    renderAt('/');
+    await screen.findByText('Bijdragen november');
+    expect(chips(sharedCard())).toEqual(['Jij € 450 ontvangen ✓', 'Partner € 200 ontvangen ✓']);
+    expect(sharedCard().querySelector('.contrib-chip--warn')).toBeNull();
+  });
+});
+
 describe('Rekening · Bijdragen', () => {
   const card = () => screen.findByRole('heading', { name: 'Bijdragen' }).then((h) => h.closest('section') as HTMLElement);
   const open = async (accounts = [ZICHT, SPAAR, GEDEELD], contributions: Contributions = CONTRIBUTIONS) => {
@@ -137,6 +167,18 @@ describe('Rekening · Bijdragen', () => {
     expect(within(box).getByText('Kies hieronder de rekening waarmee je bijdraagt. Saldo gebruikt de rekeningen van anderen nooit.')).toBeTruthy();
     // The own chip is plain text here: you are on the page where the claim is made.
     expect(within(box).queryByRole('link')).toBeNull();
+    // Without a forecast (no `need`) the card says nothing about what is needed.
+    expect(within(box).queryByText(/^Nodig in/)).toBeNull();
+  });
+
+  it('says what the planning needs from each member this month, with the way to the calculation (0.8-6)', async () => {
+    // November on the demo: the Gedeelde rekening needs € 872, each member's part is € 436.
+    const part = { required: 43600, covered: true };
+    const { box } = await open([ZICHT, SPAAR, GEDEELD], { ...members(part, part), need: 87200 });
+    expect(within(box).getByText(/^Nodig in november:/).textContent).toBe('Nodig in november: € 872');
+    expect(texts(box, '.contrib-need-list li')).toEqual(['Jij · nodig € 436', 'Partner · nodig € 436']);
+    expect(within(box).getByText(/^Op basis van de planning/).textContent).toContain('vaste kosten, budgetten en de buffer van deze rekening');
+    expect(within(box).getByRole('link', { name: 'Bekijk de berekening' }).getAttribute('href')).toBe('/planning?maand=2026-11#budget');
   });
 
   it('is not on the page of a personal account', async () => {
@@ -198,12 +240,12 @@ describe('Rekening · Bijdragen', () => {
     expect(within(box).getByText(/Je hebt geen andere rekening met een IBAN om uit te kiezen/)).toBeTruthy();
   });
 
-  it('lets the manager set the shares, validates that they add up to 100 and says they have no effect yet', async () => {
+  it('lets the manager set the shares, validates that they add up to 100 and says what they are for', async () => {
     const { api, box } = await open();
     const you = within(box).getByLabelText('Jouw aandeel') as HTMLInputElement;
     const partner = within(box).getByLabelText('Aandeel van Partner') as HTMLInputElement;
     expect([you.value, partner.value]).toEqual(['50', '50']);
-    expect(within(box).getByText('De verdeling heeft nog geen effect: ze wordt gebruikt zodra de nodige bijdrage per maand wordt berekend.')).toBeTruthy();
+    expect(within(box).getByText('Het aandeel bepaalt ieders deel van wat nodig is.')).toBeTruthy();
     expect(within(box).getByRole('status').textContent).toBe('Samen 100 %');
     const save = within(box).getByRole('button', { name: 'Opslaan' }) as HTMLButtonElement;
     const reset = within(box).getByRole('button', { name: 'Terug naar gelijk' }) as HTMLButtonElement;

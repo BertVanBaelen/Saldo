@@ -11,7 +11,6 @@ interface Soon {
 }
 
 export const SOON: Partial<Record<ScreenId, Soon>> = {
-  planning: { version: '0.8', text: 'Per rekening zien hoe de komende maanden aflopen tegen de eigen buffer, met terugkerende en eenmalige posten en wat je nog vrij kan besteden.' },
   meldingen: { version: '0.9', text: 'Pushmeldingen en e-mails per soort aan- of uitzetten, met een vooruitblik en stille uren.' },
 };
 

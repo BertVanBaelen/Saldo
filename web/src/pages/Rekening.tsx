@@ -1,7 +1,8 @@
 // Rekening: the page of one account (/rekeningen/:id). Balance and state against its own buffer, balance history,
 // "Saldo bijwerken" (manual accounts), the transfers recognised into a manual account with an IBAN, recent transactions, Synchronisatie (bank accounts: source, consent,
 // re-authorise, remove the link), Leden (shared accounts: the manager sets Lezen or Bewerken per member),
-// Instellen (the Rekeningen form), deleting a manual account, and for a shared account leaving it or (manager) deleting it for everyone.
+// Instellen (the Rekeningen form), Delen (manager: declare the account shared and invite people, RekeningUitnodigen.tsx),
+// deleting a manual account, and for a shared account leaving it or (manager) deleting it for everyone.
 // Design: finance-mockup/js/screens/rekening.js; spec: analysis/screens/rekeningen.md, analysis 4.8 and 6.3.
 // Bijdragen (shared accounts, 0.6-5): the month's chips, your own senders and the split (Bijdragen.tsx).
 import { useState, type CSSProperties } from 'react';
@@ -9,7 +10,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
-import { delay, ErrorState, Skel, SkelList, useTitle } from '../components/ui';
+import { delay, ErrorState, SheetX, Skel, SkelList, useTitle } from '../components/ui';
 import { accColour, accountState, canManage, carrier, contributionLabel, isCurrent, isShared, manager, memberTint, nextManager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { plural } from '../lib/categories';
@@ -19,6 +20,7 @@ import { useAsync } from '../lib/useAsync';
 import { ContributionsCard } from './Bijdragen';
 import { amountClass, catView } from './Transacties';
 import { Avatar, Editor, patchOf, values, type Draft } from './Rekeningen';
+import { SharedCard } from './RekeningUitnodigen';
 import './Rekeningen.css';
 import './Rekening.css';
 
@@ -68,7 +70,8 @@ function Hero({ a, today }: { a: Account; today: string }) {
         {isShared(a) ? (
           <span className="rkd-kind rkd-kind--ged">
             <Icon name="people" size={14} stroke={2.2} />
-            Gedeeld · met {names(others(a).map((m) => m.name))}
+            {/* A flagged account with one member has nobody else yet. */}
+            Gedeeld · {others(a).length ? 'met ' + names(others(a).map((m) => m.name)) : 'nog met niemand'}
           </span>
         ) : (
           <span className="rkd-kind rkd-kind--pers">
@@ -806,10 +809,10 @@ function ConvertRules({ a, onDone }: { a: Account; onDone: () => void }) {
 
 // ---------- Remove a bank link (analysis 4.8): keep or delete history, delete needs a second step ----------
 
-/** The accounts a removal with "delete" would delete (only you hold them) and keep (others see them). */
+/** The accounts a removal with "delete" would delete (only you hold them) and keep (others see them): a matter of people, so a flagged account with one member goes. */
 export function removalSplit(conn: Connection, accounts: Account[]) {
   const fed = accounts.filter((a) => conn.accounts.includes(a.id));
-  return { gone: fed.filter((a) => !isShared(a)), kept: fed.filter(isShared) };
+  return { gone: fed.filter((a) => a.members.length < 2), kept: fed.filter((a) => a.members.length > 1) };
 }
 
 export function RemoveLink({ conn, accounts, onClose, onDone }: { conn: Connection; accounts: Account[]; onClose: () => void; onDone: (deleted: number[]) => void }) {
@@ -871,9 +874,7 @@ export function RemoveLink({ conn, accounts, onClose, onDone }: { conn: Connecti
       <h2 className="rkd-dlg-title" id="rkd-dlg-title">
         {title}
       </h2>
-      <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
-        <Icon name="close" size={18} stroke={2.4} />
-      </button>
+      <SheetX className="rk-close" onClose={onClose} />
     </div>
   );
   const foot = (
@@ -992,9 +993,7 @@ function DeleteManual({ a, updates, onClose, onDone }: { a: Account; updates: nu
         <h2 className="rkd-dlg-title" id="rkd-dlg-title">
           {a.name} verwijderen?
         </h2>
-        <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
-          <Icon name="close" size={18} stroke={2.4} />
-        </button>
+        <SheetX className="rk-close" onClose={onClose} />
       </div>
       <p className="rkd-dlg-text">
         De rekening en haar saldogeschiedenis ({updates} {updates === 1 ? 'update' : 'updates'}) worden gewist. Dit kan je niet ongedaan maken.
@@ -1061,9 +1060,7 @@ function ExitSheet({ a, all, onClose }: { a: Account; all: boolean; onClose: () 
         <h2 className="rkd-dlg-title" id="rkd-dlg-title">
           {a.name + (all ? ' voor iedereen verwijderen?' : ' verlaten?')}
         </h2>
-        <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
-          <Icon name="close" size={18} stroke={2.4} />
-        </button>
+        <SheetX className="rk-close" onClose={onClose} instant={busy} />
       </div>
       {all ? (
         <>
@@ -1269,6 +1266,7 @@ export function Rekening() {
               onSave={save}
             />
           </section>
+          {canManage(a) && <SharedCard a={a} onAccount={replace} onInvitations={accounts.reload} />}
           {manual && a.role === 'manager' && a.members.length <= 1 && (
             <section className="card rkd-card anim-in" style={delay(110)} aria-labelledby="rkd-h-del">
               <CardHead id="rkd-h-del" title="Rekening verwijderen" />

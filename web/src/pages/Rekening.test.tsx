@@ -175,8 +175,8 @@ describe('Rekening · a bank account', () => {
     await screen.findByRole('heading', { level: 1, name: 'Gedeelde rekening' });
     const sync = within(card('Synchronisatie'));
     expect(await sync.findByText('Via de koppeling van Partner')).toBeTruthy();
-    expect(sync.getByText('Je koppeling is reserve: ze neemt over als de koppeling van Partner stopt.')).toBeTruthy();
-    expect(sync.getByText('Reserve')).toBeTruthy();
+    expect(await sync.findByText('Je koppeling is reserve: ze neemt over als de koppeling van Partner stopt.')).toBeTruthy();
+    expect(await sync.findByText('Reserve')).toBeTruthy();
     expect(sync.queryByText('Primair')).toBeNull();
     expect(sync.queryByText(/Alleen jouw koppeling houdt/)).toBeNull();
   });

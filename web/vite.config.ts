@@ -1,12 +1,16 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import optimizeLocales from '@react-aria/optimize-locales-plugin';
 import { serviceWorker } from './sw-plugin.ts';
 
 const server = 'http://localhost:8080';
 
 export default defineConfig({
-  plugins: [react(), serviceWorker()],
+  // Tailwind only builds the prefixed utilities of web/src/ui/ui.css (phase 0.8-5a); the existing CSS is untouched.
+  // React Aria ships its strings for ~35 languages; keep Dutch (nl-BE falls back to nl-NL) and the en-US default.
+  plugins: [react(), tailwindcss(), { ...optimizeLocales.vite({ locales: ['nl-NL', 'en-US'] }), enforce: 'pre' }, serviceWorker()],
   server: {
     port: 5180,
     strictPort: true,

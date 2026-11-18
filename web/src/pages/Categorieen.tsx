@@ -319,6 +319,14 @@ export function Categorieen() {
               </span>
             )}
           </span>
+          {c.saving && (
+            <>
+              <span className="visually-hidden">, </span>
+              <span className={'ct-saving-chip' + (sub ? ' ct-saving-chip--sub' : '')} role="img" aria-label={'Telt als gespaard' + (sub && c.parentId !== null ? ' via ' + (byId.get(c.parentId)?.name ?? '') : '')}>
+                gespaard
+              </span>
+            </>
+          )}
           {hasTx && (
             <span className="mono ct-count">
               <span className="visually-hidden">, </span>

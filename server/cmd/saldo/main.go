@@ -36,8 +36,8 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/server"
 )
 
-// version is set at build time: -ldflags "-X main.version=0.7.0".
-var version = "0.7.0"
+// version is set at build time: -ldflags "-X main.version=0.8.0".
+var version = "0.8.0"
 
 func main() {
 	cmd := "serve"

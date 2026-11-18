@@ -39,3 +39,6 @@ func plural(n int, one, many string) string {
 	}
 	return many
 }
+
+// MonthDutch is the lower-case Dutch name of a month ("februari").
+func MonthDutch(m time.Month) string { return monthNames[m-1] }

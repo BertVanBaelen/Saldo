@@ -1,6 +1,6 @@
 # Internal transfer and saved
 
-Analysis: 4.3, 4.4, 5.2 · Data: `transfer_override` (pairing itself is not stored) · Screens: [transacties](../screens/transacties.md), [overzicht](../screens/overzicht.md), [planning](../screens/planning.md) · Phases: [0.1-2](../../plan/v0.1-mockup/02-transacties-and-overzicht.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.6-3](../../plan/v0.6-shared-accounts/03-transfers-and-saved.md), [0.7-1](../../plan/v0.7-overview/01-reports-api.md), [0.8-4](../../plan/v0.8-planning/04-forecast-engine.md)
+Analysis: 4.3, 4.4, 5.2 · Data: `transfer_override` (pairing itself is not stored) · Screens: [transacties](../screens/transacties.md), [overzicht](../screens/overzicht.md), [planning](../screens/planning.md) · Phases: [0.1-2](../../plan/v0.1-mockup/02-transacties-and-overzicht.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.6-3](../../plan/v0.6-shared-accounts/03-transfers-and-saved.md), [0.7-1](../../plan/v0.7-overview/01-reports-api.md), [0.8-0a](../../plan/v0.8-planning/00-saving-categories.md), [0.8-3](../../plan/v0.8-planning/03-forecast-engine.md)
 
 ## Rules
 Evaluated **per viewer, at query time**. A transaction is an internal transfer for a user when:
@@ -24,6 +24,8 @@ Whether a transfer is "internal" depends on which accounts a sum covers. A sum c
 | a shared account, from a personal account | "Naar gedeelde rekening" (an expense row, `--shared`) | income |
 | any other own current account, or one in the selection whose history starts later | "Naar eigen rekening" (an expense row) | income (not netted) |
 | unknown (marked "is een overschrijving", no partner found) | left out | left out |
+
+**Saving categories** (plan [0.8-0a](../../plan/v0.8-planning/00-saving-categories.md)): a row or split part whose top category is marked "Telt als gespaard" is Gespaard (net) unless it is an internal transfer with its other side in the selection (left out, rule above); it wins over "Naar gedeelde rekening", "Naar eigen rekening", "Niet gecategoriseerd" and over the "left out" of "is een overschrijving" without a partner. A detected transfer to a savings account is Gespaard once, whatever its category.
 
 So in Alles the € 450 contribution is left out, in Persoonlijk it is "Naar gedeelde rekening", in Gedeeld both contributions are income (€ 900), and per account each account counts its own transfers (the footnote "tellen per rekening mee, maar niet in het totaal samen"). Bilance history from before the shared account's history (for example 2020–2024) shows the contributions as "Naar gedeelde rekening" in Alles too, because the other half is not in Saldo. Transacties' own transfer flag and kind (0.6-3) do not change.
 

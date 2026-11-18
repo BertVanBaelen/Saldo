@@ -7,6 +7,7 @@ import { Icon, type IconName } from '../components/Icon';
 import { CatEmoji } from '../components/CatIcon';
 import { EmojiPicker } from '../components/EmojiPicker';
 import { Select } from '../components/Select';
+import { useSheetClose } from '../components/Sheet';
 import { accColour, isShared, manager, others } from '../lib/accounts';
 import { api, ApiError, errorMessage, isAbort } from '../lib/api';
 import { catColours, categoryLabel, plural, ruleConditions, skippedText } from '../lib/categories';
@@ -40,6 +41,8 @@ const isHex = (c: CategoryColour): c is `#${string}` => c.startsWith('#');
 const CUSTOM_START = '#7a8cff';
 
 export const BAD_REGEX = 'Deze reguliere expressie klopt niet.';
+/** The two 400s of the "Telt als gespaard" flag (a subcategory, an income category): shown at the switch, not at the name. */
+const SAVING_REFUSED = ['Een subcategorie telt mee via haar hoofdcategorie.', 'Een inkomstencategorie kan niet als gespaard tellen.'];
 const OFFLINE = 'Je bent offline. Opslaan kan weer zodra je verbinding hebt.';
 
 // ---------- Small pieces ----------
@@ -85,6 +88,8 @@ export function ReadOnlyChip({ head }: { head?: boolean }) {
 
 /** The head of an editor: a line icon, or `emoji` for a category's own icon. */
 function Head({ look, icon, emoji, title, sub, inSheet, onClose, extra }: { look: Look; icon?: IconName; emoji?: string; title: string; sub: string; inSheet: boolean; onClose?: () => void; extra?: ReactNode }) {
+  // In the phone sheet the × plays the sheet's exit, like Escape; `onClose` runs when it ends.
+  const sheetClose = useSheetClose();
   return (
     <div className="ct-ed-head">
       <span className="ct-ed-icon" style={{ background: look.bg, color: look.fg }}>
@@ -96,7 +101,7 @@ function Head({ look, icon, emoji, title, sub, inSheet, onClose, extra }: { look
         {extra}
       </div>
       {inSheet && (
-        <button type="button" className="ct-close" aria-label="Sluiten" data-key="close" onClick={onClose}>
+        <button type="button" className="ct-close" aria-label="Sluiten" data-key="close" onClick={sheetClose ?? onClose}>
           <Icon name="close" size={18} stroke={2.4} />
         </button>
       )}
@@ -220,7 +225,10 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
   const [custom, setCustom] = useState(CUSTOM_START);
   /** `null`: not touched, so a create sends none and a save keeps the stored icon. */
   const [icon, setIcon] = useState<string | null>(null);
+  /** `null`: not touched, so the stored flag stays. */
+  const [savingPicked, setSavingPicked] = useState<boolean | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [savingErr, setSavingErr] = useState<string | null>(null);
   const { busy, run } = useBusy();
   const root = useRef<HTMLDivElement>(null);
   const id = (k: string) => 'ct-' + mode + '-' + k;
@@ -228,6 +236,9 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
   const isTop = place === 'top-expense' || place === 'top-income';
   const parent = isTop ? undefined : byId.get(Number(place));
   const topType = place === 'top-income' ? 'income' : 'expense';
+  // The flag the category stores itself: `c.saving` of a subcategory is its parent's, and an income category has none.
+  const ownSaving = !!c && c.parentId === null && c.type === 'expense' && c.saving;
+  const saving = savingPicked ?? ownSaving;
   const stored = c && c.parentId === null && c.type === topType ? c.colour : null;
   const colour: CategoryColour = picked ?? stored ?? (topType === 'income' ? 'soft' : 'c1');
   // An income category starts green (soft), so green stays a choice there; the server refuses soft for expenses.
@@ -269,7 +280,8 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
         let saved: TreeCategory;
         if (!c) {
           const extra = icon ? { icon } : {};
-          saved = await api.createCategory(isTop ? { name: clean, type, ...(type === 'expense' || picked !== null ? { colour } : {}), ...extra } : { name: clean, parentId: Number(place), ...extra });
+          const flag = isTop && type === 'expense' && saving ? { saving } : {};
+          saved = await api.createCategory(isTop ? { name: clean, type, ...(type === 'expense' || picked !== null ? { colour } : {}), ...flag, ...extra } : { name: clean, parentId: Number(place), ...extra });
         } else {
           const patch: CategoryPatch = {};
           if (clean !== c.name) patch.name = clean;
@@ -277,6 +289,8 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
             if (c.parentId !== null) patch.parentId = null;
             if (type !== c.type) patch.type = type;
             if ((picked !== null && picked !== c.colour) || (type === 'expense' && patch.parentId === null) || patch.type) patch.colour = colour;
+            // Only while it is a top expense category: a move under another category or a change to income clears the flag by itself.
+            if (type === 'expense' && saving !== ownSaving) patch.saving = saving;
           } else if (Number(place) !== c.parentId) patch.parentId = Number(place);
           if (icon !== null && !sameEmoji(icon, categoryEmoji(c.icon))) patch.icon = icon;
           saved = Object.keys(patch).length ? await api.updateCategory(c.id, patch) : c;
@@ -284,7 +298,10 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
         toast(saved.name + (c ? ' opgeslagen' : ' toegevoegd'));
         onSaved(saved, !c);
       } catch (e) {
-        if (e instanceof ApiError && e.status === 400) {
+        if (e instanceof ApiError && e.status === 400 && SAVING_REFUSED.includes(e.message)) {
+          setSavingErr(e.message);
+          focusFirst(root.current, ['saving']);
+        } else if (e instanceof ApiError && e.status === 400) {
           setErr(e.message);
           focusFirst(root.current, ['name']);
         } else toast(errorMessage(e));
@@ -387,6 +404,42 @@ export function CatEditor({ mode, cat: c, parentId, tree, counts, onSaved, onRem
           <span className="ct-help">{'Krijgt de kleur van ' + (parent?.name ?? '') + '.'}</span>
         )}
       </div>
+      {isTop && topType === 'expense' ? (
+        <div className="ct-field">
+          <div className="ct-label-row ct-label-row--switch">
+            <span className="ct-label" id={id('saving-l')}>
+              Telt als gespaard
+            </span>
+            <button
+              type="button"
+              className="switch ct-switch"
+              role="switch"
+              aria-checked={saving}
+              aria-labelledby={id('saving-l')}
+              aria-describedby={id('saving-help') + (savingErr ? ' ' + id('saving-err') : '')}
+              data-key="saving"
+              onClick={() => {
+                setSavingPicked(!saving);
+                setSavingErr(null);
+              }}
+            />
+          </div>
+          {savingErr && (
+            <p className="ct-form-err" id={id('saving-err')} role="alert">
+              {savingErr}
+            </p>
+          )}
+          <span className="ct-help" id={id('saving-help')}>
+            Wat je in deze categorie boekt, telt in Overzicht mee als gespaard, niet als uitgave. Ook de subcategorieën.
+          </span>
+        </div>
+      ) : (
+        parent?.saving && (
+          <div className="ct-field">
+            <span className="ct-help">{'Telt als gespaard via ' + parent.name + '.'}</span>
+          </div>
+        )
+      )}
       <div className="ct-field">
         <span className="ct-label" id={id('icoon')}>
           Pictogram
@@ -1022,6 +1075,7 @@ export function RuleEditor({ mode, rule: r, from, rules, tree, accounts, onSaved
 }
 
 export function RuleView({ mode, rule: r, rules, tree, accounts, onClose }: { mode: Mode; rule: Rule; rules: Rule[]; tree: TreeCategory[]; accounts: Account[]; onClose: () => void }) {
+  const sheetClose = useSheetClose();
   const byId = new Map(tree.map((x) => [x.id, x]));
   const c = byId.get(r.categoryId);
   const pos = rules.findIndex((x) => x.id === r.id) + 1;
@@ -1065,7 +1119,7 @@ export function RuleView({ mode, rule: r, rules, tree, accounts, onClose }: { mo
         {(mgr && !mgr.me ? mgr.name : 'De beheerder') + ' beheert ' + (a ? a.name : 'deze rekening') + ' en gaf je Lezen. Je ziet deze regel, maar wijzigen kan alleen met Bewerken.'}
       </p>
       {mode === 'p' && (
-        <button type="button" className="ct-btn ct-btn--ghost" onClick={onClose}>
+        <button type="button" className="ct-btn ct-btn--ghost" onClick={sheetClose ?? onClose}>
           Sluiten
         </button>
       )}

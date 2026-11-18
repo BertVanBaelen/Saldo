@@ -1,8 +1,9 @@
 // Small shared pieces: scope switch, page title, breakpoint, error and empty states, skeletons.
-import { useEffect, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
 import { useApp } from '../app/AppContext';
 import type { Scope } from '../lib/types';
 import { Icon, type IconName } from './Icon';
+import { useSheetClose } from './Sheet';
 
 const SCOPES: { id: Scope; label: string; icon: IconName }[] = [
   { id: 'alles', label: 'Alles', icon: 'grid' },
@@ -59,6 +60,21 @@ export function useIsDesktop(): boolean {
 
 /** `style={delay(40)}` for the staggered entry animation (`--d`). */
 export const delay = (ms: number) => ({ '--d': ms + 'ms' }) as CSSProperties;
+
+/**
+ * The × of a sheet: it plays the sheet's exit like Escape does and `onClose` runs when that ends; outside a Sheet it calls
+ * `onClose` at once. `instant`: close at once anyway, for a sheet whose `onClose` refuses while a request runs (the exit
+ * would slide out and back in). It must sit inside the `<Sheet>`, as its own component: a plain button in the component
+ * that renders the `<Sheet>` cannot reach the sheet's close.
+ */
+export function SheetX({ onClose, instant, ...rest }: { onClose: () => void; instant?: boolean } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick' | 'type' | 'children'>) {
+  const close = useSheetClose();
+  return (
+    <button type="button" aria-label="Sluiten" {...rest} onClick={instant ? onClose : (close ?? onClose)}>
+      <Icon name="close" size={18} stroke={2.4} />
+    </button>
+  );
+}
 
 export function ErrorState({ message, onRetry, title = 'Laden lukt niet' }: { message: string; onRetry: () => void; title?: string }) {
   return (

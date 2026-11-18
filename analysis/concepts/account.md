@@ -38,3 +38,6 @@ Eight colours, separate from the category pastels (keys green, violet, blue, tea
 
 ## Related
 [scope](scope.md) · [shared-account](shared-account.md) · [bank-connection](bank-connection.md) · [buffer-and-states](buffer-and-states.md)
+
+## Shared flag (0.8-0b)
+`accounts.shared` (0 or 1, manager only, `PATCH /api/accounts/{id}` with `{"shared": true}`): with it a one-member account is shared (scope Gedeeld, "Naar gedeelde rekening", contributions). The API's `kind` is the one derived value (flag or more than one member); a flagged account with one member lists its manager as its only member. The switch lives in the "Delen" card of the account page; the flag stays on when the last other member leaves and the manager switches it off only while nobody else is a member or invited. An account also carries `invitations` (open invitations, for its manager only). See [shared-account](shared-account.md) and [rekeningen](../screens/rekeningen.md).

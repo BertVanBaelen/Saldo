@@ -1,9 +1,10 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { renderAt, stubApi, TRANSACTIONS } from '../test/helpers';
+import { CATEGORIES, renderAt, stubApi, TRANSACTIONS } from '../test/helpers';
 import { ApiError } from '../lib/api';
+import { SAVED_NOTE } from '../lib/drilldown';
 import { columns, periodParam } from '../lib/reports';
-import type { Transaction } from '../lib/types';
+import type { Transaction, TreeCategory } from '../lib/types';
 import { amountClass, catView, categoryFromParam, groupByDay, period, periodFromParam } from './Transacties';
 
 const days = () => Array.from(document.querySelectorAll<HTMLElement>('.tx-day'));
@@ -140,11 +141,11 @@ describe('Transacties · grouping by day', () => {
     expect(within(dialog).getByText('Geboekt')).toBeTruthy();
     expect(await within(dialog).findByText('Via regel ‘Colruyt’')).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Sluiten' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     fireEvent.click(screen.getByText('Colruyt Laagste Prijzen', { selector: '.tx-name' }).closest('button')!);
     await screen.findByRole('dialog');
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('computes the periods from the server date', () => {
@@ -230,6 +231,7 @@ describe('Transacties · grouping by day', () => {
       ['naar-gedeeld', 'toShared', 'Naar gedeelde rekening'],
       ['naar-eigen', 'toOwn', 'Naar eigen rekening'],
       ['geen', 'none', 'Niet gecategoriseerd'],
+      ['gespaard', 'saved', 'Gespaard'],
     ]) {
       const api = stubApi();
       const { unmount } = renderAt('/transacties?categorie=' + param);
@@ -239,6 +241,23 @@ describe('Transacties · grouping by day', () => {
       expect(api.transactions).not.toHaveBeenCalledWith(expect.objectContaining({ uncategorised: true, limit: 50 }), expect.anything());
       unmount();
     }
+  });
+
+  it('explains Gespaard under the list until the chip goes; the dropdown marks a saving category and never offers Gespaard', async () => {
+    const sparen: TreeCategory = { ...CATEGORIES[0], id: 11, name: 'Sparen', colour: 'c9', icon: '🏦', saving: true };
+    stubApi({ categories: [...CATEGORIES, sparen] });
+    renderAt('/transacties?categorie=gespaard');
+    expect(await screen.findByText(SAVED_NOTE)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Categorie: Gespaard' }));
+    const dialog = await screen.findByRole('dialog');
+    const names = Array.from(dialog.querySelectorAll('.tx-opt-name')).map((o) => o.textContent);
+    expect(names).toContain('Sparen');
+    expect(names).not.toContain('Gespaard');
+    expect(within(dialog).getByRole('button', { name: /^Sparen/ }).textContent).toContain('Telt als gespaard');
+    expect(dialog.querySelector('[aria-pressed="true"]')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Alle categorieën/ }));
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/transacties'));
+    expect(screen.queryByText(SAVED_NOTE)).toBeNull();
   });
 
   it('ignores a category that is not an id or a pseudo row', async () => {

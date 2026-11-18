@@ -76,6 +76,8 @@
 .hero-contrib .contrib-chips { gap: 4px 12px; }
 .hero-contrib .contrib-chip { padding: 0; background: none; color: inherit; }
 .hero-contrib .contrib-chip--wait { font-weight: 500; color: var(--heroText); }
+/* On the hero the warn chip is a pill like .hero-pill--under: --warn alone is unreadable on the green or violet hero. */
+.hero-contrib .contrib-chip--warn { padding: 1px 8px; background: var(--warnChip); color: var(--warn); }
 .hero-contrib a.contrib-chip--link { color: inherit; }
 .hero-contrib a.contrib-chip--link::after { inset: -13px 0; }
 
@@ -190,27 +192,15 @@
 
 /* ---------- Web app additions ---------- */
 
-/* "Komende maanden" until the forecast arrives (version 0.8): a calm note, no figures */
-.start-soon { gap: 14px; }
-.start-soon-body { display: flex; align-items: flex-start; gap: 12px; }
-.start-soon-icon {
-  width: 36px; height: 36px; border-radius: 50%; flex: none;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--soft); color: var(--greenText);
-}
-.start-soon-text { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--muted); }
-.start-soon-tag {
-  font-size: 12px; font-weight: 600;
-  padding: 2px 9px;
-  border-radius: var(--r-pill);
-  border: 1px dashed var(--dashed);
-  color: var(--muted);
-}
-@media (min-width: 1024px) {
-  .start-soon-body { flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8px 24px 16px; }
-  .start-soon-icon { width: 44px; height: 44px; }
-  .start-soon-text { align-items: center; max-width: 340px; }
-}
+/* The hero leads to Planning: its label is a link whose ::after covers the whole hero (the chips of the contribution row stay on top). */
+.hero { position: relative; }
+.hero-link { color: var(--heroText); text-decoration: none; }
+.hero-link::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-hero); }
+.hero-link:focus-visible { outline: none; }
+.hero-link:focus-visible::after { outline: 2px solid #FFFFFF; outline-offset: -4px; }
+
+/* "Komende maanden": an account without a balance has no bars yet */
+.fc-none { font-size: 13px; color: var(--muted); }
 
 /* A lone block (one account section, no spending card) keeps the hero's column width */
 @media (min-width: 1024px) {

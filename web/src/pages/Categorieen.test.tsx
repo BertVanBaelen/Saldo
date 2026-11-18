@@ -313,6 +313,95 @@ describe('Categorieën en regels · Categorieën', () => {
   });
 });
 
+// Invented: Sparen and Beleggen are saving top categories, Pensioensparen sits under Sparen (a subcategory reads its parent's flag).
+const SPAREN: TreeCategory = { ...TREE[0], id: 11, name: 'Sparen', colour: 'c9', icon: '🏦', saving: true };
+const PENSIOEN: TreeCategory = { ...TREE[0], id: 12, name: 'Pensioensparen', colour: 'c9', icon: null, parentId: 11, saving: true };
+const BELEGGEN: TreeCategory = { ...SPAREN, id: 13, name: 'Beleggen', icon: '📈' };
+
+describe('Categorieën en regels · Telt als gespaard', () => {
+  const stubSaving = () => stub({ categories: [...TREE, SPAREN, PENSIOEN, BELEGGEN] });
+  const SWITCH = { name: 'Telt als gespaard' };
+  /** Select a category in the desktop panel and return the panel. */
+  const select = async (name: RegExp) => {
+    fireEvent.click(await screen.findByRole('button', { name }));
+    await waitFor(() => expect(screen.getByRole('button', { name }).getAttribute('aria-pressed')).toBe('true'));
+    return panel();
+  };
+
+  it('shows the switch on a top expense category only: inherited on a subcategory, nothing on income', async () => {
+    desktop();
+    stubSaving();
+    renderAt('/categorieen');
+    // [category, the switch (null: none), the line "Telt als gespaard via …"]
+    const cases: [RegExp, boolean | null, boolean][] = [
+      [/^Wonen/, false, false],
+      [/^Sparen/, true, false],
+      [/^Pensioensparen/, null, true],
+      [/^Energie/, null, false],
+      [/^Loon/, null, false],
+    ];
+    for (const [name, on, inherited] of cases) {
+      const p = await select(name);
+      const sw = p.queryByRole('switch', SWITCH);
+      expect(sw && sw.getAttribute('aria-checked') === 'true').toBe(on === null ? null : on);
+      expect(!!p.queryByText('Telt als gespaard via Sparen.')).toBe(inherited);
+    }
+    const p = await select(/^Wonen/);
+    const help = p.getByText('Wat je in deze categorie boekt, telt in Overzicht mee als gespaard, niet als uitgave. Ook de subcategorieën.');
+    expect(p.getByRole('switch', SWITCH).getAttribute('aria-describedby')).toBe(help.id);
+  });
+
+  it('saves the flag with a change, with a new category, and sends none when the category moves', async () => {
+    desktop();
+    const api = stubSaving();
+    renderAt('/categorieen');
+    let p = await select(/^Wonen/);
+    fireEvent.click(p.getByRole('switch', SWITCH));
+    expect(p.getByRole('switch', SWITCH).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(p.getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.updateCategory).toHaveBeenLastCalledWith(1, { saving: true }));
+
+    // Under another category it inherits: the switch goes, and the server clears the stored flag by itself.
+    p = await select(/^Beleggen/);
+    choose(p.getByRole('combobox', { name: 'Plaats' }), 'Wonen');
+    expect(p.queryByRole('switch', SWITCH)).toBeNull();
+    fireEvent.click(p.getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.updateCategory).toHaveBeenLastCalledWith(13, { parentId: 1 }));
+
+    fireEvent.click(document.querySelector<HTMLElement>('[data-key="head-add"]')!);
+    await waitFor(() => expect(panel().getByText('Nieuwe hoofdcategorie · voor alle gebruikers')).toBeTruthy());
+    fireEvent.change(panel().getByRole('textbox', { name: 'Naam' }), { target: { value: 'Spaarpot' } });
+    fireEvent.click(panel().getByRole('switch', SWITCH));
+    fireEvent.click(panel().getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.createCategory).toHaveBeenCalledWith({ name: 'Spaarpot', type: 'expense', colour: 'c1', saving: true }));
+  });
+
+  it('shows the server’s refusal at the switch, not at the name', async () => {
+    desktop();
+    const api = stubSaving();
+    api.updateCategory.mockRejectedValueOnce(new ApiError(400, 'invalid', 'Een subcategorie telt mee via haar hoofdcategorie.'));
+    renderAt('/categorieen');
+    const p = await select(/^Wonen/);
+    fireEvent.click(p.getByRole('switch', SWITCH));
+    fireEvent.click(p.getByRole('button', { name: 'Opslaan' }));
+    const alert = await p.findByRole('alert');
+    expect(alert.textContent).toBe('Een subcategorie telt mee via haar hoofdcategorie.');
+    expect(p.getByRole('switch', SWITCH).getAttribute('aria-describedby')).toContain(alert.id);
+    expect(p.getByRole('textbox', { name: 'Naam' }).getAttribute('aria-invalid')).toBeNull();
+  });
+
+  it('marks saving categories in the tree, a subcategory as inherited', async () => {
+    stubSaving();
+    renderAt('/categorieen');
+    const mark = async (row: RegExp) => (await screen.findByRole('button', { name: row })).querySelector('.ct-saving-chip')?.getAttribute('aria-label');
+    expect(await mark(/^Sparen/)).toBe('Telt als gespaard');
+    expect(await mark(/^Pensioensparen/)).toBe('Telt als gespaard via Sparen');
+    expect(await mark(/^Wonen/)).toBeUndefined();
+    // The marker is part of the row's name.
+    expect(screen.getByRole('button', { name: /^Sparen.*Telt als gespaard/ })).toBeTruthy();
+  });
+});
+
 describe('Categorieën en regels · remove a category', () => {
   it('moves a subcategory’s transactions to its parent by default', async () => {
     const api = stub();
@@ -426,7 +515,8 @@ describe('Categorieën en regels · Regels', () => {
     expect(dialog.getByText('2 van 4')).toBeTruthy();
     expect(dialog.queryByRole('button', { name: 'Opslaan' })).toBeNull();
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // Closing a sheet is asynchronous: the exit plays first.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('shows the empty state', async () => {

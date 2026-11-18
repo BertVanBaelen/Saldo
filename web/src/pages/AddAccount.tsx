@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
+import { SheetX } from '../components/ui';
 import { accColour, COLOURS } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { dateLong, parseMoney } from '../lib/format';
@@ -95,11 +96,7 @@ export function AddAccount({ step: first, used, onClose, onCreated }: Props) {
       </span>
     );
 
-  const close = (
-    <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
-      <Icon name="close" size={18} stroke={2.4} />
-    </button>
-  );
+  const close = <SheetX className="rk-close" onClose={onClose} />;
 
   return (
     <Sheet onClose={onClose} labelledBy="rk-add-title" className="rk-sheet rk-add-sheet" backdropClassName="rk-backdrop">

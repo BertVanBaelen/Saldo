@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
-import { Sheet } from '../components/Sheet';
+import { Sheet, useSheetClose } from '../components/Sheet';
 import { useIsDesktop } from '../components/ui';
 import { accColour, accountIcon, isShared, others } from '../lib/accounts';
 import { MONTHS, MONTHS_SHORT, names } from '../lib/format';
@@ -65,14 +65,16 @@ export function Panel({ kind, onClose, children }: { kind: PanelKind; onClose: (
   );
 }
 
+/** In the phone sheet the close button plays the exit like Escape does; in the desktop popover it just closes. */
 function PanelHead({ title, sub, onClose }: { title: string; sub: string; onClose: () => void }) {
+  const sheetClose = useSheetClose();
   return (
     <div className="ov-panel-head">
       <div className="ov-panel-title">
         <h2>{title}</h2>
         <span>{sub}</span>
       </div>
-      <button type="button" className="ov-close" aria-label="Sluiten" onClick={onClose}>
+      <button type="button" className="ov-close" aria-label="Sluiten" onClick={sheetClose ?? onClose}>
         <Icon name="close" size={18} stroke={2.4} />
       </button>
     </div>

@@ -222,3 +222,37 @@ func TestStoreConsentNamesWhatItLeavesOut(t *testing.T) {
 		t.Errorf("added an account: %+v", l)
 	}
 }
+
+// Linking the IBAN of someone else's account with an open invitation joins it
+// at once, the connection a fallback source and no offer left (plan 0.8-0b);
+// without an invitation the join offer of 0.6-1a is unchanged.
+func TestJoinByInvitationOnLink(t *testing.T) {
+	ctx := context.Background()
+	svc, e := linkEnv(t, func(int64, string, []byte) (Client, error) { return nil, nil })
+	now := at(18, 10, 0)
+	e.exec(`INSERT INTO users (id, email, display_name) VALUES (2, 'b@example.com', 'B')`)
+	e.exec(`INSERT INTO accounts (id, type, source, iban, name, shared) VALUES (9, 'current', 'bank', 'BE43068999999501', 'Vakantiepot', 1),
+		(10, 'current', 'bank', 'BE71096123456769', 'Van B', 0)`)
+	e.exec(`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (9, 2, 'manager', 'edit'), (10, 2, 'manager', 'edit')`)
+	e.exec(`INSERT INTO account_invitations (account_id, user_id, invited_by, created_at) VALUES (9, 1, 2, ?)`, now.UTC().Format(time.RFC3339))
+
+	l, err := svc.storeConsent(ctx, connection{id: 1, user: 1, aspsp: "Argenta"}, bank.SessionInfo{ID: "s", ValidUntil: now.AddDate(0, 0, 90),
+		Accounts: []bank.Account{{ID: "b9", IBAN: "BE43068999999501"}, {ID: "b10", IBAN: "BE71096123456769"}}}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l.Joined) != 1 || l.Joined[0].ID != 9 || l.Joined[0].Name != "Vakantiepot" || !slices.Equal(l.Accounts, []int64{9}) || len(l.Offers) != 1 {
+		t.Errorf("linked: %+v", l)
+	}
+	for q, want := range map[string]string{
+		`SELECT role, permission FROM account_access WHERE account_id = 9 AND user_id = 1`:              "member edit",
+		`SELECT priority, external_account_id FROM account_sources WHERE account_id = 9`:                "fallback b9",
+		`SELECT COUNT(*) FROM account_invitations`:                                                      "0",
+		`SELECT GROUP_CONCAT(account_id) FROM join_offers`:                                              "10",
+		`SELECT COUNT(*) FROM account_notices WHERE user_id = 2 AND account_id = 9 AND type = 'member'`: "1",
+	} {
+		if got := e.query(q); got != want {
+			t.Errorf("%s: %q, want %q", q, got, want)
+		}
+	}
+}

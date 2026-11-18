@@ -366,3 +366,31 @@
 .ov-none { flex-direction: row; align-items: center; gap: 12px; }
 .ov-none-text { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--muted); }
 .ov-none-text strong { font-size: 15px; font-weight: 600; color: var(--text); }
+
+/* ---------- Content sheets: the rows behind a number, one account's figures (plan 0.8-0c) ---------- */
+
+/* The category rows and the Gespaard tile are buttons that open a sheet */
+.ov-cat { width: 100%; border: none; background: transparent; text-align: left; }
+.ov-sum--btn { width: 100%; text-align: left; }
+@media (min-width: 1024px) {
+  .ov-cat { width: calc(100% + 20px); }
+  .ov-sum--btn { transition: background 160ms ease; }
+  .ov-sum--btn:hover { background: var(--bg); }
+}
+
+.ov-blad-head { align-items: center; }
+.ov-blad-head .ov-per-icon { width: 36px; height: 36px; }
+.ov-blad-head h2 span { font-weight: 400; }
+.ov-blad-ico { width: 36px; height: 36px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--onPastel); }
+.ov-blad-ico--saved { background: var(--soft); color: var(--greenText); }
+.ov-blad-dot { margin: 0 13px; }
+.ov-blad-total { font-size: 15px; color: var(--muted); }
+.ov-blad-total .mono { font-size: 20px; font-weight: 500; color: var(--text); }
+.ov-blad-list { display: flex; flex-direction: column; gap: 14px; }
+.ov-blad-empty { padding: 20px 16px; border-radius: var(--r-card); border: 1px dashed var(--lineStrong); text-align: center; font-size: 14px; color: var(--muted); }
+.ov-blad-row { text-decoration: none; }
+.ov-blad-figs { padding: 4px 0 2px; }
+.ov-blad-cats { display: flex; flex-direction: column; }
+.ov-blad-cats .section-title { padding-bottom: 2px; }
+.ov-blad-cats .ov-cat { width: auto; margin: 0; padding: 12px 0; border-radius: 0; background: none; }
+.ov-blad .btn { flex: none; }

@@ -32,7 +32,7 @@ saldo (one Go binary, Home Assistant add-on)
 - **Privacy in every query:** financial tables are only reached through `account_access` for the viewer; a resource you cannot see is a `404`. Privacy tests run in CI from the first endpoint on (analysis 2, risk 7).
 - **Accounts are independent:** states, buffers and forecasts are per account; sums across accounts are information only (analysis 4.5).
 - **No real data outside the add-on:** the fake bank provider and the demo story serve development and tests. CI never calls a real bank. The repository is public.
-- **Few dependencies:** the Go server uses the standard library plus `modernc.org/sqlite`; the web app uses React, React Router and Vite.
+- **Few dependencies:** the Go server uses the standard library plus `modernc.org/sqlite`; the web app uses React, React Router and Vite. The Planning screens add React Aria Components with a few controls copied from Untitled UI React into `web/src/ui/`, styled with `tw:`-prefixed Tailwind v4 utilities on Saldo's tokens (no preflight, imported only by `web/src/ui/`; [third-party-ui.md](third-party-ui.md)).
 
 ## Running it locally
 ```powershell

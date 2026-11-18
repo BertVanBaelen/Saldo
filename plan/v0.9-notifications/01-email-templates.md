@@ -9,7 +9,7 @@
 | Concepts | [notification](../../analysis/concepts/notification.md), [buffer-and-states](../../analysis/concepts/buffer-and-states.md), [account](../../analysis/concepts/account.md) |
 | Screens | [emails](../../analysis/screens/emails.md) |
 | Analysis | 4.9 |
-| Depends on | [0.2-4](../v0.2-foundation/04-sign-in-users-mail.md) (mailer), [0.8-4](../v0.8-planning/04-forecast-engine.md) |
+| Depends on | [0.2-4](../v0.2-foundation/04-sign-in-users-mail.md) (mailer), [0.8-3](../v0.8-planning/03-forecast-engine.md), [0.8-4](../v0.8-planning/04-forecast-api-and-start.md) |
 
 ## Goal
 Every e-mail from the design, sent by the server.

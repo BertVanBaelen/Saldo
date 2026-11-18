@@ -1,13 +1,14 @@
 # Scope switch, independent accounts and sums
 
-Analysis: 4.4, 4.5, 5.3, risk 16, decisions "Accounts are independent", "Scope switch", "Sums" · Screens: [start](../screens/start.md), [transacties](../screens/transacties.md), [overzicht](../screens/overzicht.md), [planning](../screens/planning.md) · Phases: [0.1-1](../../plan/v0.1-mockup/01-foundation-and-start.md), [0.1-2](../../plan/v0.1-mockup/02-transacties-and-overzicht.md), [0.1-3](../../plan/v0.1-mockup/03-planning.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.3-5](../../plan/v0.3-bank-sync/05-start-balances.md), [0.6-4](../../plan/v0.6-shared-accounts/04-scope-and-sums.md), [0.7-1](../../plan/v0.7-overview/01-reports-api.md), [0.7-3](../../plan/v0.7-overview/03-overzicht-screen.md), [0.7-5](../../plan/v0.7-overview/05-start-spending.md), [0.8-4](../../plan/v0.8-planning/04-forecast-engine.md), [0.8-6](../../plan/v0.8-planning/06-planning-screen.md), [2.0-2](../../plan/v2.0-investments/02-net-worth.md)
+Analysis: 4.4, 4.5, 5.3, risk 16, decisions "Accounts are independent", "Scope switch", "Sums" · Screens: [start](../screens/start.md), [transacties](../screens/transacties.md), [overzicht](../screens/overzicht.md), [planning](../screens/planning.md) · Phases: [0.1-1](../../plan/v0.1-mockup/01-foundation-and-start.md), [0.1-2](../../plan/v0.1-mockup/02-transacties-and-overzicht.md), [0.1-3](../../plan/v0.1-mockup/03-planning.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.3-5](../../plan/v0.3-bank-sync/05-start-balances.md), [0.6-4](../../plan/v0.6-shared-accounts/04-scope-and-sums.md), [0.7-1](../../plan/v0.7-overview/01-reports-api.md), [0.7-3](../../plan/v0.7-overview/03-overzicht-screen.md), [0.7-5](../../plan/v0.7-overview/05-start-spending.md), [0.8-3](../../plan/v0.8-planning/03-forecast-engine.md), [0.8-4](../../plan/v0.8-planning/04-forecast-api-and-start.md), [0.8-5](../../plan/v0.8-planning/05-planning-kalender.md), [2.0-2](../../plan/v2.0-investments/02-net-worth.md)
 
 This file replaces the former concept "account group" (decision of 3 Nov 2026).
 
 ## Accounts are independent
 - Every **current account** is the unit for every verdict about money: its own buffer, forecast, month results, daily line, warnings ("staat rood", "zakt in de buffer") and free-to-spend amount. One account's buffer never affects another.
 - There is no merged "Persoonlijk group". A user may hold several personal current accounts, several shared accounts, or none of one kind; every account is calculated on its own.
-- **Personal or shared** follows from membership: an account with one member is personal ("Persoonlijk"), an account with more than one member is shared ("Gedeeld"). Apart from the label and the sharing options (members, permissions, contributions, fallback links) they behave the same ([shared-account](shared-account.md)).
+- **Personal or shared** (API `kind`): an account is shared ("Gedeeld") when its manager declared it so or it has more than one member, otherwise personal ("Persoonlijk"). Apart from the label and the sharing options (members, permissions, contributions, fallback links) they behave the same ([shared-account](shared-account.md)).
+- Since plan [0.8-0b](../../plan/v0.8-planning/00b-shared-flag-and-invitations.md) the manager can declare an account shared (`accounts.shared`) before anyone else joined: shared = flag **or** more than one member, one derived value (`kind`) for every scope and sum. The web only reads `kind`, so Start, Rekeningen, Transacties, Overzicht and Planning follow at once; where a screen names the other members, an account that is shared but has one member says "nog met niemand" (Rekeningen, Rekening) or just "jij bent beheerder" (Start). Switching the flag, like any membership change, reclassifies history in the sums.
 - Savings and investment accounts have no buffer and no forecast; they are shown, never judged.
 
 ## Scope switch (a filter)
@@ -16,8 +17,8 @@ Segmented control (`role="group"`, label "Welke rekeningen") with three buttons 
 | Value | Label | Shows | Icon | Selected background / text |
 |---|---|---|---|---|
 | `alles` | Alles | every account, in one place | 2×2 squares | `--text` / `--bg` |
-| `persoonlijk` | Persoonlijk | accounts with one member | person | `--green` / `--onGreen` |
-| `gedeeld` | Gedeeld | accounts with more than one member | two persons | `--shared` / `--onShared` |
+| `persoonlijk` | Persoonlijk | accounts that are not shared | person | `--green` / `--onGreen` |
+| `gedeeld` | Gedeeld | shared accounts (declared shared, or more than one member) | two persons | `--shared` / `--onShared` |
 
 Phone: full width, three equal columns, 40 px buttons. Desktop: inline in the page header, 36 px buttons. The choice carries across screens (mockup: `localStorage`, app: per user, `user.last_scope`). When a scope holds no account (for example no shared account yet), its screens show an empty state that explains how an account gets there.
 

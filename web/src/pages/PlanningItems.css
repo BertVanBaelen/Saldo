@@ -1,0 +1,139 @@
+/* Planning · Terugkerend and Eenmalig (plan 0.8-7): the lists, the suggestion cards and the item forms. The list classes (.pl-terug, .pl-sugg*,
+   .pl-rec*, .pl-one*, .pl-h2, .pl-section, .pl-list, .pl-empty*, .pl-btn-sm) are ported class by class from
+   finance-mockup/css/screens/planning.css with the app's tokens; the sheets (.pi-*) are designed here (the mockup has no form). */
+
+/* ---------- Lists ---------- */
+
+.pl-terug, .pl-eenmalig { display: flex; flex-direction: column; gap: 14px; }
+.pl-eenmalig { gap: 10px; }
+.pl-terug-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.pl-h2 { font-size: 15px; font-weight: 600; }
+.pl-h2-count { font-weight: 500; color: var(--muted); }
+.pl-section { display: flex; flex-direction: column; gap: 8px; }
+.pl-list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 2px 16px;
+  display: flex; flex-direction: column;
+}
+.pl-empty { padding: 14px 0; font-size: 14px; color: var(--muted); }
+.pl-empty-card {
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--surface); border: 1px solid var(--line);
+  font-size: 14px; color: var(--muted);
+}
+.pl-err { font-size: 13px; font-weight: 600; color: var(--negText); }
+.btn.pl-btn-sm { height: 40px; border-radius: 10px; font-size: 14px; }
+.btn.pl-btn-sm:disabled { opacity: 0.6; }
+
+/* The collapsed "Genegeerd" list: the heading is its own toggle */
+.pl-fold {
+  display: flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 0;
+  border: none; background: transparent; color: inherit;
+  font: inherit; font-size: 15px; font-weight: 600;
+}
+.pl-fold svg { color: var(--muted); transition: transform 160ms ease; }
+.pl-fold[aria-expanded="true"] svg { transform: rotate(90deg); }
+
+/* ---------- Suggestion cards ---------- */
+
+.pl-suggs, .pl-recs { list-style: none; margin: 0; padding: 0; }
+.pl-suggs { display: flex; flex-direction: column; gap: 8px; }
+.pl-sugg {
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--warnSoft);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.pl-sugg-top { display: flex; justify-content: space-between; gap: 10px; }
+.pl-sugg-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pl-sugg-name { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.pl-sugg-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 13px; color: var(--muted); }
+.pl-sugg-amount { font-size: 15px; font-weight: 500; white-space: nowrap; }
+.pl-sugg-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+/* ---------- Rows (confirmed, ignored, one-off) ---------- */
+
+.pl-recs > li + li { border-top: 1px solid var(--line); }
+.pl-rec {
+  width: 100%; min-height: 44px; padding: 10px 0;
+  display: flex; align-items: center; gap: 12px;
+  border: none; background: transparent; color: inherit;
+  font: inherit; text-align: left;
+}
+.pl-rec-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pl-rec-name { font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+.pl-rec-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 12px; color: var(--muted); }
+.pl-rec-amount { font-size: 14px; font-weight: 500; white-space: nowrap; }
+.pl-rec-amount--neg { color: var(--neg); }
+.pl-rec-amount--pos { color: var(--greenText); }
+.pl-rec-note {
+  margin: 0 0 10px; padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--warnSoft); color: var(--warn);
+  font-size: 13px; line-height: 1.4;
+}
+
+.pl-one { padding: 12px 0; }
+.pl-one--past { opacity: 0.6; }
+.pl-one-date {
+  width: 40px; height: 40px; flex: none;
+  border-radius: 12px;
+  background: var(--warnSoft); color: var(--warn);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; line-height: 1.1;
+}
+
+@media (min-width: 1024px) {
+  .pl-terug { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 18px; align-items: start; }
+  .pl-eenmalig { max-width: 660px; }
+  .pl-one-date { width: 44px; height: 44px; }
+}
+
+/* The mockup's desktop row: name, account, rhythm, amount in columns (one DOM, the wrappers vanish into the row's grid) */
+@media (min-width: 1280px) {
+  .pl-recs--cols .pl-rec { display: grid; grid-template-columns: minmax(0, 1fr) 132px 200px 104px; gap: 12px; }
+  .pl-recs--cols .pl-rec-main, .pl-recs--cols .pl-rec-sub { display: contents; }
+  .pl-recs--cols .pl-rec-rhythm { font-size: 13px; }
+  .pl-recs--cols .pl-rec-amount { text-align: right; }
+  .pl-recs--cols .pl-rec-sub > :first-child { justify-self: start; }
+}
+
+/* ---------- Sheets: the item form and the one-off edit sheet ---------- */
+
+.pi-head { display: flex; align-items: center; gap: 12px; }
+.pi-title { flex: 1; font-size: 18px; font-weight: 600; line-height: 1.3; }
+.pi-close {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: none; background: var(--bg); color: var(--text);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.pi-form { display: flex; flex-direction: column; gap: 14px; }
+.pi-field { display: flex; flex-direction: column; gap: 6px; }
+.pi-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.pi-help { font-size: 13px; color: var(--muted); }
+.pi-fixed { align-self: flex-start; }
+.pi-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+/* The library segments are wide for four or three short words at 375 px: tighter, and Soort in two rows on a phone (specificity beats the utilities) */
+.pi-field .pi-seg button { padding: 0 6px; font-size: 13px; }
+.pi-field .pi-kind { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-radius: 18px; }
+@media (min-width: 1024px) {
+  .pi-field .pi-kind { grid-template-columns: repeat(4, minmax(0, 1fr)); border-radius: 999px; }
+}
+.pi-link {
+  align-self: flex-start; min-height: 44px; padding: 0 4px;
+  border: none; background: transparent;
+  color: var(--greenText); font-size: 14px; font-weight: 600; text-decoration: underline;
+}
+.pi-err { font-size: 13px; font-weight: 600; color: var(--negText); }
+.pi-offline { font-size: 13px; color: var(--muted); }
+.pi-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pi-actions .btn { height: 48px; border-radius: 14px; }
+.pi-actions .btn:disabled { opacity: 0.6; }
+.pi-neg { background: var(--neg); color: var(--onNeg); }
+.pi-confirm { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: var(--negSoft); }
+.pi-confirm-title { font-size: 16px; font-weight: 600; }

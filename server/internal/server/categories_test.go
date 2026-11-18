@@ -70,14 +70,17 @@ func TestCategoriesList(t *testing.T) {
 	for _, c := range list {
 		order = append(order, strconv.FormatInt(c.ID, 10))
 	}
-	want := "1 11 12 13 14 2 15 16 3 17 18 19 20 4 21 22 23 5 24 25 6 7 8 9 10"
+	want := "1 11 12 13 14 2 15 16 3 17 18 19 20 4 21 22 23 5 24 25 6 26 7 8 9 10" // 26: the demo's Sparen (0.8-0a)
 	if got := strings.Join(order, " "); got != want {
 		t.Fatalf("tree order %s, want %s", got, want)
 	}
-	if c := list[1]; c.Name != "Huur" || c.Type != "expense" || c.Colour != "c1" || c.ParentID == nil || *c.ParentID != 1 {
+	if c := list[1]; c.Name != "Huur" || c.Type != "expense" || c.Colour != "c1" || c.ParentID == nil || *c.ParentID != 1 || c.Saving {
 		t.Errorf("Huur: %+v", c)
 	}
-	if c := list[21]; c.Name != "Salaris" || c.Type != "income" || c.Colour != "soft" || c.ParentID != nil {
+	if c := list[21]; c.Name != "Sparen" || c.Colour != "c9" || !c.Saving {
+		t.Errorf("Sparen: %+v", c)
+	}
+	if c := list[22]; c.Name != "Salaris" || c.Type != "income" || c.Colour != "soft" || c.ParentID != nil || c.Saving {
 		t.Errorf("Salaris: %+v", c)
 	}
 	// count: the viewer's own transactions only; a split row counts under
@@ -204,10 +207,42 @@ func TestCategoryCreateAndUpdate(t *testing.T) {
 	}
 }
 
+// "Telt als gespaard" (0.8-0a) on the wire: a top expense category takes it,
+// a subcategory shows its parent's, a sub or an income category refuses true.
+func TestCategorySavingAPI(t *testing.T) {
+	p := newPair(t)
+	if c := p.created(p.partner("POST", "/api/categories", `{"name":"Pensioen","type":"expense","saving":true}`)); !c.Saving {
+		t.Errorf("created saving: %+v", c)
+	}
+	r := p.bert("PATCH", "/api/categories/3", `{"saving":true}`)
+	if c := decode[ledger.TreeCategory](t, r.body); r.status != http.StatusOK || !c.Saving {
+		t.Fatalf("PATCH saving: %d %s", r.status, r.body)
+	}
+	for _, c := range decode[[]ledger.TreeCategory](t, p.bert("GET", "/api/categories", "").body) {
+		if want := c.ID == 3 || c.ID == 26 || c.Name == "Pensioen" || c.ParentID != nil && *c.ParentID == 3; c.Saving != want {
+			t.Errorf("%s: saving %v, want %v", c.Name, c.Saving, want)
+		}
+	}
+	if r := p.bert("PATCH", "/api/categories/17", `{"saving":false}`); r.status != http.StatusOK { // false is always fine
+		t.Errorf("saving false on a sub: %d %s", r.status, r.body)
+	}
+	for _, c := range []struct{ method, path, body, message string }{
+		{"POST", "/api/categories", `{"name":"x","parentId":3,"saving":true}`, "Een subcategorie telt mee via haar hoofdcategorie."},
+		{"PATCH", "/api/categories/17", `{"saving":true}`, "Een subcategorie telt mee via haar hoofdcategorie."},
+		{"POST", "/api/categories", `{"name":"x","type":"income","saving":true}`, "Een inkomstencategorie kan niet als gespaard tellen."},
+		{"PATCH", "/api/categories/7", `{"saving":true}`, "Een inkomstencategorie kan niet als gespaard tellen."},
+	} {
+		if got := expectError(t, p.bert(c.method, c.path, c.body), http.StatusBadRequest, "invalid"); got != c.message {
+			t.Errorf("%s %s %s: %q, want %q", c.method, c.path, c.body, got, c.message)
+		}
+	}
+}
+
 func TestRemoveCategory(t *testing.T) {
 	p := newPair(t)
 	from := p.created(p.bert("POST", "/api/categories", `{"name":"Weg","parentId":3}`))
-	to := p.created(p.bert("POST", "/api/categories", `{"name":"Hier","parentId":3}`))
+	// The target is a top expense category: budgets follow only there (0.8-0a), a merge into a sub or a saving category deletes them.
+	to := p.created(p.bert("POST", "/api/categories", `{"name":"Hier","type":"expense"}`))
 	f, g := from.ID, to.ID
 	// Bert's manual row, Partner's rule row, a split part, rules, budgets, a mapping, a suggestion.
 	p.exec(`INSERT INTO rules (id, user_id, counterparty_match, category_id) VALUES (900, 2, 'Lidl', ?)`, f)
@@ -282,7 +317,7 @@ func TestRemoveCategory(t *testing.T) {
 		{"rows uncategorised, origin and rule cleared", `SELECT COUNT(*) FROM transactions WHERE counterparty_name IN ('Kinepolis', 'Lidl')
 			AND category_id IS NULL AND category_origin IS NULL AND rule_id IS NULL`, kine + lidl},
 		{"its rules deleted", `SELECT COUNT(*) FROM rules WHERE id = 900`, 0},
-		{"its budgets deleted", `SELECT COUNT(*) FROM budgets WHERE account_id = 1`, 0},
+		{"its budgets deleted", `SELECT COUNT(*) FROM budgets WHERE category_id = ` + strconv.FormatInt(g, 10), 0},
 		{"its mapping left uncategorised", `SELECT COUNT(*) FROM category_mappings WHERE category_id IS NULL`, 1},
 		{"its suggestions dropped", `SELECT COUNT(*) FROM category_suggestions`, 0},
 	} {
@@ -773,7 +808,7 @@ func TestCategoryColourCascade(t *testing.T) {
 	step("#ABCDEF", "c6|#abcdef")
 	step("c2", "c2|-")
 	step("c6", "c6|-")
-	if n := p.count(`SELECT COUNT(*) FROM categories WHERE tint IS NOT NULL`); n != 0 {
+	if n := p.count(`SELECT COUNT(*) FROM categories WHERE tint IS NOT NULL AND name <> 'Sparen'`); n != 0 { // the demo's Sparen is c9
 		t.Errorf("%d categories keep a tint after recolouring back to a legacy key", n)
 	}
 }

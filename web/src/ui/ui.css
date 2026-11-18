@@ -1,0 +1,56 @@
+/* Tailwind CSS v4 for the vendored controls of web/src/ui/ only (phase 0.8-5a, docs/third-party-ui.md).
+   - No preflight: only the theme and utilities are imported, so the existing screens keep their own base styles.
+   - Every utility carries the `tw:` prefix (`tw:flex`), so none can match a class of the existing CSS (.card, .btn, .chip, ...).
+   - The utilities are NOT in a cascade layer on purpose: the existing CSS is unlayered, and unlayered rules beat layered
+     ones whatever their specificity (components.css `button { color: inherit }` would beat `tw:text-*`). A prefixed class
+     cannot match an existing element, so unlayered utilities change nothing outside web/src/ui/.
+   - The colours are Saldo's tokens (tokens.css) through `@theme inline`, so the light/dark switch (`data-theme` and
+     `prefers-color-scheme`) needs nothing here. The default Tailwind palette is cleared. */
+@import "tailwindcss/theme.css" layer(theme) prefix(tw);
+@import "tailwindcss/utilities.css" prefix(tw);
+
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-line-strong: var(--lineStrong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-green: var(--green);
+  --color-on-green: var(--onGreen);
+  --color-green-text: var(--greenText);
+  --color-soft: var(--soft);
+  --color-soft-chip: var(--softChip);
+  --color-shared: var(--shared);
+  --color-on-shared: var(--onShared);
+  --color-shared-soft: var(--sharedSoft);
+  --color-neg: var(--neg);
+  --color-neg-text: var(--negText);
+  --color-neg-soft: var(--negSoft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warnSoft);
+  --color-track: var(--track);
+  --color-a-green: var(--a-green);
+  --color-a-violet: var(--a-violet);
+  --color-a-blue: var(--a-blue);
+  --color-a-teal: var(--a-teal);
+  --color-a-orange: var(--a-orange);
+  --color-a-pink: var(--a-pink);
+  --color-a-yellow: var(--a-yellow);
+  --color-a-gray: var(--a-gray);
+  --color-on-acc: var(--onAcc);
+
+  --font-*: initial;
+  --font-sans: var(--font);
+  --font-mono: var(--mono);
+
+  --radius-card: var(--r-card);
+  --radius-control: var(--r-control);
+  --radius-pill: var(--r-pill);
+
+  --shadow-pop: var(--pop);
+  --ease-out: var(--ease-out);
+}

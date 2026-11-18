@@ -10,6 +10,7 @@ const cat = (id: number, name: string, parentId: number | null = null, type: Tre
   icon: null,
   parentId,
   count: 0,
+  saving: false,
 });
 
 // Server order: expense tops each followed by their subcategories, then the income tops.

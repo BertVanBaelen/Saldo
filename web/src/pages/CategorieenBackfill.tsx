@@ -5,6 +5,7 @@ import { useApp } from '../app/AppContext';
 import { CatEmoji } from '../components/CatIcon';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
+import { SheetX } from '../components/ui';
 import { api, errorMessage, isAbort } from '../lib/api';
 import { catColours, plural } from '../lib/categories';
 import { dateShort, eur } from '../lib/format';
@@ -75,9 +76,7 @@ export function BackfillSheet({ onClose, onDone }: Props) {
             </h2>
             <span className="ct-ed-sub">Transacties zonder categorie, volgens wat Saldo leerde</span>
           </span>
-          <button type="button" className="ct-close" aria-label="Sluiten" onClick={onClose}>
-            <Icon name="close" size={18} stroke={2.4} />
-          </button>
+          <SheetX className="ct-close" onClose={onClose} />
         </div>
         <p className="ct-box">
           Je ziet eerst wat er zou gebeuren. Er wordt niets overschreven: alleen transacties zonder categorie krijgen er een, en je kan die op elke transactie nog aanpassen. Groepen met hoge zekerheid staan aangevinkt, de andere kies je zelf.

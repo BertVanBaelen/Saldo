@@ -1,9 +1,14 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+
+	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
+	"github.com/BertVanBaelen/Saldo/server/internal/planning"
 )
 
 // Contributions to a shared account (0.6-5, docs/api.md "Contributions").
@@ -15,7 +20,7 @@ func (s *Server) getContributions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	c, err := s.store.Contributions(r.Context(), viewerOf(r), id, r.URL.Query().Get("month"), s.now())
+	c, err := s.contributions(r.Context(), viewerOf(r), id, r.URL.Query().Get("month"))
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
@@ -80,10 +85,46 @@ func (s *Server) putContributionShares(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	c, err := s.store.Contributions(r.Context(), viewer, id, "", s.now())
+	c, err := s.contributions(r.Context(), viewer, id, "")
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
+}
+
+// contributions is Store.Contributions with what the forecast adds (0.8-4): the
+// month's need and each member's required part and whether it is covered.
+// They stay nil outside the forecast (the running month to the end of the
+// 24-month horizon) and for an account without a balance or that is not a
+// current account.
+func (s *Server) contributions(ctx context.Context, viewer, id int64, month string) (ledger.Contributions, error) {
+	c, err := s.store.Contributions(ctx, viewer, id, month, s.now())
+	if err != nil || len(c.Members) == 0 {
+		return c, err
+	}
+	var kind string
+	if err := s.db.QueryRowContext(ctx, `SELECT type FROM accounts WHERE id = ?`, id).Scan(&kind); err != nil || kind != "current" {
+		return c, err
+	}
+	f, err := planning.Forecast(ctx, s.db, id, s.brusselsToday(), 24)
+	if errors.Is(err, planning.ErrNoBalance) {
+		return c, nil
+	}
+	if err != nil {
+		return c, err
+	}
+	for _, m := range f.Months {
+		if m.Month != c.Month {
+			continue
+		}
+		need := ceilEuros(m.Need.Amount, 100)
+		c.Need = &need
+		for i := range c.Members {
+			_, required := memberPart(m.Need.Amount, c.Members[i].Share, len(c.Members))
+			covered := c.Members[i].Received >= required
+			c.Members[i].Required, c.Members[i].Covered = &required, &covered
+		}
+	}
+	return c, nil
 }

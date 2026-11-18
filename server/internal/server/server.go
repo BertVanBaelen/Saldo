@@ -107,6 +107,7 @@ func newServer(o Options) (*Server, http.Handler) {
 		mux:      http.NewServeMux(),
 	}
 	s.routes()
+	s.planningRoutes()
 
 	csrf := http.NewCrossOriginProtection()
 	if u, err := url.Parse(o.PublicURL); err == nil && u.Host != "" {
@@ -160,6 +161,10 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/join-offers", s.listJoinOffers)
 	m.HandleFunc("POST /api/join-offers/{id}/accept", s.acceptJoinOffer)
 	m.HandleFunc("DELETE /api/join-offers/{id}", s.deleteJoinOffer)
+	m.HandleFunc("GET /api/accounts/{id}/invitable", s.getInvitable)
+	m.HandleFunc("POST /api/accounts/{id}/invitations", s.postAccountInvitation)
+	m.HandleFunc("POST /api/invitations/{id}/accept", s.acceptAccountInvitation)
+	m.HandleFunc("DELETE /api/invitations/{id}", s.deleteAccountInvitation)
 	m.HandleFunc("POST /api/notices/{id}/read", s.postNoticeRead)
 	m.HandleFunc("GET /api/accounts/{id}/balances", s.listBalances)
 	m.HandleFunc("GET /api/accounts/{id}/transfers", s.listIncomingTransfers)

@@ -11,6 +11,8 @@ Analysis: 4.4 · Screens: [overzicht](../screens/overzicht.md), [transacties](..
 - In Persoonlijk your contribution shows as "Naar gedeelde rekening".
 - Pending transactions are left out of totals.
 
+- **Saving categories** (plan [0.8-0a](../../plan/v0.8-planning/00-saving-categories.md)): what is booked in a category marked "Telt als gespaard" counts as saved, not as an expense.
+
 ## From the design (0.1-2, see [overzicht](../screens/overzicht.md#design-notes))
 - Period picker Maand · Kwartaal · Jaar · Eigen. The month view shows 6 months; the default selection is the last complete period. Changing period or scope resets the selection.
 - **Trend** = change against the previous period, rounded %: "+12%", "−7%", "= 0%". More than +5 % is shown in `--warn`, less than −5 % in `--greenText`, otherwise muted. No trend for Jaar or for the first period.

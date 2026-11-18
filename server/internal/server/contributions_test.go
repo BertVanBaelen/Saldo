@@ -75,9 +75,9 @@ func (p *pair) incoming(account int64, iban string, amount int64, date, status s
 func TestContributionClaims(t *testing.T) {
 	p := newPair(t)
 	// Before any claim: both members with nothing, shares as seeded (50/50).
-	equalJSON(t, p.bert("GET", contribPath+"?month=2026-11", "").body, `{"month": "2026-11", "members": [
-		{"userId": 1, "name": "Bert", "me": true, "share": 50, "senders": 0, "received": 0, "confirmed": false},
-		{"userId": 2, "name": "Partner", "me": false, "share": 50, "senders": 0, "received": 0, "confirmed": false}
+	equalJSON(t, p.bert("GET", contribPath+"?month=2026-11", "").body, `{"month": "2026-11", "need": 87200, "members": [
+		{"userId": 1, "name": "Bert", "me": true, "share": 50, "senders": 0, "received": 0, "confirmed": false, "required": 43600, "covered": false},
+		{"userId": 2, "name": "Partner", "me": false, "share": 50, "senders": 0, "received": 0, "confirmed": false, "required": 43600, "covered": false}
 	], "mySenders": []}`)
 
 	// (a) Each from their own account.
@@ -89,9 +89,9 @@ func TestContributionClaims(t *testing.T) {
 	}
 	// Each sees a count for the other and only their own masked IBAN; the
 	// default month is the server's (18 Nov 2026).
-	equalJSON(t, p.partner("GET", contribPath, "").body, `{"month": "2026-11", "members": [
-		{"userId": 1, "name": "Bert", "me": false, "share": 50, "senders": 1, "received": 45000, "confirmed": true},
-		{"userId": 2, "name": "Partner", "me": true, "share": 50, "senders": 1, "received": 45000, "confirmed": true}
+	equalJSON(t, p.partner("GET", contribPath, "").body, `{"month": "2026-11", "need": 87200, "members": [
+		{"userId": 1, "name": "Bert", "me": false, "share": 50, "senders": 1, "received": 45000, "confirmed": true, "required": 43600, "covered": true},
+		{"userId": 2, "name": "Partner", "me": true, "share": 50, "senders": 1, "received": 45000, "confirmed": true, "required": 43600, "covered": true}
 	], "mySenders": [{"id": `+strconv.FormatInt(partner.ID, 10)+`, "iban": "BE71 •••• •••• 5038"}]}`)
 
 	// (a) refused: another user's account, an own account without IBAN, the
@@ -161,7 +161,7 @@ func TestContributionClaims(t *testing.T) {
 	if msg := expectError(t, p.bert("POST", "/api/accounts/1/contribution-senders", `{"fromAccountId": 2}`), http.StatusBadRequest, "invalid"); msg != "Een persoonlijke rekening heeft geen bijdragen." {
 		t.Errorf("personal: %q", msg)
 	}
-	equalJSON(t, p.bert("GET", "/api/accounts/1/contributions", "").body, `{"month": "2026-11", "members": [], "mySenders": []}`)
+	equalJSON(t, p.bert("GET", "/api/accounts/1/contributions", "").body, `{"month": "2026-11", "need": null, "members": [], "mySenders": []}`)
 	hidden := expectError(t, p.partner("POST", "/api/accounts/1/contribution-senders", `{"fromAccountId": 5}`), http.StatusNotFound, "not_found")
 	if missing := expectError(t, p.partner("POST", "/api/accounts/999/contribution-senders", `{"fromAccountId": 5}`), http.StatusNotFound, "not_found"); missing != hidden {
 		t.Errorf("hidden %q, missing %q", hidden, missing)
@@ -295,9 +295,9 @@ func TestContributionShares(t *testing.T) {
 	if r.status != http.StatusOK {
 		t.Fatalf("put: %d %s", r.status, r.body)
 	}
-	equalJSON(t, r.body, `{"month": "2026-11", "members": [
-		{"userId": 1, "name": "Bert", "me": true, "share": 60, "senders": 0, "received": 0, "confirmed": false},
-		{"userId": 2, "name": "Partner", "me": false, "share": 40, "senders": 0, "received": 0, "confirmed": false}
+	equalJSON(t, r.body, `{"month": "2026-11", "need": 87200, "members": [
+		{"userId": 1, "name": "Bert", "me": true, "share": 60, "senders": 0, "received": 0, "confirmed": false, "required": 52300, "covered": false},
+		{"userId": 2, "name": "Partner", "me": false, "share": 40, "senders": 0, "received": 0, "confirmed": false, "required": 34900, "covered": false}
 	], "mySenders": []}`)
 	if p.bert("PUT", sharesPath, `{"shares": {"1": 100, "2": 0}}`).status != http.StatusOK || shares() != "1:100 2:0" {
 		t.Errorf("100/0: %s", shares())
@@ -364,7 +364,7 @@ func TestContributionsResetOnMembershipChange(t *testing.T) {
 		after(t, p, "4:1")
 		// Bert alone: a personal account has no contributions and no labels,
 		// though his claim stays.
-		equalJSON(t, p.bert("GET", contribPath, "").body, `{"month": "2026-11", "members": [], "mySenders": []}`)
+		equalJSON(t, p.bert("GET", contribPath, "").body, `{"month": "2026-11", "need": null, "members": [], "mySenders": []}`)
 		for _, x := range decode[ledger.Page](t, p.bert("GET", "/api/transactions?limit=200&account=4", "").body).Items {
 			if x.Contribution != nil {
 				t.Errorf("a row of a personal account is labelled: %+v", x)

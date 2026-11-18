@@ -65,3 +65,20 @@ Chart colours (Overzicht, currently screen-local in `overzicht.css`, to promote)
 96-grid: rounded square r30 `#15803D`, coin circle (44,31) r12 `#FFD59E`, wallet rect (18,36) 60×40 r12 green fill with white stroke 6, clasp rect (58,48) 23×16 r8 white with dot (66,56) r3.5 green. Variants: iOS r22, Android circle, favicon 32 and 16 (simplified, thicker strokes), email logo (r26, stroke 7, no clasp dot). Files: `finance-mockup/img/app-icon.svg`, `app-icon-round.svg`, `statusbar-icon.svg`, `favicon.svg`.
 
 Status-bar icon: one-colour silhouette on a 24 dp grid, 2 dp margin, 1.5 dp gap between coin and wallet so they stay apart at 16 px. The Android notification shade uses its own colours, not the app tokens ([pushmeldingen](../screens/pushmeldingen.md#design-notes)).
+
+## Sheet motion (0.8-0c)
+One motion for every sheet in the app (`web/src/components/Sheet.tsx`, tokens in `tokens.css`, rules in `components.css`).
+
+| Token | Value | Use |
+|---|---|---|
+| `--ease-sheet-in` | `cubic-bezier(0.5, 0, 0.3, 1.2)` | in: 15 % of the way after a quarter of the time, a 2.25 % overshoot at about 85 % of the time, then settles |
+| `--dur-sheet-in` | 450 ms | |
+| `--ease-sheet-out` | `cubic-bezier(0.4, 0, 0.2, 1)` | out: no overshoot |
+| `--dur-sheet-out` | 250 ms | |
+
+- **Phone bottom sheet** (`.sheet`): `sSheetUp` (`translateY(100%)` to none) in, `sSheetDown` out; the backdrop fades in over 200 ms and out over 250 ms. Only `transform` and `opacity` animate. The overshoot lifts the sheet off the bottom edge, so a second `box-shadow` layer paints `--surface` 48 px below it (not a `::after`: the sheet is a scroll container and would clip or scroll it); the desktop dialog does not have it.
+- **Side panel** (`.panel`, `Sheet variant="panel"`): right edge, full height, 440 px (max 90 vw), radius 24 0 0 24, `sPanelIn` / `sPanelOut` on `translateX` with the same tokens, a 48 px `--surface` strip beyond its right edge for the overshoot. Modal like the sheet: backdrop, focus trap, Escape and backdrop close, focus returns. Overzicht's content sheets use it from 1024 px (`useIsDesktop()`) and the bottom sheet below; the same content re-renders in the other presentation when the width crosses 1024 px while it is open.
+- **Centred dialog** (pickers and forms on desktop, from 1024 px): the `.sheet` stays a dialog and rises 24 px (`sSheet`, `sSheetOut`) on the same tokens.
+- **Closing is asynchronous**: Escape, the backdrop and `useSheetClose()` (for a close button inside a sheet) add `sheet--closing` / `panel--closing` and call `onClose` on `animationend`, with a 300 ms timer as the fallback (160 ms with reduced motion). A caller that must close at once passes `immediate`, or unmounts the sheet itself (a pick in a list, a save), which skips the exit.
+- **Reduced motion**: no movement, a 150 ms fade in and out (`!important`, the global 1 ms rule would win otherwise).
+- Drag-to-dismiss is not built. A unit test (`motion.test.ts`) samples the token curves. Plan [0.8-0c](../../plan/v0.8-planning/00c-overzicht-sheets.md).

@@ -121,9 +121,15 @@ export function Shell() {
           {current.action && (
             <>
               {' '}
-              <Link className="toast-link" to={current.action.to}>
-                {current.action.label}
-              </Link>
+              {'to' in current.action ? (
+                <Link className="toast-link" to={current.action.to}>
+                  {current.action.label}
+                </Link>
+              ) : (
+                <button type="button" className="toast-link" onClick={current.action.run}>
+                  {current.action.label}
+                </button>
+              )}
             </>
           )}
         </div>

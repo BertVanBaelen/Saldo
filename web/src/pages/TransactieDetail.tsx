@@ -8,6 +8,7 @@ import { useApp } from '../app/AppContext';
 import { CatIcon } from '../components/CatIcon';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { Icon } from '../components/Icon';
+import { useSheetClose } from '../components/Sheet';
 import { accColour, contributionLabel, isShared, manager } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { catColours, categoryLabel, plural, ruleLabel, skippedText, splitState, toParts, type SplitDraft } from '../lib/categories';
@@ -166,6 +167,8 @@ interface DetailProps {
 
 export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }: DetailProps) {
   const { me, toast, online } = useApp();
+  // In the phone sheet the × plays the sheet's exit like Escape does; `onClose` runs when it ends.
+  const sheetClose = useSheetClose();
   const sheet = mode === 'sheet';
   const pending = t.status === 'pending';
   const ro = acc?.permission === 'read';
@@ -617,7 +620,7 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
           </span>
         </div>
         {sheet && (
-          <button type="button" className="tx-close" aria-label="Sluiten" onClick={onClose} data-autofocus>
+          <button type="button" className="tx-close" aria-label="Sluiten" onClick={sheetClose ?? onClose} data-autofocus>
             <Icon name="close" size={18} stroke={2.4} />
           </button>
         )}

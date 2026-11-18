@@ -9,14 +9,17 @@ import (
 // Alert is one alert on Start (docs/api.md).
 type Alert struct {
 	Kind      string `json:"kind"` // neg, warn or ok
-	Type      string `json:"type"` // consent, sync, categorise, member, rules, left, manager or deleted
+	Type      string `json:"type"` // consent, sync, categorise, member, rules, left, manager, deleted, invite or planning
 	Title     string `json:"title"`
 	Note      string `json:"note"`
 	Href      string `json:"href"`
-	AccountID int64  `json:"accountId,omitempty"` // only the alerts about one account that still exists (types sync, member, rules, left, manager)
+	AccountID int64  `json:"accountId,omitempty"` // only the alerts about one account that still exists (types sync, member, rules, left, manager, planning)
 	// NoticeID is the stored notice behind the alert (types member, rules,
 	// left, manager and deleted); POST /api/notices/{id}/read dismisses it.
 	NoticeID int64 `json:"noticeId,omitempty"`
+	// InvitationID is the open invitation behind an invite alert (0.8-0b):
+	// POST /api/invitations/{id}/accept or DELETE /api/invitations/{id}.
+	InvitationID int64 `json:"invitationId,omitempty"`
 }
 
 const (
@@ -30,7 +33,11 @@ const (
 // scope ("", "alles", "persoonlijk" or "gedeeld", else an apperr.Invalid)
 // narrows only the "te categoriseren" count: the alerts about one account
 // carry its id and the client hides them when it is outside the scope.
-func (s *Store) Alerts(ctx context.Context, viewer int64, scope string, now time.Time) ([]Alert, error) {
+// planning are the forecast alerts (0.8-4), computed by the server layer
+// because ledger does not import planning; they come after the stale
+// accounts (alert 3 of analysis/screens/start.md), before the consent that is
+// ending.
+func (s *Store) Alerts(ctx context.Context, viewer int64, scope string, now time.Time, planning ...Alert) ([]Alert, error) {
 	conns, err := s.Connections(ctx, viewer, now)
 	if err != nil {
 		return nil, err
@@ -44,6 +51,10 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, scope string, now time
 		return nil, err
 	}
 	noticeWarn, noticeInfo, err := s.noticeAlerts(ctx, viewer)
+	if err != nil {
+		return nil, err
+	}
+	invites, err := s.invitationAlerts(ctx, viewer, now)
 	if err != nil {
 		return nil, err
 	}
@@ -123,13 +134,13 @@ func (s *Store) Alerts(ctx context.Context, viewer int64, scope string, now time
 		}
 	}
 
-	ok = append(ok, noticeInfo...)
+	ok = append(append(ok, invites...), noticeInfo...)
 	if uncategorised > 0 {
 		ok = append(ok, Alert{Kind: "ok", Type: "categorise",
 			Title: fmt.Sprintf("%d %s te categoriseren", uncategorised, plural(uncategorised, "transactie", "transacties")),
 			Href:  hrefUncategorised})
 	}
-	out := append(append(append(append(neg, stale...), consent...), noticeWarn...), ok...)
+	out := append(append(append(append(append(neg, stale...), planning...), consent...), noticeWarn...), ok...)
 	if out == nil {
 		out = []Alert{}
 	}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
+import { SheetX } from '../components/ui';
 import { api, errorMessage, isAbort } from '../lib/api';
 import { sourceLabel, type ImportBatch, type UndoPreview } from '../lib/imports';
 
@@ -59,9 +60,7 @@ export function UndoDialog({ batches, where, onClose, onDone }: UndoProps) {
             <Icon name="undo" size={20} stroke={2.2} />
           </span>
           <h2 id="im-undo-h">{batches.length > 1 ? 'Import ongedaan maken?' : 'Batch ' + first.id + ' ongedaan maken?'}</h2>
-          <button type="button" className="im-close" aria-label="Sluiten" onClick={onClose}>
-            <Icon name="close" size={18} stroke={2.4} />
-          </button>
+          <SheetX className="im-close" onClose={onClose} />
         </div>
         {preview ? (
           <>

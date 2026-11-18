@@ -57,17 +57,18 @@ type ReportAccount struct {
 // reportParts extends visibleTx (it starts with a comma, after the tx CTE)
 // with the report layer: first_booked is the first booked date per visible
 // account, parts one row per booked transaction or per split part, with the
-// part's amount and category, the other side's type, members and first
-// booked date. It takes no parameters.
+// part's amount and category, its top category's saving flag (0.8-0a), the
+// other side's type, shared (IsShared) and first booked date. It takes no parameters.
 const reportParts = `, first_booked AS (
     SELECT account_id, MIN(booking_date) AS first FROM booked GROUP BY account_id
 ), parts AS (
-    SELECT tx.id, tx.account_id, tx.booking_date, COALESCE(sp.amount, tx.amount) AS amount, tx.members,
-           tx.is_transfer, tx.other_id, ov.type AS other_type, ov.members AS other_members, fb.first AS other_first,
-           COALESCE(c.parent_id, c.id) AS top_id, c.type AS cat_type
+    SELECT tx.id, tx.account_id, tx.booking_date, COALESCE(sp.amount, tx.amount) AS amount, tx.shared,
+           tx.is_transfer, tx.other_id, ov.type AS other_type, ov.shared AS other_shared, fb.first AS other_first,
+           COALESCE(c.parent_id, c.id) AS top_id, c.type AS cat_type, COALESCE(tc.saving, 0) AS saving
     FROM tx
     LEFT JOIN transaction_splits sp ON sp.transaction_id = tx.id
     LEFT JOIN categories c ON c.id = COALESCE(sp.category_id, tx.category_id)
+    LEFT JOIN categories tc ON tc.id = COALESCE(c.parent_id, c.id)
     LEFT JOIN vis ov ON ov.account_id = tx.other_id
     LEFT JOIN first_booked fb ON fb.account_id = tx.other_id
     WHERE tx.status = 'booked'
@@ -81,14 +82,21 @@ const reportParts = `, first_booked AS (
 var reportBase = strings.Replace(visibleTx, "), tx AS (", "), tx AS MATERIALIZED (", 1) + reportParts
 
 // reportBucket is the SQL that puts a parts row in out, saved, income or
-// expense (plan 0.7-1, the rule in its order). inSel is a condition on
-// other_id saying the other side is in the selection; the other side only
-// counts as in it once its history has started (its first booked row on or
-// before this date plus the 3 days of the pairing window).
+// expense (plan 0.7-1, the rule in its order, with the saving categories of
+// 0.8-0a). inSel is a condition on other_id saying the other side is in the
+// selection; the other side only counts as in it once its history has
+// started (its first booked row on or before this date plus the 3 days of
+// the pairing window). In order: an internal transfer inside the selection is
+// left out; a transfer to a savings or investment account is saved; a row or
+// split part whose top category is a saving category is saved (net, so a
+// withdrawal subtracts), which beats toShared, toOwn, none and an override
+// without partner; an override without partner is left out; then 0.7-1.
 func reportBucket(inSel string) string {
 	return `(CASE
-    WHEN is_transfer = 1 AND (other_id IS NULL OR ((` + inSel + `) AND other_first <= date(booking_date, '+3 days'))) THEN 'out'
+    WHEN is_transfer = 1 AND (` + inSel + `) AND other_first <= date(booking_date, '+3 days') THEN 'out'
     WHEN is_transfer = 1 AND other_type IN ('savings', 'investment') THEN 'saved'
+    WHEN saving = 1 THEN 'saved'
+    WHEN is_transfer = 1 AND other_id IS NULL THEN 'out'
     WHEN is_transfer = 1 AND amount < 0 THEN 'expense'
     WHEN is_transfer = 1 THEN 'income'
     WHEN cat_type = 'income' THEN 'income'
@@ -101,7 +109,7 @@ func reportBucket(inSel string) string {
 // reportBucket says expense: toShared (a personal account to a shared one),
 // toOwn (any other transfer out), the top category id, or none.
 const reportKey = `(CASE
-    WHEN is_transfer = 1 THEN CASE WHEN members = 1 AND other_members > 1 THEN 'toShared' ELSE 'toOwn' END
+    WHEN is_transfer = 1 THEN CASE WHEN shared = 0 AND other_shared = 1 THEN 'toShared' ELSE 'toOwn' END
     WHEN cat_type = 'expense' THEN CAST(top_id AS TEXT)
     ELSE 'none' END)`
 
@@ -123,14 +131,22 @@ func inSelection(column string, sel []int64) string {
 }
 
 // reportDrillDown is the drill-down filter of 0.7-2: the condition on the tx
-// CTE that keeps exactly the rows behind one expense key of the report for
-// the selection sel (from reportSelection, with the same scope and account
-// as the report). The query must be visibleTx + reportParts; the condition
-// has one parameter, the key ("<top id>", "none", "toShared" or "toOwn"). A
-// split row matches when one of its parts does.
-func reportDrillDown(sel []int64) string {
-	return `tx.id IN (SELECT id FROM parts WHERE ` + inSelection("account_id", sel) + `
-        AND ` + reportBucket(inSelection("other_id", sel)) + ` = 'expense' AND ` + reportKey + ` = ?)`
+// CTE, with its arguments, that keeps exactly the rows behind one key of the
+// report for the selection sel (from reportSelection, with the same scope and
+// account as the report). The query must be visibleTx + reportParts. key is
+// "saved" (every row behind the Gespaard number, 0.8-0a) or an expense key
+// ("<top id>", "none", "toShared" or "toOwn"); a saving top category's id
+// lists the rows saved in it. A split row matches when one of its parts does.
+func reportDrillDown(sel []int64, key string) (string, []any) {
+	bucket := reportBucket(inSelection("other_id", sel))
+	cond := bucket + ` = 'saved'`
+	var args []any
+	if key != "saved" {
+		cond = `CASE ` + bucket + ` WHEN 'expense' THEN ` + reportKey + ` = ?
+            WHEN 'saved' THEN saving = 1 AND CAST(top_id AS TEXT) = ? ELSE 0 END`
+		args = []any{key, key}
+	}
+	return `tx.id IN (SELECT id FROM parts WHERE ` + inSelection("account_id", sel) + ` AND ` + cond + `)`, args
 }
 
 // reportSelection is the selection S of a report: with account, that
@@ -159,7 +175,7 @@ func (s *Store) reportSelection(ctx context.Context, viewer int64, scope string,
 	}
 	// tx is the alias scopeCond expects.
 	rows, err := s.db.QueryContext(ctx, `SELECT tx.id FROM (
-		SELECT a.id, (SELECT COUNT(*) FROM account_access m WHERE m.account_id = a.id) AS members
+		SELECT a.id, (a.shared = 1 OR (SELECT COUNT(*) FROM account_access m WHERE m.account_id = a.id) > 1) AS shared
 		FROM account_access x JOIN accounts a ON a.id = x.account_id
 		WHERE x.user_id = ? AND a.type = 'current') tx
 		WHERE `+inScope+` ORDER BY tx.id`, viewer)

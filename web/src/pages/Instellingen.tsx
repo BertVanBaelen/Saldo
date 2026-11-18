@@ -9,7 +9,7 @@ import { Icon, type IconName } from '../components/Icon';
 import { PasswordInput, PasswordRules } from '../components/Password';
 import { Sheet } from '../components/Sheet';
 import { ROLE_LABEL } from '../components/Shell';
-import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
+import { delay, ErrorState, SheetX, SkelList, useTitle } from '../components/ui';
 import { api, errorMessage, leave } from '../lib/api';
 import { dateYear, isoDate, momentLabel } from '../lib/format';
 import type { Device, EnableBanking, Invitation, User, UserList } from '../lib/types';
@@ -90,16 +90,15 @@ function Note({ icon, tone, children }: { icon: IconName; tone?: 'warn'; childre
   );
 }
 
-function SheetHead({ title, sub, onClose }: { title: string; sub?: string; onClose: () => void }) {
+/** `busy`: the sheet refuses to close meanwhile, so the × calls its `onClose` at once instead of playing the exit. */
+function SheetHead({ title, sub, onClose, busy }: { title: string; sub?: string; onClose: () => void; busy?: boolean }) {
   return (
     <div className="in-sh-head">
       <span className="in-sh-title">
         <span id="in-sh-t">{title}</span>
         {sub && <small>{sub}</small>}
       </span>
-      <button type="button" className="in-close" aria-label="Sluiten" onClick={onClose}>
-        <Icon name="close" size={18} stroke={2.4} />
-      </button>
+      <SheetX className="in-close" onClose={onClose} instant={busy} />
     </div>
   );
 }
@@ -386,7 +385,7 @@ function Toestellen({ devices }: { devices: AsyncState<Device[]> }) {
 
       {confirm && (
         <Sheet onClose={close} labelledBy="in-sh-t" className="in-sheet">
-          <SheetHead title={confirm === 'others' ? 'Overal afmelden behalve hier?' : confirm.name + ' afmelden?'} onClose={close} />
+          <SheetHead title={confirm === 'others' ? 'Overal afmelden behalve hier?' : confirm.name + ' afmelden?'} onClose={close} busy={busy} />
           <p className="in-text">
             {confirm === 'others'
               ? 'Deze toestellen moeten daarna opnieuw inloggen met je wachtwoord en een e-mailcode:'
@@ -898,7 +897,7 @@ function RemoveUserSheet({ user, onClose, onRemoved }: { user: User; onClose: ()
 
   return (
     <Sheet onClose={close} labelledBy="in-sh-t" className="in-sheet">
-      <SheetHead title={user.name + ' verwijderen?'} onClose={close} />
+      <SheetHead title={user.name + ' verwijderen?'} onClose={close} busy={busy} />
       <p className="in-text">
         {user.name} kan daarna niet meer inloggen. Toestellen, voorkeuren en regels van deze gebruiker verdwijnen ook. Dit kan je niet ongedaan maken.
       </p>

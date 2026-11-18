@@ -7,81 +7,22 @@ import { useApp } from '../app/AppContext';
 import { CatEmoji, CatIcon } from '../components/CatIcon';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
-import { delay, ErrorState, ScopeSwitch, useIsDesktop, useTitle } from '../components/ui';
+import { delay, ErrorState, ScopeSwitch, SheetX, useIsDesktop, useTitle } from '../components/ui';
 import { accColour, contributionLabel, inScope, isShared } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { catColours, groupTree } from '../lib/categories';
-import { cap, dateShort, dayHeading, eur, MONTHS, toDate } from '../lib/format';
+import { categoryFromParam, drillQuery, period, periodFromParam, PERIOD_KEYS, SAVED_NOTE, UNCAT_FILTER } from '../lib/drilldown';
+import { dayHeading, eur, toDate } from '../lib/format';
 import type { Account, Transaction, TransactionPage, TreeCategory } from '../lib/types';
-import { rangeShort } from '../lib/reports';
 import { useAsync } from '../lib/useAsync';
 import { AccLabel, amountClass, Avatar, catView, Detail, type JustRule } from './TransactieDetail';
 import './Transacties.css';
 
 export { amountClass, catView };
+// Moved to lib/drilldown.ts (one mapping for this page and the sheets of Overzicht); the old names stay importable from here.
+export { categoryFromParam, period, periodFromParam };
 
 const PAGE = 50;
-export const UNCAT_FILTER = 'niet-gecategoriseerd';
-
-/** `?periode=` values of the dropdown; without one the list shows every period. Links also use `YYYY-MM`, `YYYY-Kn` and `YYYY`. */
-export type PeriodKey = 'deze' | 'vorige' | '3-maanden' | 'dit-jaar';
-const PERIOD_KEYS: PeriodKey[] = ['deze', 'vorige', '3-maanden', 'dit-jaar'];
-
-const iso = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-
-/** The booking dates of a period, relative to the server's `today`, with its chip and option texts. */
-export function period(key: PeriodKey, today: string): { from: string; to: string; label: string; chip: string; sub: string } {
-  const t = toDate(today);
-  const first = (monthsBack: number) => new Date(t.getFullYear(), t.getMonth() - monthsBack, 1, 12);
-  // A period that includes the current month runs to its end, so rows dated later (pending, value date) show.
-  const end = new Date(t.getFullYear(), t.getMonth() + 1, 0, 12);
-  const month = (d: Date) => cap(MONTHS[d.getMonth()]) + ' ' + d.getFullYear();
-  switch (key) {
-    case 'vorige': {
-      const f = first(1);
-      return { from: iso(f), to: iso(new Date(t.getFullYear(), t.getMonth(), 0, 12)), label: 'Vorige maand', chip: cap(MONTHS[f.getMonth()]), sub: month(f) };
-    }
-    case '3-maanden': {
-      const f = first(2);
-      return { from: iso(f), to: iso(end), label: 'Laatste 3 maanden', chip: 'Laatste 3 maanden', sub: dateShort(f) + ' – ' + dateShort(end) };
-    }
-    case 'dit-jaar':
-      return { from: t.getFullYear() + '-01-01', to: t.getFullYear() + '-12-31', label: 'Dit jaar', chip: String(t.getFullYear()), sub: '1 jan – 31 dec' };
-    default:
-      return { from: iso(first(0)), to: iso(end), label: 'Deze maand', chip: cap(MONTHS[t.getMonth()]), sub: month(t) };
-  }
-}
-
-/** Days in a month (month 0–11), by plain arithmetic: no Date, so no time zones and no 1900 mapping of years below 100. */
-const daysIn = (year: number, month: number) => (month === 1 ? (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28) : [31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month]);
-const ymd = (year: number, month: number, day: number) => year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-
-/**
- * The period of a `?periode=` value: a key of the dropdown, or from a link of Overzicht the month `2026-10`, the
- * calendar quarter `2026-K2`, the year `2026` or the range of months `2026-01..2026-10` (a column cut to the history).
- * Anything else, a range that runs backwards and years before 1900, gives `undefined` (the filter is ignored).
- */
-export function periodFromParam(value: string | null, today: string): ReturnType<typeof period> | undefined {
-  const key = PERIOD_KEYS.find((k) => k === value);
-  if (key) return period(key, today);
-  const r = /^(\d{4})-(0[1-9]|1[0-2])\.\.(\d{4})-(0[1-9]|1[0-2])$/.exec(value ?? '');
-  const m = r ? null : /^(\d{4})(?:-(0[1-9]|1[0-2])|-K([1-4]))?$/.exec(value ?? '');
-  if (!r && !m) return undefined;
-  // First and last month as [year, month 0–11].
-  let y0: number, a: number, y1: number, b: number;
-  if (r) {
-    [y0, a, y1, b] = [Number(r[1]), Number(r[2]) - 1, Number(r[3]), Number(r[4]) - 1];
-    if (y0 * 12 + a > y1 * 12 + b) return undefined;
-  } else {
-    y0 = y1 = Number(m![1]);
-    [a, b] = m![2] ? [Number(m![2]) - 1, Number(m![2]) - 1] : m![3] ? [(Number(m![3]) - 1) * 3, Number(m![3]) * 3 - 1] : [0, 11];
-  }
-  if (y0 < 1900) return undefined;
-  const from = ymd(y0, a, 1);
-  const to = ymd(y1, b, daysIn(y1, b));
-  const name = r ? rangeShort(r[1] + '-' + r[2], r[3] + '-' + r[4]) : m![2] ? cap(MONTHS[a]) + ' ' + y0 : m![3] ? 'K' + m![3] + ' ' + y0 : String(y0);
-  return { from, to, label: name, chip: name, sub: dateShort(from) + ' – ' + dateShort(to) };
-}
 
 /** Rows grouped by booking date, newest first, keeping the server's order within a day. */
 export function groupByDay(items: Transaction[]): { date: string; items: Transaction[] }[] {
@@ -264,34 +205,24 @@ function periodOptions(today: string): Option[] {
   ];
 }
 
-/**
- * `?categorie=` values: a top category id, or `geen` / `naar-gedeeld` / `naar-eigen` (the pseudo rows of Overzicht),
- * sent to the API as the id, `none`, `toShared` and `toOwn`. Anything else is ignored.
- */
-const CATEGORY_KEYS: Record<string, string> = { geen: 'none', 'naar-gedeeld': 'toShared', 'naar-eigen': 'toOwn' };
-export function categoryFromParam(value: string | null): { param: string; key: string } | undefined {
-  if (value && /^[1-9]\d*$/.test(value)) return { param: value, key: value };
-  if (value && Object.hasOwn(CATEGORY_KEYS, value)) return { param: value, key: CATEGORY_KEYS[value] };
-  return undefined;
-}
-
 const catDot = (c: TreeCategory) => <CatIcon icon={c.icon} colour={c.colour} size="sm" />;
 
-/** The text and dot of the category chip: the chosen category, one of the pseudo rows of Overzicht, or "Niet gecategoriseerd". */
+/** The text and dot of the category chip: the chosen category, one of the pseudo rows of Overzicht (Gespaard too), or "Niet gecategoriseerd". */
 function categoryChip(param: string | undefined, uncat: boolean, tree: TreeCategory[] | undefined): { text: string; lead?: React.ReactNode } {
   const dot = (cls: string, style?: React.CSSProperties) => <i className={'tx-dot ' + cls} style={style} aria-hidden="true" />;
   if (param === 'naar-gedeeld') return { text: 'Naar gedeelde rekening', lead: dot('tx-dot--shared') };
   if (param === 'naar-eigen') return { text: 'Naar eigen rekening', lead: dot('tx-dot--own') };
+  if (param === 'gespaard') return { text: 'Gespaard', lead: dot('tx-dot--saved') };
   if (param === 'geen' || (param === undefined && uncat)) return { text: 'Niet gecategoriseerd', lead: dot('tx-dot--uncat') };
   const c = param === undefined ? undefined : tree?.find((x) => String(x.id) === param);
   return c ? { text: c.name, lead: dot('', { background: catColours(c.colour).bg }) } : { text: 'Categorie' };
 }
 
-/** "Alle categorieën", the expense top categories (a subcategory rolls up into its top), "Niet gecategoriseerd". No income categories: the drill-down only has the report's expense keys, income is one total on Overzicht. */
+/** "Alle categorieën", the expense top categories (a subcategory rolls up into its top; a saving one says so and lists the rows that count as Gespaard in it), "Niet gecategoriseerd". No income categories: the drill-down only has the report's expense keys, income is one total on Overzicht. */
 function categoryOptions(tree: TreeCategory[], countText: string): Option[] {
   const { expense } = groupTree(tree);
   const tops = (groups: typeof expense, heading: string): Option[] =>
-    groups.map((g, i) => ({ key: String(g.top.id), lead: catDot(g.top), name: g.top.name, heading: i === 0 ? heading : undefined }));
+    groups.map((g, i) => ({ key: String(g.top.id), lead: catDot(g.top), name: g.top.name, sub: g.top.saving ? 'Telt als gespaard' : undefined, heading: i === 0 ? heading : undefined }));
   return [
     { key: '', lead: optIcon('tag'), name: 'Alle categorieën' },
     ...tops(expense, 'Uitgaven'),
@@ -422,15 +353,12 @@ export function Transacties() {
   const { me, scope, dataVersion, toast, refreshShell } = useApp();
   const desktop = useIsDesktop();
   const [params, setParams] = useSearchParams();
-  const uncat = params.get('filter') === UNCAT_FILTER;
-  const accountParam = Number(params.get('rekening')) || undefined;
+  // The URL filters and their query: the same mapping the sheets of Overzicht use (lib/drilldown.ts).
+  const { uncategorised: uncat = false, category, account: accountParam, from, to } = drillQuery(params, me.today);
   const periodParam = params.get('periode');
   const periodKey = PERIOD_KEYS.find((k) => k === periodParam);
   const range = periodFromParam(periodParam, me.today);
   const categoryFilter = categoryFromParam(params.get('categorie'));
-  const category = categoryFilter?.key;
-  const from = range?.from;
-  const to = range?.to;
   const [query, setQuery] = useState('');
   const q = useDebounced(query.trim(), 250);
 
@@ -743,7 +671,7 @@ export function Transacties() {
   // A deep-link period (a month, quarter or year) is no option of the list: none is marked then.
   else if (ddOpen === 'periode') dropBody = <Options items={periodOptions(me.today)} value={range ? (periodParam ?? '') : ''} onPick={(k) => pick('periode', k)} />;
   else if (ddOpen === 'categorie') {
-    // `geen`, `naar-gedeeld` and `naar-eigen` come from Overzicht only: no option is marked for them.
+    // `geen`, `naar-gedeeld`, `naar-eigen` and `gespaard` come from Overzicht only: no option is marked for them.
     const value = categoryFilter ? categoryFilter.param : uncat ? UNCAT_FILTER : '';
     dropBody = <Options items={categoryOptions(cats.data || [], countText)} value={value} onPick={(k) => pick('categorie', k)} />;
   }
@@ -755,6 +683,12 @@ export function Transacties() {
         <div className="tx-list-wrap">
           <div className="tx-list" aria-busy={first.loading && !!first.data}>
             {list}
+            {categoryFilter?.param === 'gespaard' && !noAccounts && !first.error && first.data && (
+              <p className="tx-note">
+                <Icon name="info" size={15} stroke={2.2} />
+                <span>{SAVED_NOTE}</span>
+              </p>
+            )}
           </div>
         </div>
         {!noAccounts && (
@@ -781,9 +715,7 @@ export function Transacties() {
           <Sheet onClose={closeDd} labelledBy="tx-dd-title" className="tx-sheet tx-ddsheet" backdropClassName="tx-backdrop">
             <div className="tx-dd-head">
               <h2 id="tx-dd-title">{DROP_TITLE[ddOpen]}</h2>
-              <button type="button" className="tx-close" aria-label="Sluiten" onClick={closeDd}>
-                <Icon name="close" size={18} stroke={2.4} />
-              </button>
+              <SheetX className="tx-close" onClose={closeDd} />
             </div>
             <div className="tx-dd-body">{dropBody}</div>
           </Sheet>

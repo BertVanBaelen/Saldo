@@ -8,7 +8,7 @@
 | Features | NOTIF-3 |
 | Concepts | [notification](../../analysis/concepts/notification.md), [forecast](../../analysis/concepts/forecast.md), [bank-connection](../../analysis/concepts/bank-connection.md), [shared-account](../../analysis/concepts/shared-account.md), [categorisation-rule](../../analysis/concepts/categorisation-rule.md) |
 | Analysis | 4.9, risk 15 |
-| Depends on | [0.9-1](01-email-templates.md), [0.9-2](02-web-push.md) |
+| Depends on | [0.9-1](01-email-templates.md), [0.9-2](02-web-push.md), [0.8-3](../v0.8-planning/03-forecast-engine.md) (`planning.Forecast(ctx, db, account, today, horizon)`, no viewer), [0.8-4](../v0.8-planning/04-forecast-api-and-start.md) (the month-end red and buffer rule of the planning alerts) |
 
 ## Goal
 The right message, once, at the right time, only about accounts you can see.

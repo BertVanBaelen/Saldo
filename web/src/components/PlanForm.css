@@ -1,0 +1,41 @@
+/* The plan form of the day card. Ported from finance-mockup/css/screens/planning.css (.pl-form …), tokens only.
+   The kind switch, the description and the amount are the controls of web/src/ui/ (SegmentedControl, Input, AmountInput). */
+
+.pf {
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 6px 0 10px; padding: 12px;
+  border-radius: 14px;
+  background: var(--bg);
+  animation: sIn 200ms ease-out both;
+}
+.pf-title { font-size: 14px; font-weight: 600; }
+
+/* The account choice keeps its own buttons: the library segmented control cannot paint a chosen account in its colour. */
+.pf-field { display: flex; flex-direction: column; gap: 6px; }
+.pf-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+
+.pf-accs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.pf-accs > button {
+  min-height: 44px; padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px; font-weight: 600;
+}
+.pf-fixed { align-self: flex-start; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: var(--r-pill); }
+.pf-fixed--personal { background: var(--soft); color: var(--greenText); }
+.pf-fixed--shared { background: var(--sharedSoft); color: var(--sharedText); }
+
+/* A live region: it stays in the layout (an empty one cancels its flex gap) so a screen reader hears it change. */
+.pf-preview { font-size: 13px; font-weight: 600; }
+.pf-preview:empty { height: 0; margin-top: -10px; }
+.pf-preview--ok { color: var(--greenText); }
+.pf-preview--warn { color: var(--warn); }
+.pf-preview--neg { color: var(--neg); }
+.pf-err { font-size: 13px; color: var(--neg); }
+.pf-offline { font-size: 13px; color: var(--muted); }
+
+.pf-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pf-actions .btn { font-size: 14px; padding: 0 10px; }
+.pf-actions .btn:disabled { opacity: 0.6; }

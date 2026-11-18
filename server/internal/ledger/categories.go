@@ -45,7 +45,10 @@ type TreeCategory struct {
 	ParentID *int64  `json:"parentId"`
 	Icon     *string `json:"icon"`
 	Count    int     `json:"count"`
-	order    int
+	// Saving is the effective "Telt als gespaard" (0.8-0a): a subcategory
+	// shows its parent's value.
+	Saving bool `json:"saving"`
+	order  int
 }
 
 // CategoryInput is the body of POST and PATCH /api/categories.
@@ -55,6 +58,7 @@ type CategoryInput struct {
 	Colour   Opt[string] `json:"colour"`
 	ParentID Opt[int64]  `json:"parentId"`
 	Icon     Opt[string] `json:"icon"`
+	Saving   Opt[bool]   `json:"saving"`
 }
 
 const maxCategoryName = 60
@@ -111,7 +115,8 @@ func (s *Store) Categories(ctx context.Context, viewer int64) ([]TreeCategory, e
 		     + (SELECT COUNT(DISTINCT s.transaction_id) FROM transaction_splits s
 		        JOIN transactions t ON t.id = s.transaction_id
 		        JOIN account_access me ON me.account_id = t.account_id AND me.user_id = ?1
-		        WHERE s.category_id = c.id)
+		        WHERE s.category_id = c.id),
+		       COALESCE((SELECT p.saving FROM categories p WHERE p.id = c.parent_id), c.saving)
 		FROM categories c`, viewer)
 	if err != nil {
 		return nil, err
@@ -120,7 +125,7 @@ func (s *Store) Categories(ctx context.Context, viewer int64) ([]TreeCategory, e
 	var all []TreeCategory
 	for rows.Next() {
 		var c TreeCategory
-		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &c.Colour, &c.ParentID, &c.order, &c.Icon, &c.Count); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &c.Colour, &c.ParentID, &c.order, &c.Icon, &c.Count, &c.Saving); err != nil {
 			return nil, err
 		}
 		all = append(all, c)
@@ -183,14 +188,15 @@ type stored struct {
 	typ      string
 	colour   string
 	icon     *string
+	saving   bool // as stored: only a top expense category stores true
 	children int
 }
 
 func loadCategory(ctx context.Context, tx *sql.Tx, id int64) (stored, error) {
 	var c stored
-	err := tx.QueryRowContext(ctx, `SELECT id, name, parent_id, type, `+effectiveColour("c")+`, icon,
+	err := tx.QueryRowContext(ctx, `SELECT id, name, parent_id, type, `+effectiveColour("c")+`, icon, saving,
 		(SELECT COUNT(*) FROM categories k WHERE k.parent_id = c.id) FROM categories c WHERE id = ?`, id).
-		Scan(&c.id, &c.name, &c.parent, &c.typ, &c.colour, &c.icon, &c.children)
+		Scan(&c.id, &c.name, &c.parent, &c.typ, &c.colour, &c.icon, &c.saving, &c.children)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c, apperr.ErrNotFound
 	}
@@ -259,6 +265,21 @@ func topColour(typ, colour string) (string, error) {
 	return "", apperr.Invalid("Kies een kleur uit het palet of een eigen kleur (#rrggbb).")
 }
 
+// savingOf checks "Telt als gespaard" for a category that ends up with parent
+// and type: only a top expense category takes true; false is always fine.
+func savingOf(in Opt[bool], parent *int64, typ string) (bool, error) {
+	if !in.V || in.Null {
+		return false, nil
+	}
+	if parent != nil {
+		return false, apperr.Invalid("Een subcategorie telt mee via haar hoofdcategorie.")
+	}
+	if typ == "income" {
+		return false, apperr.Invalid("Een inkomstencategorie kan niet als gespaard tellen.")
+	}
+	return true, nil
+}
+
 func validType(t string) error {
 	if t != "expense" && t != "income" {
 		return apperr.Invalid("Kies Uitgaven of Inkomsten.")
@@ -315,21 +336,29 @@ func createCategoryIn(ctx context.Context, tx *sql.Tx, in CategoryInput) (int64,
 			return 0, err
 		}
 	}
+	saving, err := savingOf(in.Saving, parent, typ)
+	if err != nil {
+		return 0, err
+	}
 	if err := unique(ctx, tx, name, parent, 0); err != nil {
 		return 0, err
 	}
 	var id int64
 	col, tint := colourColumns(colour)
-	err = tx.QueryRowContext(ctx, `INSERT INTO categories (name, parent_id, type, colour, tint, icon, sort_order)
-		VALUES (?1, ?2, ?3, ?4, ?6, ?5, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2))
-		RETURNING id`, name, parent, typ, col, icon, tint).Scan(&id)
+	err = tx.QueryRowContext(ctx, `INSERT INTO categories (name, parent_id, type, colour, tint, icon, saving, sort_order)
+		VALUES (?1, ?2, ?3, ?4, ?6, ?5, ?7, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2))
+		RETURNING id`, name, parent, typ, col, icon, tint, saving).Scan(&id)
 	return id, err
 }
 
-// UpdateCategory renames, moves, retypes, recolours or re-icons a category. Moving
-// under a parent adopts its type and colour; recolouring a top category
-// recolours its subcategories. A category with subcategories cannot move
-// under another one, nor change its type.
+// UpdateCategory renames, moves, retypes, recolours, re-icons or flags
+// ("Telt als gespaard", 0.8-0a) a category. Moving under a parent adopts its
+// type, colour and saving flag (a subcategory stores no flag of its own);
+// recolouring a top category recolours its subcategories. A category with
+// subcategories cannot move under another one, nor change its type. A saving
+// or income category has no budget: moving a top category under another one,
+// turning it income or making it count as saved (itself or through a new
+// parent) deletes its budget rows, and its subcategories' when it is flagged.
 func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in CategoryInput) (TreeCategory, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -353,6 +382,7 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 		}
 	}
 	parent, typ, colour := c.parent, c.typ, c.colour
+	parentSaving := false // the category moves under a saving parent
 	toTop := in.ParentID.Set && in.ParentID.Null
 	if in.ParentID.Set && !toTop {
 		if c.children > 0 {
@@ -363,6 +393,7 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 			return TreeCategory{}, err
 		}
 		parent, typ, colour = &p.id, p.typ, p.colour
+		parentSaving = p.saving && (c.parent == nil || *c.parent != p.id)
 	}
 	if toTop {
 		parent = nil
@@ -387,16 +418,30 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 			return TreeCategory{}, err
 		}
 	}
+	// The stored flag stays only while the category stays a top expense category.
+	saving := c.saving && parent == nil && typ == "expense"
+	if in.Saving.Set {
+		if saving, err = savingOf(in.Saving, parent, typ); err != nil {
+			return TreeCategory{}, err
+		}
+	}
 	if err := unique(ctx, tx, name, parent, id); err != nil {
 		return TreeCategory{}, err
 	}
 	moved := (parent == nil) != (c.parent == nil) || parent != nil && *parent != *c.parent
 	col, tint := colourColumns(colour)
-	if _, err := tx.ExecContext(ctx, `UPDATE categories SET name = ?1, parent_id = ?2, type = ?3, colour = ?4, tint = ?8, icon = ?7,
+	if _, err := tx.ExecContext(ctx, `UPDATE categories SET name = ?1, parent_id = ?2, type = ?3, colour = ?4, tint = ?8, icon = ?7, saving = ?9,
 		sort_order = CASE WHEN ?5 THEN (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE parent_id IS ?2 AND id <> ?6)
 		                  ELSE sort_order END
-		WHERE id = ?6`, name, parent, typ, col, moved, id, icon, tint); err != nil {
+		WHERE id = ?6`, name, parent, typ, col, moved, id, icon, tint, saving); err != nil {
 		return TreeCategory{}, err
+	}
+	flagged := saving && !c.saving
+	if c.parent == nil && parent != nil || typ == "income" && c.typ != "income" || flagged || parentSaving {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM budgets WHERE category_id = ?1
+			OR (?2 AND category_id IN (SELECT id FROM categories WHERE parent_id = ?1))`, id, flagged); err != nil {
+			return TreeCategory{}, err
+		}
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE categories SET type = ?, colour = ?, tint = ? WHERE parent_id = ?`, typ, col, tint, id); err != nil {
 		return TreeCategory{}, err
@@ -414,7 +459,8 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 //
 // With a target: transactions keep their origin and rule, and split parts,
 // rules, budgets (one per account, category and month: a clash keeps the
-// target's), category mappings and suggestions follow. Without one:
+// target's; only to a top expense category that is not saving, else they are
+// deleted), category mappings and suggestions follow. Without one:
 // transactions lose category, origin and rule; the category's rules,
 // budgets and suggestions are deleted and its mappings become "leave
 // uncategorised"; refused when a split part uses it.
@@ -463,12 +509,17 @@ func (s *Store) RemoveCategory(ctx context.Context, id, moveTo int64) error {
 			`UPDATE transactions SET category_id = ?2 WHERE category_id = ?1`,
 			`UPDATE transaction_splits SET category_id = ?2 WHERE category_id = ?1`,
 			`UPDATE rules SET category_id = ?2 WHERE category_id = ?1`,
-			`UPDATE OR IGNORE budgets SET category_id = ?2 WHERE category_id = ?1`,
+		}
+		// Budgets follow only to a top expense category that is not saving (0.8-0a); else they go.
+		if t.parent == nil && t.typ == "expense" && !t.saving {
+			steps = append(steps, `UPDATE OR IGNORE budgets SET category_id = ?2 WHERE category_id = ?1`)
+		}
+		steps = append(steps,
 			`DELETE FROM budgets WHERE category_id = ?1`,
 			`UPDATE category_mappings SET category_id = ?2 WHERE category_id = ?1`,
 			`UPDATE OR IGNORE category_suggestions SET category_id = ?2 WHERE category_id = ?1`,
 			`DELETE FROM category_suggestions WHERE category_id = ?1`,
-		}
+		)
 	}
 	steps = append(steps, `DELETE FROM categories WHERE id = ?1`)
 	for _, q := range steps {

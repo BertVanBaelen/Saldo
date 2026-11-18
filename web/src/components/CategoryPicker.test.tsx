@@ -12,6 +12,7 @@ const cat = (id: number, name: string, parentId: number | null = null, type: Tre
   icon,
   parentId,
   count: 0,
+  saving: false,
 });
 // Wonen (with Huur and Energie), Boodschappen alone, Overig alone; income: Loon with Bonus, Terugbetaling alone.
 const TREE = [

@@ -74,6 +74,11 @@
   --r-pill: 999px;
 
   --ease-out: cubic-bezier(.2, .7, .2, 1);
+  /* One motion for every sheet and side panel (phase 0.8-0c): slow start, a 2.25 % overshoot, no overshoot on the way out. */
+  --ease-sheet-in: cubic-bezier(0.5, 0, 0.3, 1.2);
+  --dur-sheet-in: 450ms;
+  --ease-sheet-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-sheet-out: 250ms;
   --tabbar-h: 84px;
   --sidebar-w: 232px;
 }
@@ -214,7 +219,15 @@
   100% { opacity: 0; transform: translate(-50%, 0); }
 }
 @keyframes sShimmer { from { background-position: -320px 0; } to { background-position: 320px 0; } }
+@keyframes sFadeOut { from { opacity: 1; } to { opacity: 0; } }
+/* Centred dialog (desktop pickers and forms): a short rise and back */
 @keyframes sSheet { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sSheetOut { from { transform: none; opacity: 1; } to { transform: translateY(24px); opacity: 0; } }
+/* Phone bottom sheet and desktop side panel */
+@keyframes sSheetUp { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sSheetDown { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes sPanelIn { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes sPanelOut { from { transform: none; } to { transform: translateX(100%); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

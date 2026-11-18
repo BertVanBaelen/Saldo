@@ -86,7 +86,7 @@ describe('EmojiPicker', () => {
 });
 
 describe('category chip icon', () => {
-  const cat = (icon: string | null): TreeCategory => ({ id: 1, name: 'Wonen', type: 'expense', colour: 'c1', icon, parentId: null, count: 0 });
+  const cat = (icon: string | null): TreeCategory => ({ id: 1, name: 'Wonen', type: 'expense', colour: 'c1', icon, parentId: null, count: 0, saving: false });
 
   it('draws the stored emoji and falls back to the tag', () => {
     const byId = new Map<number, TreeCategory>();

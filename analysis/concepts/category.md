@@ -12,6 +12,11 @@ Analysis: 4.2, 4.4, 4.6 · Data: `category`, `category_mapping` · Screens: [tra
 - Types: income, expense. Internal transfers are recognised ([internal-transfer](internal-transfer.md)) and may still carry a category (decision 10 Nov 2026). Sums leave transfers out at query time, never by category.
 - Imported (Bilance) categories are mapped onto the default set, saved per source ([import](import.md), phase 0.5-3).
 
+## Saving categories (planned, plan 0.8-0a, user request 17 Nov 2026)
+- A **top category of type expense** can be marked "Telt als gespaard" (`categories.saving`), in Categorieën en regels. Its subcategories inherit it; income categories cannot carry it; moving a top category under another one drops its own flag. A shared setting, like the colour.
+- What is booked in it counts as **Gespaard** (net) on Overzicht and Start instead of as an expense, also when Saldo does not recognise the transfer (savings at another bank, a savings account without IBAN, imported rows). An internal transfer inside the selection stays left out. Rule and precedence: [0.8-0a](../../plan/v0.8-planning/00-saving-categories.md) and [internal-transfer](internal-transfer.md).
+- Planning: a saving category has no budget and is not variable spending; recurring items in it are of kind "saving".
+
 ## Colours
 Each top category has a pastel. Text on a pastel is always `--onPastel`.
 

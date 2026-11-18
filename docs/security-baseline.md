@@ -63,6 +63,7 @@ Result per item: **ok** (checked, nothing to change), **fixed** (in this phase, 
 | CI: actions pinned by commit, `persist-credentials: false`, read-only token, gitleaks on the full history | ok. The gitleaks download has no checksum check: 1.0-2 |
 | `govulncheck ./...` | fixed: 14 standard-library findings in Go 1.27.0 (`net/http`, `html/template`, `crypto/tls`, `crypto/x509`, ...); `go.mod` now asks for toolchain 1.27.3, then 0 findings |
 | `npm audit --omit=dev` | ok: 0 vulnerabilities. This is the blocking CI check: it covers what ships (React, the router, the fonts) |
+| UI libraries of the Planning screens (0.8-5a): `react-aria-components` 1.22 and `@internationalized/date` (Apache-2.0, shipped), `tailwindcss` 4.3 + `@tailwindcss/vite` + `@react-aria/optimize-locales-plugin` (build only); components copied from Untitled UI React and Kokonut UI (MIT), see [third-party-ui.md](third-party-ui.md) | ok: `npm audit --omit=dev` 0 vulnerabilities on 18 Nov 2026 (the build-only locales plugin joins the known `picomatch` chain below through `unplugin`); CSP unchanged (React Aria positions popovers with inline `style` attributes, covered by `style-src 'unsafe-inline'`; no inline script) |
 | `npm audit` (all dependencies) | warns only, see "Known advisories in build and test tools" below |
 | Audit log has no screen yet | 1.0-2 (planned with Instellingen) |
 

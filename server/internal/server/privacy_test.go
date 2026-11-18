@@ -49,8 +49,9 @@ type world struct {
 	sharedRule                                             int64
 	bertBatch, bertRunBatch, sharedRunBatch, partnerBatch  int64
 	bertDevice, partnerDevice, bertOffer                   int64
-	bertNotice, partnerNotice, invitation                  int64
+	bertNotice, partnerNotice, invitation, accInvitation   int64 // accInvitation: Derde's open invitation to the family account
 	bertSender, partnerSender, bertContribution            int64
+	bertItem, partnerItem, bertPlanned, partnerPlanned     int64  // planning: recurring items and planned items on the personal accounts
 	bertState                                              string // a pending link state of Bert
 }
 
@@ -62,12 +63,13 @@ var (
 		"Geheimcat", "Runwinkel Prive", "bert@jouw-domein.be", "Chrome op Windows", "nieuw@example.com", "BERTFOUT_X"}
 	partnerSecrets = []string{"Eigen rekening", "7061", "Werkgever BV", "246000", "143215", "Potje Partner", "Partnerbakker",
 		"partner-geheim.csv", "Partnergeheim", "Partnerwinkel", "0082", "Partnerloon", "Partnercat", "Partnerzaak",
-		"partner@jouw-domein.be", "Safari op iPhone", "Overschrijving Bert", "PARTNERFOUT_Y"}
+		"partner@jouw-domein.be", "Safari op iPhone", "Overschrijving Bert", "PARTNERFOUT_Y",
+		"246001", "246002", "246003"} // planning: an item, a budget and a planned item on her own account
 	derdeSecrets = []string{"Derdes Rekening", "Derdewinkel", "derde@example.com"}
 	// Never rendered at all (full IBANs are masked): checked only for absence.
 	neverShown = []string{ibanPersonal, ibanPartner, ibanDerde, "BE11000000000071", "BE22000000000082"}
 	// The family account's data: every member sees it.
-	sharedSecrets = []string{"Gezinsrekening", "6769", "Gedeelde notitie", "Runwinkel Samen", "Gedeeld Proef", "Bijdrage van Bert"}
+	sharedSecrets = []string{"Gezinsrekening", "6769", "Gedeelde notitie", "Runwinkel Samen", "Gedeeld Proef", "Bijdrage van Bert", "Gezinsabonnement"}
 )
 
 func newWorld(t *testing.T) *world {
@@ -122,6 +124,19 @@ func newWorld(t *testing.T) *world {
 	w.ok(w.bert, "PATCH", txPath(w.sharedTx, ""), `{"categoryId":2,"note":"Gedeelde notitie"}`, 200)
 	w.ok(w.bert, "PUT", txPath(w.bertSplit, "/split"), `{"parts":[{"categoryId":2,"amount":-615},{"categoryId":3,"amount":-615}]}`, 200)
 	w.exec(`INSERT INTO transfer_overrides (user_id, transaction_id, is_transfer) VALUES (?, ?, 1)`, w.bert, w.sharedTx)
+
+	// Planning (0.8-1): Partner's own account carries an item, a budget and a planned item with the
+	// sentinel amounts; Bert has an item and a planned item on his; the family account has an item
+	// with a counterparty IBAN of Partner's (stored, never shown).
+	planningBody := func(account int64, rest string) string { return `{"accountId":` + id(account) + `,` + rest + `}` }
+	const itemRest = `"description":"Eigen post","amount":-%d,"frequency":"monthly","day":5,"kind":"expense"`
+	w.partnerItem = decode[ledger.Item](t, w.ok(w.partner, "POST", "/api/planning/items", planningBody(w.partnerAcc, fmt.Sprintf(itemRest, 246001)), 201).body).ID
+	w.bertItem = decode[ledger.Item](t, w.ok(w.bert, "POST", "/api/planning/items", planningBody(w.bertAcc, fmt.Sprintf(itemRest, 100500)), 201).body).ID
+	w.ok(w.partner, "PUT", "/api/planning/budgets", planningBody(w.partnerAcc, `"categoryId":2,"fromMonth":"2026-11","amount":246002`), 200)
+	w.partnerPlanned = decode[ledger.Planned](t, w.ok(w.partner, "POST", "/api/planning/planned", planningBody(w.partnerAcc, `"date":"2026-12-01","amount":246003,"description":"Eigen plan"`), 201).body).ID
+	w.bertPlanned = decode[ledger.Planned](t, w.ok(w.bert, "POST", "/api/planning/planned", planningBody(w.bertAcc, `"date":"2026-12-02","amount":-7700,"description":"Bert plan"`), 201).body).ID
+	shared := decode[ledger.Item](t, w.ok(w.bert, "POST", "/api/planning/items", planningBody(w.shared, `"description":"Gezinsabonnement","counterparty":"Bijdrage","amount":-1100,"frequency":"monthly","day":9,"kind":"expense"`), 201).body)
+	w.exec(`UPDATE recurring_items SET counterparty_iban = ? WHERE id = ?`, ibanPartner, shared.ID)
 
 	// Rules: a user rule and an account rule each, and one on the family account.
 	w.bertRule = w.rule(w.bert, `{"counterparty":"Geheimwinkel","counterpartyIban":"BE11000000000071","categoryId":2}`)
@@ -190,6 +205,10 @@ func newWorld(t *testing.T) *world {
 		ID int64 `json:"id"`
 	}](t, w.ok(w.bert, "POST", "/api/users/invitations", `{"email":"nieuw@example.com","role":"user"}`, 201).body).ID
 	e.mails()
+
+	// Bert invited Derde to the family account (0.8-0b): Derde is no member, so
+	// for everyone else the invitation is as good as nothing.
+	w.accInvitation = decode[ledger.Invitation](t, w.ok(w.bert, "POST", "/api/accounts/"+id(w.shared)+"/invitations", `{"userId":`+id(w.derde)+`}`, 201).body).ID
 
 	// Sync errors: Bert's link failed on the family account (its error code
 	// is his alone), Partner's link failed as a whole.
@@ -271,6 +290,8 @@ func (w *world) user(as string) int64 {
 		return w.bert
 	case "partner":
 		return w.partner
+	case "derde":
+		return w.derde
 	case "anon":
 		return 0
 	}
@@ -501,9 +522,9 @@ func privacyRows() []privacyRow {
 			return []probe{{as: "partner", method: "DELETE", path: "/api/users/" + id(w.derde), status: 403,
 				missing: &probe{as: "partner", method: "DELETE", path: "/api/users/" + none, status: 403}}}
 		}, []string{"TestDeleteUser"}},
-		{"GET /api/accounts", "list", "account_access of the viewer; members only on shared accounts; syncError only of the viewer's own link", func(w *world) []probe {
+		{"GET /api/accounts", "list", "account_access of the viewer; members only on shared accounts; open invitations (the invitees' names) only for the account's manager; syncError only of the viewer's own link", func(w *world) []probe {
 			return []probe{read("/api/accounts", 200)}
-		}, []string{"TestPatchMember", "TestAccountSources"}},
+		}, []string{"TestPatchMember", "TestAccountSources", "TestInvitationRoutes", "TestPrivacyInviteeBeforeAccepting"}},
 		{"POST /api/accounts", "own", "a manual account of the viewer; another user's IBAN joins nothing and is not refused", func(w *world) []probe {
 			return []probe{{as: "partner", method: "POST", path: "/api/accounts", body: `{"name":"Zijn spaarpot","type":"savings","iban":"BE83 3630 1234 5615"}`, status: 201,
 				verify: func(t *testing.T, w *world) {
@@ -512,13 +533,14 @@ func privacyRows() []privacyRow {
 					}
 				}}}
 		}, nil},
-		{"PATCH /api/accounts/{id}", "byid", "accessOf: hidden 404, read-only 403, member 403", func(w *world) []probe {
+		{"PATCH /api/accounts/{id}", "byid", "accessOf: hidden 404, read-only 403, member 403 (the shared flag too: only the manager)", func(w *world) []probe {
 			return []probe{
+				{as: "partner", method: "PATCH", path: "/api/accounts/" + id(w.shared), body: `{"shared":false}`, status: 403},
 				hidden("partner", "PATCH", "/api/accounts/"+id(w.bertAcc), `{"name":"Gezien"}`, "/api/accounts/"+none, `{"name":"Gezien"}`, "bert"),
 				hidden("partner", "PATCH", "/api/accounts/"+id(w.bertManual), `{"iban":""}`, "/api/accounts/"+none, `{"iban":""}`, "bert"),
 				hidden("bert", "PATCH", "/api/accounts/"+id(w.partnerAcc), `{"buffer":0}`, "/api/accounts/"+none, `{"buffer":0}`, "partner"),
 			}
-		}, []string{"TestWritePermissions"}},
+		}, []string{"TestWritePermissions", "TestSharedFlagRoute"}},
 		{"DELETE /api/accounts/{id}", "byid", "accessOf before any check", func(w *world) []probe {
 			return []probe{
 				hidden("partner", "DELETE", "/api/accounts/"+id(w.bertManual), "", "/api/accounts/"+none, "", "bert"),
@@ -584,6 +606,35 @@ func privacyRows() []privacyRow {
 				{as: "bert", method: "PUT", path: "/api/accounts/" + id(w.shared) + "/contribution-shares", body: body, status: 200},
 			}
 		}, []string{"TestContributionShares", "TestWritePermissions"}},
+		{"GET /api/accounts/{id}/invitable", "byid", "accessOf, then manager only (a member's 403 comes before anything is listed); the instance's users by name and initial, never an e-mail address or an account; an invitee is no member and gets the 404 of a missing account", func(w *world) []probe {
+			path := func(account string) string { return "/api/accounts/" + account + "/invitable" }
+			return []probe{
+				hidden("partner", "GET", path(id(w.bertAcc)), "", path(none), "", "bert"),
+				hidden("derde", "GET", path(id(w.shared)), "", path(none), "", "bert"),
+				{as: "partner", method: "GET", path: path(id(w.shared)), status: 403},
+				{as: "bert", method: "GET", path: path(id(w.shared)), status: 200},
+			}
+		}, []string{"TestInvitationRoutes", "TestPrivacyInviteeBeforeAccepting"}},
+		{"POST /api/accounts/{id}/invitations", "byid", "accessOf, then manager only, then shared, then the user: a member's 403 is the same for any user id (no probing for users), a stranger's or an invitee's 404 that of a missing account", func(w *world) []probe {
+			path := func(account int64) string { return "/api/accounts/" + id(account) + "/invitations" }
+			invite := func(user string) string { return `{"userId":` + user + `}` }
+			return []probe{
+				hidden("partner", "POST", path(w.bertAcc), invite(id(w.derde)), "/api/accounts/"+none+"/invitations", invite(id(w.derde)), "bert"),
+				hidden("derde", "POST", path(w.shared), invite(id(w.partner)), "/api/accounts/"+none+"/invitations", invite(id(w.partner)), "bert"),
+				{as: "partner", method: "POST", path: path(w.shared), body: invite(id(w.derde)), status: 403,
+					missing: &probe{as: "partner", method: "POST", path: path(w.shared), body: invite(none), status: 403}},
+			}
+		}, []string{"TestInvitationRoutes", "TestPrivacyInviteeBeforeAccepting"}},
+		{"POST /api/invitations/{id}/accept", "byid", "only the invitee's own open invitation: the manager, a member and a stranger get the 404 of a missing one", func(w *world) []probe {
+			path, missing := "/api/invitations/"+id(w.accInvitation)+"/accept", "/api/invitations/"+none+"/accept"
+			return []probe{
+				hidden("bert", "POST", path, "", missing, "", ""),
+				hidden("partner", "POST", path, "", missing, "", "derde"),
+			}
+		}, []string{"TestInvitationRoutes", "TestJoinByInvitationCallback"}},
+		{"DELETE /api/invitations/{id}", "byid", "the invitee (declines) or the account's manager (revokes); a member and a stranger get the 404 of a missing one", func(w *world) []probe {
+			return []probe{hidden("partner", "DELETE", "/api/invitations/"+id(w.accInvitation), "", "/api/invitations/"+none, "", "derde")}
+		}, []string{"TestInvitationRoutes"}},
 		{"GET /api/join-offers", "list", "the viewer's own offers; an offer shows only the masked IBAN and the viewer's own bank", func(w *world) []probe {
 			return []probe{read("/api/join-offers", 200)}
 		}, []string{"TestJoinSharedAccount"}},
@@ -641,6 +692,94 @@ func privacyRows() []privacyRow {
 				hidden("partner", "GET", path+"?account="+id(w.bertManual), "", path+"?account="+none, "", "bert"),
 				hidden("bert", "GET", path+"?account="+id(w.partnerManual), "", path+"?account="+none, "", "partner"))
 		}, []string{"TestReportMonthsErrors", "TestReportIsPerViewer"}},
+		{"GET /api/planning", "list", "account-level: the forecast of the current accounts of the scope the viewer holds, from facts that are the same for every member (no per-viewer table; only `me` differs); members only of accounts the viewer holds; no counterparty IBAN", func(w *world) []probe {
+			gedeeld := read("/api/planning?scope=gedeeld", 200)
+			gedeeld.verify = func(t *testing.T, w *world) { // the shared account is the same for both members
+				bert, _ := w.send(gedeeld, "bert")
+				partner, _ := w.send(gedeeld, "partner")
+				if !sameButMe(bert.body, partner.body) {
+					t.Errorf("the shared forecast differs between Bert and Partner: %s | %s", bert.body, partner.body)
+				}
+			}
+			return []probe{read("/api/planning", 200), read("/api/planning?scope=persoonlijk", 200), gedeeld, read("/api/planning?horizon=3&month=2026-12", 200)}
+		}, []string{"TestPlanningAPIDemo", "TestPlanningContribution", "TestPrivacySentinels"}},
+		{"GET /api/planning/items", "list", "account-level: the current accounts of the scope the viewer holds; the counterparty IBAN is stored but never shown", func(w *world) []probe {
+			return []probe{read("/api/planning/items", 200), read("/api/planning/items?scope=persoonlijk", 200), read("/api/planning/items?scope=gedeeld", 200)}
+		}, []string{"TestPlanningRoutes", "TestPrivacySentinels"}},
+		{"POST /api/planning/items", "byid", "account-level: accountId through accessOf before any field is read (hidden or savings of another user 404), writes need Bewerken", func(w *world) []probe {
+			body := func(account string) string {
+				return `{"accountId":` + account + `,"description":"Gas","amount":-5000,"frequency":"monthly","day":5,"kind":"expense"}`
+			}
+			const path = "/api/planning/items"
+			return []probe{
+				hidden("partner", "POST", path, body(id(w.bertAcc)), path, body(none), "bert"),
+				hidden("partner", "POST", path, body(id(w.bertManual)), path, body(none), "bert"),
+				hidden("bert", "POST", path, body(id(w.partnerAcc)), path, body(none), "partner"),
+			}
+		}, []string{"TestPlanningRoutes"}},
+		{"PATCH /api/planning/items/{id}", "byid", "account-level: the item's account through accessOf, writes need Bewerken; another user's item is as missing as an unknown one", func(w *world) []probe {
+			return []probe{
+				hidden("partner", "PATCH", "/api/planning/items/"+id(w.bertItem), `{"amount":-1}`, "/api/planning/items/"+none, `{"amount":-1}`, "bert"),
+				hidden("bert", "PATCH", "/api/planning/items/"+id(w.partnerItem), `{"amount":-1}`, "/api/planning/items/"+none, `{"amount":-1}`, "partner"),
+			}
+		}, []string{"TestPlanningRoutes"}},
+		{"DELETE /api/planning/items/{id}", "byid", "as PATCH", func(w *world) []probe {
+			return []probe{
+				hidden("partner", "DELETE", "/api/planning/items/"+id(w.bertItem), "", "/api/planning/items/"+none, "", "bert"),
+				hidden("bert", "DELETE", "/api/planning/items/"+id(w.partnerItem), "", "/api/planning/items/"+none, "", "partner"),
+			}
+		}, []string{"TestPlanningRoutes"}},
+		{"GET /api/planning/budgets", "list", "account-level: the current accounts of the scope the viewer holds", func(w *world) []probe {
+			return []probe{read("/api/planning/budgets", 200), read("/api/planning/budgets?scope=persoonlijk", 200), read("/api/planning/budgets?scope=gedeeld", 200)}
+		}, []string{"TestPlanningRoutes", "TestPrivacySentinels"}},
+		{"PUT /api/planning/budgets", "byid", "account-level: accountId through accessOf before any field is read, writes need Bewerken", func(w *world) []probe {
+			body := func(account string) string {
+				return `{"accountId":` + account + `,"categoryId":2,"fromMonth":"2026-11","amount":100}`
+			}
+			const path = "/api/planning/budgets"
+			return []probe{
+				hidden("partner", "PUT", path, body(id(w.bertAcc)), path, body(none), "bert"),
+				hidden("bert", "PUT", path, body(id(w.partnerAcc)), path, body(none), "partner"),
+			}
+		}, []string{"TestPlanningRoutes"}},
+		{"GET /api/planning/planned", "list", "account-level: the current accounts of the scope the viewer holds", func(w *world) []probe {
+			return []probe{read("/api/planning/planned", 200), read("/api/planning/planned?scope=persoonlijk", 200), read("/api/planning/planned?scope=gedeeld", 200)}
+		}, []string{"TestPlanningRoutes", "TestPrivacySentinels"}},
+		{"POST /api/planning/planned", "byid", "account-level: accountId through accessOf before any field is read, writes need Bewerken", func(w *world) []probe {
+			body := func(account string) string {
+				return `{"accountId":` + account + `,"date":"2026-12-05","amount":-100,"description":"Proef"}`
+			}
+			const path = "/api/planning/planned"
+			return []probe{
+				hidden("partner", "POST", path, body(id(w.bertAcc)), path, body(none), "bert"),
+				hidden("bert", "POST", path, body(id(w.partnerAcc)), path, body(none), "partner"),
+			}
+		}, []string{"TestPlanningRoutes"}},
+		{"PATCH /api/planning/planned/{id}", "byid", "account-level: the planned item's account through accessOf, writes need Bewerken", func(w *world) []probe {
+			return []probe{
+				hidden("partner", "PATCH", "/api/planning/planned/"+id(w.bertPlanned), `{"amount":-1}`, "/api/planning/planned/"+none, `{"amount":-1}`, "bert"),
+				hidden("bert", "PATCH", "/api/planning/planned/"+id(w.partnerPlanned), `{"amount":-1}`, "/api/planning/planned/"+none, `{"amount":-1}`, "partner"),
+			}
+		}, []string{"TestPlanningRoutes"}},
+		{"DELETE /api/planning/planned/{id}", "byid", "as PATCH", func(w *world) []probe {
+			return []probe{
+				hidden("partner", "DELETE", "/api/planning/planned/"+id(w.bertPlanned), "", "/api/planning/planned/"+none, "", "bert"),
+				hidden("bert", "DELETE", "/api/planning/planned/"+id(w.partnerPlanned), "", "/api/planning/planned/"+none, "", "partner"),
+			}
+		}, []string{"TestPlanningRoutes"}},
+		{"GET /api/planning/suggestions", "list", "account-level: the current accounts of the scope the viewer holds; never a counterparty IBAN, and a shared account's kinds never read a member's own accounts", func(w *world) []probe {
+			return []probe{read("/api/planning/suggestions", 200), read("/api/planning/suggestions?scope=persoonlijk", 200), read("/api/planning/suggestions?scope=gedeeld", 200)}
+		}, []string{"TestPlanningDetectRoutes"}},
+		{"GET /api/planning/detection", "byid", "account must be a current account the viewer holds: another user's (current or savings) is the 404 of a missing one, before its type is looked at; no counterparty IBAN", func(w *world) []probe {
+			const path = "/api/planning/detection?account="
+			return []probe{
+				read(path+id(w.shared), 200),
+				hidden("partner", "GET", path+id(w.bertAcc), "", path+none, "", "bert"),
+				hidden("partner", "GET", path+id(w.bertManual), "", path+none, "", "bert"),
+				hidden("bert", "GET", path+id(w.partnerAcc), "", path+none, "", "partner"),
+				hidden("bert", "GET", path+id(w.partnerManual), "", path+none, "", "partner"),
+			}
+		}, []string{"TestPlanningDetectRoutes"}},
 		{"PATCH /api/transactions/{id}", "byid", "editable(): the row's account through account_access", func(w *world) []probe {
 			return []probe{
 				hidden("partner", "PATCH", txPath(w.bertTx, ""), `{"note":"Gezien"}`, txPath(999999, ""), `{"note":"Gezien"}`, "bert"),
@@ -666,9 +805,9 @@ func privacyRows() []privacyRow {
 				hidden("bert", "PUT", txPath(w.partnerTx, "/transfer"), `{"transfer":null}`, txPath(999999, "/transfer"), `{"transfer":null}`, "partner"),
 			}
 		}, []string{"TestTransferOverrideRoute", "TestTransferIsPerViewer"}},
-		{"GET /api/alerts", "list", "the viewer's own connections, accounts and notices", func(w *world) []probe {
+		{"GET /api/alerts", "list", "the viewer's own connections, accounts and notices; an invitation shows only the account's name and the inviter's name; planning alerts only for the current accounts the viewer holds, from the account-level forecast", func(w *world) []probe {
 			return []probe{read("/api/alerts", 200)}
-		}, []string{"TestLeaveAsMember", "TestDeleteSharedAccount"}},
+		}, []string{"TestLeaveAsMember", "TestDeleteSharedAccount", "TestPrivacyInviteeBeforeAccepting"}},
 		{"GET /api/connections", "list", "the viewer's own links; their accounts only when the viewer holds them", func(w *world) []probe {
 			return []probe{read("/api/connections", 200)}
 		}, nil},
@@ -697,7 +836,7 @@ func privacyRows() []privacyRow {
 			p := probe{as: "partner", method: "POST", path: "/api/bank/callback", body: jsonBody(map[string]string{"code": "code-1", "state": w.bertState}), status: 400, owner: "bert"}
 			p.missing = &probe{as: "partner", method: "POST", path: "/api/bank/callback", body: jsonBody(map[string]string{"code": "code-1", "state": "onbekende-staat"}), status: 400}
 			return []probe{p}
-		}, []string{"TestBankCallbackRejectsStates"}},
+		}, []string{"TestBankCallbackRejectsStates", "TestJoinByInvitationCallback"}},
 		{"POST /api/imports/preview", "byid", "accessOf of every account named (accountId, accountMap); duplicates only of that account", func(w *world) []probe {
 			return importProbes(w, "/api/imports/preview", 200)
 		}, []string{"TestImportBilance"}},
@@ -737,7 +876,7 @@ func privacyRows() []privacyRow {
 				hidden("partner", "POST", "/api/imports/"+id(w.bertRunBatch)+"/undo?run=1", "", "/api/imports/"+none+"/undo?run=1", "", "bert"),
 			}
 		}, []string{"TestImportRunIsPerViewer", "TestWritePermissions"}},
-		{"GET /api/categories", "shared-tree", "the tree is shared by design (names of categories anyone made); counts only of the viewer's rows", func(w *world) []probe {
+		{"GET /api/categories", "shared-tree", "the tree is shared by design (names, colours and the saving flag of categories anyone made); counts only of the viewer's rows", func(w *world) []probe {
 			return []probe{read("/api/categories", 200)}
 		}, []string{"TestPrivacySweep", "TestCategoriesList"}},
 		{"POST /api/categories", "shared-tree", "the tree is shared by design: a new category is everyone's", func(w *world) []probe {
@@ -1465,5 +1604,54 @@ func TestReportIsPerViewer(t *testing.T) {
 	}
 	if after := reports("partner"); slices.Equal(after, partner) {
 		t.Error("Partner's own report did not change with her own rows: the test proves nothing")
+	}
+}
+
+// Before accepting, an invitee learns the account's name and the inviter's
+// name (the alert) and nothing else: every account answer is as if the
+// account did not exist (plan 0.8-0b, Tests, Privacy). The invitation routes
+// have their own rows in privacyRows.
+func TestPrivacyInviteeBeforeAccepting(t *testing.T) {
+	w := newWorld(t)
+	pot := decode[ledger.Account](t, w.ok(w.bert, "POST", "/api/accounts",
+		`{"name":"Vakantiepot","type":"current","iban":"BE95 0000 0000 5858","balance":424242}`, 201).body).ID
+	if a := decode[ledger.Account](t, w.ok(w.bert, "PATCH", "/api/accounts/"+id(pot), `{"shared":true}`, 200).body); a.Kind != "shared" {
+		t.Fatalf("kind after the switch: %q", a.Kind)
+	}
+	w.exec(`INSERT INTO transactions (account_id, amount, booking_date, counterparty_name, status, dedupe_key) VALUES (?, -3131, '2026-11-12', 'Potgeheim', 'booked', 'pot-1')`, pot)
+	inv := w.int(`INSERT INTO account_invitations (account_id, user_id, invited_by, created_at) VALUES (?, ?, ?, ?) RETURNING id`,
+		pot, w.partner, w.bert, w.e.now.UTC().Format(time.RFC3339))
+	secrets := []string{"Vakantiepot", "5858", "Potgeheim", "3131", "424242"}
+
+	// The positive control: Bert sees them all.
+	var bert strings.Builder
+	for _, p := range []string{"/api/accounts", "/api/transactions?scope=gedeeld", "/api/reports/months?scope=gedeeld"} {
+		bert.WriteString(w.ok(w.bert, "GET", p, "", 200).body)
+	}
+	for _, s := range secrets {
+		if !strings.Contains(bert.String(), s) {
+			t.Errorf("Bert never sees %q", s)
+		}
+	}
+	for _, p := range []string{"/api/accounts", "/api/transactions", "/api/transactions?scope=gedeeld",
+		"/api/reports/months", "/api/reports/months?scope=gedeeld", "/api/reports/months?scope=persoonlijk"} {
+		body := w.ok(w.partner, "GET", p, "", 200).body
+		for _, s := range secrets {
+			if strings.Contains(body, s) {
+				t.Errorf("invitee's %s shows %q", p, s)
+			}
+		}
+	}
+	for _, sub := range []string{"/transfers", "/contributions", "/invitable"} {
+		got, missing := w.e.as(w.partner, "GET", "/api/accounts/"+id(pot)+sub, ""), w.e.as(w.partner, "GET", "/api/accounts/"+none+sub, "")
+		if got.status != http.StatusNotFound || got.body != missing.body {
+			t.Errorf("invitee reads %s: %d %s", sub, got.status, got.body)
+		}
+	}
+	alerts := decode[[]ledger.Alert](t, w.ok(w.partner, "GET", "/api/alerts", "", 200).body)
+	i := slices.IndexFunc(alerts, func(a ledger.Alert) bool { return a.Type == "invite" })
+	if i < 0 || alerts[i] != (ledger.Alert{Kind: "ok", Type: "invite", Title: "Bert nodigt je uit voor Vakantiepot",
+		Note: "Voeg de rekening toe om ze samen te volgen", Href: "/rekeningen?uitnodiging=" + id(inv), InvitationID: inv}) {
+		t.Errorf("invite alert: %+v", alerts)
 	}
 }

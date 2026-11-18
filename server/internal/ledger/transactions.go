@@ -74,7 +74,7 @@ type TxQuery struct {
 	Scope         string // "", "alles", "persoonlijk" or "gedeeld"
 	Q             string // search in counterparty, communication and amount
 	Uncategorised bool
-	Category      string // a report expense key: top category id, "none", "toShared" or "toOwn"; "" = all (0.7-2)
+	Category      string // a report key: top category id, "none", "toShared", "toOwn" or "saved" (0.8-0a); "" = all (0.7-2)
 	From, To      string // booking dates YYYY-MM-DD, inclusive; "" = open
 	Before        string // cursor from Page.Next
 	Limit         int    // 0 = DefaultLimit
@@ -125,7 +125,8 @@ func decodeCursor(s string) (cursor, error) {
 const visibleTx = `
 WITH vis AS (
     SELECT x.account_id, a.type, COALESCE(a.iban, '') AS iban,
-           (SELECT COUNT(*) FROM account_access m WHERE m.account_id = x.account_id) AS members
+           (SELECT COUNT(*) FROM account_access m WHERE m.account_id = x.account_id) AS members,
+           (a.shared = 1 OR (SELECT COUNT(*) FROM account_access m WHERE m.account_id = x.account_id) > 1) AS shared
     FROM account_access x JOIN accounts a ON a.id = x.account_id WHERE x.user_id = ?
 ), viban AS (
     SELECT account_id AS id, iban FROM vis WHERE iban <> ''
@@ -135,7 +136,7 @@ WITH vis AS (
     FROM vis JOIN transactions p ON p.account_id = vis.account_id
     WHERE p.status = 'booked' AND p.amount <> 0
 ), tx0 AS (
-    SELECT t.*, vis.members, vis.type AS account_type,
+    SELECT t.*, vis.members, vis.shared, vis.type AS account_type,
            (SELECT o.is_transfer FROM transfer_overrides o WHERE o.user_id = ? AND o.transaction_id = t.id) AS override,
            COALESCE(
                (SELECT MIN(viban.id) FROM viban WHERE viban.iban = t.counterparty_iban AND viban.id <> t.account_id),
@@ -154,11 +155,12 @@ WITH vis AS (
 
 // transferKind is the kind of a transfer (docs/api.md): saved when money
 // leaves a non-savings account for a savings account, shared when it leaves
-// a personal account for a shared one, else internal. The other side's type
-// and members come from vis, so only from an account the viewer can see.
+// a personal account for a shared one (IsShared: the flag or more than one
+// member), else internal. The other side's type and shared come from vis, so
+// only from an account the viewer can see.
 const transferKind = `CASE WHEN tx.is_transfer = 0 THEN NULL
     WHEN tx.amount < 0 AND ov.type = 'savings' AND tx.account_type <> 'savings' THEN 'saved'
-    WHEN tx.amount < 0 AND tx.members = 1 AND ov.members > 1 THEN 'shared'
+    WHEN tx.amount < 0 AND tx.shared = 0 AND ov.shared = 1 THEN 'shared'
     ELSE 'internal' END`
 
 // uncategorisedCond: no category, no split, and not a transfer for the viewer.
@@ -225,7 +227,7 @@ func (s *Store) items(ctx context.Context, viewer int64, prefix string, where []
 		       ` + transferKind + `, tx.override, cs.user_id, cu.display_name
 		FROM tx LEFT JOIN categories c ON c.id = tx.category_id LEFT JOIN vis ov ON ov.account_id = tx.other_id
 		LEFT JOIN contribution_senders cs ON cs.account_id = tx.account_id AND cs.iban = tx.counterparty_iban
-		     AND tx.members > 1 AND tx.status = 'booked' AND tx.amount > 0
+		     AND tx.shared = 1 AND tx.status = 'booked' AND tx.amount > 0
 		LEFT JOIN users cu ON cu.id = cs.user_id
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY tx.booking_date DESC, tx.id DESC
@@ -404,16 +406,16 @@ func (s *Store) UncategorisedCount(ctx context.Context, viewer int64, scope stri
 	return n, err
 }
 
-// scopeCond is the condition on the tx CTE for a scope: Persoonlijk is the
-// accounts with one member, Gedeeld the accounts with more.
+// scopeCond is the condition on the tx CTE for a scope: Gedeeld is the shared
+// accounts (IsShared: the flag or more than one member), Persoonlijk the rest.
 func scopeCond(scope string) (string, error) {
 	switch scope {
 	case "", "alles":
 		return "1 = 1", nil
 	case "persoonlijk":
-		return "tx.members = 1", nil
+		return "tx.shared = 0", nil
 	case "gedeeld":
-		return "tx.members > 1", nil
+		return "tx.shared = 1", nil
 	}
 	return "", apperr.Invalid("Kies alles, persoonlijk of gedeeld.")
 }
@@ -489,17 +491,18 @@ func (s *Store) filters(ctx context.Context, viewer int64, q TxQuery) ([]string,
 		if err != nil {
 			return nil, nil, err
 		}
-		where = append(where, reportDrillDown(sel))
-		args = append(args, key)
+		cond, condArgs := reportDrillDown(sel, key)
+		where = append(where, cond)
+		args = append(args, condArgs...)
 	}
 	return where, args, nil
 }
 
-// categoryKey is the report key of a category value: none, toShared and toOwn
-// as they are, else a decimal id, written like the report's CAST(top_id AS TEXT).
+// categoryKey is the report key of a category value: saved, none, toShared and
+// toOwn as they are, else a decimal id, written like the report's CAST(top_id AS TEXT).
 func categoryKey(v string) (string, error) {
 	switch v {
-	case "none", "toShared", "toOwn":
+	case "saved", "none", "toShared", "toOwn":
 		return v, nil
 	}
 	if id, err := strconv.ParseUint(v, 10, 63); err == nil && id > 0 { // no sign, no spaces

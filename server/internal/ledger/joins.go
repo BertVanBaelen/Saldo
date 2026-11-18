@@ -110,45 +110,11 @@ func (s *Store) AcceptJoin(ctx context.Context, viewer, id int64, now time.Time)
 	if status != "active" || consentLapsed(validUntil, now) {
 		return Account{}, apperr.Invalid(msgOfferStale)
 	}
-	var members int
-	var manager sql.NullInt64
-	var holds bool
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*), MAX(CASE WHEN role = 'manager' THEN user_id END), COALESCE(MAX(user_id = ?), 0)
-		FROM account_access WHERE account_id = ?`, viewer, account).Scan(&members, &manager, &holds); err != nil {
+	if err := addMember(ctx, tx, account, viewer, now); err != nil {
 		return Account{}, err
 	}
-	// Already a member, or an account without a manager (the invariant says
-	// it cannot exist): nothing to join.
-	if holds || !manager.Valid {
-		return Account{}, apperr.ErrNotFound
-	}
-	stamp := now.UTC().Format(time.RFC3339)
-	if _, err := tx.ExecContext(ctx, `INSERT INTO account_access (account_id, user_id, role, permission, joined_at)
-		VALUES (?, ?, 'member', 'edit', ?)`, account, viewer, stamp); err != nil {
+	if err := addFallback(ctx, tx, account, conn, external); err != nil {
 		return Account{}, err
-	}
-	if err := resetContributions(ctx, tx, account, viewer); err != nil {
-		return Account{}, err
-	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO account_sources (account_id, connection_id, priority, external_account_id)
-		VALUES (?, ?, 'fallback', ?)
-		ON CONFLICT (account_id, connection_id) DO UPDATE SET external_account_id = excluded.external_account_id`,
-		account, conn, external); err != nil {
-		return Account{}, err
-	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO account_notices (user_id, account_id, type, actor_id, created_at)
-		SELECT user_id, account_id, 'member', ?, ? FROM account_access WHERE account_id = ? AND user_id <> ?`,
-		viewer, stamp, account, viewer); err != nil {
-		return Account{}, err
-	}
-	// A user rule only applies to an account with one member: from now on the
-	// manager's user rules are dead for this account (categorise.RulesFor).
-	if members == 1 {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO account_notices (user_id, account_id, type, actor_id, created_at)
-			SELECT ?, ?, 'rules', ?, ? WHERE EXISTS (SELECT 1 FROM rules WHERE user_id = ?)`,
-			manager.Int64, account, viewer, stamp, manager.Int64); err != nil {
-			return Account{}, err
-		}
 	}
 	if err := tx.Commit(); err != nil {
 		return Account{}, err

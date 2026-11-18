@@ -142,8 +142,12 @@ func putSnapshot(ctx context.Context, tx *sql.Tx, account, balance int64, date s
 // access is the viewer's hold on one account.
 type access struct {
 	source, typ, permission, role string
-	members                       int
+	members                       int  // people: leave, delete and hand-over rules
+	flag                          bool // accounts.shared; use shared()
 }
+
+// shared is the account's personal-or-shared label (IsShared).
+func (a access) shared() bool { return IsShared(a.flag, a.members) }
 
 // accessOf reads the viewer's access to an account; a hidden one is
 // apperr.ErrNotFound.
@@ -152,9 +156,9 @@ func accessOf(ctx context.Context, q interface {
 }, viewer, id int64) (access, error) {
 	var a access
 	err := q.QueryRowContext(ctx, `SELECT a.source, a.type, me.permission, me.role,
-		    (SELECT COUNT(*) FROM account_access x WHERE x.account_id = a.id)
+		    (SELECT COUNT(*) FROM account_access x WHERE x.account_id = a.id), a.shared = 1
 		FROM account_access me JOIN accounts a ON a.id = me.account_id
-		WHERE me.user_id = ? AND a.id = ?`, viewer, id).Scan(&a.source, &a.typ, &a.permission, &a.role, &a.members)
+		WHERE me.user_id = ? AND a.id = ?`, viewer, id).Scan(&a.source, &a.typ, &a.permission, &a.role, &a.members, &a.flag)
 	if errors.Is(err, sql.ErrNoRows) {
 		return a, apperr.ErrNotFound
 	}

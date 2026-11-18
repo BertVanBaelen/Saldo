@@ -7,7 +7,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon, type IconName } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
-import { delay, ErrorState, SkelList, useTitle } from '../components/ui';
+import { delay, ErrorState, SheetX, SkelList, useTitle } from '../components/ui';
 import { accColour, accountIcon, carrier, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, browser, errorMessage } from '../lib/api';
 import { dateYear, eur, momentLabel, names } from '../lib/format';
@@ -142,9 +142,7 @@ function JoinDialog({ offer, onClose, onDone }: { offer: JoinOffer; onClose: () 
         <h2 className="rkd-dlg-title" id="bk-join-title">
           Deze rekening bestaat al.
         </h2>
-        <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
-          <Icon name="close" size={18} stroke={2.4} />
-        </button>
+        <SheetX className="rk-close" onClose={onClose} />
       </div>
       <p className="rkd-dlg-text">
         <span className="rkd-dlg-name">{offer.iban}</span> bij {offer.bank} staat al in Saldo. Wil je aansluiten?
@@ -765,6 +763,14 @@ function Linked({ result, first, offers, onDecided }: { result: BankLinkResult; 
           ))}
         </ul>
       )}
+      {!!result.joined?.length && (
+        <p className="bk-okline" role="status">
+          <span className="bk-okline-dot" aria-hidden="true">
+            <Icon name="people" size={13} stroke={2.6} />
+          </span>
+          <span>Je bent nu lid van {names(result.joined.map((j) => j.name))}.</span>
+        </p>
+      )}
       <JoinOffers offers={offers} autoOpen onDecided={onDecided} />
       {skipped.length > 0 && (
         <Notice tone="warn" icon="warning" title={skipped.length === 1 ? 'Eén rekening is overgeslagen' : skipped.length + ' rekeningen zijn overgeslagen'}>
@@ -811,7 +817,7 @@ function Linked({ result, first, offers, onDecided }: { result: BankLinkResult; 
 export function BankTerug() {
   useTitle('Bank koppelen');
   const navigate = useNavigate();
-  const { refreshShell, followSync } = useApp();
+  const { refreshShell, followSync, toast } = useApp();
   const [first, setFirst] = useState<FirstSync>({ done: false });
   // The offers to join that the viewer has not decided on yet.
   const [offers, setOffers] = useState<JoinOffer[]>([]);
@@ -834,6 +840,8 @@ export function BankTerug() {
       (result) => {
         setOutcome({ kind: 'done', result });
         setOffers(result.offers);
+        // An IBAN the viewer was invited to is joined at once (0.8-0b): no offer, just a word.
+        if (result.joined?.length) toast('Je bent nu lid van ' + names(result.joined.map((j) => j.name)));
         refreshShell();
         // The server runs the first sync in the background; follow it.
         followSync().then((status) => setFirst({ done: true, status }));

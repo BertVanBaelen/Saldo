@@ -33,6 +33,13 @@ const (
 	rwPartner  int64 = 6 // A6 Partner only, XP
 	rwOud      int64 = 7 // A7 Partner only now (Bert left), XO
 	rwNieuw    int64 = 8 // A8 Bert, current, X8, first row r23
+	rwPot      int64 = 9 // A9 Bert, current, manual, X9, shared = 1 with one member (0.8-0b)
+)
+
+// Categories of reportWorld after the defaults (plan 0.8-0a).
+const (
+	rwSparen   int64 = 26 // top expense, saving
+	rwPensioen int64 = 27 // subcategory of Sparen
 )
 
 // reportRow is one row of the reportWorld oracle table.
@@ -90,6 +97,23 @@ var reportRows = []reportRow{
 	{name: "r27", account: rwZicht, date: "2025-09-15", amount: -3300, category: 2, pending: true, alles: "-", persoonlijk: "-", gedeeld: "-", alone: "-"},
 	// A booked row of 0 before the history (2019-12): it is income 0 and starts no history (firstDate, firstMonth stay 2020-03).
 	{name: "r28", account: rwZicht, date: "2019-12-15", amount: 0, alles: "income 0", persoonlijk: "income 0", gedeeld: "-", alone: "income 0"},
+	// Saving categories (plan 0.8-0a), all in April 2026.
+	{name: "s1", account: rwZicht, date: "2026-04-02", amount: -5000, category: rwSparen, alles: "saved 5000", persoonlijk: "saved 5000", gedeeld: "-", alone: "saved 5000"},
+	{name: "s2", account: rwZicht, date: "2026-04-03", amount: -3000, category: rwPensioen, alles: "saved 3000", persoonlijk: "saved 3000", gedeeld: "-", alone: "saved 3000"},
+	{name: "s3", account: rwZicht, date: "2026-04-04", amount: 1000, category: rwSparen, alles: "saved -1000", persoonlijk: "saved -1000", gedeeld: "-", alone: "saved -1000"},
+	{name: "s4", account: rwZicht, date: "2026-04-05", amount: -7000, iban: "XS", category: rwSparen, alles: "out", persoonlijk: "saved 7000", gedeeld: "-", alone: "saved 7000"},
+	{name: "s4b", account: rwGedeeld, date: "2026-04-05", amount: 7000, iban: "X1", alles: "out", persoonlijk: "-", gedeeld: "income 7000", alone: "income 7000"},
+	{name: "s5", account: rwZicht, date: "2026-04-06", amount: -4000, iban: "XV", category: rwSparen, alles: "saved 4000", persoonlijk: "saved 4000", gedeeld: "-", alone: "saved 4000"},
+	{name: "s5b", account: rwSpaar, date: "2026-04-06", amount: 4000, iban: "X1", alles: "-", persoonlijk: "-", gedeeld: "-", alone: "-"},
+	{name: "s6", account: rwZicht, date: "2026-04-07", amount: -6500, category: rwSparen, transfer: true, alles: "saved 6500", persoonlijk: "saved 6500", gedeeld: "-", alone: "saved 6500"},
+	{name: "s7", account: rwZicht, date: "2026-04-08", amount: -9000, splits: [][2]int64{{rwSparen, -6000}, {6, -3000}},
+		alles: "6 3000, saved 6000", persoonlijk: "6 3000, saved 6000", gedeeld: "-", alone: "6 3000, saved 6000"},
+	{name: "s8", account: rwZicht, date: "2026-04-09", amount: -2500, iban: "X2", category: rwSparen, alles: "out", persoonlijk: "out", gedeeld: "-", alone: "saved 2500"},
+	{name: "s8b", account: rwTweede, date: "2026-04-09", amount: 2500, iban: "X1", alles: "out", persoonlijk: "out", gedeeld: "-", alone: "income 2500"},
+	{name: "s9", account: rwGedeeld, date: "2026-04-10", amount: -1500, category: rwSparen, alles: "saved 1500", persoonlijk: "-", gedeeld: "saved 1500", alone: "saved 1500"},
+	// The shared flag (plan 0.8-0b), May 2026: A9 is shared by its flag, so t1 is toShared in Persoonlijk.
+	{name: "t1", account: rwZicht, date: "2026-05-02", amount: -1000, iban: "X9", alles: "out", persoonlijk: "toShared 1000", gedeeld: "-", alone: "toShared 1000"},
+	{name: "t2", account: rwPot, date: "2026-05-02", amount: 1000, iban: "X1", alles: "out", persoonlijk: "-", gedeeld: "income 1000", alone: "income 1000"},
 }
 
 // reportWorld is the fixture of plan 0.7-1 (also for 0.7-2): viewer Bert,
@@ -115,6 +139,8 @@ func reportWorld(t *testing.T) (*sql.DB, *ledger.Store, map[string]int64) {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
+	exec(`INSERT INTO categories (id, name, parent_id, type, colour, tint, saving, sort_order) VALUES
+		(?, 'Sparen', NULL, 'expense', 'c6', 'c9', 1, 11), (?, 'Pensioensparen', ?, 'expense', 'c6', 'c9', 0, 1)`, rwSparen, rwPensioen, rwSparen)
 	exec(`INSERT INTO users (id, email, display_name) VALUES (?, 'bert@example.com', 'Bert'), (?, 'partner@example.com', 'Partner')`, bert, partner)
 	for _, a := range []struct {
 		id                      int64
@@ -129,12 +155,14 @@ func reportWorld(t *testing.T) (*sql.DB, *ledger.Store, map[string]int64) {
 		{rwPartner, "current", "bank", "XP", "Zicht van Partner", []int64{partner}},
 		{rwOud, "current", "bank", "XO", "Oud gedeeld", []int64{partner}},
 		{rwNieuw, "current", "manual", "X8", "Nieuw", []int64{bert}},
+		{rwPot, "current", "manual", "X9", "Pot", []int64{bert}},
 	} {
 		exec(`INSERT INTO accounts (id, type, source, iban, name) VALUES (?, ?, ?, ?, ?)`, a.id, a.typ, a.source, a.iban, a.name)
 		for _, u := range a.holders {
 			exec(`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (?, ?, 'manager', 'edit')`, a.id, u)
 		}
 	}
+	exec(`UPDATE accounts SET shared = 1 WHERE id = ?`, rwPot)
 	ids := map[string]int64{}
 	for _, r := range reportRows {
 		var iban, category any
@@ -189,7 +217,7 @@ func TestReportBucket(t *testing.T) {
 		"alles": read("alles", 0), "persoonlijk": read("persoonlijk", 0), "gedeeld": read("gedeeld", 0),
 	}
 	alone := map[int64]map[int64]string{}
-	for _, a := range []int64{rwZicht, rwTweede, rwGedeeld, rwNieuw} {
+	for _, a := range []int64{rwZicht, rwTweede, rwGedeeld, rwNieuw, rwPot} {
 		alone[a] = read("", a)
 	}
 	for _, r := range reportRows {
@@ -245,6 +273,18 @@ func TestReportBucket(t *testing.T) {
 		{"", rwZicht, "2025-10", 0, 0, map[string]int64{"toShared": 9300}},
 		{"alles", 0, "2025-09", 0, 0, map[string]int64{}},
 		{"", rwZicht, "2025-09", 0, 0, map[string]int64{}},
+		// Saving categories (0.8-0a).
+		{"alles", 0, "2026-04", 0, 25000, map[string]int64{"6": 3000}},
+		{"persoonlijk", 0, "2026-04", 0, 30500, map[string]int64{"6": 3000}},
+		{"gedeeld", 0, "2026-04", 7000, 1500, map[string]int64{}},
+		{"", rwZicht, "2026-04", 0, 33000, map[string]int64{"6": 3000}},
+		{"", rwTweede, "2026-04", 2500, 0, map[string]int64{}},
+		{"", rwGedeeld, "2026-04", 7000, 1500, map[string]int64{}},
+		// The shared flag (0.8-0b).
+		{"alles", 0, "2026-05", 0, 0, map[string]int64{}},
+		{"persoonlijk", 0, "2026-05", 0, 0, map[string]int64{"toShared": 1000}},
+		{"gedeeld", 0, "2026-05", 1000, 0, map[string]int64{}},
+		{"", rwZicht, "2026-05", 0, 0, map[string]int64{"toShared": 1000}},
 	} {
 		got := month(c.scope, c.account, c.month)
 		if got.Income != c.income || got.Saved != c.saved || !maps.Equal(got.Expenses, c.expenses) {
@@ -253,18 +293,24 @@ func TestReportBucket(t *testing.T) {
 		}
 	}
 
+	// Partner: s4b is no transfer (A1 is not Partner's), so uncategorised income; s9 is saved.
+	if rep, err := s.ReportMonths(ctx, partner, ledger.ReportQuery{Scope: "gedeeld", From: "2026-04", To: "2026-04", Now: reportNow}); err != nil ||
+		rep.Months[0].Income != 7000 || rep.Months[0].Saved != 1500 || len(rep.Months[0].Expenses) != 0 {
+		t.Errorf("Partner gedeeld 2026-04: %+v, %v", rep.Months, err)
+	}
+
 	// Selections and errors.
 	rep, err := s.ReportMonths(ctx, bert, ledger.ReportQuery{Now: reportNow})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(rep.Accounts, []int64{rwZicht, rwTweede, rwGedeeld, rwNieuw}) || *rep.FirstMonth != "2020-03" ||
+	if !slices.Equal(rep.Accounts, []int64{rwZicht, rwTweede, rwGedeeld, rwNieuw, rwPot}) || *rep.FirstMonth != "2020-03" ||
 		*rep.FirstDate != "2020-03-01" || rep.Months[0].Month != "2020-03" || rep.Months[len(rep.Months)-1].Month != "2026-11" ||
 		len(rep.Months) != 6*12+9 {
 		t.Errorf("alles: accounts %v, first %v %v, %d months", rep.Accounts, *rep.FirstMonth, *rep.FirstDate, len(rep.Months))
 	}
-	if p, _ := s.ReportMonths(ctx, bert, ledger.ReportQuery{Scope: "gedeeld", Now: reportNow}); !slices.Equal(p.Accounts, []int64{rwGedeeld}) ||
-		*p.FirstDate != "2025-11-01" || p.Months[0].Accounts != nil {
+	if p, _ := s.ReportMonths(ctx, bert, ledger.ReportQuery{Scope: "gedeeld", Now: reportNow}); !slices.Equal(p.Accounts, []int64{rwGedeeld, rwPot}) ||
+		*p.FirstDate != "2025-11-01" || len(p.Months[0].Accounts) != 2 {
 		t.Errorf("gedeeld: %v %v %+v", p.Accounts, *p.FirstDate, p.Months[0])
 	}
 	for _, c := range []struct {
@@ -609,6 +655,13 @@ func TestReportDrillDown(t *testing.T) {
 		{"alles", 0, "toOwn", "2026-03-01", "2026-03-31", []string{"r24"}},
 		{"alles", 0, "3", "2026-01-01", "2026-01-31", []string{"r15"}},
 		{"persoonlijk", 0, "1", "2000-01-01", "2026-12-31", []string{}},
+		// A saving top lists the rows saved in it; saved lists every row behind Gespaard (0.8-0a).
+		{"alles", 0, fmt.Sprint(rwSparen), "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s5", "s6", "s7", "s9"}},
+		{"persoonlijk", 0, fmt.Sprint(rwSparen), "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s4", "s5", "s6", "s7"}},
+		{"alles", 0, "6", "2026-04-01", "2026-04-30", []string{"s7"}},
+		{"alles", 0, "saved", "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s5", "s6", "s7", "s9"}},
+		{"alles", 0, "saved", "2026-01-01", "2026-01-31", []string{"r5", "r8", "r13"}},
+		{"", rwZicht, "saved", "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"}},
 	} {
 		got, err := s.DrillDown(ctx, bert, c.scope, c.account, c.from, c.to, c.key)
 		if err != nil {

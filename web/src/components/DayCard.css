@@ -1,0 +1,58 @@
+/* The Kalender's day card. Ported from finance-mockup/css/screens/planning.css (.pl-daycard, .pl-item, .pl-add, .pl-total), tokens only. */
+
+.card.dc { padding: 14px 16px; gap: 4px; }
+.dc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 6px; }
+.dc-title { font-size: 15px; font-weight: 600; }
+
+.dc-items { list-style: none; margin: 0; padding: 0; }
+.dc-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.dc-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dc-dot--in { background: var(--green); }
+.dc-dot--out { background: var(--neg); }
+.dc-dot--plan { background: var(--warn); }
+.dc-dot--quiet { background: var(--muted); }
+.dc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dc-label { font-size: 14px; }
+.dc-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.dc-amount { font-size: 14px; font-weight: 500; white-space: nowrap; }
+.dc-amount--neg { color: var(--neg); }
+/* Expected but not seen: not counted, so it reads as history. */
+.dc-item--missed .dc-label, .dc-item--missed .dc-amount { color: var(--muted); }
+.dc-item--missed .dc-amount { text-decoration: line-through; }
+.dc-remove {
+  width: 44px; height: 44px; margin: -10px -12px -10px -6px;
+  border: none; background: transparent; color: var(--muted);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.dc-remove:disabled { opacity: 0.5; }
+.dc-err { font-size: 13px; color: var(--neg); }
+
+.dc-add {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; margin: 6px 0 10px; padding: 0 12px;
+  border-radius: 12px;
+  border: 2px dashed var(--line);
+  background: transparent;
+  color: var(--greenText);
+  font-size: 14px; font-weight: 600;
+}
+
+.dc-total {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding-top: 10px;
+  border-top: 2px solid var(--text);
+  font-size: 14px; font-weight: 600;
+}
+.dc-total--split { flex-direction: column; align-items: stretch; gap: 6px; }
+.dc-accbal { display: flex; align-items: center; gap: 8px; }
+.dc-total--split .dc-accbal-name { flex: 1; font-size: 14px; font-weight: 400; }
+.dc-sq { width: 10px; height: 10px; border-radius: 3px; flex: none; display: inline-block; }
+.dc-bal { font-size: 16px; font-weight: 600; }
+.dc-total--split .dc-bal { font-size: 15px; }
+.dc-bal--ok { color: var(--text); }
+.dc-bal--warn { color: var(--warn); }
+.dc-bal--neg { color: var(--neg); }
+
+@media (min-width: 1024px) {
+  .dc-item { padding: 7px 0; }
+}

@@ -2,13 +2,16 @@
 // Design: finance-mockup/js/screens/overzicht.js; spec: analysis/screens/overzicht.md; plan 0.7-3.
 // One request per scope, account and dataVersion; periods and the selected column are summed here (lib/reports.ts).
 // With several accounts the totals are information only ("samen, ter info") with a breakdown per account.
+// A category row, the Gespaard tile and an account row open a sheet (a side panel on desktop) with what is behind the
+// number: `?blad=categorie-<key>`, `?blad=gespaard`, `?blad=rekening-<id>` (OverzichtSheet.tsx; plan 0.8-0c).
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { delay, ErrorState, ScopeSwitch, useTitle } from '../components/ui';
 import { accColour, accountIcon, inScope, isCurrent } from '../lib/accounts';
 import { api } from '../lib/api';
+import { categoryFromParam } from '../lib/drilldown';
 import { cap, eur } from '../lib/format';
 import {
   barSize,
@@ -23,13 +26,15 @@ import {
   sumColumn,
   transferGap,
   VIEWS,
+  type CatRow,
   type Period,
   type Sum,
   type View,
 } from '../lib/reports';
-import type { Account, ReportMonths, Scope, TreeCategory } from '../lib/types';
+import type { Account, ReportMonths, Scope } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { AccountPicker, Panel, RangePicker, type PanelKind } from './OverzichtPickers';
+import { AccountBlad, CatLead, CatLine, CategoryBlad, Figure, transferNote } from './OverzichtSheet';
 import './Overzicht.css';
 
 const SCOPE_TEXT: Record<Scope, string> = { alles: 'Alle rekeningen', persoonlijk: 'Persoonlijke rekeningen', gedeeld: 'Gedeelde rekeningen' };
@@ -61,6 +66,15 @@ type Trigger = 'period' | 'chip' | 'accounts';
 interface Open {
   kind: PanelKind;
   trigger: Trigger;
+}
+
+/** The open content sheet, from `?blad=`: a category (`categorie-2`, `categorie-geen`, `gespaard`) or an account (`rekening-4`). */
+type Blad = { kind: 'categorie'; param: string; key: string } | { kind: 'rekening'; id: number };
+function parseBlad(value: string | null): Blad | null {
+  const cat = value === 'gespaard' ? categoryFromParam(value) : /^categorie-(?!gespaard$)/.test(value ?? '') ? categoryFromParam(value!.slice('categorie-'.length)) : undefined;
+  if (cat) return { kind: 'categorie', ...cat };
+  const acc = /^rekening-([1-9]\d*)$/.exec(value ?? '');
+  return acc ? { kind: 'rekening', id: Number(acc[1]) } : null;
 }
 
 /** What the page shows below the tools row once the report is in. */
@@ -217,42 +231,44 @@ function ChartCard({ range, children }: { range: string; children: ReactNode }) 
 
 // ---------- Totals, per account, per category ----------
 
-function Totals({ head, sum, short }: { head: ReactNode; sum: Sum | null; short: string }) {
-  const tile = (label: string, value: number | undefined) => (
+/** `title`: the selected column ("oktober 2026"); `onSaved` opens the Gespaard sheet (`null` while there is no column). */
+function Totals({ head, sum, short, title, onSaved }: { head: ReactNode; sum: Sum | null; short: string; title: string; onSaved: ((el: HTMLElement) => void) | null }) {
+  const label = (text: string) => (
+    <span className="ov-sum-label">
+      {text}
+      {short && <span className="only-desktop"> · {short}</span>}
+    </span>
+  );
+  const tile = (text: string, value: number | undefined) => (
     <div className="ov-sum">
-      <span className="ov-sum-label">
-        {label}
-        {short && <span className="only-desktop"> · {short}</span>}
-      </span>
+      {label(text)}
       <span className="ov-sum-value mono">{value === undefined ? '–' : eur(value)}</span>
     </div>
   );
+  // A Gespaard tile with something in it opens the rows behind it; a period with nothing saved is a plain tile.
+  const saved =
+    sum && sum.saved !== 0 && onSaved ? (
+      <button type="button" className="ov-sum ov-sum--btn" aria-haspopup="dialog" aria-label={'Gespaard in ' + title + ': ' + eur(sum.saved) + '. Bekijk de transacties.'} onClick={(e) => onSaved(e.currentTarget)}>
+        {label('Gespaard')}
+        <span className="ov-sum-value mono">{eur(sum.saved)}</span>
+      </button>
+    ) : (
+      tile('Gespaard', sum?.saved)
+    );
   return (
     <section className="ov-totals anim-in" style={delay(90)}>
       <div className="ov-totals-head">{head}</div>
       <div className="ov-sums">
         {tile('Inkomen', sum?.income)}
         {tile('Uitgaven', sum?.total)}
-        {tile('Gespaard', sum?.saved)}
+        {saved}
       </div>
     </section>
   );
 }
 
-function PerAccount({ title, rows, total, onOnly }: { title: string; rows: { a: Account; s: Sum }[]; total: Sum; onOnly: (id: number) => void }) {
-  const between = transferGap(total, rows.map((r) => r.s));
-  const val = (label: string, v: number) => (
-    <span className="ov-per-val">
-      <span className="ov-per-label">{label}</span>
-      {v ? (
-        <span className="mono">{eur(v)}</span>
-      ) : (
-        <span className="mono muted" aria-label="geen">
-          –
-        </span>
-      )}
-    </span>
-  );
+/** Each row opens the account's sheet; `between`: the footnote's amount, 0 for none. */
+function PerAccount({ title, rows, between, onOpen }: { title: string; rows: { a: Account; s: Sum }[]; between: number; onOpen: (id: number, el: HTMLElement) => void }) {
   return (
     <section className="ov-per anim-in" style={delay(105)} aria-labelledby="ov-per-title">
       <div className="ov-per-head">
@@ -267,8 +283,9 @@ function PerAccount({ title, rows, total, onOnly }: { title: string; rows: { a: 
             key={a.id}
             type="button"
             className="ov-per-row"
-            aria-label={'Alleen ' + a.name + ' bekijken: in ' + eur(s.income) + ', uit ' + eur(s.total) + ', gespaard ' + eur(s.saved)}
-            onClick={() => onOnly(a.id)}
+            aria-haspopup="dialog"
+            aria-label={a.name + ': in ' + eur(s.income) + ', uit ' + eur(s.total) + ', gespaard ' + eur(s.saved) + '. Bekijk de details.'}
+            onClick={(e) => onOpen(a.id, e.currentTarget)}
           >
             <span className="ov-per-name">
               <span className="ov-per-icon" style={{ background: accColour(a.colour), color: 'var(--onAcc)' }}>
@@ -280,19 +297,20 @@ function PerAccount({ title, rows, total, onOnly }: { title: string; rows: { a: 
               </span>
             </span>
             <span className="ov-per-vals">
-              {val('In', s.income)}
-              {val('Uit', s.total)}
-              {val('Gespaard', s.saved)}
+              <Figure label="In" value={s.income} />
+              <Figure label="Uit" value={s.total} />
+              <Figure label="Gespaard" value={s.saved} />
             </span>
           </button>
         ))}
       </div>
-      {between > 0 && <p className="ov-per-foot">Overschrijvingen tussen je eigen rekeningen ({eur(between)}) tellen per rekening mee, maar niet in het totaal samen.</p>}
+      {between > 0 && <p className="ov-per-foot">{transferNote(between)}</p>}
     </section>
   );
 }
 
-function Categories({ v, categories, account, listKey }: { v: Shown | null; categories: TreeCategory[]; account: number | undefined; listKey: string }) {
+/** `rows`: the category rows of the selected column; a row opens its sheet. */
+function Categories({ v, rows, onOpen, listKey }: { v: Shown | null; rows: CatRow[]; onOpen: (key: string, el: HTMLElement) => void; listKey: string }) {
   if (!v) {
     return (
       <section className="ov-cats anim-in" style={delay(120)}>
@@ -307,7 +325,6 @@ function Categories({ v, categories, account, listKey }: { v: Shown | null; cate
   }
   const col = v.period.columns[v.sel];
   const compare = col.partial ? col.partial.head : v.prev ? 't.o.v. ' + v.period.compare : '';
-  const rows = catRows(v.sums[v.sel], v.prev, categories);
   return (
     <section className="ov-cats anim-in" style={delay(120)}>
       <div className="ov-cats-head">
@@ -317,31 +334,16 @@ function Categories({ v, categories, account, listKey }: { v: Shown | null; cate
       <div className="ov-cat-list" key={listKey}>
         {rows.length === 0 && <p className="ov-cat-empty muted">Geen uitgaven in deze periode.</p>}
         {rows.map((r) => (
-          <Link
+          <button
             key={r.key}
+            type="button"
             className="ov-cat"
-            to={'/transacties?categorie=' + categoryParam(r.key) + '&periode=' + periodParam(col) + (account !== undefined ? '&rekening=' + account : '')}
+            aria-haspopup="dialog"
+            aria-label={r.name + ': ' + eur(r.amount) + (r.share !== null ? ', ' + r.share + ' %' : '') + (r.trend ? ', ' + r.trend.text + ' ' + compare : '') + '. Bekijk de transacties.'}
+            onClick={(e) => onOpen(r.key, e.currentTarget)}
           >
-            <span className="ov-cat-line">
-              <i className={'ov-cat-dot' + (r.colour ? '' : ' ov-cat-dot--uncat')} style={r.colour ? { background: r.colour } : undefined} />
-              <span className="ov-cat-name">
-                {r.name}
-                {r.share !== null && <span className="muted"> {r.share}%</span>}
-              </span>
-              {r.trend && (
-                <span className="ov-cat-trend" style={{ color: r.trend.colour }}>
-                  <span className="visually-hidden">{compare} </span>
-                  {r.trend.text}
-                </span>
-              )}
-              <span className="ov-cat-amount mono">{eur(r.amount)}</span>
-            </span>
-            {r.share !== null && (
-              <span className="ov-cat-track">
-                <span className="ov-cat-fill" style={{ width: r.share + '%', background: r.colour || 'var(--dashed)' }} />
-              </span>
-            )}
-          </Link>
+            <CatLine r={r} compare={compare} />
+          </button>
         ))}
       </div>
     </section>
@@ -420,7 +422,8 @@ export function Overzicht() {
   const { today, scope, dataVersion } = useApp();
   const [params, setParams] = useSearchParams();
   // The hash is read once, at mount: the first URL change (an invalid `rekening` is dropped) removes it.
-  const { hash } = useLocation();
+  const { hash, state, key } = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState<Open | null>(() => (hash === '#eigen' ? { kind: 'eigen', trigger: 'period' } : hash === '#rekening' ? { kind: 'accounts', trigger: 'accounts' } : null));
   const triggers = useRef<Partial<Record<Trigger, HTMLButtonElement | null>>>({});
   const refocus = useRef<Trigger | null>(null);
@@ -428,6 +431,7 @@ export function Overzicht() {
   const van = params.get('van');
   const tot = params.get('tot');
   const rekening = params.get('rekening');
+  const blad = parseBlad(params.get('blad'));
 
   const accounts = useAsync((signal) => api.accounts(signal), [dataVersion]);
   const cats = useAsync((signal) => api.categories(signal), [dataVersion]);
@@ -469,6 +473,41 @@ export function Overzicht() {
           if (v === null) n.delete(k);
           else n.set(k, v);
         }
+        return n;
+      },
+      { replace: true },
+    );
+
+  // A content sheet is pushed onto the history, marked in the location state, so Back closes it; closing goes back
+  // through the history, or just drops `blad` when the page was opened with it (a link, a reload without history).
+  const openBlad = (value: string, el: HTMLElement) => {
+    el.focus();
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        n.set('blad', value);
+        return n;
+      },
+      { state: { ovBlad: true } },
+    );
+  };
+  // In the browser `navigate(-1)` only changes the location on the later popstate: until then the sheet is hidden
+  // (`closedAt`), so it does not slide in again once its exit is over. A Forward to the same entry shows it again.
+  const [closedAt, setClosedAt] = useState<string | null>(null);
+  useEffect(() => setClosedAt(null), [key]);
+  const closeBlad = () => {
+    if ((state as { ovBlad?: boolean } | null)?.ovBlad) {
+      setClosedAt(key);
+      navigate(-1);
+    } else setParam({ blad: null });
+  };
+  // "Alleen deze rekening tonen": one change of the URL, so Back returns to the unfiltered page.
+  const onlyAccount = (id: number) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        n.set('rekening', String(id));
+        n.delete('blad');
         return n;
       },
       { replace: true },
@@ -536,6 +575,9 @@ export function Overzicht() {
   // Without accounts at all, or without any history, or a scope without current accounts: an empty state.
   let body: ReactNode;
   let period: Period | null = null;
+  // The open content sheet, once the report it needs is in; a `blad` that matches no row or account is dropped.
+  let sheet: ReactNode = null;
+  let staleBlad = false;
   if (accounts.error && !all) {
     body = <ErrorState message={accounts.error} onRetry={accounts.reload} />;
   } else if (all && current.length === 0) {
@@ -576,6 +618,44 @@ export function Overzicht() {
           <span className="ov-totals-title">{single.name}</span>
         </>
       ) : null;
+    const rows = v ? catRows(v.sums[v.sel], v.prev, cats.data ?? []) : [];
+    const perAccount = v && col && several.length > 1 ? several.map((a) => ({ a, s: sumColumn(col.months, fresh!.months, a.id) })) : [];
+    const between = v ? transferGap(v.sums[v.sel], perAccount.map((x) => x.s)) : 0;
+    if (v && params.has('blad') && !blad) staleBlad = true;
+    if (blad && v && col) {
+      const byId = new Map((all ?? []).map((a) => [a.id, a]));
+      const common = { periodTitle: col.title, onClose: closeBlad };
+      if (blad.kind === 'rekening') {
+        const found = perAccount.find((x) => x.a.id === blad.id);
+        if (found) {
+          const { a, s } = found;
+          const lead = (
+            <span className="ov-per-icon" style={{ background: accColour(a.colour), color: 'var(--onAcc)' }}>
+              <Icon name={accountIcon(a)} size={15} stroke={2.2} />
+            </span>
+          );
+          sheet = (
+            <AccountBlad {...common} account={a} lead={lead} income={s.income} expenses={s.total} saved={s.saved} rows={catRows(s, null, cats.data ?? [])} between={between} onOnly={() => onlyAccount(a.id)} />
+          );
+        } else staleBlad = true;
+      } else {
+        const props = { ...common, param: blad.param, periodKey: periodParam(col), account, accounts: byId, multi: several.length > 1 };
+        if (blad.key === 'saved') {
+          const saved = v.sums[v.sel].saved;
+          const lead = (
+            <span className="ov-blad-ico ov-blad-ico--saved" aria-hidden="true">
+              <Icon name="coins" size={18} stroke={2.2} />
+            </span>
+          );
+          if (saved !== 0) sheet = <CategoryBlad {...props} name="Gespaard" lead={lead} amount={saved} />;
+          else staleBlad = true;
+        } else {
+          const r = rows.find((x) => x.key === blad.key);
+          if (r) sheet = <CategoryBlad {...props} name={r.name} lead={<CatLead r={r} />} amount={r.amount} />;
+          else staleBlad = true;
+        }
+      }
+    }
     body = (
       <>
         <div className="ov-tools anim-in" style={delay(45)}>
@@ -611,23 +691,23 @@ export function Overzicht() {
             <ChartCard range={period ? period.range : ''}>
               {v ? <Chart v={v} historyLink={v.period.shortHistory} onSelect={(i) => setSelected([resetKey, v!.period.columns[i].key])} /> : <Skeleton />}
             </ChartCard>
-            <Totals head={head} sum={v ? v.sums[v.sel] : null} short={col ? col.short : ''} />
-            {v && col && several.length > 1 && (
+            <Totals head={head} sum={v ? v.sums[v.sel] : null} short={col ? col.short : ''} title={col ? col.title : ''} onSaved={v ? (el) => openBlad('gespaard', el) : null} />
+            {v && col && perAccount.length > 0 && (
               <div className="ov-per-wrap">
-                <PerAccount
-                  title={col.title}
-                  rows={several.map((a) => ({ a, s: sumColumn(col.months, fresh!.months, a.id) }))}
-                  total={v.sums[v.sel]}
-                  onOnly={(id) => setParam({ rekening: String(id) })}
-                />
+                <PerAccount title={col.title} rows={perAccount} between={between} onOpen={(id, el) => openBlad('rekening-' + id, el)} />
               </div>
             )}
           </div>
-          <Categories v={v} categories={cats.data ?? []} account={account} listKey={resetKey} />
+          <Categories v={v} rows={rows} onOpen={(key, el) => openBlad('categorie-' + categoryParam(key), el)} listKey={resetKey} />
         </div>
       </>
     );
   }
+
+  useEffect(() => {
+    if (staleBlad) setParam({ blad: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staleBlad]);
 
   const showPeriod = !!all && current.length > 0 && !(report.error && !fresh) && !(fresh && fresh.firstMonth === null);
   return (
@@ -642,6 +722,7 @@ export function Overzicht() {
         pop={inHead ? panel : null}
       />
       {body}
+      {closedAt === key ? null : sheet}
     </div>
   );
 }

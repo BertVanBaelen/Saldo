@@ -154,6 +154,7 @@ func TestOutsideDemoModeEverythingButHealthIs401(t *testing.T) {
 		{"GET", "/api/reports/months", ""},
 		{"GET", "/api/reports/months?account=1", ""},
 		{"GET", "/api/alerts", ""},
+		{"GET", "/api/planning", ""},
 		{"GET", "/api/connections", ""},
 		{"POST", "/api/sync", ""},
 		{"GET", "/api/sync", ""},
@@ -276,13 +277,13 @@ func TestAccounts(t *testing.T) {
 		"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 		"iban": "BE68 •••• •••• 4821", "colour": "green", "buffer": 90000, "balance": 196882,
 		"balanceDate": "2026-11-18", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T04:02:00+01:00",
-		"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T04:02:00+01:00", "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false
+		"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T04:02:00+01:00", "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false, "invitations": []
 	}`)
 	equalJSON(t, string(list[1]), `{
 		"id": 2, "name": "Spaarrekening", "type": "savings", "source": "manual", "kind": "personal",
 		"iban": "BE41 •••• •••• 1196", "colour": "orange", "buffer": 0, "balance": 1250000,
 		"balanceDate": "2026-10-02", "state": null, "bank": null, "lastSync": null,
-		"syncStatus": null, "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": null, "carriedBy": null, "viaReserve": false
+		"syncStatus": null, "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": null, "carriedBy": null, "viaReserve": false, "invitations": []
 	}`)
 	equalJSON(t, string(list[3]), `{
 		"id": 4, "name": "Gedeelde rekening", "type": "current", "source": "bank", "kind": "shared",
@@ -293,7 +294,7 @@ func TestAccounts(t *testing.T) {
 			{"userId": 1, "name": "Bert", "initial": "B", "role": "manager", "permission": "edit", "me": true, "joinedAt": "2026-06-03T10:10:00+02:00"},
 			{"userId": 2, "name": "Partner", "initial": "P", "role": "member", "permission": "edit", "me": false, "joinedAt": "2026-06-05T21:00:00+02:00"}
 		],
-		"convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false
+		"convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false, "invitations": []
 	}`)
 }
 
@@ -438,6 +439,8 @@ func TestAlerts(t *testing.T) {
 		t.Fatalf("status %d", r.status)
 	}
 	equalJSON(t, r.body, `[
+		{ "kind": "neg", "type": "planning", "title": "Zichtrekening staat rood in februari", "note": "Verwacht eindsaldo −€ 1.134 · bekijk de planning", "href": "/planning?maand=2027-02#maanden", "accountId": 1 },
+		{ "kind": "warn", "type": "planning", "title": "Zichtrekening zakt in de buffer in januari", "note": "Verwacht € 635, € 265 onder de buffer van € 900", "href": "/planning?maand=2027-01#maanden", "accountId": 1 },
 		{ "kind": "warn", "type": "consent", "title": "Toestemming verloopt over 12 dagen", "note": "Argenta · opnieuw autoriseren", "href": "/bankkoppelingen" },
 		{ "kind": "ok", "type": "categorise", "title": "4 transacties te categoriseren", "note": "", "href": "/transacties?filter=niet-gecategoriseerd" }
 	]`)

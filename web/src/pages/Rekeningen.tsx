@@ -2,10 +2,10 @@
 // and the settings form (name, colour, minimum buffer) in a phone sheet or the desktop panel.
 // Design: finance-mockup/js/screens/rekeningen.js; spec: analysis/screens/rekeningen.md.
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
-import { Sheet } from '../components/Sheet';
+import { Sheet, useSheetClose } from '../components/Sheet';
 import { delay, ErrorState, Skel, SkelList, useIsDesktop, useTitle } from '../components/ui';
 import { accColour, accountIcon, canManage, COLOURS, isCurrent, isShared, manager, others, syncLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
@@ -13,6 +13,7 @@ import { eur, momentLabel, names, parseMoney } from '../lib/format';
 import type { Account, AccountColour, AccountPatch } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { AddAccount } from './AddAccount';
+import { InviteeDialog } from './RekeningUitnodigen';
 import './Rekeningen.css';
 
 /** € 50 per − / + press (cents). */
@@ -84,6 +85,12 @@ function Sub({ a, today, className }: { a: Account; today: string; className: st
   return <span className={className + (s.tone ? ' rk-sub--' + s.tone : '')}>{s.text}</span>;
 }
 
+/** "Uitgenodigd: Partner" under an account whose manager has open invitations (0.8-0b). */
+function Invited({ a, className }: { a: Account; className: string }) {
+  const open = a.invitations ?? [];
+  return open.length ? <span className={className}>Uitgenodigd: {names(open.map((i) => i.name))}</span> : null;
+}
+
 const bufText = (a: Account) => (isCurrent(a) ? 'Buffer ' + eur(a.buffer) : 'Telt niet mee in de planning');
 
 function Lock({ a }: { a: Account }) {
@@ -152,10 +159,14 @@ interface EditorProps {
   error: string | null;
   onSave: () => void;
   onClose?: () => void;
+  /** Rekeningen only: the row "Gedeelde rekening" with its button runs this, then plays the sheet's exit. The account page has its own "Delen" card. */
+  onShare?: () => void;
 }
 
-export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, onSave, onClose }: EditorProps) {
+export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, onSave, onClose, onShare }: EditorProps) {
   const { today, online } = useApp();
+  // In the phone sheet the × and Sluiten play the sheet's exit like Escape does; `onClose` runs when it ends.
+  const sheetClose = useSheetClose();
   const v = values(a, draft);
   // Name, colour and buffer are the manager's: a member who may edit transactions still only reads them here.
   const ro = !canManage(a);
@@ -182,7 +193,9 @@ export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, 
     setDraft({ ...draft, bufInput: String(Math.round(b / 100)) });
   };
   const help = shared
-    ? 'Komt de gedeelde rekening onder dit bedrag, dan kleurt de planning geel. Onder € 0 wordt ze rood. Geldt voor jou en ' + names(others(a).map((m) => m.name)) + '.'
+    ? 'Komt de gedeelde rekening onder dit bedrag, dan kleurt de planning geel. Onder € 0 wordt ze rood.' +
+      // A flagged account has nobody else yet.
+      (others(a).length ? ' Geldt voor jou en ' + names(others(a).map((m) => m.name)) + '.' : '')
     : 'Komt deze rekening onder dit bedrag, dan kleurt de planning geel. Onder € 0 wordt ze rood.';
   const bufError = isNaN(v.buffer);
 
@@ -198,7 +211,7 @@ export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, 
             <Sub a={a} today={today} className="rk-ed-sub" />
           </div>
           {inSheet && (
-            <button type="button" className="rk-close" aria-label="Sluiten" onClick={onClose}>
+            <button type="button" className="rk-close" aria-label="Sluiten" onClick={sheetClose ?? onClose}>
               <Icon name="close" size={18} stroke={2.4} />
             </button>
           )}
@@ -340,6 +353,27 @@ export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, 
         </div>
       )}
 
+      {onShare && !ro && isCurrent(a) && (
+        <div className="rk-field rk-field--tight">
+          <span className="rk-label">Gedeelde rekening</span>
+          <div className="ri-edrow">
+            <span className="rk-help">
+              {shared ? (others(a).length ? 'Gedeeld met ' + names(others(a).map((m) => m.name)) : 'Gedeeld · nog met niemand') : 'Persoonlijk'}
+            </span>
+            <button
+              type="button"
+              className="rk-btn rk-btn--ghost"
+              onClick={() => {
+                onShare();
+                sheetClose?.();
+              }}
+            >
+              {shared ? 'Delen beheren' : 'Delen instellen'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="rk-preview">
         <span className="rk-preview-label">Voorbeeld</span>
         <span className="rk-pill">
@@ -358,7 +392,7 @@ export function Editor({ a, detail, bare, draft, setDraft, mode, saving, error, 
       {ro ? (
         inSheet && (
           <div className="rk-actions rk-actions--one">
-            <button type="button" className="rk-btn rk-btn--ghost" onClick={onClose}>
+            <button type="button" className="rk-btn rk-btn--ghost" onClick={sheetClose ?? onClose}>
               Sluiten
             </button>
           </div>
@@ -450,9 +484,21 @@ function RekeningenSkeleton() {
 
 export function Rekeningen() {
   useTitle('Rekeningen');
-  const { today, toast, dataVersion, refreshShell } = useApp();
+  const { today, toast, dataVersion, refreshShell, alerts } = useApp();
   const desktop = useIsDesktop();
   const accounts = useAsync((signal) => api.accounts(signal), [dataVersion]);
+  // The `invite` alert leads here (/rekeningen?uitnodiging=7). The invitee knows nothing of the account yet but what the alert says.
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const inviteId = Number(params.get('uitnodiging')) || 0;
+  const invite = inviteId && alerts ? alerts.find((x) => x.type === 'invite' && x.invitationId === inviteId) : undefined;
+  const closeInvite = () => setParams({}, { replace: true });
+  useEffect(() => {
+    if (inviteId && alerts && !invite) {
+      toast('Deze uitnodiging bestaat niet meer.');
+      closeInvite();
+    }
+  }, [inviteId, alerts, invite]);
   const [sel, setSel] = useState<number | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>({});
@@ -475,10 +521,20 @@ export function Rekeningen() {
     choose(id);
     setSheetOpen(true);
   };
+  // "Delen instellen" in the phone sheet: the sheet plays its exit, and when it ends the account page opens at its "Delen" card.
+  const after = useRef<string | null>(null);
   const closeSheet = () => {
     setSheetOpen(false);
     setDraft({});
     setError(null);
+    if (after.current) navigate(after.current);
+    after.current = null;
+  };
+  const share = () => {
+    if (!cur) return;
+    const to = '/rekeningen/' + cur.id + '#delen';
+    if (sheetOpen) after.current = to;
+    else navigate(to);
   };
   const changeDraft = (d: Draft) => {
     setDraft(d);
@@ -565,7 +621,7 @@ export function Rekeningen() {
             if (g.key === 'ged') {
               const who: string[] = [];
               g.rows.forEach((a) => others(a).forEach((m) => who.includes(m.name) || who.push(m.name)));
-              note = who.length ? 'met ' + names(who) : 'met meer leden';
+              note = who.length ? 'met ' + names(who) : 'nog met niemand';
             }
             return (
               <section className="rk-group anim-in" style={delay(60 + i * 30)} aria-labelledby={'rk-g-' + g.key} key={g.key}>
@@ -585,6 +641,7 @@ export function Rekeningen() {
                           <Lock a={a} />
                         </span>
                         <Sub a={a} today={today} className="rk-row-sub" />
+                        <Invited a={a} className="rk-row-sub" />
                         <span className={'rk-row-buf' + (isCurrent(a) ? '' : ' muted')}>{bufText(a)}</span>
                       </span>
                       <span className="rk-row-end">
@@ -605,6 +662,7 @@ export function Rekeningen() {
                             <Lock a={a} />
                           </span>
                           <Sub a={a} today={today} className="rk-drow-sub" />
+                          <Invited a={a} className="rk-drow-sub" />
                         </span>
                         <span className={'rk-drow-buf' + (isCurrent(a) ? '' : ' muted')}>{bufText(a)}</span>
                         <span className="mono rk-drow-amount">{eur(a.balance)}</span>
@@ -625,7 +683,7 @@ export function Rekeningen() {
           <div>
             <section className="rk-panel anim-in" style={delay(60)} aria-label="Rekening instellen" id="rk-panel">
               <div className="anim-fade" key={cur.id}>
-                <Editor a={cur} detail draft={draft} setDraft={changeDraft} mode="d" saving={saving} error={error} onSave={save} />
+                <Editor a={cur} detail draft={draft} setDraft={changeDraft} mode="d" saving={saving} error={error} onSave={save} onShare={share} />
               </div>
             </section>
           </div>
@@ -640,10 +698,21 @@ export function Rekeningen() {
       {body}
       {!desktop && sheetOpen && cur && (
         <Sheet onClose={closeSheet} label="Rekening instellen" className="rk-sheet rk-edit-sheet" backdropClassName="rk-backdrop">
-          <Editor a={cur} detail draft={draft} setDraft={changeDraft} mode="p" saving={saving} error={error} onSave={save} onClose={closeSheet} />
+          <Editor a={cur} detail draft={draft} setDraft={changeDraft} mode="p" saving={saving} error={error} onSave={save} onClose={closeSheet} onShare={share} />
         </Sheet>
       )}
       {adding && <AddAccount step={adding} used={(list || []).map((a) => a.colour)} onClose={() => setAdding(null)} onCreated={created} />}
+      {invite && (
+        <InviteeDialog
+          id={inviteId}
+          title={invite.title}
+          onClose={closeInvite}
+          onDone={() => {
+            closeInvite();
+            accounts.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

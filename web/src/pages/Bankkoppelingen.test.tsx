@@ -425,6 +425,14 @@ describe('Back from the bank · an account that exists already', () => {
     expect(document.body.textContent).not.toContain('staat al in Saldo bij een andere gebruiker');
     expect(await dialog()).toBeTruthy();
   });
+
+  it('joins an account the viewer was invited to at once (0.8-0b): no question, a line says so', async () => {
+    stubApi();
+    linked({ ...RESULT, joined: [{ id: GEDEELD.id, name: GEDEELD.name }] });
+    back();
+    expect(await screen.findByText(/Je bent nu lid van Gedeelde rekening\./)).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });
 
 describe('Bankkoppelingen · pending offers', () => {

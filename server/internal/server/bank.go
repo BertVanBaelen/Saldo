@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BertVanBaelen/Saldo/server/internal/auth"
 	"github.com/BertVanBaelen/Saldo/server/internal/banklink"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 )
@@ -153,11 +154,12 @@ func (s *Server) postBankLink(w http.ResponseWriter, r *http.Request) {
 }
 
 type callbackBody struct {
-	Connection ledger.Connection  `json:"connection"`
-	Accounts   []ledger.Account   `json:"accounts"`
-	Offers     []banklink.Offer   `json:"offers"`
-	Skipped    []banklink.Skipped `json:"skipped"`
-	Missing    []banklink.Missing `json:"missing"`
+	Connection ledger.Connection   `json:"connection"`
+	Accounts   []ledger.Account    `json:"accounts"`
+	Offers     []banklink.Offer    `json:"offers"`
+	Joined     []ledger.AccountRef `json:"joined"` // accounts joined at once through an open invitation (0.8-0b)
+	Skipped    []banklink.Skipped  `json:"skipped"`
+	Missing    []banklink.Missing  `json:"missing"`
 }
 
 func (s *Server) postBankCallback(w http.ResponseWriter, r *http.Request) {
@@ -209,5 +211,8 @@ func (s *Server) postBankCallback(w http.ResponseWriter, r *http.Request) {
 			accounts = append(accounts, a)
 		}
 	}
-	writeJSON(w, http.StatusOK, callbackBody{Connection: conns[i], Accounts: accounts, Offers: linked.Offers, Skipped: linked.Skipped, Missing: linked.Missing})
+	for _, j := range linked.Joined {
+		s.audit(r, auth.EventAccountJoined, viewer, "account="+strconv.FormatInt(j.ID, 10))
+	}
+	writeJSON(w, http.StatusOK, callbackBody{Connection: conns[i], Accounts: accounts, Offers: linked.Offers, Joined: linked.Joined, Skipped: linked.Skipped, Missing: linked.Missing})
 }

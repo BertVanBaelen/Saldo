@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ACCOUNTS, asMember, NEW_MANUAL, renderAt, SPAAR, stubApi, ZICHT } from '../test/helpers';
+import { ACCOUNTS, asMember, GEDEELD, NEW_MANUAL, renderAt, SPAAR, stubApi, ZICHT } from '../test/helpers';
 import { patchOf, values } from './Rekeningen';
 import { looksLikeIban } from './AddAccount';
 
@@ -148,5 +148,40 @@ describe('Rekeningen · settings of a shared account the viewer does not manage'
     const sheet = await open();
     expect((within(sheet).getByLabelText('Naam') as HTMLInputElement).disabled).toBe(false);
     expect(within(sheet).getByRole('button', { name: 'Opslaan' })).toBeTruthy();
+  });
+});
+
+describe('Rekeningen · the row "Gedeelde rekening" in the editor', () => {
+  const open = async (name: string) => {
+    fireEvent.click((await screen.findByText(name, { selector: '.rk-row-name' })).closest('button')!);
+    return screen.findByRole('dialog');
+  };
+
+  it.each([
+    ['a personal current account', ZICHT, 'Persoonlijk', 'Delen instellen'],
+    ['a shared one', GEDEELD, 'Gedeeld met Partner', 'Delen beheren'],
+    ['a shared one nobody joined yet', { ...ZICHT, kind: 'shared' as const, members: [GEDEELD.members[0]] }, 'Gedeeld · nog met niemand', 'Delen beheren'],
+    ['one the viewer does not manage', asMember('edit'), null, null],
+    ['a savings account', SPAAR, null, null],
+  ])('%s: the state and the button, or no row at all', async (_what, account, state, button) => {
+    stubApi({ accounts: [account] });
+    renderAt('/rekeningen');
+    const sheet = await open(account.name);
+    expect(!!within(sheet).queryByText('Gedeelde rekening', { selector: '.rk-label' })).toBe(state !== null);
+    if (state) {
+      expect(within(sheet).getByText(state)).toBeTruthy();
+      expect(within(sheet).getByRole('button', { name: button! })).toBeTruthy();
+    }
+  });
+
+  it('"Delen instellen" plays the sheet’s exit, then opens the account page at its Delen card', async () => {
+    stubApi({ accounts: [ZICHT] });
+    renderAt('/rekeningen');
+    const sheet = await open('Zichtrekening');
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Delen instellen' }));
+    // The page changes when the exit ends; the card's first control has the focus (the address carries #delen).
+    const sw = await screen.findByRole('switch', { name: 'Dit is een gedeelde rekening' });
+    expect(screen.getByTestId('location').textContent).toBe('/rekeningen/1');
+    await waitFor(() => expect(document.activeElement).toBe(sw));
   });
 });

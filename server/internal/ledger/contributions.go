@@ -27,15 +27,20 @@ const (
 
 // Contributions is GET /api/accounts/{id}/contributions.
 type Contributions struct {
-	Month     string               `json:"month"`
+	Month string `json:"month"`
+	// Need is what the account needs that month, rounded up to whole euros
+	// (0.8-4); nil outside the forecast or without a balance. The server layer
+	// fills it: ledger does not import planning.
+	Need      *int64               `json:"need"`
 	Members   []ContributionMember `json:"members"`
 	MySenders []Sender             `json:"mySenders"`
 }
 
 // ContributionMember is one member's contribution in a month. Share is the
-// agreed percentage (nil = equal); it has no effect yet (0.8-4). Senders is a
-// count: nobody sees another member's sender IBANs. Confirmed is "something
-// was received this month", not "paid their part".
+// agreed percentage (nil = equal). Senders is a count: nobody sees another
+// member's sender IBANs. Confirmed is "something was received this month", not
+// "paid their part". Required is the member's part of Need in whole euros and
+// Covered is Received >= Required (0.8-4; both nil as Need is).
 type ContributionMember struct {
 	UserID    int64  `json:"userId"`
 	Name      string `json:"name"`
@@ -44,6 +49,8 @@ type ContributionMember struct {
 	Senders   int    `json:"senders"`
 	Received  int64  `json:"received"`
 	Confirmed bool   `json:"confirmed"`
+	Required  *int64 `json:"required"`
+	Covered   *bool  `json:"covered"`
 }
 
 // Sender is one of the viewer's own claimed senders, IBAN masked.
@@ -61,7 +68,8 @@ type ContributionLabel struct {
 
 // Contributions answers a month ("YYYY-MM"; "" is the current month in
 // Brussels) of an account the viewer holds. A personal account has no members
-// here. A hidden account is apperr.ErrNotFound.
+// here (a flagged account with one member has that one member).
+// A hidden account is apperr.ErrNotFound.
 func (s *Store) Contributions(ctx context.Context, viewer, id int64, month string, now time.Time) (Contributions, error) {
 	if month == "" {
 		month = now.In(clock.Brussels).Format("2006-01")
@@ -75,7 +83,7 @@ func (s *Store) Contributions(ctx context.Context, viewer, id int64, month strin
 		return Contributions{}, err
 	}
 	out := Contributions{Month: month, Members: []ContributionMember{}, MySenders: []Sender{}}
-	if a.members < 2 {
+	if !a.shared() {
 		return out, nil
 	}
 	from, to := month+"-01", start.AddDate(0, 1, 0).Format("2006-01")+"-01"
@@ -146,7 +154,7 @@ func (s *Store) ClaimSender(ctx context.Context, viewer, id, fromAccount, transa
 	if err := a.edit(); err != nil {
 		return Sender{}, err
 	}
-	if a.members < 2 {
+	if !a.shared() {
 		return Sender{}, apperr.Invalid(msgPersonalNoShare)
 	}
 	if (fromAccount > 0) == (transaction > 0) {
@@ -239,8 +247,8 @@ func (s *Store) RemoveSender(ctx context.Context, viewer, id, sender int64) erro
 // SetShares sets the contribution split of a shared account the viewer
 // manages: raw is a JSON object naming every member exactly once (user id as
 // a string) with an integer 0..100, summing to 100, or null for equal (every
-// share NULL). The shares have no effect yet (0.8-4). A hidden account is
-// apperr.ErrNotFound, a member ErrNotManager.
+// share NULL). The shares set each member's required part of the need
+// (0.8-4). A hidden account is apperr.ErrNotFound, a member ErrNotManager.
 func (s *Store) SetShares(ctx context.Context, viewer, id int64, raw json.RawMessage) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -254,7 +262,7 @@ func (s *Store) SetShares(ctx context.Context, viewer, id int64, raw json.RawMes
 	if err := a.manage(); err != nil {
 		return err
 	}
-	if a.members < 2 {
+	if !a.shared() {
 		return apperr.Invalid(msgPersonalNoShare)
 	}
 	if len(raw) == 0 {

@@ -56,7 +56,9 @@ func TestSeed(t *testing.T) {
 		{"connections", `SELECT COUNT(*) FROM provider_connections`, 2},
 		{"sources", `SELECT COUNT(*) FROM account_sources`, 4},
 		{"fallback", `SELECT COUNT(*) FROM account_sources WHERE account_id = 4 AND connection_id = 2 AND priority = 'fallback'`, 1},
-		{"categories (the default tree)", `SELECT COUNT(*) FROM categories`, 25},
+		{"categories (the default tree and Sparen)", `SELECT COUNT(*) FROM categories`, 26},
+		{"Sparen counts as saved, appended, without rows (0.8-0a)", `SELECT COUNT(*) FROM categories c WHERE id = 26 AND name = 'Sparen' AND parent_id IS NULL
+			AND type = 'expense' AND saving = 1 AND tint = 'c9' AND icon = '🏦' AND NOT EXISTS (SELECT 1 FROM transactions t WHERE t.category_id = c.id)`, 1},
 		{"categories marked seeded", `SELECT COUNT(*) FROM app_settings WHERE key = 'categories_seeded'`, 1},
 		{"history stays on the top categories", `SELECT COUNT(*) FROM transactions t JOIN categories c ON c.id = t.category_id WHERE c.parent_id IS NOT NULL`, 0},
 		{"the nine story categories keep their ids", `SELECT COUNT(*) FROM categories WHERE (id, name) IN (VALUES (1, 'Wonen'), (2, 'Boodschappen'), (6, 'Overig'), (7, 'Salaris'), (9, 'Bijdrage'))`, 5},

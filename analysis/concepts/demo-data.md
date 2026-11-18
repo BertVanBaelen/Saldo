@@ -8,7 +8,7 @@ The mockup, local development and automated tests all use the same story, so scr
 - **Today**: Wednesday 18 November 2026. Last sync "vandaag 04:02".
 - **Accounts**: see [account](account.md#demo-values-18-nov-2026).
 - **Recurring**: salary € 2.850 on the 2nd; rent € 1.005 and contribution € 450 each on the 1st → personal dips below zero on the 1st until the salary arrives ([recurring-item](recurring-item.md)).
-- **Forecast**: see [forecast](forecast.md#demo-values-end-of-month-cents). January € 179 under the personal buffer (family insurance € 684), February −€ 1.033 (car repair € 2.000), tax refund € 680 in August 2027.
+- **Forecast**: see [forecast](forecast.md#demo-values-end-of-month-cents). January € 179 under the personal buffer (family insurance € 684), February −€ 1.033 (car repair € 2.000), tax refund € 680 in August 2027. The app reaches the same states from the story plus a planning seed (recurring items, budgets, planned items; plan [0.8-1](../../plan/v0.8-planning/01-planning-data.md)) with other amounts: January € 265 under the buffer, February −€ 1.134.
 - **Spending November**: see [category](category.md#demo-spending-november-alles--185237).
 - **Alerts**: consent expires in 12 days; 4 transactions to categorise; 3 category suggestions.
 - **Consent** (decided 3 Nov 2026): it expires on 30 November. The app says 12 days on 18 November; the 14-day reminder email and push went out on Monday 16 November, so both are right.

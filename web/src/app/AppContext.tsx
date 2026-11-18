@@ -7,8 +7,8 @@ import type { Alert, Me, Scope, SyncStatus, Theme, User } from '../lib/types';
 export interface Toast {
   id: number;
   text: string;
-  /** A link in the toast (longer on screen): `to` is a router path. */
-  action?: { label: string; to: string };
+  /** A link or a button in the toast (longer on screen): `to` is a router path, `run` an undo or similar. */
+  action?: { label: string; to: string } | { label: string; run: () => void };
 }
 
 export interface AppContextValue {

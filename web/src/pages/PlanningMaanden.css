@@ -1,0 +1,116 @@
+/* Planning · Maanden (plan 0.8-6), ported class by class from finance-mockup/css/screens/planning.css with the app's tokens.
+   The breakdown lines and the result bar (.pl-line*, .pl-result) are shared with the Budget tab. */
+
+/* ---------- Horizon ---------- */
+
+.pl-hz-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pl-hz-label { font-size: 14px; color: var(--muted); }
+/* The library's segmented control, narrower (4 segments next to the label fit at 375 px; the 44 px height stays) and green when selected. Two classes beat its utilities. */
+.pl-hz-row .pl-hz > button { padding: 0 6px; font-size: 13px; }
+.pl-hz-row .pl-hz > button[data-selected] { background: var(--green); color: var(--onGreen); box-shadow: none; }
+
+/* ---------- Buffer card (phone) ---------- */
+
+.pl-bufcard {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.pl-bufcard-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pl-bufcard-label { font-size: 13px; color: var(--muted); }
+.pl-bufcard-amount { font-size: 15px; font-weight: 500; }
+
+/* ---------- One list per account ---------- */
+
+.pl-maanden-phone { display: contents; }
+.pl-malist { display: flex; flex-direction: column; gap: 8px; }
+.pl-mhead { display: flex; align-items: center; gap: 8px; padding: 4px 2px 0; font-size: 14px; font-weight: 600; }
+
+.pl-skel-list { display: flex; flex-direction: column; gap: 8px; }
+.pl-skel {
+  height: 88px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, var(--skel) 0%, var(--skel2) 50%, var(--skel) 100%);
+  background-size: 640px 100%;
+  animation: sShimmer 1.1s linear infinite;
+}
+
+.pl-mlist { display: flex; flex-direction: column; gap: 8px; }
+.pl-mcard {
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.pl-mcard--under { background: var(--warnSoft); border-color: var(--warnChip); }
+.pl-mcard--neg { background: var(--negSoft); border-color: var(--neg); }
+.pl-mcard-btn {
+  width: 100%;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 14px 16px;
+  border: none; background: transparent; color: var(--text);
+  text-align: left;
+}
+.pl-mcard-top, .pl-mcard-bottom { width: 100%; display: flex; justify-content: space-between; gap: 8px; }
+.pl-mcard-top { align-items: center; }
+.pl-mcard-bottom { align-items: baseline; }
+.pl-mcard-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 16px; font-weight: 600; }
+.pl-lopend { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--muted); }
+.pl-mcard-sum { font-size: 13px; color: var(--muted); }
+.pl-mcard-end { flex: none; font-size: 15px; font-weight: 500; white-space: nowrap; }
+.pl-mcard-body { padding: 2px 16px 14px; display: flex; flex-direction: column; }
+
+.pl-mchip { flex: none; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: var(--r-pill); white-space: nowrap; background: var(--soft); color: var(--greenText); }
+.pl-mchip--under { background: var(--warnChip); color: var(--warn); }
+.pl-mchip--neg { background: var(--neg); color: var(--onNeg); }
+
+/* ---------- Breakdown ---------- */
+
+.pl-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.pl-line > .mono, .pl-line > .pl-line-quiet { font-size: 14px; font-weight: 500; white-space: nowrap; }
+.pl-line > .pl-line-quiet { font-weight: 400; color: var(--muted); }
+.pl-line-text { display: flex; flex-direction: column; gap: 1px; font-size: 14px; min-width: 0; }
+.pl-line-note { font-size: 12px; color: var(--muted); }
+.pl-line--end { padding: 10px 0 6px; border-top: 2px solid var(--text); font-size: 15px; font-weight: 600; }
+.pl-line--end > .mono { font-size: 15px; font-weight: 600; }
+.pl-line--buf { padding: 2px 0 8px; border-top: none; font-size: 14px; color: var(--muted); }
+.pl-line--buf > .mono { font-weight: 400; }
+
+.pl-result {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 15px; font-weight: 600;
+  background: var(--soft); color: var(--greenText);
+}
+.pl-result--shared { background: var(--sharedSoft); color: var(--sharedText); }
+.pl-result--under { background: var(--warnChip); color: var(--warn); }
+.pl-result--neg { background: var(--neg); color: var(--onNeg); }
+
+@media (min-width: 1024px) {
+  .pl-maanden { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+  .pl-mcol { display: flex; flex-direction: column; gap: 10px; }
+  .pl-hz-row .pl-hz > button { padding: 0 14px; }
+  .pl-skel { height: 64px; border-radius: 16px; }
+  .pl-skel-list, .pl-mlist { gap: 6px; }
+  .pl-mrow {
+    display: grid; grid-template-columns: 158px minmax(0, 1fr) 112px 172px; gap: 10px; align-items: center;
+    min-height: 60px; padding: 8px 16px;
+    border-radius: 16px;
+    border-width: 2px;
+    color: var(--text);
+    text-align: left;
+    overflow: visible;
+    transition: border-color 160ms ease;
+  }
+  .pl-mrow.is-sel { border-color: var(--text); }
+  .pl-mrow .pl-mcard-name { font-size: 15px; }
+  .pl-mrow .pl-mcard-end { text-align: right; }
+  .pl-mrow-chip { justify-self: end; }
+  .card.pl-mdetail { padding: 16px 18px; gap: 0; }
+  .pl-mdetail-title { font-size: 16px; font-weight: 600; padding-bottom: 2px; }
+  .pl-mdetail-sub { display: flex; align-items: center; gap: 6px; padding-bottom: 8px; font-size: 13px; color: var(--muted); }
+  .pl-mdetail .pl-line--buf { padding-bottom: 10px; }
+}

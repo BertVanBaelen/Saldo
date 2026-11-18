@@ -366,13 +366,14 @@ func TestBankLinkAndSync(t *testing.T) {
 			{"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE68 •••• •••• 7034", "colour": "green", "buffer": 0, "balance": 0,
 				"balanceDate": null, "state": "ok", "bank": "Argenta", "lastSync": null,
-				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false},
+				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false, "invitations": []},
 			{"id": 2, "name": "Gezinsrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE71 •••• •••• 6769", "colour": "green", "buffer": 0, "balance": 0,
 				"balanceDate": null, "state": "ok", "bank": "Argenta", "lastSync": null,
-				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false}
+				"syncStatus": "stale", "syncError": null, "lastAttempt": null, "syncReport": null, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false, "invitations": []}
 		],
 		"offers": [],
+		"joined": [],
 		"skipped": [],
 		"missing": []
 	}`)
@@ -391,11 +392,11 @@ func TestBankLinkAndSync(t *testing.T) {
 			{"id": 1, "name": "Zichtrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE68 •••• •••• 7034", "colour": "green", "buffer": 0, "balance": 196882,
 				"balanceDate": "2026-11-17", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T20:00:00+01:00",
-				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "syncReport": {"at": "2026-11-18T20:00:00+01:00", "from": null, "fetched": 3, "added": 3, "newest": "2026-11-17", "balanceDate": "2026-11-17", "idTail": "id-1"}, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false},
+				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "syncReport": {"at": "2026-11-18T20:00:00+01:00", "from": null, "fetched": 3, "added": 3, "newest": "2026-11-17", "balanceDate": "2026-11-17", "idTail": "id-1"}, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false, "invitations": []},
 			{"id": 2, "name": "Gezinsrekening", "type": "current", "source": "bank", "kind": "personal",
 				"iban": "BE71 •••• •••• 6769", "colour": "green", "buffer": 0, "balance": 94608,
 				"balanceDate": "2026-11-17", "state": "ok", "bank": "Argenta", "lastSync": "2026-11-18T20:00:00+01:00",
-				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "syncReport": {"at": "2026-11-18T20:00:00+01:00", "from": null, "fetched": 1, "added": 1, "newest": "2026-11-11", "balanceDate": "2026-11-17", "idTail": "id-2"}, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false}
+				"syncStatus": "ok", "syncError": null, "lastAttempt": "2026-11-18T20:00:00+01:00", "syncReport": {"at": "2026-11-18T20:00:00+01:00", "from": null, "fetched": 1, "added": 1, "newest": "2026-11-11", "balanceDate": "2026-11-17", "idTail": "id-2"}, "permission": "edit", "role": "manager", "members": [], "convertibleRules": 0, "sourceRole": "primary", "carriedBy": {"name": "Bert", "me": true}, "viaReserve": false, "invitations": []}
 		],
 		"skipped": []
 	}`)

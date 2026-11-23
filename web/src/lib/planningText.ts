@@ -68,6 +68,21 @@ export function dayItem(item: PlanDay['items'][number], past: boolean): { label:
   }
 }
 
+/** The day card's label of a planned item without a day: "Zomervakantie (verdeeld)", with the day's part as its amount (0.8.1-9). */
+export const spreadLabel = (label: string) => label + ' (verdeeld)';
+
+/**
+ * The line above the Kalender's grid for one planned item without a day (0.8.1-9): "Zomervakantie −€ 1.500,00 · verdeeld over juli
+ * (ongeveer −€ 48,38 per dag)". `perDay` is one day's part as the forecast gives it (signed cents; the last day has the rounding rest, hence
+ * "ongeveer"); `null` when no day of `month` carries the item, which is the running month's last day: the whole amount is on the 1st of the
+ * next month ("valt op 1 december").
+ */
+export function spreadLine(description: string, amount: number, month: string, perDay: number | null): string {
+  const head = description + ' ' + eur(amount, true);
+  if (perDay === null) return head + ' · valt op 1 ' + MONTHS[Number(month.slice(5, 7)) % 12];
+  return head + ' · verdeeld over ' + MONTHS[Number(month.slice(5, 7)) - 1] + ' (ongeveer ' + eur(perDay, true) + ' per dag)';
+}
+
 /**
  * The line under the plan form's fields: the account's end-of-day balance with the planned amount in it, and what that does to the
  * buffer. With a choice of accounts (Alles) it names the account: "Gedeelde rekening einde dag: € 1.218,58".

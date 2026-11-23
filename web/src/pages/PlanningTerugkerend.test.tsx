@@ -1,15 +1,14 @@
-// Planning · Terugkerend (plan 0.8-7): the suggestions, the confirmed and ignored lists, and the item form, on the demo's seed items.
-// The tab is rendered the way the page does (inside `Tabs`) with the props the page gives it; the API is stubbed (test/helpers.tsx).
+// Planning instellen · Terugkerend (plans 0.8-7, 0.8.1-8): the suggestions, the confirmed and ignored lists and the item sheet, on the demo's
+// seed items. The section is rendered the way the screen does it (the page's `useAsync` of the items, one account in view); the API is stubbed.
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../app/AppContext';
-import { ApiError } from '../lib/api';
+import { api as live, ApiError } from '../lib/api';
 import type { Planning } from '../lib/planning';
 import type { RecurringItem, RecurringSuggestion } from '../lib/planningItems';
+import { useAsync } from '../lib/useAsync';
 import { asMember, GEDEELD, ME, stubApi, ZICHT } from '../test/helpers';
-import { Tab, TabList, Tabs } from '../ui';
-import { PlanningTerugkerend } from './PlanningTerugkerend';
-import type { PlanningTabProps } from './planningTabs';
+import { PlanningTerugkerend, type TerugkerendProps } from './PlanningTerugkerend';
 
 const item = (id: number, accountId: number, description: string, counterparty: string, amount: number, kind: RecurringItem['kind'], day: number, extra: Partial<RecurringItem> = {}): RecurringItem => ({
   id,
@@ -42,7 +41,7 @@ const ITEMS: RecurringItem[] = [
   item(11, 4, 'Internet en tv', 'Proximus', -4298, 'expense', 9),
 ];
 const ZARA = item(12, 1, 'Zara', 'Zara', -4500, 'expense', 5, { state: 'ignored' });
-/** What detection finds for Bert on the demo (plan 0.8-2). */
+/** What detection finds on the demo (plan 0.8-2): Decathlon for Bert, Action for the shared account. */
 const SUGGESTIONS: RecurringSuggestion[] = [
   { accountId: 1, counterparty: 'Decathlon', description: 'Decathlon', amount: -4290, amountRule: 'fixed', frequency: 'quarterly', day: 27, month: 9, kind: 'expense', seen: 4 },
   { accountId: 4, counterparty: 'Action', description: 'Action', amount: -6247, amountRule: 'average', frequency: 'monthly', day: 23, month: null, kind: 'expense', seen: 12 },
@@ -58,20 +57,21 @@ function Toast() {
   const { current } = useApp();
   return <output data-testid="toast">{current?.text}</output>;
 }
-function setup(over: Partial<PlanningTabProps> = {}) {
-  const props: PlanningTabProps = { planning: PLANNING, accounts: [ZICHT, GEDEELD], scope: 'alles', month: '2026-11', setMonth: vi.fn(), horizon: 3, setHorizon: vi.fn(), reload: vi.fn(), canEdit: true, openTab: vi.fn(), ...over };
-  const view = render(
+/** The screen's part: it loads the items (their count is in the section control) and hands them to the section. */
+function Section(props: Omit<TerugkerendProps, 'items'>) {
+  const { dataVersion } = useApp();
+  const items = useAsync((signal) => live.planningItems(props.scope, signal), [props.scope, dataVersion]);
+  return <PlanningTerugkerend {...props} items={items} />;
+}
+function setup(over: Partial<Omit<TerugkerendProps, 'items'>> = {}) {
+  const props = { planning: PLANNING, accounts: [ZICHT], scope: 'alles' as const, reload: vi.fn(), canEdit: true, ...over };
+  render(
     <AppProvider me={ME}>
-      <Tabs selectedKey="terugkerend">
-        <TabList aria-label="Planning">
-          <Tab id="terugkerend">Terugkerend</Tab>
-        </TabList>
-        <PlanningTerugkerend {...props} />
-      </Tabs>
+      <Section {...props} />
       <Toast />
     </AppProvider>,
   );
-  return { props, view };
+  return props;
 }
 
 const toast = () => screen.getByTestId('toast').textContent;
@@ -80,54 +80,74 @@ const type = (label: string, value: string) => fireEvent.change(field(label), { 
 const radio = (name: string) => screen.getByRole('radio', { name });
 const checked = (name: string) => radio(name).getAttribute('aria-checked');
 const press = (name: string | RegExp) => fireEvent.click(screen.getByRole('button', { name }));
-/** The row (list item) of a name inside a part of the screen. */
+/** The list of a heading ("Inkomend", "Uitgaand") and the row (list item) of a name inside it. */
+const listOf = (name: string) => within(screen.getByRole('heading', { name }).closest('section')!);
 const li = (where: ReturnType<typeof within>, name: string) => where.getByText(name).closest('li')!;
-const confirmedList = () => within(screen.getByRole('heading', { name: 'Bevestigd' }).closest('section')!);
-const kinds = () => within(screen.getByRole('radiogroup', { name: 'Soort' })).getAllByRole('radio').map((r) => r.textContent);
+const kinds = () => within(screen.getByRole('radiogroup', { name: 'Soort post' })).getAllByRole('radio').map((r) => r.textContent);
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Terugkerend lists', () => {
-  it('lists what is to confirm and the confirmed items with their rhythm, both contribution halves and the missed note', async () => {
+  it('lists what was found, then the incoming and outgoing items of the account with their rhythm, and the sum per month', async () => {
     stubApi({ items: ITEMS, planningSuggestions: SUGGESTIONS });
     setup();
 
-    expect(await screen.findByRole('heading', { name: 'Te bevestigen · 2' })).toBeTruthy();
-    const open = within(screen.getByRole('heading', { name: 'Te bevestigen · 2' }).closest('section')!);
-    const decathlon = within(li(open, 'Decathlon'));
-    expect(decathlon.getByText('Zichtrekening')).toBeTruthy();
-    expect(decathlon.getByText('Elk kwartaal · rond de 27e · 4 keer gezien')).toBeTruthy();
+    // Only the Zichtrekening's: Decathlon, not the shared account's Action.
+    const found = within(await screen.findByRole('heading', { name: 'Gevonden · te bevestigen · 1' }).then((h) => h.closest('section')!));
+    const decathlon = within(li(found, 'Decathlon'));
+    expect(decathlon.getByText('Per kwartaal · rond de 27e · 4× gezien')).toBeTruthy();
     expect(decathlon.getByText('−€ 42,90')).toBeTruthy();
-    const action = within(li(open, 'Action'));
-    expect(action.getByText('Gedeelde rekening')).toBeTruthy();
-    expect(action.getByText('Maandelijks · rond de 23e · 12 keer gezien')).toBeTruthy();
-    expect(action.getByText('−€ 62,47')).toBeTruthy();
+    expect(screen.queryByText('Action')).toBeNull();
 
-    const list = confirmedList();
-    expect(list.getAllByRole('listitem')).toHaveLength(11);
-    expect(within(li(list, 'Huur')).getByText('Maandelijks · 1e')).toBeTruthy();
-    expect(within(li(list, 'Huur')).getByText('−€ 1.005,00')).toBeTruthy();
-    expect(within(li(list, 'Salaris')).getByText('+€ 2.850,00')).toBeTruthy();
-    expect(within(li(list, 'Familiale verzekering')).getByText('Jaarlijks · januari')).toBeTruthy();
-    expect(within(li(list, 'Naar spaarrekening')).getByText('Maandelijks · 16e · gespaard')).toBeTruthy();
-    expect(within(li(list, 'Naar gedeelde rekening')).getByText('Maandelijks · 1e · overschrijving')).toBeTruthy();
-    expect(within(li(list, 'Spotify')).getByText('Maandelijks · 17e · tot juni 2027')).toBeTruthy();
-    // In Alles both halves of the contribution are listed, each on the shared account.
-    expect(list.getAllByText('Maandelijks · 1e · bijdrage')).toHaveLength(2);
-    expect(within(li(list, 'Bijdrage Partner')).getByText('Gedeelde rekening')).toBeTruthy();
+    const inkomend = listOf('Inkomend');
+    expect(inkomend.getAllByRole('listitem')).toHaveLength(1);
+    expect(within(li(inkomend, 'Salaris')).getByText('Maandelijks · 2e')).toBeTruthy();
+    expect(within(li(inkomend, 'Salaris')).getByText('+€ 2.850,00')).toBeTruthy();
+    const uitgaand = listOf('Uitgaand');
+    expect(uitgaand.getAllByRole('listitem')).toHaveLength(6);
+    expect(within(li(uitgaand, 'Huur')).getByText('Maandelijks · 1e')).toBeTruthy();
+    expect(within(li(uitgaand, 'Huur')).getByText('−€ 1.005,00')).toBeTruthy();
+    expect(within(li(uitgaand, 'Familiale verzekering')).getByText('Jaarlijks · 15 januari')).toBeTruthy();
+    expect(within(li(uitgaand, 'Naar spaarrekening')).getByText('Maandelijks · 16e · gespaard')).toBeTruthy();
+    expect(within(li(uitgaand, 'Spotify')).getByText('Maandelijks · 17e · tot juni 2027')).toBeTruthy();
+    // A transfer to another own account keeps its stored description (no per-viewer "Jouw bijdrage").
+    expect(within(li(uitgaand, 'Naar gedeelde rekening')).getByText('Maandelijks · 1e · overschrijving')).toBeTruthy();
+    // A yearly item counts a twelfth, a quarterly one a third: 1005 + 450 + 13,99 + 200 + 11,99 + 57 = 1.737,98.
+    expect(screen.getByText('Per maand +€ 2.850 in · € 1.738 uit')).toBeTruthy();
 
     // An item the forecast stopped counting says so under its row; the others have no note.
-    expect(within(li(list, 'Netflix')).getByText('Verwacht op 12 november, niet gezien · telt niet meer mee')).toBeTruthy();
+    expect(within(li(uitgaand, 'Netflix')).getByText('Verwacht op 12 november, niet gezien · telt niet meer mee')).toBeTruthy();
     expect(screen.getAllByText(/niet gezien/)).toHaveLength(1);
+  });
+
+  it('shows both contribution halves of the shared account, with their stored descriptions, and its own suggestion', async () => {
+    stubApi({ items: ITEMS, planningSuggestions: SUGGESTIONS });
+    setup({ accounts: [GEDEELD] });
+
+    const found = within((await screen.findByRole('heading', { name: 'Gevonden · te bevestigen · 1' })).closest('section')!);
+    expect(found.getByText('Maandelijks · rond de 23e · 12× gezien')).toBeTruthy();
+    expect(found.getByText('−€ 62,47')).toBeTruthy();
+    const inkomend = listOf('Inkomend');
+    expect(inkomend.getAllByText('Maandelijks · 1e · bijdrage')).toHaveLength(2);
+    expect(within(li(inkomend, 'Bijdrage Partner')).getByText('+€ 450,00')).toBeTruthy();
+    expect(screen.getByText('Per maand +€ 900 in · € 188 uit')).toBeTruthy();
   });
 
   it('ignores a suggestion at once with its own body, and brings an ignored item back with "Toch tonen"', async () => {
     const api = stubApi({ items: [...ITEMS, ZARA], planningSuggestions: SUGGESTIONS });
-    const { props } = setup();
+    const props = setup();
+    // Once it is stored the server no longer suggests it.
+    api.createPlanningItem.mockImplementationOnce(async (b) => {
+      api.planningSuggestions.mockResolvedValue({ suggestions: [SUGGESTIONS[1]] });
+      return { id: 30, ...b } as RecurringItem;
+    });
 
     // Quarterly: the month of the run goes with it, and the name of an ignored item is its counterparty.
     fireEvent.click(await screen.findByRole('button', { name: 'Negeren: Decathlon' }));
     await waitFor(() => expect(toast()).toBe('Genegeerd'));
+    // The card row is gone (Action belongs to the other account).
+    await waitFor(() => expect(screen.queryByText('Decathlon')).toBeNull());
+    expect(screen.queryByText(/Gevonden/)).toBeNull();
     expect(api.createPlanningItem).toHaveBeenCalledWith({
       accountId: 1,
       description: 'Decathlon',
@@ -144,60 +164,55 @@ describe('Terugkerend lists', () => {
     await waitFor(() => expect(api.planningItems).toHaveBeenCalledTimes(2));
     expect(props.reload).toHaveBeenCalledTimes(1);
 
-    // The ignored list is closed until opened, and has no way back for a suggestion that is not stored.
+    // The ignored list is closed until opened.
     const fold = screen.getByRole('button', { name: /^Genegeerd/ });
     expect(fold.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText('Zara')).toBeNull();
     fireEvent.click(fold);
     expect(fold.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('Zara')).toBeTruthy();
     press('Toch tonen: Zara');
     await waitFor(() => expect(api.deletePlanningItem).toHaveBeenCalledWith(12));
     expect(toast()).toBe('Weer te bevestigen');
     expect(props.reload).toHaveBeenCalledTimes(2);
   });
 
-  it('hides an empty "Te bevestigen" on a phone and says "Alles bevestigd." on desktop', async () => {
-    stubApi({ items: ITEMS, planningSuggestions: [] });
-    const { view } = setup();
-    await screen.findByRole('heading', { name: 'Bevestigd' });
-    expect(screen.queryByText(/Te bevestigen/)).toBeNull();
-    view.unmount();
-
-    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
-    setup();
-    expect(await screen.findByRole('heading', { name: 'Te bevestigen · 0' })).toBeTruthy();
-    expect(screen.getByText('Alles bevestigd.')).toBeTruthy();
-  });
-
   it('shows no controls to a member with Lezen: no buttons on a suggestion, inert rows, no way to add, no "Toch tonen"', async () => {
     stubApi({ items: [...ITEMS, ZARA], planningSuggestions: SUGGESTIONS });
-    setup({ accounts: [{ ...ZICHT, permission: 'read' }, asMember('read')], canEdit: false });
+    setup({ accounts: [{ ...ZICHT, permission: 'read' }], canEdit: false });
 
-    expect(await screen.findByRole('heading', { name: 'Te bevestigen · 2' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Gevonden · te bevestigen · 1' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^(Bevestigen|Negeren)/ })).toBeNull();
-    expect(confirmedList().queryAllByRole('button')).toHaveLength(0);
+    expect(listOf('Uitgaand').queryAllByRole('button')).toHaveLength(0);
     expect(screen.queryByRole('button', { name: 'Terugkerende post toevoegen' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^Genegeerd/ }));
     expect(screen.getByText('Zara')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Toch tonen/ })).toBeNull();
   });
+
+  it('says so when the account has no recurring items, and offers no suggestion card without suggestions', async () => {
+    stubApi({ items: [], planningSuggestions: [] });
+    setup();
+    expect(await screen.findByText('Nog geen terugkerende posten.')).toBeTruthy();
+    expect(screen.queryByText(/Gevonden/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Terugkerende post toevoegen' })).toBeTruthy();
+  });
 });
 
-describe('Terugkerend item form', () => {
-  it('opens prefilled from a suggestion and stores it with fromSuggestion', async () => {
+describe('Terugkerend item sheet', () => {
+  it('opens prefilled from a suggestion, with "Meer opties" open for what is set, and stores it with fromSuggestion', async () => {
     const api = stubApi({ items: ITEMS, planningSuggestions: SUGGESTIONS });
-    const { props } = setup();
+    const props = setup({ accounts: [GEDEELD] });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Bevestigen: Action' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Nieuwe terugkerende post' }));
-    expect(field('Naam').value).toBe('Action');
+    expect(field('Omschrijving').value).toBe('Action');
     expect(field('Tegenpartij').value).toBe('Action');
-    expect(field('Bedrag').value).toBe('62,47');
-    expect([checked('Uitgave'), checked('Gemiddelde'), checked('Maandelijks')]).toEqual(['true', 'true', 'true']);
-    expect(field('Dag').value).toBe('23');
-    // The account is the suggestion's and does not change.
+    expect(field('Bedrag (€)').value).toBe('62,47');
+    expect([checked('− Uitgave'), checked('Gewone uitgave'), checked('Gemiddelde'), checked('Maandelijks')]).toEqual(['true', 'true', 'true', 'true']);
+    expect((field('Dag van de maand') as unknown as HTMLSelectElement).value).toBe('23');
+    // The account is the screen's and does not change; the preview says what is stored.
     expect(within(dialog.getByRole('group', { name: 'Rekening' })).getByText('Gedeelde rekening')).toBeTruthy();
+    expect(dialog.getByText('−€ 62,47 · maandelijks · Gedeelde rekening')).toBeTruthy();
     expect(dialog.queryByLabelText('Maand')).toBeNull();
 
     press('Opslaan');
@@ -218,25 +233,29 @@ describe('Terugkerend item form', () => {
     await waitFor(() => expect(api.planningSuggestions).toHaveBeenCalledTimes(2));
   });
 
-  it('asks for a name and an amount, shows the server message at the form, and posts a yearly item with its month', async () => {
+  it('asks for a description and an amount, shows the server message at the sheet, and posts a yearly item with its month', async () => {
     const api = stubApi({ items: ITEMS });
-    setup({ accounts: [ZICHT] });
+    setup();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Terugkerende post toevoegen' }));
+    // A new item starts with "Meer opties" closed.
+    expect(screen.queryByLabelText('Tegenpartij')).toBeNull();
     press('Opslaan');
-    expect(screen.getByRole('alert').textContent).toBe('Geef de post een naam.');
-    type('Naam', 'Sportclub');
+    expect(screen.getByRole('alert').textContent).toBe('Vul een omschrijving en een bedrag in.');
+    type('Omschrijving', 'Sportclub');
     expect(screen.queryByRole('alert')).toBeNull();
     press('Opslaan');
-    expect(screen.getByRole('alert').textContent).toBe('Vul een bedrag in.');
-    expect(field('Bedrag').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByRole('alert').textContent).toBe('Vul een omschrijving en een bedrag in.');
+    expect(field('Bedrag (€)').getAttribute('aria-invalid')).toBe('true');
     expect(api.createPlanningItem).not.toHaveBeenCalled();
 
-    // Quarterly and yearly items have a month ("Eerste maand", "Maand"); the server's refusal stays on the form, which can be sent again.
-    type('Bedrag', '25');
-    fireEvent.click(radio('Elk kwartaal'));
+    // Quarterly and yearly items have a month under "Wanneer" ("Eerste maand", "Maand"); the server's refusal stays on the sheet, which can be sent again.
+    type('Bedrag (€)', '25');
+    fireEvent.click(radio('Per kwartaal'));
     expect(field('Eerste maand')).toBeTruthy();
+    expect(screen.queryByLabelText('Dag van de maand')).toBeNull();
     fireEvent.click(radio('Jaarlijks'));
+    expect(screen.getByText('−€ 25,00 · jaarlijks · Zichtrekening')).toBeTruthy();
     api.createPlanningItem.mockRejectedValueOnce(new ApiError(400, 'invalid', 'Kies de maand.'));
     press('Opslaan');
     expect((await screen.findByRole('alert')).textContent).toBe('Kies de maand.');
@@ -250,47 +269,54 @@ describe('Terugkerend item form', () => {
     expect(toast()).toBe('Toegevoegd aan terugkerende posten');
   });
 
-  it('offers Overschrijving on a personal account and Bijdrage on a shared one, and a transfer follows Komt binnen / Gaat eruit', async () => {
+  it('offers Sparen and Overschrijving on a personal account, Bijdrage on a shared one; a transfer follows Uitgave / Inkomst', async () => {
     const api = stubApi({ items: ITEMS });
-    setup();
+    const personal = setup();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Terugkerende post toevoegen' }));
-    expect(kinds()).toEqual(['Uitgave', 'Inkomst', 'Sparen', 'Overschrijving']);
-    fireEvent.click(radio('Overschrijving'));
-    fireEvent.click(radio('Komt binnen'));
-    // Another account that has no Overschrijving: the kind falls back to Uitgave, Bijdrage is offered.
-    type('Rekening', '4');
-    expect(kinds()).toEqual(['Uitgave', 'Inkomst', 'Bijdrage', 'Sparen']);
-    expect(checked('Uitgave')).toBe('true');
-    expect(screen.queryByRole('radiogroup', { name: 'Richting' })).toBeNull();
+    expect(kinds()).toEqual(['Gewone uitgave', 'Sparen', 'Overschrijving naar']);
+    fireEvent.click(radio('+ Inkomst'));
+    expect(kinds()).toEqual(['Gewone inkomst', 'Overschrijving van']);
+    expect(checked('Gewone inkomst')).toBe('true');
+    // A transfer that comes in is positive on the personal account.
+    fireEvent.click(radio('Overschrijving van'));
+    type('Omschrijving', 'Van spaarrekening');
+    type('Bedrag (€)', '100');
+    press('Opslaan');
+    await waitFor(() => expect(api.createPlanningItem).toHaveBeenCalledTimes(1));
+    expect(api.createPlanningItem).toHaveBeenLastCalledWith({ accountId: 1, description: 'Van spaarrekening', counterparty: '', amount: 10000, amountRule: 'fixed', frequency: 'monthly', day: 1, kind: 'transfer' });
+    expect(personal.reload).toHaveBeenCalled();
+  });
+
+  it('on a shared account the kinds are Gewone uitgave / Sparen and Gewone inkomst / Bijdrage, and a Bijdrage comes in', async () => {
+    const api = stubApi({ items: ITEMS });
+    setup({ accounts: [GEDEELD] });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Terugkerende post toevoegen' }));
+    expect(kinds()).toEqual(['Gewone uitgave', 'Sparen']);
+    fireEvent.click(radio('Sparen'));
+    // Another direction that has no such kind falls back to the plain income.
+    fireEvent.click(radio('+ Inkomst'));
+    expect(kinds()).toEqual(['Gewone inkomst', 'Bijdrage']);
+    expect(checked('Gewone inkomst')).toBe('true');
     fireEvent.click(radio('Bijdrage'));
-    type('Naam', 'Bijdrage Derde');
-    type('Bedrag', '450');
+    type('Omschrijving', 'Bijdrage Derde');
+    type('Bedrag (€)', '450');
     press('Opslaan');
     await waitFor(() => expect(api.createPlanningItem).toHaveBeenCalledTimes(1));
     expect(api.createPlanningItem).toHaveBeenLastCalledWith({ accountId: 4, description: 'Bijdrage Derde', counterparty: '', amount: 45000, amountRule: 'fixed', frequency: 'monthly', day: 1, kind: 'contribution' });
-
-    // A transfer on the personal account is positive when it comes in, and the form shows no Bijdrage.
-    fireEvent.click(await screen.findByRole('button', { name: 'Terugkerende post toevoegen' }));
-    fireEvent.click(radio('Overschrijving'));
-    fireEvent.click(radio('Komt binnen'));
-    type('Naam', 'Van spaarrekening');
-    type('Bedrag', '100');
-    press('Opslaan');
-    await waitFor(() => expect(api.createPlanningItem).toHaveBeenCalledTimes(2));
-    expect(api.createPlanningItem).toHaveBeenLastCalledWith({ accountId: 1, description: 'Van spaarrekening', counterparty: '', amount: 10000, amountRule: 'fixed', frequency: 'monthly', day: 1, kind: 'transfer' });
   });
 
   it('edits an item with a PATCH without its account, and deletes it after a confirmation', async () => {
     const api = stubApi({ items: ITEMS });
-    const { props } = setup();
+    const props = setup();
 
-    // Spotify has an end date that can be cleared.
+    // Spotify has an end date that can be cleared (it sits under "Meer opties", open because it is set).
     fireEvent.click(await screen.findByRole('button', { name: /^Spotify/ }));
     expect(screen.getByRole('dialog', { name: 'Terugkerende post' })).toBeTruthy();
-    expect([field('Naam').value, field('Tegenpartij').value, field('Bedrag').value]).toEqual(['Spotify', 'Spotify', '11,99']);
+    expect([field('Omschrijving').value, field('Tegenpartij').value, field('Bedrag (€)').value]).toEqual(['Spotify', 'Spotify', '11,99']);
     expect(screen.queryByRole('combobox', { name: 'Rekening' })).toBeNull();
-    type('Naam', 'Spotify Duo');
+    type('Omschrijving', 'Spotify Duo');
     press('Einddatum wissen');
     expect(screen.queryByRole('button', { name: 'Einddatum wissen' })).toBeNull();
     press('Opslaan');
@@ -311,5 +337,13 @@ describe('Terugkerend item form', () => {
     expect(toast()).toBe('Terugkerende post verwijderd');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(props.reload).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves a read-only member out of the sheet: no member of Lezen reaches it', async () => {
+    stubApi({ items: ITEMS });
+    setup({ accounts: [asMember('read')], canEdit: false });
+    await screen.findByRole('heading', { name: 'Inkomend' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Bijdrage Bert/ })).toBeNull();
   });
 });

@@ -16,6 +16,8 @@ import type {
   ContributionSender,
   ContributionSenderBody,
   Contributions,
+  ContributorBody,
+  ContributorPatch,
   Device,
   EnableBanking,
   Health,
@@ -31,6 +33,8 @@ import type {
   Preferences,
   Redeem,
   RemovedLink,
+  ReportBalances,
+  ReportBudgets,
   ReportMonths,
   ReportQuery,
   Rule,
@@ -54,7 +58,7 @@ import type {
   UserList,
   UserRemovalPreview,
 } from './types';
-import type { Horizon, NewBudget, Planning, PlannedItem, SavedBudget } from './planning';
+import type { Horizon, NewBudget, NewPlanned, Planning, PlannedItem, PlannedPatch, SavedBudget } from './planning';
 import type { ItemPatch, NewItem, RecurringItem, RecurringSuggestion } from './planningItems';
 import { importForm, type UndoPreview, type CategoryChoice, type ImportBatch, type ImportExtras, type ImportMapping, type ImportPreview, type ImportResult, type ImportSettings, type ImportTarget } from './imports';
 
@@ -157,29 +161,39 @@ export function transactionsPath(q: TransactionQuery = {}): string {
   return '/api/transactions' + (s ? '?' + s : '');
 }
 
-export function reportMonthsPath(q: ReportQuery = {}): string {
+/** Query string of GET /api/reports/months and, without `detail`, of /api/reports/budgets; leaves out empty values. */
+function reportQueryString(q: ReportQuery): string {
   const p = new URLSearchParams();
   if (q.scope && q.scope !== 'alles') p.set('scope', q.scope);
   if (q.account !== undefined) p.set('account', String(q.account));
   if (q.from) p.set('from', q.from);
   if (q.to) p.set('to', q.to);
   const s = p.toString();
-  return '/api/reports/months' + (s ? '?' + s : '');
+  return s ? '?' + s : '';
+}
+
+export function reportMonthsPath(q: ReportQuery = {}): string {
+  const s = reportQueryString(q);
+  return '/api/reports/months' + (q.detail ? (s ? s + '&' : '?') + 'detail=1' : s);
 }
 
 export const api = {
   /** Income, expenses per category and saved per month for a selection (docs/api.md, "Reports"). */
   reportMonths: (q: ReportQuery = {}, signal?: AbortSignal) => request<ReportMonths>('GET', reportMonthsPath(q), { signal }),
+  /** What each category's amount is read against, per account and month: its budget, else a 6-month average (docs/api.md, "Reports"); `detail` is not sent. */
+  reportBudgets: (q: Omit<ReportQuery, 'detail'> = {}, signal?: AbortSignal) => request<ReportBudgets>('GET', '/api/reports/budgets' + reportQueryString(q), { signal }),
+  /** Each account's end-of-day balance line over the months, with its buffer; one entry per account, never a sum (docs/api.md, "Reports"); `detail` is not sent. */
+  reportBalances: (q: Omit<ReportQuery, 'detail'> = {}, signal?: AbortSignal) => request<ReportBalances>('GET', '/api/reports/balances' + reportQueryString(q), { signal }),
   /** The forecast per current account of the scope; `month` (`YYYY-MM`, default the running month) selects the month whose days come along. */
   planning: (scope: Scope, horizon: Horizon = 3, month?: string, signal?: AbortSignal) =>
     request<Planning>('GET', '/api/planning?scope=' + scope + '&horizon=' + horizon + (month ? '&month=' + encodeURIComponent(month) : ''), { signal }),
   /** Plans a one-off expense or income (`amount` signed cents) on an account the viewer may edit (docs/api.md, "Planning data (0.8-1)"). */
-  createPlanned: (body: Omit<PlannedItem, 'id'>) => request<PlannedItem>('POST', '/api/planning/planned', { body }),
+  createPlanned: (body: NewPlanned) => request<PlannedItem>('POST', '/api/planning/planned', { body }),
   deletePlanned: (id: number) => request<null>('DELETE', '/api/planning/planned/' + id),
   /** The planned one-off items from the first of this month on, by date (docs/api.md, "Planning data (0.8-1)"). */
   plannedItems: (scope: Scope, signal?: AbortSignal) => request<{ planned: PlannedItem[] }>('GET', '/api/planning/planned?scope=' + scope, { signal }),
-  /** Any of description, amount (signed cents) and date; an unchanged date is not checked, so a passed item stays editable. */
-  updatePlanned: (id: number, patch: Partial<Pick<PlannedItem, 'description' | 'amount' | 'date'>>) => request<PlannedItem>('PATCH', '/api/planning/planned/' + id, { body: patch }),
+  /** Any of description, amount (signed cents) and a `date` or a `month` (never both; a PATCH may switch); an unchanged date is not checked, so a passed item stays editable. */
+  updatePlanned: (id: number, patch: PlannedPatch) => request<PlannedItem>('PATCH', '/api/planning/planned/' + id, { body: patch }),
   /** The recurring items of the current accounts of the scope, confirmed and ignored (docs/api.md, "Planning data (0.8-1)"). */
   planningItems: (scope: Scope, signal?: AbortSignal) => request<{ items: RecurringItem[] }>('GET', '/api/planning/items?scope=' + scope, { signal }),
   /** Confirmed (default) or, with `state: 'ignored'`, ignored; `fromSuggestion` lets the server copy the counterparty IBAN. */
@@ -191,6 +205,8 @@ export const api = {
   planningSuggestions: (scope: Scope, signal?: AbortSignal) => request<{ suggestions: RecurringSuggestion[] }>('GET', '/api/planning/suggestions?scope=' + scope, { signal }),
   /** A category's budget from `fromMonth` on (`amount: null` = no budget, the forecast uses the average); answers the rows of that account and category (docs/api.md, "Planning data (0.8-1)"). */
   setBudget: (body: NewBudget) => request<{ budgets: SavedBudget[] }>('PUT', '/api/planning/budgets', { body }),
+  /** Every stored budget row of the current accounts of the scope (docs/api.md, "Planning data (0.8-1)"): "Planning instellen" reads them at open for Terugzetten. */
+  planningBudgets: (scope: Scope, signal?: AbortSignal) => request<{ budgets: SavedBudget[] }>('GET', '/api/planning/budgets?scope=' + scope, { signal }),
   health: (signal?: AbortSignal) => request<Health>('GET', '/api/health', { signal }),
   me: (signal?: AbortSignal) => request<Me>('GET', '/api/me', { signal }),
   savePreferences: (prefs: Partial<Preferences>) => request<Preferences>('PUT', '/api/me/preferences', { body: prefs }),
@@ -224,8 +240,17 @@ export const api = {
   addContributionSender: (id: number, body: ContributionSenderBody) => request<ContributionSender>('POST', '/api/accounts/' + id + '/contribution-senders', { body }),
   /** The claimant or the manager takes a declared sender away. */
   removeContributionSender: (id: number, senderId: number) => request<null>('DELETE', '/api/accounts/' + id + '/contribution-senders/' + senderId),
-  /** Manager only: percentage per user id (0 to 100, every member, sum 100), or `null` for equal. The shares set each member's part of the required contribution. */
-  setContributionShares: (id: number, shares: Record<number, number> | null) => request<Contributions>('PUT', '/api/accounts/' + id + '/contribution-shares', { body: { shares } }),
+  /** Manager only: percentage per key (0 to 100, `"<userId>"` for a member and `"c<id>"` for a contributor, each exactly once, sum 100), or `null` for equal. The shares set each one's part of the required contribution. */
+  setContributionShares: (id: number, shares: Record<string, number> | null) => request<Contributions>('PUT', '/api/accounts/' + id + '/contribution-shares', { body: { shares } }),
+  /** A member with edit adds a contributor without Saldo (name and IBAN, or name and an incoming row); answers the month's contributions. 409 when the IBAN is in use on the account. */
+  addContributor: (id: number, body: ContributorBody) => request<Contributions>('POST', '/api/accounts/' + id + '/contributors', { body }),
+  updateContributor: (id: number, contributorId: number, patch: ContributorPatch) => request<Contributions>('PATCH', '/api/accounts/' + id + '/contributors/' + contributorId, { body: patch }),
+  /** Deletes the contributor and sets every share back to equal; answers the month's contributions. */
+  removeContributor: (id: number, contributorId: number) => request<Contributions>('DELETE', '/api/accounts/' + id + '/contributors/' + contributorId),
+  /** Manager only: offers to link the contributor to a member (`userId`), or withdraws the offer (`null`). */
+  offerContributorLink: (id: number, contributorId: number, userId: number | null) => request<Contributions>('PUT', '/api/accounts/' + id + '/contributors/' + contributorId + '/link', { body: { userId } }),
+  /** The offered member's own answer; yes makes the IBAN their sender and removes the contributor. */
+  answerContributorLink: (id: number, contributorId: number, yes: boolean) => request<Contributions>('POST', '/api/accounts/' + id + '/contributors/' + contributorId + '/link-answer', { body: { yes } }),
   transactions: (q: TransactionQuery = {}, signal?: AbortSignal) => request<TransactionPage>('GET', transactionsPath(q), { signal }),
   updateTransaction: (id: number, patch: TransactionPatch) => request<Transaction>('PATCH', '/api/transactions/' + id, { body: patch }),
   /** The viewer's own mark: `true` is a transfer, `false` is none, `null` goes back to automatic. Answers the transaction. */

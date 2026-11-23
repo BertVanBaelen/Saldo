@@ -49,8 +49,7 @@ describe.each(Object.entries(BLOCKS))('tokens.css, %s block', (_name, open) => {
     }
   });
 
-  it('has the Overzicht bar colours: expenses and saved as hex, income the green', () => {
-    expect(v.get('ov-exp')).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  it('has the Overzicht bar colours: saved as hex, income the green', () => {
     expect(v.get('ov-sav')).toMatch(/^#[0-9A-Fa-f]{6}$/);
     expect(v.get('ov-inc')).toBe('var(--green)');
   });
@@ -68,6 +67,6 @@ describe('tokens.css, dark blocks', () => {
   it('agree on the category colours, the tint tokens and the Overzicht bar colours', () => {
     const a = vars(BLOCKS['dark (system)']);
     const b = vars(BLOCKS['dark (chosen)']);
-    for (const k of [...Array.from({ length: 16 }, (_, i) => 'c' + (i + 1)), 'onPastel', 'onC6', 'tint-l-min', 'tint-l-max', 'tint-c-max', 'ov-inc', 'ov-exp', 'ov-sav']) expect(a.get(k), k).toBe(b.get(k));
+    for (const k of [...Array.from({ length: 16 }, (_, i) => 'c' + (i + 1)), 'onPastel', 'onC6', 'tint-l-min', 'tint-l-max', 'tint-c-max', 'ov-inc', 'ov-sav']) expect(a.get(k), k).toBe(b.get(k));
   });
 });

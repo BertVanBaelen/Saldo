@@ -37,3 +37,24 @@ a.contrib-chip--link::after { content: ""; position: absolute; inset: -10px 0; }
 .contrib-total--bad { color: var(--negText); }
 .contrib-actions { flex-direction: row; flex-wrap: wrap; }
 .contrib-actions .btn { flex: 1 1 140px; }
+
+/* Contributors without Saldo (0.8.1-7): a row per person under the card, and the sheet that adds or changes one. */
+.contrib-others { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.contrib-others li + li { border-top: 1px solid var(--line); }
+.contrib-other { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 56px; padding: 8px 0; text-align: left; font-size: 15px; }
+button.contrib-other { border: none; background: transparent; color: var(--text); }
+button.contrib-other:disabled { opacity: 0.5; cursor: default; }
+button.contrib-other svg { flex: none; color: var(--muted); }
+.contrib-other-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.contrib-other-name { font-weight: 600; overflow-wrap: anywhere; }
+.contrib-other-note { flex-basis: 100%; font-size: 12px; color: var(--muted); }
+.contrib-other-share { flex: none; font-size: 14px; color: var(--muted); }
+
+/* "Mama stond als bijdrager met rekening … Is dat jouw rekening?": only the offered member sees it. */
+.contrib-offer { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: var(--sharedSoft); border: 1px solid var(--sharedChip); }
+.contrib-offer-text { font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; }
+
+.contrib-form { display: flex; flex-direction: column; gap: 14px; }
+.contrib-link { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.contrib-delete { min-height: 44px; border: none; border-radius: 10px; background: transparent; color: var(--negText); font-size: 15px; font-weight: 600; }
+.contrib-delete:disabled { opacity: 0.5; cursor: default; }

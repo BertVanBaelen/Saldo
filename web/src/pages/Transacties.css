@@ -651,3 +651,7 @@
 .tx-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 0 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
 .tx-note svg { flex: none; margin-top: 1px; }
 @media (min-width: 1024px) { .tx-note { padding: 0 12px; font-size: 13px; } }
+
+/* "Dit is de bijdrage van …": mij, or someone without Saldo (0.8.1-7) */
+.tx-claim { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tx-claim-label { font-size: 13px; font-weight: 600; color: var(--muted); }

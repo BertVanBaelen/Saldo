@@ -29,9 +29,25 @@ func TestTransactionsCategoryParam(t *testing.T) {
 	}{
 		{"category=abc", "Kies een categorie."},
 		{"category=-1", "Kies een categorie."},
+		{"category=income-x", "Kies een categorie."},
+		{"category=saved-account-", "Kies een categorie."},
 	} {
 		if got := expectError(t, do(t, h, "GET", "/api/transactions?"+c.query, ""), http.StatusBadRequest, "invalid"); got != c.message {
 			t.Errorf("%s: %q, want %q", c.query, got, c.message)
+		}
+	}
+	// The detail keys of 0.8.1-1: Bert's salary of October, the transfer to the Spaarrekening.
+	for _, c := range []struct {
+		query  string
+		amount int64
+	}{{"category=income-7", 285000}, {"category=saved-account-2", -20000}} {
+		r := do(t, h, "GET", "/api/transactions?scope=persoonlijk&"+c.query+october, "")
+		var sum int64
+		for _, it := range decode[ledger.Page](t, r.body).Items {
+			sum += it.Amount
+		}
+		if r.status != http.StatusOK || sum != c.amount {
+			t.Errorf("%s: %d, sum %d; want %d", c.query, r.status, sum, c.amount)
 		}
 	}
 	// A savings account answers an empty list with a category (the report endpoint keeps its 400), its rows without.

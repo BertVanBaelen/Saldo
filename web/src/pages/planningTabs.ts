@@ -1,22 +1,28 @@
 // The shared shell of the Planning tabs (plan 0.8-5): the props every tab component takes, and the month arithmetic of the URL
-// state (`?maand=YYYY-MM`, the horizon it needs).
+// state (`?maand=YYYY-MM`, the horizon it needs). Planning has three tabs; Terugkerend, Eenmalig and the category budgets moved to the
+// screen "Planning instellen" (plan 0.8.1-8, PlanningInstellen.tsx), whose sections are not tabs of this `Tabs` and may use hooks.
 //
-// RULE for the tab files (Kalender, Maanden, Terugkerend, Eenmalig, Budget): the exported component must be hook-free and return
+// RULE for the tab files (Kalender, Maanden, Budget): the exported component must be hook-free and return
 // only `<TabPanel id="…" className="pl-panel"><Body {...props} /></TabPanel>`. React Aria's `Tabs` renders its children a second time
 // in a hidden tree to collect the tabs; a hideable `TabPanel` renders nothing there, but a wrapper around it still runs its hooks and
 // effects in that copy. State, effects and data loading therefore live in `Body`, which only mounts for the selected tab.
 import type { Horizon, Planning } from '../lib/planning';
 import type { Account, Scope } from '../lib/types';
 
-export type PlanningTabId = 'kalender' | 'maanden' | 'terugkerend' | 'eenmalig' | 'budget';
+export type PlanningTabId = 'kalender' | 'maanden' | 'budget';
 
 export const TABS: { id: PlanningTabId; label: string }[] = [
   { id: 'kalender', label: 'Kalender' },
   { id: 'maanden', label: 'Maanden' },
-  { id: 'terugkerend', label: 'Terugkerend' },
-  { id: 'eenmalig', label: 'Eenmalig' },
   { id: 'budget', label: 'Budget' },
 ];
+
+/** The hashes of the screen "Planning instellen" (`/planning/instellen#…`); the first is the default. */
+export const SECTIONS = ['budgetten', 'terugkerend', 'eenmalig'] as const;
+export type InstellenSection = (typeof SECTIONS)[number];
+
+/** What the sections of "Planning instellen" need of the page: the account in view (one), the forecast, a reload of it and the right to edit. */
+export type PlanningSectionProps = Pick<PlanningTabProps, 'planning' | 'accounts' | 'scope' | 'reload' | 'canEdit'>
 
 export interface PlanningTabProps {
   /** The forecast for the scope, horizon and month in the URL (`GET /api/planning`); `undefined` while that answer loads, so a tab stays mounted (focus, open cards) across a horizon or month change. */
@@ -34,9 +40,6 @@ export interface PlanningTabProps {
   reload: () => void;
   /** The viewer may edit at least one account in view: without it a tab shows no edit controls. */
   canEdit: boolean;
-  /** Switch tab (the hash), keeping the month: the summary opens `budget`, Eenmalig's dashed button opens `kalender`. */
-  /** Opens a tab, optionally on a month (YYYY-MM; the running month clears the `maand` parameter). */
-  openTab: (tab: PlanningTabId, month?: string) => void;
 }
 
 export const HORIZONS: Horizon[] = [3, 6, 12, 24];

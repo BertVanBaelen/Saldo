@@ -7,21 +7,22 @@ import type { Scope } from '../lib/types';
 import { ME, renderAt, stubApi } from '../test/helpers';
 
 const MONTHS_AHEAD = ['2026-11', '2026-12', '2027-01', '2027-02'];
-/** A forecast month with the figures the chart reads: its end and what is left against the buffer. */
-const month = (m: string, end: number, buffer: number): PlanMonth => {
+/** A forecast month with the figures the chart reads: its start and end (the result is the difference) and what is left against the buffer. */
+const month = (m: string, start: number, end: number, buffer: number): PlanMonth => {
   const state: PlanState = end < 0 ? 'red' : end < buffer ? 'buffer' : 'ok';
-  return { month: m, start: 0, end, left: end - buffer, state, income: 0, out: 0, saved: 0, low: { date: m + '-01', balance: end, state }, lines: [], budgets: [] };
+  return { month: m, start, end, left: end - buffer, state, income: 0, out: 0, saved: 0, low: { date: m + '-01', balance: end, state }, lines: [], budgets: [] };
 };
-const account = (id: number, buffer: number, ends: number[]) => ({
+/** `start` is the first month's start; every later month starts where the one before ended. */
+const account = (id: number, buffer: number, start: number, ends: number[]) => ({
   id,
   buffer,
   balance: 0,
   balanceDate: '2026-11-18',
-  months: ends.map((e, i) => month(MONTHS_AHEAD[i], e, buffer)),
+  months: ends.map((e, i) => month(MONTHS_AHEAD[i], i === 0 ? start : ends[i - 1], e, buffer)),
 });
 // The demo bars: Zichtrekening € 1.207 / € 1.088 / € 635 / −€ 1.134, Gedeelde rekening € 629 … € 927.
-const ZICHT_PLAN = account(1, 90000, [120685, 108789, 63493, -113403]);
-const GEDEELD_PLAN = account(4, 60000, [62882, 72837, 82792, 92747]);
+const ZICHT_PLAN = account(1, 90000, 102355, [120685, 108789, 63493, -113403]);
+const GEDEELD_PLAN = account(4, 60000, 52927, [62882, 72837, 82792, 92747]);
 const DEMO: Planning = { today: '2026-11-18', accounts: [ZICHT_PLAN, GEDEELD_PLAN], missing: [] };
 
 const inScope = (scope: Scope) => ({ ...ME, preferences: { ...ME.preferences, scope } });
@@ -43,15 +44,16 @@ describe('StartForecast', () => {
     expect(texts(zicht, '.fc-buf')).toEqual(['Buffer € 900']);
     expect(texts(zicht, '.fc-month')).toEqual(['nov · nu', 'dec', 'jan', 'feb']);
     expect(texts(zicht, '.fc-end')).toEqual(['€ 1.207', '€ 1.088', '€ 635', '−€ 1.134']);
-    expect(texts(zicht, '.fc-res')).toEqual(['+€ 307', '+€ 188', '−€ 265', 'rood']);
+    // Grey: the end balance. Coloured: what the month wins or loses (end minus start).
+    expect(texts(zicht, '.fc-res')).toEqual(['+€ 183', '−€ 119', '−€ 453', '−€ 1.769']);
     expect(zicht.querySelector('.fc-plot')!.getAttribute('aria-label')).toBe(
-      'Zichtrekening: november € 1.207, € 307 boven buffer; december € 1.088, € 188 boven buffer; januari € 635, € 265 onder buffer; februari −€ 1.134, negatief saldo',
+      'Zichtrekening: november € 1.207, +€ 183 deze maand, boven buffer; december € 1.088, −€ 119 deze maand, boven buffer; januari € 635, −€ 453 deze maand, in de buffer; februari −€ 1.134, −€ 1.769 deze maand, rood',
     );
 
     expect(texts(gedeeld, '.fc-title')).toEqual(['Gedeelde rekening']);
     expect(texts(gedeeld, '.fc-buf')).toEqual(['Buffer € 600']);
     expect(texts(gedeeld, '.fc-end')).toEqual(['€ 629', '€ 728', '€ 828', '€ 927']);
-    expect(texts(gedeeld, '.fc-res')).toEqual(['+€ 29', '+€ 128', '+€ 228', '+€ 327']);
+    expect(texts(gedeeld, '.fc-res')).toEqual(['+€ 100', '+€ 100', '+€ 100', '+€ 100']);
 
     expect(texts(box, '.legend > span')).toEqual(['Boven buffer', 'Onder buffer', 'Rood: negatief saldo']);
   });
@@ -69,7 +71,7 @@ describe('StartForecast', () => {
     expect(Array.from(one.querySelectorAll('.fc-plot')).map((p) => (p as HTMLElement).style.height)).toEqual(['124px']);
   });
 
-  it('draws a negative month below the zero line in --neg, in words "rood", and the positive ones above it', async () => {
+  it('draws a negative month below the zero line in --neg, the buffer state by the bar colour and the result by its sign', async () => {
     stubApi({ planning: DEMO });
     renderAt('/');
     const zicht = charts(await section())[0];
@@ -77,15 +79,18 @@ describe('StartForecast', () => {
     expect(cols).toHaveLength(4);
     expect(cols.map((c) => !!c.querySelector('.fc-pos .fc-bar'))).toEqual([true, true, true, false]);
     expect(cols.map((c) => !!c.querySelector('.fc-neg .fc-bar--neg'))).toEqual([false, false, false, true]);
-    // The last bar is the longest below the line; the red month's end and result are in --neg.
+    // The last bar is the longest below the line; the red month's end is in --neg.
     expect(parseInt((cols[3].querySelector('.fc-bar--neg') as HTMLElement).style.height)).toBeGreaterThan(0);
     const last = zicht.querySelector('.fc-labels')!.lastElementChild!;
-    expect(within(last as HTMLElement).getByText('rood')).toBeTruthy();
     expect((last.querySelector('.fc-end') as HTMLElement).style.color).toBe('var(--neg)');
-    expect((last.querySelector('.fc-res') as HTMLElement).style.color).toBe('var(--neg)');
-    // Left over is green, in the buffer is warn.
-    const results = Array.from(zicht.querySelectorAll('.fc-res')).map((e) => (e as HTMLElement).style.color);
-    expect(results).toEqual(['var(--greenText)', 'var(--greenText)', 'var(--warn)', 'var(--neg)']);
+    // The buffer state is the bar: the account's colour above the buffer, --warn in the buffer (January), --neg below zero.
+    const fills = cols.slice(0, 3).map((c) => (c.querySelector('.fc-pos .fc-bar') as HTMLElement).style.background);
+    expect(fills[0]).not.toBe('');
+    expect(fills[1]).toBe(fills[0]);
+    expect(fills[2]).toBe('var(--warn)');
+    // The result under it is by its sign: November wins, the other three months lose.
+    const results = Array.from(zicht.querySelectorAll('.fc-res')).map((e) => e.className);
+    expect(results).toEqual(['fc-res fc-res--gain', 'fc-res fc-res--loss', 'fc-res fc-res--loss', 'fc-res fc-res--loss']);
     // The buffer line is dashed text colour inside the plot, above the zero line.
     expect(zicht.querySelector('.fc-bufline')).not.toBeNull();
     expect(parseInt((zicht.querySelector('.fc-bufline') as HTMLElement).style.top)).toBeLessThan(parseInt((zicht.querySelector('.fc-zero') as HTMLElement).style.top));

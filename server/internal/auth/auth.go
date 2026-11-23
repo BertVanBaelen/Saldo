@@ -62,6 +62,8 @@ const (
 	EventImportDone         = "import_done"
 	EventImportUndone       = "import_undone"
 	EventCategoryRemoved    = "category_removed"
+	EventContributorLinked  = "contributor_linked"   // 0.8.1-7: ids only, never an IBAN
+	EventContribReplaced    = "contributor_replaced" // a member proved the IBAN as their own account
 )
 
 // Store runs sign-in on the database.

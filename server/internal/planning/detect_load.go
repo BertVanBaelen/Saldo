@@ -79,9 +79,11 @@ func detectAccount(ctx context.Context, db *sql.DB, viewer int64, a ledger.Accou
 	acc := DetectAccount{ID: a.ID, Shared: a.Kind == "shared"}
 	if acc.Shared {
 		acc.Senders = map[string]bool{}
-		if err := detectQuery(ctx, db, `SELECT iban, '' FROM contribution_senders WHERE account_id = ?`, func(iban, _ string) {
+		// The members' senders and the contributors without Saldo (0.8.1-7): both pay contributions.
+		if err := detectQuery(ctx, db, `SELECT iban, '' FROM contribution_senders WHERE account_id = ?
+			UNION ALL SELECT iban, '' FROM contributors WHERE account_id = ?`, func(iban, _ string) {
 			acc.Senders[ledger.NormalizeIBAN(iban)] = true
-		}, a.ID); err != nil {
+		}, a.ID, a.ID); err != nil {
 			return nil, err
 		}
 	} else {

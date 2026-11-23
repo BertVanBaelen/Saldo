@@ -68,6 +68,12 @@ func setShared(ctx context.Context, tx *sql.Tx, a access, account int64, on bool
 		if open {
 			return apperr.Invalid("Trek eerst de uitnodiging in.")
 		}
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM contributors WHERE account_id = ?)`, account).Scan(&open); err != nil {
+			return err
+		}
+		if open { // contributors without Saldo (0.8.1-7)
+			return apperr.Invalid("Verwijder eerst de bijdragers.")
+		}
 	}
 	_, err := tx.ExecContext(ctx, `UPDATE accounts SET shared = ? WHERE id = ?`, on, account)
 	return err

@@ -70,15 +70,47 @@ export function periodFromParam(value: string | null, today: string): ReturnType
 }
 
 /**
- * `?categorie=` values: a top category id, or `geen` / `naar-gedeeld` / `naar-eigen` (the pseudo rows of Overzicht) and
- * `gespaard` (the Gespaard tile), sent to the API as the id, `none`, `toShared`, `toOwn` and `saved`. Anything else is ignored.
+ * `?categorie=` values: a category id (a top rolls up, a subcategory is on its own), or `geen` / `naar-gedeeld` / `naar-eigen`
+ * (the pseudo rows of Overzicht) and `gespaard` (everything saved), sent to the API as the id, `none`, `toShared`, `toOwn` and
+ * `saved`. From the breakdown sheets (0.8.1-4): `<id>-zelf` (what is booked on that category itself), `inkomen-<id>`,
+ * `inkomen-<id>-zelf`, `inkomen-overschrijving`, `inkomen-geen` (sent as `income-…`) and `gespaard-rekening-<id>` (sent as
+ * `saved-account-<id>`). Anything else is ignored.
  */
-const CATEGORY_KEYS: Record<string, string> = { geen: 'none', 'naar-gedeeld': 'toShared', 'naar-eigen': 'toOwn', gespaard: 'saved' };
+const CATEGORY_KEYS: Record<string, string> = {
+  geen: 'none',
+  'naar-gedeeld': 'toShared',
+  'naar-eigen': 'toOwn',
+  gespaard: 'saved',
+  'inkomen-overschrijving': 'income-transfer',
+  'inkomen-geen': 'income-none',
+};
+const ID = '[1-9]\\d*';
+const DETAIL_KEYS: [RegExp, (m: RegExpExecArray) => string][] = [
+  [new RegExp('^(' + ID + ')(-zelf)?$'), (m) => m[0]],
+  [new RegExp('^inkomen-(' + ID + ')(-zelf)?$'), (m) => 'income-' + m[1] + (m[2] ?? '')],
+  [new RegExp('^gespaard-rekening-(' + ID + ')$'), (m) => 'saved-account-' + m[1]],
+];
 export function categoryFromParam(value: string | null): { param: string; key: string } | undefined {
-  if (value && /^[1-9]\d*$/.test(value)) return { param: value, key: value };
-  if (value && Object.hasOwn(CATEGORY_KEYS, value)) return { param: value, key: CATEGORY_KEYS[value] };
+  if (!value) return undefined;
+  if (Object.hasOwn(CATEGORY_KEYS, value)) return { param: value, key: CATEGORY_KEYS[value] };
+  for (const [re, key] of DETAIL_KEYS) {
+    const m = re.exec(value);
+    if (m) return { param: value, key: key(m) };
+  }
   return undefined;
 }
+
+/**
+ * The parameters of the Transacties URL behind a row of Overzicht: its `categorie` value, the column's `periode`, and the
+ * `rekening` when the report is for one account. The sheets build their link and their request from the same parameters.
+ */
+export function drillParams(categorie: string, periode: string, account?: number): URLSearchParams {
+  const p = new URLSearchParams({ categorie, periode });
+  if (account !== undefined) p.set('rekening', String(account));
+  return p;
+}
+
+export const drillHref = (categorie: string, periode: string, account?: number) => '/transacties?' + drillParams(categorie, periode, account).toString();
 
 /** The note under a Gespaard list (Transacties with `categorie=gespaard`, and the Gespaard sheet of Overzicht). */
 export const SAVED_NOTE = 'Gespaard telt overschrijvingen naar je spaar- en beleggingsrekeningen en wat in een categorie staat die als gespaard telt. Een opname telt negatief.';

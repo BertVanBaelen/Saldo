@@ -1,8 +1,8 @@
 // The words and sums of the Planning tabs Maanden and Budget (plan 0.8-6): the month card (chip, summary), the breakdown, the
 // free-to-spend rows and the stacked bar. Pure functions of the forecast on the wire (lib/planning.ts); amounts in cents.
 // Design: finance-mockup/js/screens/planning.js (monthView, breakdown, model().bud); spec: analysis/screens/planning.md.
-import { cap, eur, eur0, MONTHS } from './format';
-import type { PlanAccount, PlanBudget, PlanContribution, PlanMonth } from './planning';
+import { cap, dateShort, eur, eur0, MONTHS } from './format';
+import type { PlanAccount, PlanBudget, PlanContribution, PlanMonth, PlanState } from './planning';
 import type { RecurringItem } from './planningItems';
 
 /** The amount of a line of the month by its key; 0 when the answer carries none (a fixture, an empty month). */
@@ -22,8 +22,47 @@ export const monthTitle = (month: string, today: string) => cap(MONTHS[monthInde
 export type MonthTone = 'ok' | 'under' | 'neg';
 export const monthTone = (m: PlanMonth): MonthTone => (m.state === 'red' ? 'neg' : m.state === 'buffer' ? 'under' : 'ok');
 
-/** "€ 306,85 over", "€ 265,07 onder buffer", "€ 1.134,03 rood" (the amount is minus the end). */
-export const monthChip = (m: PlanMonth) => (m.state === 'red' ? eur(-m.end) + ' rood' : eur(Math.abs(m.left)) + (m.state === 'buffer' ? ' onder buffer' : ' over'));
+/** The sign of a month's result: `gain` above zero (green), `loss` below (red), `flat` at zero (muted). */
+export type ResultTone = 'gain' | 'loss' | 'flat';
+
+/** What the month wins or loses: its end minus its start (= income − out − saved, so savings lower it). The running month's start is the real end of last month. */
+export function monthResult(m: PlanMonth): { cents: number; tone: ResultTone } {
+  const cents = m.end - m.start;
+  return { cents, tone: cents > 0 ? 'gain' : cents < 0 ? 'loss' : 'flat' };
+}
+
+/** "+€ 183,30", "−€ 118,96", "€ 0,00"; `whole` without cents for Start's bars: "+€ 183". */
+export const resultText = (cents: number, whole = false) => (whole ? (Math.round(Math.abs(cents) / 100) === 0 ? eur0(0) : eur0(cents, true)) : eur(cents, true));
+
+/** The month's place against the buffer in the design's words: "boven buffer", "in de buffer", "rood". It comes from the month's end (0.8 decision 14). */
+export const stateLabel = (s: PlanState) => (s === 'red' ? 'rood' : s === 'buffer' ? 'in de buffer' : 'boven buffer');
+
+const RANK: Record<PlanState, number> = { ok: 0, buffer: 1, red: 2 };
+
+/**
+ * The month's lowest point as a line: "Laagste punt 1 nov · −€ 431,45" (`date` and `amount` are its two parts), coloured by its own
+ * state. `null` when the lowest point is the end (nothing to add). `worse`: its state is worse than the end's, a dip the end hides.
+ */
+export function lowLine(m: PlanMonth): { text: string; date: string; amount: string; state: PlanState; worse: boolean } | null {
+  if (m.low.balance >= m.end) return null;
+  const date = dateShort(m.low.date);
+  const amount = eur(m.low.balance);
+  return { text: 'Laagste punt ' + date + ' · ' + amount, date, amount, state: m.low.state, worse: RANK[m.low.state] > RANK[m.state] };
+}
+
+/** What a screen reader hears for a month card or row: "November, lopend: begint op € 1.023,55, eindigt op € 1.206,85, resultaat +€ 183,30, boven buffer, laagste punt −€ 431,45 op 1 november." */
+export function monthAria(m: PlanMonth, today: string): string {
+  const low = lowLine(m);
+  const lowDay = Number(m.low.date.slice(8, 10)) + ' ' + MONTHS[monthIndex(m.low.date)];
+  const parts = [
+    'begint op ' + eur(m.start),
+    'eindigt op ' + eur(m.end),
+    'resultaat ' + resultText(monthResult(m).cents),
+    stateLabel(m.state),
+    ...(low ? ['laagste punt ' + low.amount + ' op ' + lowDay] : []),
+  ];
+  return monthTitle(m.month, today) + (m.month === today.slice(0, 7) ? ', lopend' : '') + ': ' + parts.join(', ') + '.';
+}
 
 /** Whole euros without ",00", else with cents: "€ 200" and "€ 2.868,50". */
 const eurAuto = (cents: number) => (cents % 100 === 0 ? eur0(cents) : eur(cents));
@@ -90,8 +129,6 @@ export interface BudgetRow {
   sq?: string;
   sub?: boolean;
   bold?: boolean;
-  /** The category's budget entry: a sub row the viewer may edit. */
-  entry?: PlanBudget;
 }
 
 /** What one budget entry says about itself in the breakdown: spent against the plan (running month) or the full plan. */
@@ -127,7 +164,7 @@ export function budgetView(p: PlanAccount, m: PlanMonth, accountName: string, ca
   if (entries.reduce((s, b) => s + b.rest, 0) === budgets) {
     for (const b of entries) {
       const c = category(b.categoryId);
-      rows.push({ key: 'b' + b.categoryId, label: c.name, note: budgetNote(b, running), amount: eur(-b.rest, true), sq: c.colour, sub: true, entry: b });
+      rows.push({ key: 'b' + b.categoryId, label: c.name, note: budgetNote(b, running), amount: eur(-b.rest, true), sq: c.colour, sub: true });
     }
   }
   if (saved) rows.push({ key: 'saving', label: 'Naar spaarrekening', note: 'Gespaard', amount: eur(-saved, true), sq: 'var(--c5)' });

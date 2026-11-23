@@ -437,14 +437,14 @@ func TestPlannedItems(t *testing.T) {
 	}
 
 	// Update: the date is checked only when it changes, so a passed item stays editable until removed.
-	if p, err := patch(bert, past, `{"description":"nog bewerkbaar","amount":-3}`); err != nil || p.Description != "nog bewerkbaar" || p.Amount != -3 || p.Date != "2026-11-01" {
+	if p, err := patch(bert, past, `{"description":"nog bewerkbaar","amount":-3}`); err != nil || p.Description != "nog bewerkbaar" || p.Amount != -3 || p.Date == nil || *p.Date != "2026-11-01" || p.Month != "2026-11" || p.WholeMonth {
 		t.Errorf("edit a passed item: %+v, %v", p, err)
 	}
 	_, err = patch(bert, past, `{"date":"2026-11-02"}`)
 	wantInvalid(t, "move to a passed date", err, dates)
 	_, err = patch(bert, past, `{"amount":0}`)
 	wantInvalid(t, "zero amount", err, "Vul een omschrijving en een bedrag in.")
-	if p, err := patch(bert, kerst.ID, `{"date":"2027-01-05","description":"Nieuwjaar"}`); err != nil || p.Date != "2027-01-05" || p.Amount != -35000 {
+	if p, err := patch(bert, kerst.ID, `{"date":"2027-01-05","description":"Nieuwjaar"}`); err != nil || p.Date == nil || *p.Date != "2027-01-05" || p.Month != "2027-01" || p.Amount != -35000 {
 		t.Errorf("patch: %+v, %v", p, err)
 	}
 	_, err = patch(partner, past, `{"amount":-1}`)
@@ -456,6 +456,145 @@ func TestPlannedItems(t *testing.T) {
 	if _, err := s.PlannedItems(ctx, bert, "iedereen", reportNow); err == nil {
 		t.Error("an unknown scope was accepted")
 	}
+}
+
+// A planned item without a day (0.8.1-9): stored as the month's 1st with
+// whole_month = 1, answered with date nil and month set; a PATCH may switch
+// between a day and a month. Today is 2026-11-17.
+func TestPlannedWithoutDay(t *testing.T) {
+	ctx := context.Background()
+	d, s := planningFixture(t)
+	create := func(body string) (ledger.Planned, error) {
+		t.Helper()
+		in := ledger.PlannedInput{AccountID: rwZicht}
+		if err := json.Unmarshal([]byte(body), &in.PlannedFields); err != nil {
+			t.Fatal(err)
+		}
+		return s.CreatePlanned(ctx, bert, in, reportNow)
+	}
+	patch := func(id int64, body string) (ledger.Planned, error) {
+		t.Helper()
+		var f ledger.PlannedFields
+		if err := json.Unmarshal([]byte(body), &f); err != nil {
+			t.Fatal(err)
+		}
+		return s.UpdatePlanned(ctx, bert, id, f, reportNow)
+	}
+	stored := func(id int64) (date string, whole int) {
+		t.Helper()
+		if err := d.QueryRow(`SELECT date, whole_month FROM planned_items WHERE id = ?`, id).Scan(&date, &whole); err != nil {
+			t.Fatal(err)
+		}
+		return date, whole
+	}
+	const dateMessage, bothMessage = "Kies een datum vanaf vandaag.", "Kies een dag of alleen een maand."
+	for _, c := range []struct{ body, message string }{
+		{`{"month":"2026-10","amount":-1,"description":"x"}`, "Kies een maand vanaf deze maand."},
+		{`{"month":"2028-12","amount":-1,"description":"x"}`, "Kies een maand binnen 24 maanden."},
+		{`{"month":"juli 2027","amount":-1,"description":"x"}`, "Kies een maand als JJJJ-MM."},
+		{`{"month":"","amount":-1,"description":"x"}`, "Kies een maand als JJJJ-MM."},
+		{`{"date":"2026-12-20","month":"2026-12","amount":-1,"description":"x"}`, bothMessage},
+		{`{"date":"2026-12-20","month":"2026-12","amount":0,"description":""}`, bothMessage}, // before any other check
+		{`{"month":"2026-12","amount":0,"description":"x"}`, "Vul een omschrijving en een bedrag in."},
+		{`{"date":null,"amount":-1,"description":"x"}`, dateMessage}, // a null names nothing
+		{`{"month":"2026-11","amount":-1,"description":"de lopende maand"}`, ""},
+		{`{"month":"2028-11","amount":-1,"description":"de laatste maand"}`, ""},
+		{`{"date":null,"month":"2026-12","amount":-1,"description":"null datum"}`, ""},
+	} {
+		_, err := create(c.body)
+		wantInvalid(t, c.body, err, c.message)
+	}
+
+	zomer, err := create(`{"month":"2027-07","amount":-150000,"description":"Zomervakantie"}`)
+	if err != nil || zomer.Date != nil || zomer.Month != "2027-07" || !zomer.WholeMonth {
+		t.Fatalf("dayless item: %+v, %v", zomer, err)
+	}
+	if date, whole := stored(zomer.ID); date != "2027-07-01" || whole != 1 {
+		t.Errorf("stored as %s, whole_month %d", date, whole)
+	}
+	kerst, err := create(`{"date":"2026-12-20","amount":-35000,"description":"Kerstcadeaus"}`)
+	if err != nil || kerst.Date == nil || *kerst.Date != "2026-12-20" || kerst.Month != "2026-12" || kerst.WholeMonth {
+		t.Fatalf("dated item: %+v, %v", kerst, err)
+	}
+	if _, whole := stored(kerst.ID); whole != 0 {
+		t.Errorf("a dated item has whole_month %d", whole)
+	}
+	items, err := s.PlannedItems(ctx, bert, "alles", reportNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := map[string]ledger.Planned{}
+	for _, p := range items {
+		listed[p.Description] = p
+	}
+	if p := listed["Zomervakantie"]; p.Date != nil || p.Month != "2027-07" || !p.WholeMonth || p.Amount != -150000 {
+		t.Errorf("listed dayless item: %+v", p)
+	}
+	if p := listed["de lopende maand"]; p.Date != nil || p.Month != "2026-11" || !p.WholeMonth {
+		t.Errorf("a dayless item of the running month is listed: %+v", p)
+	}
+	if p := listed["Kerstcadeaus"]; p.Date == nil || *p.Date != "2026-12-20" || p.WholeMonth {
+		t.Errorf("listed dated item: %+v", p)
+	}
+
+	// A PATCH switches between a day and a month, and a changed mode is checked again.
+	if p, err := patch(kerst.ID, `{"month":"2026-12"}`); err != nil || p.Date != nil || p.Month != "2026-12" || !p.WholeMonth {
+		t.Errorf("date to month: %+v, %v", p, err)
+	}
+	if date, whole := stored(kerst.ID); date != "2026-12-01" || whole != 1 {
+		t.Errorf("stored as %s, whole_month %d", date, whole)
+	}
+	if p, err := patch(kerst.ID, `{"date":"2026-12-05"}`); err != nil || p.Date == nil || *p.Date != "2026-12-05" || p.Month != "2026-12" || p.WholeMonth {
+		t.Errorf("month to date: %+v, %v", p, err)
+	}
+	if _, whole := stored(kerst.ID); whole != 0 {
+		t.Errorf("whole_month %d after switching back to a day", whole)
+	}
+	if p, err := patch(kerst.ID, `{"date":"2026-12-06","description":"nog een dag"}`); err != nil || *p.Date != "2026-12-06" || p.Description != "nog een dag" {
+		t.Errorf("date to date: %+v, %v", p, err)
+	}
+	if p, err := patch(zomer.ID, `{"date":null,"month":"2027-08"}`); err != nil || p.Date != nil || p.Month != "2027-08" || !p.WholeMonth {
+		t.Errorf("month to month with a null date: %+v, %v", p, err)
+	}
+	_, err = patch(kerst.ID, `{"date":"2026-12-06","month":"2026-12"}`)
+	wantInvalid(t, "patch both", err, bothMessage)
+	_, err = patch(kerst.ID, `{"month":"2026-10"}`)
+	wantInvalid(t, "date to a past month", err, "Kies een maand vanaf deze maand.")
+	lopend := listed["de lopende maand"].ID
+	_, err = patch(lopend, `{"date":"2026-11-01"}`) // the same stored 1st, a passed day: the switch is checked
+	wantInvalid(t, "running month to its 1st", err, dateMessage)
+	if p, err := patch(lopend, `{"description":"nog steeds de maand","amount":-2}`); err != nil || p.Date != nil || !p.WholeMonth || p.Amount != -2 {
+		t.Errorf("edit a dayless item: %+v, %v", p, err)
+	}
+	vandaag, err := create(`{"date":"2026-11-17","amount":-1,"description":"vandaag"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := patch(vandaag.ID, `{"month":"2026-11"}`); err != nil || p.Date != nil || p.Month != "2026-11" {
+		t.Errorf("today to the running month: %+v, %v", p, err)
+	}
+
+	// A passed dayless item (its month is over) is not listed and stays editable, but not re-aimed at its past.
+	if _, err := d.Exec(`INSERT INTO planned_items (account_id, created_by, date, whole_month, amount, description) VALUES (?, ?, '2026-10-01', 1, -5, 'oktober')`, rwZicht, bert); err != nil {
+		t.Fatal(err)
+	}
+	oktober := int64(countRows(t, d, `SELECT id FROM planned_items WHERE description = 'oktober'`))
+	items, err = s.PlannedItems(ctx, bert, "alles", reportNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range items {
+		if p.ID == oktober {
+			t.Errorf("a dayless item of a past month is listed: %+v", p)
+		}
+	}
+	if p, err := patch(oktober, `{"description":"oktober nog bewerkbaar","month":"2026-10"}`); err != nil || p.Month != "2026-10" || !p.WholeMonth || p.Description != "oktober nog bewerkbaar" {
+		t.Errorf("edit a passed dayless item: %+v, %v", p, err)
+	}
+	_, err = patch(oktober, `{"month":"2026-09"}`)
+	wantInvalid(t, "move to an earlier month", err, "Kies een maand vanaf deze maand.")
+	_, err = patch(oktober, `{"date":"2026-10-01"}`)
+	wantInvalid(t, "passed month to a passed day", err, dateMessage)
 }
 
 func countRows(t *testing.T, d *sql.DB, q string, args ...any) (n int) {

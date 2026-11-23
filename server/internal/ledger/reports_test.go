@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -38,8 +39,10 @@ const (
 
 // Categories of reportWorld after the defaults (plan 0.8-0a).
 const (
-	rwSparen   int64 = 26 // top expense, saving
-	rwPensioen int64 = 27 // subcategory of Sparen
+	rwSparen     int64 = 26 // top expense, saving
+	rwPensioen   int64 = 27 // subcategory of Sparen
+	rwRestaurant int64 = 28 // subcategory of Vrije tijd (3), plan 0.8.1-1
+	rwBonus      int64 = 29 // subcategory of Salaris (7), plan 0.8.1-1
 )
 
 // reportRow is one row of the reportWorld oracle table.
@@ -114,6 +117,10 @@ var reportRows = []reportRow{
 	// The shared flag (plan 0.8-0b), May 2026: A9 is shared by its flag, so t1 is toShared in Persoonlijk.
 	{name: "t1", account: rwZicht, date: "2026-05-02", amount: -1000, iban: "X9", alles: "out", persoonlijk: "toShared 1000", gedeeld: "-", alone: "toShared 1000"},
 	{name: "t2", account: rwPot, date: "2026-05-02", amount: 1000, iban: "X1", alles: "out", persoonlijk: "-", gedeeld: "income 1000", alone: "income 1000"},
+	// Subcategories (plan 0.8.1-1), June 2026, no IBAN so nothing pairs.
+	{name: "u1", account: rwZicht, date: "2026-06-02", amount: -2000, category: rwRestaurant, alles: "3 2000", persoonlijk: "3 2000", gedeeld: "-", alone: "3 2000"},
+	{name: "u2", account: rwZicht, date: "2026-06-03", amount: -1000, category: 3, alles: "3 1000", persoonlijk: "3 1000", gedeeld: "-", alone: "3 1000"},
+	{name: "u3", account: rwZicht, date: "2026-06-04", amount: 5000, category: rwBonus, alles: "income 5000", persoonlijk: "income 5000", gedeeld: "-", alone: "income 5000"},
 }
 
 // reportWorld is the fixture of plan 0.7-1 (also for 0.7-2): viewer Bert,
@@ -140,7 +147,9 @@ func reportWorld(t *testing.T) (*sql.DB, *ledger.Store, map[string]int64) {
 		}
 	}
 	exec(`INSERT INTO categories (id, name, parent_id, type, colour, tint, saving, sort_order) VALUES
-		(?, 'Sparen', NULL, 'expense', 'c6', 'c9', 1, 11), (?, 'Pensioensparen', ?, 'expense', 'c6', 'c9', 0, 1)`, rwSparen, rwPensioen, rwSparen)
+		(?, 'Sparen', NULL, 'expense', 'c6', 'c9', 1, 11), (?, 'Pensioensparen', ?, 'expense', 'c6', 'c9', 0, 1),
+		(?, 'Restaurant', 3, 'expense', 'c3', NULL, 0, 9), (?, 'Bonus', 7, 'income', 'soft', NULL, 0, 1)`,
+		rwSparen, rwPensioen, rwSparen, rwRestaurant, rwBonus)
 	exec(`INSERT INTO users (id, email, display_name) VALUES (?, 'bert@example.com', 'Bert'), (?, 'partner@example.com', 'Partner')`, bert, partner)
 	for _, a := range []struct {
 		id                      int64
@@ -285,6 +294,8 @@ func TestReportBucket(t *testing.T) {
 		{"persoonlijk", 0, "2026-05", 0, 0, map[string]int64{"toShared": 1000}},
 		{"gedeeld", 0, "2026-05", 1000, 0, map[string]int64{}},
 		{"", rwZicht, "2026-05", 0, 0, map[string]int64{"toShared": 1000}},
+		// Subcategories (0.8.1-1): rolled up into their top.
+		{"alles", 0, "2026-06", 5000, 0, map[string]int64{"3": 3000}},
 	} {
 		got := month(c.scope, c.account, c.month)
 		if got.Income != c.income || got.Saved != c.saved || !maps.Equal(got.Expenses, c.expenses) {
@@ -628,8 +639,9 @@ func TestReportMonthsSpeed(t *testing.T) {
 	}
 	timed("alles, whole history", report(ledger.ReportQuery{Now: demoNow}))
 	timed("account=1, whole history", report(ledger.ReportQuery{AccountID: 1, Now: demoNow}))
+	timed("alles with detail, whole history", report(ledger.ReportQuery{Now: demoNow, Detail: true}))
 	// The drill-down (0.7-2) runs parts twice per page, COUNT and items.
-	for _, key := range []string{"1", "toShared"} {
+	for _, key := range []string{"1", "toShared", "2-zelf", "income-7", "saved-account-2"} {
 		timed("drill-down "+key+", first page", func() error {
 			_, err := s.Transactions(ctx, bert, ledger.TxQuery{Category: key, Limit: ledger.DefaultLimit})
 			return err
@@ -656,8 +668,24 @@ func TestReportDrillDown(t *testing.T) {
 		{"alles", 0, "3", "2026-01-01", "2026-01-31", []string{"r15"}},
 		{"persoonlijk", 0, "1", "2000-01-01", "2026-12-31", []string{}},
 		// A saving top lists the rows saved in it; saved lists every row behind Gespaard (0.8-0a).
-		{"alles", 0, fmt.Sprint(rwSparen), "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s5", "s6", "s7", "s9"}},
-		{"persoonlijk", 0, fmt.Sprint(rwSparen), "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s4", "s5", "s6", "s7"}},
+		// s5 is saved by rule 2 (the account, 0.8.1-1), so not under its category.
+		{"alles", 0, fmt.Sprint(rwSparen), "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s6", "s7", "s9"}},
+		{"persoonlijk", 0, fmt.Sprint(rwSparen), "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s4", "s6", "s7"}},
+		// The detail keys (0.8.1-1).
+		{"alles", 0, fmt.Sprint(rwSparen) + "-zelf", "2026-04-01", "2026-04-30", []string{"s1", "s3", "s6", "s7", "s9"}},
+		{"alles", 0, fmt.Sprint(rwPensioen), "2026-04-01", "2026-04-30", []string{"s2"}},
+		{"alles", 0, "saved-account-4", "2026-04-01", "2026-04-30", []string{"s5"}},
+		{"alles", 0, "saved-account-4", "2026-01-01", "2026-01-31", []string{"r5", "r8"}},
+		{"alles", 0, "saved-account-5", "2026-01-01", "2026-01-31", []string{"r13"}},
+		{"alles", 0, "3", "2026-06-01", "2026-06-30", []string{"u1", "u2"}},
+		{"alles", 0, "3-zelf", "2026-06-01", "2026-06-30", []string{"u2"}},
+		{"alles", 0, fmt.Sprint(rwRestaurant), "2026-06-01", "2026-06-30", []string{"u1"}},
+		{"alles", 0, "income-7", "2026-01-01", "2026-06-30", []string{"r20", "r21", "u3"}},
+		{"alles", 0, "income-7-zelf", "2026-01-01", "2026-06-30", []string{"r20", "r21"}},
+		{"alles", 0, fmt.Sprint("income-", rwBonus), "2026-01-01", "2026-06-30", []string{"u3"}},
+		{"gedeeld", 0, "income-transfer", "2026-01-01", "2026-01-31", []string{"r3", "r4"}},
+		{"alles", 0, "income-none", "2025-11-01", "2025-11-30", []string{"r0"}},
+		{"alles", 0, "income-transfer", "2026-01-01", "2026-01-31", []string{}},
 		{"alles", 0, "6", "2026-04-01", "2026-04-30", []string{"s7"}},
 		{"alles", 0, "saved", "2026-04-01", "2026-04-30", []string{"s1", "s2", "s3", "s5", "s6", "s7", "s9"}},
 		{"alles", 0, "saved", "2026-01-01", "2026-01-31", []string{"r5", "r8", "r13"}},
@@ -675,4 +703,152 @@ func TestReportDrillDown(t *testing.T) {
 			t.Errorf("%s/%d %s: %v, want %v", c.scope, c.account, c.key, got, want)
 		}
 	}
+}
+
+func sumOf(m map[string]int64) (n int64) {
+	for _, v := range m {
+		n += v
+	}
+	return n
+}
+
+// checkDetail checks the identities of plan 0.8.1-1 on one month or account:
+// Σ income, Σ saved and Σ expenses[k] of the detail equal the totals, and only
+// top category keys carry an expense detail.
+func checkDetail(t *testing.T, label string, r ledger.ReportTotals) {
+	t.Helper()
+	if r.Detail == nil {
+		t.Errorf("%s: no detail", label)
+		return
+	}
+	if sumOf(r.Detail.Income) != r.Income || sumOf(r.Detail.Saved) != r.Saved {
+		t.Errorf("%s: detail income %v saved %v; totals %d %d", label, r.Detail.Income, r.Detail.Saved, r.Income, r.Saved)
+	}
+	for k, v := range r.Expenses {
+		if _, err := strconv.ParseInt(k, 10, 64); err == nil && sumOf(r.Detail.Expenses[k]) != v {
+			t.Errorf("%s: detail expenses[%s] %v, total %d", label, k, r.Detail.Expenses[k], v)
+		}
+	}
+	for k, m := range r.Detail.Expenses {
+		if _, err := strconv.ParseInt(k, 10, 64); err != nil || sumOf(m) != r.Expenses[k] {
+			t.Errorf("%s: detail expenses[%s] %v, total %d", label, k, m, r.Expenses[k])
+		}
+	}
+}
+
+// TestReportDetailIdentities (0.8.1-1): on reportWorld and the demo, for every
+// selection of Bert and Partner, every month and every account of it, the
+// detail adds up to the totals, and detail=0 is the answer without detail.
+func TestReportDetailIdentities(t *testing.T) {
+	ctx := context.Background()
+	_, world, _ := reportWorld(t)
+	_, demo := seeded(t)
+	for _, w := range []struct {
+		name string
+		s    *ledger.Store
+		now  time.Time
+	}{{"reportWorld", world, reportNow}, {"demo", demo, demoNow}} {
+		for _, viewer := range []int64{bert, partner} {
+			queries := []ledger.ReportQuery{{Scope: "alles"}, {Scope: "persoonlijk"}, {Scope: "gedeeld"}}
+			accounts, err := w.s.Accounts(ctx, viewer, w.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, a := range accounts {
+				if a.Type == "current" {
+					queries = append(queries, ledger.ReportQuery{AccountID: a.ID})
+				}
+			}
+			for _, q := range queries {
+				q.Now = w.now
+				plain, err := w.s.ReportMonths(ctx, viewer, q)
+				if err != nil {
+					t.Fatal(err)
+				}
+				q.Detail = true
+				rep, err := w.s.ReportMonths(ctx, viewer, q)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, m := range rep.Months {
+					label := fmt.Sprintf("%s viewer %d %s/%d %s", w.name, viewer, q.Scope, q.AccountID, m.Month)
+					checkDetail(t, label, m.ReportTotals)
+					for _, a := range m.Accounts {
+						checkDetail(t, fmt.Sprintf("%s account %d", label, a.ID), a.ReportTotals)
+					}
+					// Without the detail the answer is the same.
+					m.Detail = nil
+					for j := range m.Accounts {
+						m.Accounts[j].Detail = nil
+					}
+					a, _ := json.Marshal(m)
+					b, _ := json.Marshal(plain.Months[i])
+					if string(a) != string(b) {
+						t.Errorf("%s: with detail %s, without %s", label, a, b)
+					}
+				}
+				if b, _ := json.Marshal(plain); strings.Contains(string(b), "detail") {
+					t.Errorf("%s viewer %d %+v: detail without detail=1", w.name, viewer, q)
+				}
+			}
+		}
+	}
+}
+
+// The detail goldens of plan 0.8.1-1 on reportWorld and the demo.
+func TestReportDetail(t *testing.T) {
+	ctx := context.Background()
+	d, s, _ := reportWorld(t)
+	// The rolled-up saving top lists 21000 in 2026-04 alles: 18000 own + 3000 Pensioensparen (s5 is rule 2).
+	var rolled int64
+	for _, r := range allTransactions(t, s, bert, ledger.TxQuery{Scope: "alles", Category: fmt.Sprint(rwSparen), From: "2026-04-01", To: "2026-04-30", Limit: ledger.MaxLimit}) {
+		rolled += detailBehind(r, fmt.Sprint(rwSparen), topCategories(t, d), savingTops(t, d))
+	}
+	if rolled != 21000 {
+		t.Errorf("category=%d in 2026-04 alles: %d, want 21000", rwSparen, rolled)
+	}
+	detail := func(s *ledger.Store, viewer int64, scope, month string, now time.Time) *ledger.ReportDetail {
+		t.Helper()
+		rep, err := s.ReportMonths(ctx, viewer, ledger.ReportQuery{Scope: scope, From: month, To: month, Now: now, Detail: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return rep.Months[0].Detail
+	}
+	sparen, pensioen := fmt.Sprint(rwSparen), fmt.Sprint(rwPensioen)
+	for _, c := range []struct {
+		scope string
+		saved map[string]int64
+	}{
+		{"alles", map[string]int64{sparen: 18000, pensioen: 3000, "account-4": 4000}},
+		{"persoonlijk", map[string]int64{sparen: 23500, pensioen: 3000, "account-4": 4000}},
+		{"gedeeld", map[string]int64{sparen: 1500}},
+	} {
+		if got := detail(s, bert, c.scope, "2026-04", reportNow).Saved; !maps.Equal(got, c.saved) {
+			t.Errorf("%s 2026-04 saved detail %v, want %v", c.scope, got, c.saved)
+		}
+	}
+	june := detail(s, bert, "alles", "2026-06", reportNow)
+	if want := map[string]int64{"3": 1000, fmt.Sprint(rwRestaurant): 2000}; len(june.Expenses) != 1 || !maps.Equal(june.Expenses["3"], want) {
+		t.Errorf("2026-06 expenses detail %v, want 3: %v", june.Expenses, want)
+	}
+	if want := map[string]int64{fmt.Sprint(rwBonus): 5000}; !maps.Equal(june.Income, want) {
+		t.Errorf("2026-06 income detail %v, want %v", june.Income, want)
+	}
+	// January: salary on the top (its own part), the savings transfers by account.
+	jan := detail(s, bert, "alles", "2026-01", reportNow)
+	if !maps.Equal(jan.Income, map[string]int64{"7": 249000}) || !maps.Equal(jan.Saved, map[string]int64{"account-4": 10000, "account-5": 10000}) {
+		t.Errorf("2026-01 income %v saved %v", jan.Income, jan.Saved)
+	}
+
+	// The demo, November 2026, Bert, Alles.
+	_, demo := seeded(t)
+	nov := detail(demo, bert, "alles", "2026-11", demoNow)
+	if sumOf(nov.Income) != 331850 || !maps.Equal(nov.Saved, map[string]int64{"account-2": 20000}) {
+		t.Errorf("demo November income %v (Σ %d) saved %v", nov.Income, sumOf(nov.Income), nov.Saved)
+	}
+	if _, ok := nov.Expenses["none"]; ok {
+		t.Errorf("demo November: none carries a detail: %v", nov.Expenses)
+	}
+	t.Logf("demo November detail: income %v, expenses %v", nov.Income, nov.Expenses)
 }

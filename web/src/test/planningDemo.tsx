@@ -2,12 +2,13 @@
 // buffer € 900) and Gedeelde rekening (4, buffer € 600), today 2026-11-18, months November to the horizon, no `days`. And the page
 // rendered at a path, the way a visitor reaches a tab.
 import { render } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from '../app/AppContext';
 import type { PlanAccount, PlanBudget, PlanContribution, PlanLine, PlanMonth, Planning as Forecast, PlanState } from '../lib/planning';
 import type { RecurringItem } from '../lib/planningItems';
 import type { Me, Scope } from '../lib/types';
 import { Planning } from '../pages/Planning';
+import { PlanningInstellen } from '../pages/PlanningInstellen';
 import { ME } from './helpers';
 
 const BUFFER: Record<number, number> = { 1: 90000, 4: 60000 };
@@ -165,6 +166,27 @@ export function renderPlanning(path: string, me: Me = ME) {
         <Routes>
           <Route path="planning" element={<Planning />} />
         </Routes>
+        <Toast />
+      </MemoryRouter>
+    </AppProvider>,
+  );
+}
+
+function Where() {
+  const l = useLocation();
+  return <output data-testid="where">{l.pathname + l.search + l.hash}</output>;
+}
+
+/** Planning and the screen "Planning instellen" at `path` (for example `/planning/instellen?rekening=4#terugkerend`), with the location (`where`) and the toast as text. */
+export function renderInstellen(path: string, me: Me = ME) {
+  return render(
+    <AppProvider me={me}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="planning" element={<Planning />} />
+          <Route path="planning/instellen" element={<PlanningInstellen />} />
+        </Routes>
+        <Where />
         <Toast />
       </MemoryRouter>
     </AppProvider>,

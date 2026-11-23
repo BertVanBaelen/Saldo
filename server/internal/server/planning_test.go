@@ -1,12 +1,94 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 )
+
+// Planned items without a day (0.8.1-9) on the demo seed, today 2026-11-18: a
+// POST or PATCH carries a date or a month, never both; a dayless item answers
+// date null, month and wholeMonth true; wholeMonth itself is never a request
+// field. The demo holds 4 planned items, so the first new one has id 5.
+func TestPlannedWithoutDayRoutes(t *testing.T) {
+	p := newPair(t)
+	const (
+		path  = "/api/planning/planned"
+		item  = `{"accountId":1,"amount":-150000,"description":"Dakwerken"` // the body continues with a date or a month
+		month = "Kies een maand vanaf deze maand."
+	)
+	wire := func(id int64, date, month string, whole bool) string {
+		return fmt.Sprintf(`{"id":%d,"accountId":1,"date":%s,"month":%q,"wholeMonth":%t,"amount":-150000,"description":"Dakwerken"}`, id, date, month, whole)
+	}
+	for _, c := range []struct{ name, body, message string }{
+		{"month in the past", item + `,"month":"2026-10"}`, month},
+		{"month too far ahead", item + `,"month":"2028-12"}`, "Kies een maand binnen 24 maanden."},
+		{"month that is no month", item + `,"month":"juli"}`, "Kies een maand als JJJJ-MM."},
+		{"date and month", item + `,"date":"2026-12-24","month":"2026-12"}`, "Kies een dag of alleen een maand."},
+		{"neither", item + `}`, "Kies een datum vanaf vandaag."},
+		{"wholeMonth is output only", item + `,"month":"2026-12","wholeMonth":true}`, "De gegevens kloppen niet."},
+	} {
+		if msg := expectError(t, p.bert("POST", path, c.body), http.StatusBadRequest, "invalid"); msg != c.message {
+			t.Errorf("%s: %q, want %q", c.name, msg, c.message)
+		}
+	}
+
+	// A dayless item: date null, month set, wholeMonth true; the running month is allowed.
+	r := p.bert("POST", path, item+`,"month":"2027-07"}`)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create dayless: %d %s", r.status, r.body)
+	}
+	equalJSON(t, r.body, wire(5, "null", "2027-07", true))
+	if n := p.count(`SELECT COUNT(*) FROM planned_items WHERE id = 5 AND date = '2027-07-01' AND whole_month = 1`); n != 1 {
+		t.Error("a dayless item is not stored as the month's 1st with whole_month = 1")
+	}
+	if r := p.bert("POST", path, `{"accountId":1,"month":"2026-11","amount":-1,"description":"deze maand"}`); r.status != http.StatusCreated {
+		t.Errorf("running month: %d %s", r.status, r.body)
+	}
+	found := false
+	for _, it := range decode[map[string][]map[string]any](t, p.bert("GET", path, "").body)["planned"] {
+		if it["description"] == "Dakwerken" {
+			found = true
+			if date, ok := it["date"]; !ok || date != nil || it["month"] != "2027-07" || it["wholeMonth"] != true {
+				t.Errorf("listed dayless item: %v", it)
+			}
+		} else if it["month"] == nil || (it["date"] == nil) != (it["wholeMonth"] == true) { // a date exactly when not wholeMonth
+			t.Errorf("listed item: %v", it)
+		}
+	}
+	if !found {
+		t.Error("the dayless item is not listed")
+	}
+
+	// A dated item switches to a month and back; the answers follow.
+	r = p.bert("POST", path, `{"accountId":1,"date":"2026-12-24","amount":-150000,"description":"Dakwerken"}`)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create dated: %d %s", r.status, r.body)
+	}
+	id := decode[ledger.Planned](t, r.body).ID
+	equalJSON(t, r.body, wire(id, `"2026-12-24"`, "2026-12", false))
+	one := fmt.Sprintf("%s/%d", path, id)
+	r = p.bert("PATCH", one, `{"month":"2026-12"}`)
+	if r.status != http.StatusOK {
+		t.Fatalf("patch date to month: %d %s", r.status, r.body)
+	}
+	equalJSON(t, r.body, wire(id, "null", "2026-12", true))
+	r = p.bert("PATCH", one, `{"date":"2026-12-25"}`)
+	if r.status != http.StatusOK {
+		t.Fatalf("patch month to date: %d %s", r.status, r.body)
+	}
+	equalJSON(t, r.body, wire(id, `"2026-12-25"`, "2026-12", false))
+	if msg := expectError(t, p.bert("PATCH", one, `{"date":"2026-12-25","month":"2026-12"}`), http.StatusBadRequest, "invalid"); msg != "Kies een dag of alleen een maand." {
+		t.Errorf("patch both: %q", msg)
+	}
+	if msg := expectError(t, p.bert("PATCH", one, `{"month":"2026-10"}`), http.StatusBadRequest, "invalid"); msg != month {
+		t.Errorf("patch to a past month: %q", msg)
+	}
+	expectError(t, p.partner("PATCH", one, `{"month":"2026-12"}`), http.StatusNotFound, "not_found")
+}
 
 // The planning routes (0.8-1) on the demo seed: Bert holds 7 items on the
 // Zichtrekening (1) and manages the Gedeelde rekening (4) with its 4 items;

@@ -508,6 +508,10 @@ a.card { text-decoration: none; }
 .fc-end, .fc-res { font-family: var(--mono); font-size: 12px; }
 .fc-end { color: var(--muted); }
 .fc-res { font-weight: 600; }
+/* The month's result (end minus start), by its sign; the buffer state is the bar's colour. */
+.fc-res--gain { color: var(--greenText); }
+.fc-res--loss { color: var(--negText); }
+.fc-res--flat { color: var(--muted); }
 @media (min-width: 1024px) { .fc-bar { width: 56px; } }
 
 /* Stacked share bar (spending per category) */

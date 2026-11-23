@@ -126,7 +126,7 @@ describe('PlanForm', () => {
     expect((screen.getByRole('button', { name: 'Annuleren' }) as HTMLButtonElement).disabled).toBe(true);
     submit();
     expect(spies.createPlanned).toHaveBeenCalledTimes(2);
-    release({ id: 10, accountId: 4, date: DATE, amount: 10050, description: 'Verkoop fiets' });
+    release({ id: 10, accountId: 4, date: DATE, month: DATE.slice(0, 7), wholeMonth: false, amount: 10050, description: 'Verkoop fiets' });
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(spies.createPlanned).toHaveBeenLastCalledWith({ accountId: 4, date: DATE, amount: 10050, description: 'Verkoop fiets' });
     expect(screen.getByTestId('toast').textContent).toBe('Gepland op 25 nov · +€ 100,50');

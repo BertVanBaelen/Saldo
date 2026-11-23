@@ -51,6 +51,7 @@ type world struct {
 	bertDevice, partnerDevice, bertOffer                   int64
 	bertNotice, partnerNotice, invitation, accInvitation   int64 // accInvitation: Derde's open invitation to the family account
 	bertSender, partnerSender, bertContribution            int64
+	bertContributor                                        int64  // Grootmoeder, a contributor without Saldo Bert added to the family account (0.8.1-7)
 	bertItem, partnerItem, bertPlanned, partnerPlanned     int64  // planning: recurring items and planned items on the personal accounts
 	bertState                                              string // a pending link state of Bert
 }
@@ -60,16 +61,17 @@ type world struct {
 var (
 	bertSecrets = []string{"Zichtrekening", "7034", "Koffiebar", "Bakkerij Voorbeeld", "Werkgever NV", "Loon november", "196882",
 		"Spaarpot", "5615", "Geheimbakker", "bert-geheim.csv", "Geheimnotitie", "Geheimwinkel", "0071", "Geheimloon",
-		"Geheimcat", "Runwinkel Prive", "bert@jouw-domein.be", "Chrome op Windows", "nieuw@example.com", "BERTFOUT_X"}
+		"Geheimcat", "Runwinkel Prive", "bert@jouw-domein.be", "Chrome op Windows", "nieuw@example.com", "BERTFOUT_X",
+		"7193"} // the masked IBAN of the contributor Bert added: the creator and the manager only
 	partnerSecrets = []string{"Eigen rekening", "7061", "Werkgever BV", "246000", "143215", "Potje Partner", "Partnerbakker",
 		"partner-geheim.csv", "Partnergeheim", "Partnerwinkel", "0082", "Partnerloon", "Partnercat", "Partnerzaak",
 		"partner@jouw-domein.be", "Safari op iPhone", "Overschrijving Bert", "PARTNERFOUT_Y",
 		"246001", "246002", "246003"} // planning: an item, a budget and a planned item on her own account
 	derdeSecrets = []string{"Derdes Rekening", "Derdewinkel", "derde@example.com"}
 	// Never rendered at all (full IBANs are masked): checked only for absence.
-	neverShown = []string{ibanPersonal, ibanPartner, ibanDerde, "BE11000000000071", "BE22000000000082"}
+	neverShown = []string{ibanPersonal, ibanPartner, ibanDerde, "BE11000000000071", "BE22000000000082", ibanContributor}
 	// The family account's data: every member sees it.
-	sharedSecrets = []string{"Gezinsrekening", "6769", "Gedeelde notitie", "Runwinkel Samen", "Gedeeld Proef", "Bijdrage van Bert", "Gezinsabonnement"}
+	sharedSecrets = []string{"Gezinsrekening", "6769", "Gedeelde notitie", "Runwinkel Samen", "Gedeeld Proef", "Bijdrage van Bert", "Gezinsabonnement", "Grootmoeder"}
 )
 
 func newWorld(t *testing.T) *world {
@@ -188,6 +190,9 @@ func newWorld(t *testing.T) *world {
 	}
 	w.bertSender, w.partnerSender = sender(w.bert, w.bertAcc), sender(w.partner, w.partnerAcc)
 	w.bertContribution = row("Bijdrage van Bert")
+	// A contributor without Saldo (0.8.1-7): name for every member, IBAN masked to Bert (creator, manager) only.
+	w.bertContributor = decode[ledger.Contributions](t, w.ok(w.bert, "POST", "/api/accounts/"+id(w.shared)+"/contributors",
+		`{"name":"Grootmoeder","iban":"`+ibanContributor+`"}`, 201).body).Contributors[0].ID
 
 	// Devices, a third user with an account offered to Bert, notices, an invitation.
 	w.bertDevice = w.int(`INSERT INTO devices (user_id, name, token_hash) VALUES (?, 'Chrome op Windows', 'b') RETURNING id`, w.bert)
@@ -330,6 +335,9 @@ func read(path string, status int) probe {
 }
 
 const none = "999999" // an id that exists nowhere
+
+// ibanContributor is a contributor's IBAN (0.8.1-7): stored for matching, never returned in full.
+const ibanContributor = "BE37000000007193"
 
 // send runs one request as a user and returns the answer and the mux pattern it reached.
 func (w *world) send(p probe, as string) (response, string) {
@@ -598,7 +606,7 @@ func privacyRows() []privacyRow {
 			}
 		}, []string{"TestContributionClaims", "TestWritePermissions"}},
 		{"PUT /api/accounts/{id}/contribution-shares", "byid", "accessOf, manager only; every member named", func(w *world) []probe {
-			body := `{"shares":{"` + id(w.bert) + `":50,"` + id(w.partner) + `":50}}`
+			body := `{"shares":{"` + id(w.bert) + `":50,"` + id(w.partner) + `":40,"c` + id(w.bertContributor) + `":10}}`
 			return []probe{
 				hidden("partner", "PUT", "/api/accounts/"+id(w.bertAcc)+"/contribution-shares", body, "/api/accounts/"+none+"/contribution-shares", body, "bert"),
 				hidden("bert", "PUT", "/api/accounts/"+id(w.partnerAcc)+"/contribution-shares", `{"shares":null}`, "/api/accounts/"+none+"/contribution-shares", `{"shares":null}`, "partner"),
@@ -606,6 +614,46 @@ func privacyRows() []privacyRow {
 				{as: "bert", method: "PUT", path: "/api/accounts/" + id(w.shared) + "/contribution-shares", body: body, status: 200},
 			}
 		}, []string{"TestContributionShares", "TestWritePermissions"}},
+		{"POST /api/accounts/{id}/contributors", "byid", "accessOf, edit, shared; the IBAN typed (checksum) or from an incoming row of this account only (a row elsewhere refuses as a missing id); an IBAN in use answers one text naming nobody; nothing outside the account is looked up; the answer masks the IBAN to the creator and the manager", func(w *world) []probe {
+			path := "/api/accounts/" + id(w.shared) + "/contributors"
+			body := `{"name":"Oom","iban":"BE62510007547061"}`
+			return []probe{
+				hidden("partner", "POST", "/api/accounts/"+id(w.bertAcc)+"/contributors", body, "/api/accounts/"+none+"/contributors", body, "bert"),
+				{as: "partner", method: "POST", path: path, body: `{"name":"Oom","transactionId":` + id(w.bertTx) + `}`, status: 400,
+					missing: &probe{as: "partner", method: "POST", path: path, body: `{"name":"Oom","transactionId":` + none + `}`, status: 400}},
+				{as: "partner", method: "POST", path: path, body: `{"name":"Oom","iban":"` + ibanContributor + `"}`, status: 409},
+			}
+		}, []string{"TestContributorsIBANRulesAndVisibility", "TestContributorsMemberWinsAndLinking"}},
+		{"PATCH /api/accounts/{id}/contributors/{contributorId}", "byid", "accessOf, edit, shared, the contributor of this account; the same IBAN rules as adding", func(w *world) []probe {
+			c, body := id(w.bertContributor), `{"name":"Oma"}`
+			return []probe{
+				hidden("partner", "PATCH", "/api/accounts/"+id(w.bertAcc)+"/contributors/"+c, body, "/api/accounts/"+none+"/contributors/"+c, body, ""),
+				hidden("bert", "PATCH", "/api/accounts/"+id(w.partnerAcc)+"/contributors/"+c, body, "/api/accounts/"+id(w.shared)+"/contributors/"+none, body, ""),
+			}
+		}, []string{"TestContributorsIBANRulesAndVisibility"}},
+		{"DELETE /api/accounts/{id}/contributors/{contributorId}", "byid", "accessOf, edit, shared, the contributor of this account; every share back to equal", func(w *world) []probe {
+			c := id(w.bertContributor)
+			return []probe{
+				hidden("partner", "DELETE", "/api/accounts/"+id(w.bertAcc)+"/contributors/"+c, "", "/api/accounts/"+none+"/contributors/"+c, "", ""),
+				hidden("bert", "DELETE", "/api/accounts/"+id(w.partnerAcc)+"/contributors/"+c, "", "/api/accounts/"+id(w.shared)+"/contributors/"+none, "", ""),
+			}
+		}, []string{"TestContributorsNeedSplitAndRecognition"}},
+		{"PUT /api/accounts/{id}/contributors/{contributorId}/link", "byid", "accessOf, manager only, the contributor of this account; the user must be a member (a non-member and a missing user: one answer)", func(w *world) []probe {
+			c, body := id(w.bertContributor), `{"userId":`+id(w.partner)+`}`
+			return []probe{
+				hidden("partner", "PUT", "/api/accounts/"+id(w.bertAcc)+"/contributors/"+c+"/link", body, "/api/accounts/"+none+"/contributors/"+c+"/link", body, ""),
+				{as: "partner", method: "PUT", path: "/api/accounts/" + id(w.shared) + "/contributors/" + c + "/link", body: body, status: 403},
+				{as: "bert", method: "PUT", path: "/api/accounts/" + id(w.shared) + "/contributors/" + c + "/link", body: `{"userId":` + id(w.derde) + `}`, status: 400,
+					missing: &probe{as: "bert", method: "PUT", path: "/api/accounts/" + id(w.shared) + "/contributors/" + c + "/link", body: `{"userId":` + none + `}`, status: 400}},
+			}
+		}, []string{"TestContributorsMemberWinsAndLinking"}},
+		{"POST /api/accounts/{id}/contributors/{contributorId}/link-answer", "byid", "accessOf, the contributor offered to the viewer (anyone else's: the 404 of a missing one), edit; Ja makes the IBAN the viewer's own sender in one transaction, audited with ids only", func(w *world) []probe {
+			c := id(w.bertContributor)
+			return []probe{
+				hidden("bert", "POST", "/api/accounts/"+id(w.shared)+"/contributors/"+c+"/link-answer", `{"yes":true}`, "/api/accounts/"+id(w.shared)+"/contributors/"+none+"/link-answer", `{"yes":true}`, ""),
+				hidden("partner", "POST", "/api/accounts/"+id(w.bertAcc)+"/contributors/"+c+"/link-answer", `{"yes":true}`, "/api/accounts/"+none+"/contributors/"+c+"/link-answer", `{"yes":true}`, ""),
+			}
+		}, []string{"TestContributorsMemberWinsAndLinking"}},
 		{"GET /api/accounts/{id}/invitable", "byid", "accessOf, then manager only (a member's 403 comes before anything is listed); the instance's users by name and initial, never an e-mail address or an account; an invitee is no member and gets the 404 of a missing account", func(w *world) []probe {
 			path := func(account string) string { return "/api/accounts/" + account + "/invitable" }
 			return []probe{
@@ -680,7 +728,7 @@ func privacyRows() []privacyRow {
 			const path = "/api/reports/months"
 			ps := []probe{}
 			for _, q := range []string{"", "?scope=alles", "?scope=persoonlijk", "?scope=gedeeld", "?from=2026-11&to=2026-11",
-				"?account=" + id(w.shared), "?scope=gedeeld&account=" + id(w.shared)} {
+				"?account=" + id(w.shared), "?scope=gedeeld&account=" + id(w.shared), "?detail=1", "?scope=gedeeld&detail=1"} {
 				ps = append(ps, read(path+q, 200))
 			}
 			return append(ps,
@@ -692,6 +740,34 @@ func privacyRows() []privacyRow {
 				hidden("partner", "GET", path+"?account="+id(w.bertManual), "", path+"?account="+none, "", "bert"),
 				hidden("bert", "GET", path+"?account="+id(w.partnerManual), "", path+"?account="+none, "", "partner"))
 		}, []string{"TestReportMonthsErrors", "TestReportIsPerViewer"}},
+		{"GET /api/reports/budgets", "list", "the account list and the account's check are the report's: another user's account (current or savings) is the 404 of a missing one, before its type is looked at; budget rows and history months are account-level (the same for every member), the average is the viewer's own per-account report of that account; ids and amounts only", func(w *world) []probe {
+			const path = "/api/reports/budgets"
+			ps := []probe{}
+			for _, q := range []string{"", "?scope=alles", "?scope=persoonlijk", "?scope=gedeeld", "?from=2026-11&to=2026-11", "?account=" + id(w.shared)} {
+				ps = append(ps, read(path+q, 200))
+			}
+			return append(ps,
+				probe{as: "bert", method: "GET", path: path + "?account=" + id(w.bertAcc), status: 200},
+				probe{as: "partner", method: "GET", path: path + "?account=" + id(w.partnerAcc), status: 200},
+				hidden("partner", "GET", path+"?account="+id(w.bertAcc), "", path+"?account="+none, "", "bert"),
+				hidden("bert", "GET", path+"?account="+id(w.partnerAcc), "", path+"?account="+none, "", "partner"),
+				hidden("partner", "GET", path+"?account="+id(w.bertManual), "", path+"?account="+none, "", "bert"),
+				hidden("bert", "GET", path+"?account="+id(w.partnerManual), "", path+"?account="+none, "", "partner"))
+		}, []string{"TestReportBudgetsErrors", "TestReportBudgetsDemo"}},
+		{"GET /api/reports/balances", "list", "the account list and the account's check are the report's: another user's account (current or savings) is the 404 of a missing one, before its type is looked at; snapshot, booked rows and buffer are account-level (the same for every member of a shared account, no per-viewer table); dates and amounts of the viewer's own accounts only, never a sum over accounts", func(w *world) []probe {
+			const path = "/api/reports/balances"
+			ps := []probe{}
+			for _, q := range []string{"", "?scope=alles", "?scope=persoonlijk", "?scope=gedeeld", "?from=2026-11&to=2026-11", "?account=" + id(w.shared)} {
+				ps = append(ps, read(path+q, 200))
+			}
+			return append(ps,
+				probe{as: "bert", method: "GET", path: path + "?account=" + id(w.bertAcc), status: 200},
+				probe{as: "partner", method: "GET", path: path + "?account=" + id(w.partnerAcc), status: 200},
+				hidden("partner", "GET", path+"?account="+id(w.bertAcc), "", path+"?account="+none, "", "bert"),
+				hidden("bert", "GET", path+"?account="+id(w.partnerAcc), "", path+"?account="+none, "", "partner"),
+				hidden("partner", "GET", path+"?account="+id(w.bertManual), "", path+"?account="+none, "", "bert"),
+				hidden("bert", "GET", path+"?account="+id(w.partnerManual), "", path+"?account="+none, "", "partner"))
+		}, []string{"TestReportBalancesErrors", "TestReportBalancesDemo"}},
 		{"GET /api/planning", "list", "account-level: the forecast of the current accounts of the scope the viewer holds, from facts that are the same for every member (no per-viewer table; only `me` differs); members only of accounts the viewer holds; no counterparty IBAN", func(w *world) []probe {
 			gedeeld := read("/api/planning?scope=gedeeld", 200)
 			gedeeld.verify = func(t *testing.T, w *world) { // the shared account is the same for both members

@@ -658,13 +658,13 @@ describe('Transactie detail · contribution (0.6-5)', () => {
     renderAt('/transacties');
     const dialog = await open('Partner Janssens');
     expect(within(row('Partner Janssens')).queryByText('Jouw bijdrage')).toBeNull();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Dit is mijn bijdrage' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'mij' }));
     await waitFor(() => expect(api.addContributionSender).toHaveBeenCalledWith(4, { transactionId: 118 }));
     await waitFor(() => expect(toast()).toBe('Opgeslagen: deze afzender telt voortaan als jouw bijdrage'));
     // The label is on the row and in the detail, and the button is gone: a second press would be refused.
     expect(within(row('Partner Janssens')).getByText('Jouw bijdrage')).toBeTruthy();
     expect(within(dialog).getByText('Jouw bijdrage')).toBeTruthy();
-    expect(within(dialog).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+    expect(within(dialog).queryByRole('group', { name: 'Dit is de bijdrage van …' })).toBeNull();
   });
 
   it('shows the server’s message when the sender cannot be claimed, and the button stays', async () => {
@@ -672,11 +672,44 @@ describe('Transactie detail · contribution (0.6-5)', () => {
     api.addContributionSender.mockRejectedValueOnce(new ApiError(409, 'conflict', 'Deze afzender hoort al bij Partner.'));
     renderAt('/transacties');
     const dialog = await open('Partner Janssens');
-    const claim = within(dialog).getByRole('button', { name: 'Dit is mijn bijdrage' });
+    const claim = within(dialog).getByRole('button', { name: 'mij' });
     fireEvent.click(claim);
     await waitFor(() => expect(toast()).toBe('Deze afzender hoort al bij Partner.'));
     expect(claim.getAttribute('aria-busy')).toBeNull();
     expect(within(row('Partner Janssens')).queryByText('Jouw bijdrage')).toBeNull();
+  });
+
+  it('makes the payment the contribution of someone without Saldo: a name only, the server takes the IBAN from the row (0.8.1-7)', async () => {
+    const api = stubApi({ transactions: rows([INCOMING]) });
+    renderAt('/transacties');
+    const dialog = await open('Partner Janssens');
+    const group = within(dialog).getByRole('group', { name: 'Dit is de bijdrage van …' });
+    expect(within(group).getByRole('button', { name: 'mij' })).toBeTruthy();
+    fireEvent.click(within(group).getByRole('button', { name: 'iemand zonder Saldo' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Bijdrager toevoegen' });
+    // No IBAN field: the row gives it, and the transactions API never shows it.
+    expect(within(sheet).queryByLabelText('IBAN')).toBeNull();
+    fireEvent.change(within(sheet).getByLabelText('Naam'), { target: { value: 'Mama' } });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(api.addContributor).toHaveBeenCalledWith(4, { name: 'Mama', transactionId: 118 }));
+    await waitFor(() => expect(toast()).toBe('Mama toegevoegd als bijdrager'));
+    expect(screen.queryByRole('dialog', { name: 'Bijdrager toevoegen' })).toBeNull();
+    expect(within(row('Partner Janssens')).getByText('Bijdrage van Mama')).toBeTruthy();
+    expect(within(dialog).queryByRole('group', { name: 'Dit is de bijdrage van …' })).toBeNull();
+  });
+
+  it('shows the server’s message in the sheet when the IBAN of the row cannot be used, and the choice stays', async () => {
+    const api = stubApi({ transactions: rows([INCOMING]) });
+    api.addContributor.mockRejectedValueOnce(new ApiError(409, 'conflict', 'Deze IBAN kan je hier niet gebruiken.'));
+    renderAt('/transacties');
+    const dialog = await open('Partner Janssens');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'iemand zonder Saldo' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Bijdrager toevoegen' });
+    fireEvent.change(within(sheet).getByLabelText('Naam'), { target: { value: 'Mama' } });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Opslaan' }));
+    expect((await within(sheet).findByRole('alert')).textContent).toBe('Deze IBAN kan je hier niet gebruiken.');
+    expect(within(row('Partner Janssens')).queryByText(/^Bijdrage van/)).toBeNull();
+    expect(within(dialog).getByRole('group', { name: 'Dit is de bijdrage van …' })).toBeTruthy();
   });
 
   it('labels a row that matches a member’s sender, without the button', async () => {
@@ -691,20 +724,20 @@ describe('Transactie detail · contribution (0.6-5)', () => {
     expect(within(row('Partner Janssens')).getAllByText('Bijdrage van Partner')).toHaveLength(1);
     expect(within(row('Eigen rekening')).getAllByText('Jouw bijdrage')).toHaveLength(1);
     expect(within(dialog).getByText('Bijdrage van Partner')).toBeTruthy();
-    expect(within(dialog).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+    expect(within(dialog).queryByRole('group', { name: 'Dit is de bijdrage van …' })).toBeNull();
   });
 
   it('offers no claim for an expense, a transfer, a personal account or a read-only member', async () => {
     stubApi({ transactions: rows([{ ...INCOMING, id: 120, counterparty: 'Van eigen rekening', transfer: true, transferKind: 'internal' }]) });
     renderAt('/transacties');
     // An expense on the shared account.
-    expect(within(await open('Colruyt Laagste Prijzen')).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+    expect(within(await open('Colruyt Laagste Prijzen')).queryByRole('group', { name: 'Dit is de bijdrage van …' })).toBeNull();
     // A transfer for you: its sender is your own account.
     fireEvent.click(screen.getByRole('button', { name: 'Sluiten' }));
-    expect(within(await open('Van eigen rekening')).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+    expect(within(await open('Van eigen rekening')).queryByRole('group', { name: 'Dit is de bijdrage van …' })).toBeNull();
     // Income on a personal account.
     fireEvent.click(screen.getByRole('button', { name: 'Sluiten' }));
-    expect(within(await open('CM Ziekenfonds')).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+    expect(within(await open('CM Ziekenfonds')).queryByRole('group', { name: 'Dit is de bijdrage van …' })).toBeNull();
   });
 
   it('offers no claim to a member who may only read the shared account', async () => {
@@ -712,6 +745,6 @@ describe('Transactie detail · contribution (0.6-5)', () => {
     renderAt('/transacties');
     const dialog = await open('Partner Janssens');
     expect(within(dialog).getByText('Alleen lezen')).toBeTruthy();
-    expect(within(dialog).queryByRole('button', { name: 'Dit is mijn bijdrage' })).toBeNull();
+    expect(within(dialog).queryByRole('group', { name: 'Dit is de bijdrage van …' })).toBeNull();
   });
 });

@@ -1,19 +1,15 @@
 // Planning · Budget (plan 0.8-6) on the demo answer: free to spend per account with the rows that add up to it, the categories, the
-// budget editor and the required contribution of the shared account.
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { api } from '../lib/api';
+// link to "Planning instellen" (0.8.1-8, where the budgets are changed) and the required contribution of the shared account.
+import { screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import type { Planning } from '../lib/planning';
 import { asMember, stubApi, ZICHT } from '../test/helpers';
 import { CONTRIBUTION_ITEMS, demoPlanning, renderPlanning } from '../test/planningDemo';
 
 const texts = (root: ParentNode, selector: string) => Array.from(root.querySelectorAll(selector)).map((e) => e.textContent);
 const card = async (name: string) => (await screen.findByRole('region', { name })) as HTMLElement;
-const toast = () => screen.getByTestId('toast').textContent;
 /** "−€ 24,99" as cents. */
 const cents = (s: string) => Math.round(parseFloat(s.replace(/−/g, '-').replace(/[€\s.]/g, '').replace(',', '.')) * 100);
-const switchOf = () => screen.getByRole('switch', { name: 'Geen budget (rekent met het gemiddelde)' }) as HTMLInputElement;
-const amountField = () => screen.getByLabelText('Bedrag per maand') as HTMLInputElement;
 
 describe('Planning · Budget', () => {
   it('shows what is free per account, with rows that add up to it, the stacked bar and the categories', async () => {
@@ -55,80 +51,28 @@ describe('Planning · Budget', () => {
   });
 });
 
-describe('Planning · Budget editor', () => {
-  it('steps by € 10, takes the average rounded up, saves from the month shown and reloads the forecast', async () => {
-    const stub = stubApi({ planning: demoPlanning });
-    const save = vi.spyOn(api, 'setBudget').mockResolvedValue({ budgets: [] });
-    renderPlanning('/planning#budget');
-    fireEvent.click(within(await card('Gedeelde rekening')).getByRole('button', { name: /^Overig/ }));
-
-    const dialog = within(await screen.findByRole('dialog', { name: 'Budget Overig · Gedeelde rekening' }));
-    expect(dialog.getByText('Geldt vanaf november en de maanden erna.')).toBeTruthy();
-    expect(dialog.getByText(/Gemiddelde van de afgelopen 6 maanden:/).textContent).toContain('€ 62,47');
-    // No budget yet: the plan is the average.
-    expect(switchOf().checked).toBe(true);
-    fireEvent.click(dialog.getByRole('button', { name: 'Gebruik het gemiddelde' }));
-    expect(amountField().value).toBe('63');
-    expect(switchOf().checked).toBe(false);
-
-    fireEvent.click(dialog.getByRole('button', { name: '€ 10 meer' }));
-    expect(amountField().value).toBe('73');
-    fireEvent.click(dialog.getByRole('button', { name: '€ 10 minder' }));
-    fireEvent.click(dialog.getByRole('button', { name: '€ 10 minder' }));
-    expect(amountField().value).toBe('53');
-
-    fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
-    await waitFor(() => expect(save).toHaveBeenCalledWith({ accountId: 4, categoryId: 6, fromMonth: '2026-11', amount: 5300 }));
-    await waitFor(() => expect(toast()).toBe('Budget bewaard vanaf november'));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    await waitFor(() => expect(stub.planning).toHaveBeenCalledTimes(2));
-  });
-
-  it('sends amount null for "Geen budget", from the month shown', async () => {
+describe('Planning · Budget · Aanpassen', () => {
+  it('links each editable account to its budgets in Planning instellen, with the month shown when it is not the running one', async () => {
     stubApi({ planning: demoPlanning });
-    const save = vi.spyOn(api, 'setBudget').mockResolvedValue({ budgets: [] });
-    renderPlanning('/planning?maand=2026-12#budget');
-    fireEvent.click(within(await card('Zichtrekening')).getByRole('button', { name: /^Vrije tijd/ }));
+    const first = renderPlanning('/planning#budget');
+    const zicht = await card('Zichtrekening');
+    expect(within(zicht).getByRole('link', { name: 'Budgetten aanpassen: Zichtrekening' }).getAttribute('href')).toBe('/planning/instellen?rekening=1#budgetten');
+    expect(within(screen.getByRole('region', { name: 'Gedeelde rekening' })).getByRole('link', { name: 'Budgetten aanpassen: Gedeelde rekening' }).getAttribute('href')).toBe('/planning/instellen?rekening=4#budgetten');
+    // The category rows are plain rows now: no button opens an editor sheet.
+    expect(within(zicht).queryByRole('button')).toBeNull();
+    first.unmount();
 
-    const dialog = within(await screen.findByRole('dialog', { name: 'Budget Vrije tijd · Zichtrekening' }));
-    expect(amountField().value).toBe('350');
-    expect(switchOf().checked).toBe(false);
-    expect(dialog.queryByRole('button', { name: 'Gebruik het gemiddelde' })).toBeNull();
-    fireEvent.click(switchOf());
-    fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
-    await waitFor(() => expect(save).toHaveBeenCalledWith({ accountId: 1, categoryId: 3, fromMonth: '2026-12', amount: null }));
-    await waitFor(() => expect(toast()).toBe('Budget bewaard vanaf december'));
+    renderPlanning('/planning?maand=2027-02#budget');
+    expect(within(await card('Zichtrekening')).getByRole('link', { name: 'Budgetten aanpassen: Zichtrekening' }).getAttribute('href')).toBe('/planning/instellen?rekening=1&maand=2027-02#budgetten');
   });
 
-  it('adds a budget for a category without one, and asks for an amount first', async () => {
-    stubApi({ planning: demoPlanning });
-    const save = vi.spyOn(api, 'setBudget').mockResolvedValue({ budgets: [] });
-    renderPlanning('/planning#budget');
-    fireEvent.click(within(await card('Zichtrekening')).getByRole('button', { name: '+ Budget voor een andere categorie' }));
-
-    // Only top expense categories that are not saving and have no budget on this account.
-    const choose = within(await screen.findByRole('dialog', { name: 'Kies een categorie · Zichtrekening' }));
-    for (const name of ['Wonen', 'Boodschappen', 'Abonnementen']) expect(choose.getByRole('button', { name })).toBeTruthy();
-    for (const name of ['Vrije tijd', 'Vervoer', 'Overig', 'Energie', 'Loon']) expect(choose.queryByRole('button', { name })).toBeNull();
-    fireEvent.click(choose.getByRole('button', { name: 'Boodschappen' }));
-    const dialog = within(await screen.findByRole('dialog', { name: 'Budget Boodschappen · Zichtrekening' }));
-    expect(dialog.queryByText(/Gemiddelde van de afgelopen 6 maanden/)).toBeNull();
-
-    fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
-    expect((await dialog.findByRole('alert')).textContent).toBe('Vul een bedrag in of kies Geen budget.');
-    expect(save).not.toHaveBeenCalled();
-    fireEvent.change(amountField(), { target: { value: '250' } });
-    fireEvent.click(dialog.getByRole('button', { name: 'Opslaan' }));
-    await waitFor(() => expect(save).toHaveBeenCalledWith({ accountId: 1, categoryId: 2, fromMonth: '2026-11', amount: 25000 }));
-  });
-
-  it('offers no editing on accounts the viewer may only read', async () => {
+  it('offers no way to change the budgets of accounts the viewer may only read', async () => {
     stubApi({ planning: demoPlanning, accounts: [{ ...ZICHT, permission: 'read' }, asMember('read')] });
     renderPlanning('/planning#budget');
     const zicht = await card('Zichtrekening');
     expect(within(zicht).getByText('Vrije tijd')).toBeTruthy();
-    expect(within(zicht).queryByRole('button')).toBeNull();
-    expect(within(screen.getByRole('region', { name: 'Gedeelde rekening' })).queryByRole('button')).toBeNull();
+    expect(within(zicht).queryByRole('link', { name: /aanpassen/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /aanpassen/i })).toBeNull();
   });
 });
 
@@ -175,5 +119,23 @@ describe('Planning · required contribution', () => {
     expect(block.getByText(/^Vaste kosten en budgetten/).textContent).toBe('Vaste kosten en budgetten € 800,45');
     expect(block.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Jij · 70 % · € 561', 'Partner · 30 % · € 241']);
     await waitFor(() => expect(block.getByText('Jullie verwachte bijdragen (€ 450) zijn € 351 minder dan nodig.')).toBeTruthy());
+  });
+
+  it('lists a contributor without Saldo after the members, with their part (0.8.1-7)', async () => {
+    const answer = (scope: Parameters<typeof demoPlanning>[0], horizon = 3): Planning => {
+      const p = demoPlanning(scope, horizon);
+      // November in three: ⌈871,18 / 3⌉ = € 291 each. The contributor carries a `contributorId` and never `me`.
+      const c = p.accounts[1].months[0].contribution!;
+      c.members = [
+        { ...c.members[0], share: 34, required: 29100 },
+        { contributorId: 7, name: 'Mama', me: false, share: 33, required: 29100 },
+        { ...c.members[1], share: 33, required: 29100 },
+      ];
+      return p;
+    };
+    stubApi({ planning: answer, items: CONTRIBUTION_ITEMS });
+    renderPlanning('/planning#budget');
+    const block = within((await card('Gedeelde rekening')).querySelector('.pl-need') as HTMLElement);
+    expect(block.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Jij · 34 % · € 291', 'Partner · 33 % · € 291', 'Mama · 33 % · € 291']);
   });
 });

@@ -1,6 +1,7 @@
 // The forecast on the wire (GET /api/planning, plan 0.8-4) and the small pure helpers Start's "Komende maanden" needs.
 // Money in cents, field names as the engine's types in lowerCamel.
 import { eur0, MONTHS, MONTHS_SHORT } from './format';
+import { monthResult, resultText, stateLabel } from './planningMonths';
 
 /** The state of a forecast month or day against the account's own buffer: `buffer` is "in de buffer", `red` is below zero. */
 export type PlanState = 'ok' | 'buffer' | 'red';
@@ -21,6 +22,8 @@ export interface PlanBudget {
   source: string;
   spent: number;
   rest: number;
+  /** The 6-month average of the category in cents (0.8.1-2, `GET /api/planning` `budgets`); absent or `null` until the server sends it. */
+  average?: number | null;
 }
 
 /** What each member has to send in so the account ends the month on its buffer; shared accounts only. `required` is in whole euros. */
@@ -29,7 +32,8 @@ export interface PlanContribution {
   costs: number;
   otherIncome: number;
   bufferGap: number;
-  members: { userId: number; name: string; me: boolean; share: number; required: number }[];
+  /** Members first (`userId`), then the contributors without Saldo (`contributorId`, always `me: false`; 0.8.1-7). */
+  members: { userId?: number; contributorId?: number; name: string; me: boolean; share: number; required: number }[];
 }
 
 export interface PlanMonth {
@@ -57,14 +61,28 @@ export interface PlanDay {
   items: { kind: string; label: string; amount: number; id?: number }[];
 }
 
-/** A planned one-off item (`POST /api/planning/planned`): signed cents on a date, on one account. */
+/** A planned one-off item (`POST /api/planning/planned`): signed cents on a date, or somewhere in a month (0.8.1-9), on one account. */
 export interface PlannedItem {
   id: number;
   accountId: number;
-  date: string;
+  /** `YYYY-MM-DD`; `null` for an item without a day: the forecast spreads it over the days of its `month`. */
+  date: string | null;
+  /** `YYYY-MM`, always set (the month of `date` for a dated item). */
+  month: string;
+  /** Output only: `true` when the item has no day (`date` is `null`); a request never sends it. */
+  wholeMonth: boolean;
   amount: number;
   description: string;
 }
+
+/** What a planned item is placed on in a request: a day, or a month (an item without a day), never both. */
+export type PlannedWhen = { date: string; month?: never } | { month: string; date?: never };
+
+/** The body of `POST /api/planning/planned`. */
+export type NewPlanned = { accountId: number; amount: number; description: string } & PlannedWhen;
+
+/** What `PATCH /api/planning/planned/{id}` may carry: any of description and amount, and the day or the month (a PATCH may switch between the two). */
+export type PlannedPatch = { description?: string; amount?: number } & ({ date?: string; month?: never } | { month?: string; date?: never });
 
 /** One current account's forecast. `days` only for the asked month. */
 export interface PlanAccount {
@@ -103,19 +121,12 @@ export interface Planning {
 /** Column label under a bar: "dec", and "nov · nu" for the running month. */
 export const monthLabel = (month: string, running: boolean) => MONTHS_SHORT[Number(month.slice(5, 7)) - 1] + (running ? ' · nu' : '');
 
-/** The result under a bar: "+€ 307" above the buffer, "−€ 265" in it, "rood" below zero. */
-export const resultLabel = (m: PlanMonth) => (m.state === 'red' ? 'rood' : eur0(m.left, true));
-
-/** What a screen reader hears for one chart: every month with its end balance and its place against the buffer. */
+/** What a screen reader hears for one chart: every month with its end balance, what it wins or loses and its place against the buffer. */
 export const chartLabel = (name: string, months: PlanMonth[]) =>
   name +
   ': ' +
   months
-    .map((m) => {
-      const end = MONTHS[Number(m.month.slice(5, 7)) - 1] + ' ' + eur0(m.end);
-      if (m.state === 'red') return end + ', negatief saldo';
-      return end + ', ' + eur0(Math.abs(m.left)) + (m.left < 0 ? ' onder buffer' : ' boven buffer');
-    })
+    .map((m) => MONTHS[Number(m.month.slice(5, 7)) - 1] + ' ' + eur0(m.end) + ', ' + resultText(monthResult(m).cents, true) + ' deze maand, ' + stateLabel(m.state))
     .join('; ');
 
 /**

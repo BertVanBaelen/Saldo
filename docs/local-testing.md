@@ -335,3 +335,18 @@ On a fresh demo (`scripts\dev.ps1 -Fresh`; the demo clock is 18 November 2026), 
 7. **Saving category.** Categorieën en regels, "Sparen": switch "Telt als gespaard" (a subcategory shows it as inherited); categorise a row of this month into Sparen and check that Gespaard on Overzicht rises by its amount, the Abonnementen-type category falls by it, and the Gespaard tile's sheet lists the row.
 8. **Detection on real data (before relying on it).** On a local copy of a production backup (Home Assistant backup), call `GET /api/planning/detection?account=<id>` (docs/api.md, "Suggestions and the detection report") and read the verdicts per group; the thresholds are a first guess (plan/v0.8-planning/02-recurring-detection.md).
 The shared flag, invitations and sheets have their own sections above.
+
+## Improvements (0.8.1, about twenty minutes, fresh demo: `pwsh -File scripts/dev.ps1 -Fresh`)
+The demo date is 18 Nov 2026. Numbers below are the demo's.
+
+**Start and Planning, Maanden (0.8.1-6).** Start, "Komende maanden", Zichtrekening: November **+€ 183** under the grey € 1.207, December −€ 119, January −€ 453 ("in de buffer"), February −€ 1.769 ("rood"). Planning → Maanden: November "+€ 183,30" and "Laagste punt 1 nov · −€ 431,45"; February has no low line (its low is its end).
+
+**Overzicht (0.8.1-3, -4, -5).** `/overzicht?periode=eigen&van=2026-10&tot=2026-11`: the "uit" bar stacks per category with Gespaard on top and "Samen uit € 1.905,49 · over € 1.444,51"; "Per categorie · oktober": Vervoer "€ 140,60 van € 129,00 · 109 % · gemiddelde · € 11,60 te veel". Tap Inkomen (Salaris + Bijdrage + Terugbetaling = € 3.350,00), Uitgaven and Gespaard: each sheet adds up to its tile. The demo has no subcategory rows: on a copy move two November rows into subcategories (`PATCH /api/transactions/<id>` `{"categoryId": 17}`), then Uitgaven → the category shows a dropdown whose parts add up, and a part opens Transacties for that category. The "Saldo" card: Zichtrekening "Laagste −€ 1.481,92 op 1 okt · Einde € 1.023,55 · 1 dag onder de buffer" (October); November's dip to −€ 431,45 shows for `van=2026-10&tot=2026-11` with the November column selected.
+
+**Planning instellen (0.8.1-8).** Planning shows three tabs and a cog (Planning instellen); `/planning#terugkerend` and `#eenmalig` forward to `/planning/instellen`. Tiles: Zichtrekening € 938 and Gedeelde rekening € 550 per month. Vrije tijd **+ € 10**: "Februari · € 40 minder · −€ 1.174,03 · rood"; it saves by itself, and Terugzetten restores the value of when you opened the screen.
+
+**One-off without a day (0.8.1-9).** Eenmalige uitgave toevoegen, month December, amount 31,00, day empty: the preview says "verdeeld over december"; the list says "Ergens in december 2026"; Planning → Kalender → December shows "Feestmaand −€ 31,00 · verdeeld over december (ongeveer −€ 1,00 per dag)" and no dot; December's planned line holds the whole amount.
+
+**Contributors without Saldo (0.8.1-7).** Rekeningen → Gedeelde rekening → Bijdragen → Bijdrager toevoegen: Mama with `BE68 5390 0754 7034`: everyone's part becomes **€ 291** (€ 872 / 3); the IBAN is shown masked (`BE68 •••• •••• 7034`) to you only, never in full, and Partner sees no IBAN. Shares can be set for members and Mama together.
+
+**By eye (not covered by tests).** The slide with its overshoot on a real phone; the Planning instellen steppers at 375 px; the Saldo card at 375 px and in dark mode (the highlighted column washes out the below-buffer tints); the month row on desktop between 1024 and 1280 px (it grew by 60 px); chevrons in the Overzicht sheets; the legend swatch "Boven buffer".

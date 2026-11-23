@@ -649,3 +649,26 @@ describe('Rekening · verlaten en verwijderen van een gedeelde rekening', () => 
     expect(choice(dialog).textContent).toContain('Kan niet: Gedeelde rekening en Huishouden blijven bestaan voor de andere leden.');
   });
 });
+
+describe('Rekening · Bijdragen on every shared account (0.8.1-7)', () => {
+  // Flagged as shared, the partner is not on Saldo (yet): the manager is its one member (0.8-0b).
+  const VAKANTIEPOT: Account = { ...GEDEELD, id: 8, name: 'Vakantiepot', members: [GEDEELD.members[0]] };
+  const alone = { month: '2026-11', members: [{ userId: 1, name: 'Bert', me: true, share: null, senders: 0, received: 0, confirmed: false, required: 87200, covered: false }], mySenders: [], need: 87200 };
+
+  it('shows the card with the own senders and the need for a shared account with one member, which has no Leden', async () => {
+    const api = stubApi({ accounts: [ZICHT, VAKANTIEPOT], contributions: alone });
+    const first = renderAt('/rekeningen/8');
+    const box = await screen.findByRole('heading', { name: 'Bijdragen' }).then((h) => h.closest('section') as HTMLElement);
+    expect(api.contributions).toHaveBeenCalledWith(8, undefined, expect.anything());
+    expect(await within(box).findByRole('heading', { name: 'Mijn bijdrage' })).toBeTruthy();
+    expect(within(box).getByText(/Nodig in november/).textContent).toBe('Nodig in november: € 872');
+    expect(screen.queryByRole('heading', { name: 'Leden' })).toBeNull();
+    first.unmount();
+
+    // A personal account has neither.
+    stubApi();
+    renderAt('/rekeningen/1');
+    await screen.findByRole('heading', { level: 1, name: 'Zichtrekening' });
+    expect(screen.queryByRole('heading', { name: 'Bijdragen' })).toBeNull();
+  });
+});

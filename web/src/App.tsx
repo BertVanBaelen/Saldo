@@ -22,6 +22,7 @@ import { LinkPage, SignIn } from './pages/Inloggen';
 // Planning brings the UI library (React Aria, ~70 kB gzipped): its own chunk, loaded when the screen opens. The service worker
 // precaches every bundle file, so the chunk is there offline too.
 const Planning = lazy(() => import('./pages/Planning').then((m) => ({ default: m.Planning })));
+const PlanningInstellen = lazy(() => import('./pages/PlanningInstellen').then((m) => ({ default: m.PlanningInstellen })));
 
 /** The pages of a signed-in viewer, inside the shell. */
 export function AppRoutes() {
@@ -46,6 +47,21 @@ export function AppRoutes() {
               }
             >
               <Planning />
+            </Suspense>
+          }
+        />
+        <Route
+          path="planning/instellen"
+          element={
+            <Suspense
+              fallback={
+                <div className="page" role="status" aria-label="Planning instellen laden">
+                  <Skel w={220} h={32} />
+                  <Skel w="100%" h={280} />
+                </div>
+              }
+            >
+              <PlanningInstellen />
             </Suspense>
           }
         />

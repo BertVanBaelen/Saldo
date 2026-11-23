@@ -2,39 +2,53 @@
 // Design: finance-mockup/js/screens/overzicht.js; spec: analysis/screens/overzicht.md; plan 0.7-3.
 // One request per scope, account and dataVersion; periods and the selected column are summed here (lib/reports.ts).
 // With several accounts the totals are information only ("samen, ter info") with a breakdown per account.
-// A category row, the Gespaard tile and an account row open a sheet (a side panel on desktop) with what is behind the
-// number: `?blad=categorie-<key>`, `?blad=gespaard`, `?blad=rekening-<id>` (OverzichtSheet.tsx; plan 0.8-0c).
+// A category row and an account row open a sheet (a side panel on desktop) with what is behind the number:
+// `?blad=categorie-<key>`, `?blad=rekening-<id>` (OverzichtSheet.tsx; plan 0.8-0c); the Inkomen, Uitgaven and Gespaard tiles
+// open the amounts per category with a dropdown per subcategory: `?blad=inkomen|uitgaven|gespaard` (plan 0.8.1-4).
+// The rows are read against their budget (else the 6-month average) from GET /api/reports/budgets, loaded beside the report.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
-import { delay, ErrorState, ScopeSwitch, useTitle } from '../components/ui';
+import { delay, ErrorState, ScopeSwitch, useIsDesktop, useTitle } from '../components/ui';
 import { accColour, accountIcon, inScope, isCurrent } from '../lib/accounts';
 import { api } from '../lib/api';
-import { categoryFromParam } from '../lib/drilldown';
+import { categoryFromParam, drillHref } from '../lib/drilldown';
 import { cap, eur } from '../lib/format';
 import {
   barSize,
+  breakdown,
+  BUDGET_NOTE,
   catRows,
   categoryParam,
+  columnReferences,
   columns,
   defaultSelection,
+  drawSegments,
   isView,
+  netOut,
+  outOf,
   partialNotes,
   periodParam,
   rangeShort,
+  SAVED_KEY,
+  SMALL_KEY,
+  stack,
   sumColumn,
+  sumDetail,
   transferGap,
   VIEWS,
   type CatRow,
   type Period,
   type Sum,
+  type Total,
   type View,
 } from '../lib/reports';
-import type { Account, ReportMonths, Scope } from '../lib/types';
+import type { Account, ReportBudgets, ReportMonths, Scope, TreeCategory } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { AccountPicker, Panel, RangePicker, type PanelKind } from './OverzichtPickers';
-import { AccountBlad, CatLead, CatLine, CategoryBlad, Figure, transferNote } from './OverzichtSheet';
+import { AccountBlad, BreakdownBlad, CatItem, CatLead, CategoryBlad, Figure, transferNote } from './OverzichtSheet';
+import { OverzichtSaldo } from './OverzichtSaldo';
 import './Overzicht.css';
 
 const SCOPE_TEXT: Record<Scope, string> = { alles: 'Alle rekeningen', persoonlijk: 'Persoonlijke rekeningen', gedeeld: 'Gedeelde rekeningen' };
@@ -46,12 +60,6 @@ const SKELETON = [
   [130, 230],
   [110, 200],
 ];
-const LEGEND = [
-  ['inc', 'Inkomen'],
-  ['exp', 'Uitgaven'],
-  ['sav', 'Gespaard'],
-] as const;
-
 const vars = (v: Record<string, string>) => v as CSSProperties;
 
 /** The report as loaded, with the selection it was asked for: an answer for another scope or account is stale. */
@@ -59,6 +67,12 @@ interface Loaded {
   scope: Scope;
   account: number | undefined;
   r: ReportMonths;
+}
+/** The references (budget, else average) as loaded, for the selection they were asked for. */
+interface LoadedBudgets {
+  scope: Scope;
+  account: number | undefined;
+  b: ReportBudgets;
 }
 
 /** The open picker and the button that opened it: focus returns there, and the popover hangs under it. */
@@ -68,10 +82,13 @@ interface Open {
   trigger: Trigger;
 }
 
-/** The open content sheet, from `?blad=`: a category (`categorie-2`, `categorie-geen`, `gespaard`) or an account (`rekening-4`). */
-type Blad = { kind: 'categorie'; param: string; key: string } | { kind: 'rekening'; id: number };
+/** The open content sheet, from `?blad=`: a tile (`inkomen`, `uitgaven`, `gespaard`), a category (`categorie-2`, `categorie-geen`) or an account (`rekening-4`). */
+type Blad = { kind: 'totaal'; which: Total } | { kind: 'categorie'; param: string; key: string } | { kind: 'rekening'; id: number };
+const TOTALS: Total[] = ['inkomen', 'uitgaven', 'gespaard'];
 function parseBlad(value: string | null): Blad | null {
-  const cat = value === 'gespaard' ? categoryFromParam(value) : /^categorie-(?!gespaard$)/.test(value ?? '') ? categoryFromParam(value!.slice('categorie-'.length)) : undefined;
+  const which = TOTALS.find((t) => t === value);
+  if (which) return { kind: 'totaal', which };
+  const cat = /^categorie-/.test(value ?? '') ? categoryFromParam(value!.slice('categorie-'.length)) : undefined;
   if (cat) return { kind: 'categorie', ...cat };
   const acc = /^rekening-([1-9]\d*)$/.exec(value ?? '');
   return acc ? { kind: 'rekening', id: Number(acc[1]) } : null;
@@ -155,36 +172,52 @@ function Skeleton() {
   );
 }
 
-function Chart({ v, onSelect, historyLink }: { v: Shown; onSelect: (i: number) => void; historyLink: boolean }) {
+/**
+ * Two bars per period: In, and Uit, the costs stacked per category with Gespaard on top (plan 0.8.1-3). The stack's
+ * pieces keep the order of the selected column; pieces too thin to see merge into "Kleine posten" (`drawSegments`).
+ * The legend under the chart names the selected column's pieces.
+ */
+function Chart({ v, categories, onSelect, historyLink }: { v: Shown; categories: TreeCategory[]; onSelect: (i: number) => void; historyLink: boolean }) {
   const { period: p, sums, max, sel } = v;
   const notes = partialNotes(p.columns);
+  // The height of a bar in px: `--bar-max` of `.ov-chart` in Overzicht.css (130 px, 240 px from 1024 px).
+  const barPx = useIsDesktop() ? 240 : 130;
+  const stacks = sums.map((s) => stack(s, categories, sums[sel]));
+  const drawn = stacks.map((segments) => drawSegments(segments, max, barPx));
+  const merged = drawn[sel].find((g) => g.key === SMALL_KEY);
+  // The real pieces, with "Kleine posten" before Gespaard as in the bar.
+  const legend = merged ? [...stacks[sel].filter((g) => g.key !== SAVED_KEY), merged, ...stacks[sel].filter((g) => g.key === SAVED_KEY)] : stacks[sel];
   return (
     <>
       <div className={'ov-chart ov-chart--' + barSize(p.columns.length)} role="group" aria-label="Inkomen, uitgaven en gespaard per periode">
         {p.columns.map((c, i) => {
           const s = sums[i];
-          const label = c.title + (c.partial ? ' ' + c.partial.aria : '') + ': inkomen ' + eur(s.income) + ', uitgaven ' + eur(s.total) + ', gespaard ' + eur(s.saved);
-          const bars: [string, number, number][] = [
-            ['inc', s.income, 60],
-            ['exp', s.total, 90],
-            ['sav', s.saved, 120],
-          ];
+          const label = c.title + (c.partial ? ' ' + c.partial.aria : '') + ': in ' + eur(s.income) + ', uit ' + eur(netOut(s)) + ', waarvan uitgaven ' + eur(s.total) + ' en gespaard ' + eur(s.saved);
           return (
             <button key={c.key} type="button" className={'ov-col' + (c.partial ? ' ov-col--running' : '')} aria-pressed={i === sel} aria-label={label} onClick={() => onSelect(i)}>
               <span className="ov-bars">
-                {bars.map(([k, val, d]) => (
-                  <span
-                    key={k}
-                    className={'ov-bar ov-key--' + k + (val < 0 ? ' ov-bar--none' : '')}
-                    style={vars({ '--h': (Math.max(val, 0) / max).toFixed(4), '--d': d + i * 40 + 'ms' })}
-                  />
-                ))}
+                <span className={'ov-bar ov-key--inc' + (s.income < 0 ? ' ov-bar--none' : '')} style={vars({ '--h': (Math.max(s.income, 0) / max).toFixed(4), '--d': 60 + i * 40 + 'ms' })} />
+                <span className="ov-stack" style={vars({ '--h': (outOf(s) / max).toFixed(4), '--d': 90 + i * 40 + 'ms' })}>
+                  {drawn[i].map((g) => (
+                    <span key={g.key} className="ov-seg" style={{ flexGrow: g.amount, background: g.colour }} />
+                  ))}
+                </span>
               </span>
               <span className="ov-col-label">{c.short}</span>
             </button>
           );
         })}
       </div>
+      {legend.length > 0 && (
+        <ul className="ov-stack-legend" aria-hidden="true">
+          {legend.map((g) => (
+            <li key={g.key}>
+              <i style={{ background: g.colour }} />
+              {g.name}
+            </li>
+          ))}
+        </ul>
+      )}
       {(notes.length > 0 || historyLink) && (
         <div className="ov-notes">
           {notes.map((n) => (
@@ -216,12 +249,14 @@ function ChartCard({ range, children }: { range: string; children: ReactNode }) 
           <span className="only-desktop">Inkomen, uitgaven en gespaard</span>
         </h2>
         <div className="ov-legend">
-          {LEGEND.map(([k, label]) => (
-            <span key={k}>
-              <i className={'ov-key--' + k} />
-              {label}
-            </span>
-          ))}
+          <span>
+            <i className="ov-key--inc" />
+            In
+          </span>
+          <span>
+            <i className="ov-key--uit" />
+            Uit
+          </span>
         </div>
       </div>
       <div className="ov-chart-body">{children}</div>
@@ -231,38 +266,47 @@ function ChartCard({ range, children }: { range: string; children: ReactNode }) 
 
 // ---------- Totals, per account, per category ----------
 
-/** `title`: the selected column ("oktober 2026"); `onSaved` opens the Gespaard sheet (`null` while there is no column). */
-function Totals({ head, sum, short, title, onSaved }: { head: ReactNode; sum: Sum | null; short: string; title: string; onSaved: ((el: HTMLElement) => void) | null }) {
+/** Under the tiles: everything that left (Uitgaven + Gespaard, net) and what is left of the income, or the shortfall. */
+function OutLine({ sum }: { sum: Sum }) {
+  const out = netOut(sum);
+  const over = sum.income - out;
+  return (
+    <p className="ov-out">
+      Samen uit <span className="mono">{eur(out)}</span> · {over < 0 ? 'tekort' : 'over'} <span className={'mono' + (over < 0 ? ' ov-out--neg' : '')}>{eur(Math.abs(over))}</span>
+    </p>
+  );
+}
+
+/** `title`: the selected column ("oktober 2026"); `onOpen` opens the breakdown of a tile (`null` while there is no column). */
+function Totals({ head, sum, short, title, onOpen }: { head: ReactNode; sum: Sum | null; short: string; title: string; onOpen: ((which: Total, el: HTMLElement) => void) | null }) {
   const label = (text: string) => (
     <span className="ov-sum-label">
       {text}
       {short && <span className="only-desktop"> · {short}</span>}
     </span>
   );
-  const tile = (text: string, value: number | undefined) => (
-    <div className="ov-sum">
-      {label(text)}
-      <span className="ov-sum-value mono">{value === undefined ? '–' : eur(value)}</span>
-    </div>
-  );
-  // A Gespaard tile with something in it opens the rows behind it; a period with nothing saved is a plain tile.
-  const saved =
-    sum && sum.saved !== 0 && onSaved ? (
-      <button type="button" className="ov-sum ov-sum--btn" aria-haspopup="dialog" aria-label={'Gespaard in ' + title + ': ' + eur(sum.saved) + '. Bekijk de transacties.'} onClick={(e) => onSaved(e.currentTarget)}>
-        {label('Gespaard')}
-        <span className="ov-sum-value mono">{eur(sum.saved)}</span>
+  // A tile with something in it opens the amounts per category behind it; a period with nothing in it is a plain tile.
+  const tile = (which: Total, text: string, value: number | undefined) =>
+    sum && value !== undefined && value !== 0 && onOpen ? (
+      <button type="button" className="ov-sum ov-sum--btn" aria-haspopup="dialog" aria-label={text + ' in ' + title + ': ' + eur(value) + '. Bekijk de verdeling.'} onClick={(e) => onOpen(which, e.currentTarget)}>
+        {label(text)}
+        <span className="ov-sum-value mono">{eur(value)}</span>
       </button>
     ) : (
-      tile('Gespaard', sum?.saved)
+      <div className="ov-sum">
+        {label(text)}
+        <span className="ov-sum-value mono">{value === undefined ? '–' : eur(value)}</span>
+      </div>
     );
   return (
     <section className="ov-totals anim-in" style={delay(90)}>
       <div className="ov-totals-head">{head}</div>
       <div className="ov-sums">
-        {tile('Inkomen', sum?.income)}
-        {tile('Uitgaven', sum?.total)}
-        {saved}
+        {tile('inkomen', 'Inkomen', sum?.income)}
+        {tile('uitgaven', 'Uitgaven', sum?.total)}
+        {tile('gespaard', 'Gespaard', sum?.saved)}
       </div>
+      {sum && <OutLine sum={sum} />}
     </section>
   );
 }
@@ -284,7 +328,7 @@ function PerAccount({ title, rows, between, onOpen }: { title: string; rows: { a
             type="button"
             className="ov-per-row"
             aria-haspopup="dialog"
-            aria-label={a.name + ': in ' + eur(s.income) + ', uit ' + eur(s.total) + ', gespaard ' + eur(s.saved) + '. Bekijk de details.'}
+            aria-label={a.name + ': in ' + eur(s.income) + ', uitgaven ' + eur(s.total) + ', gespaard ' + eur(s.saved) + '. Bekijk de details.'}
             onClick={(e) => onOpen(a.id, e.currentTarget)}
           >
             <span className="ov-per-name">
@@ -298,7 +342,7 @@ function PerAccount({ title, rows, between, onOpen }: { title: string; rows: { a
             </span>
             <span className="ov-per-vals">
               <Figure label="In" value={s.income} />
-              <Figure label="Uit" value={s.total} />
+              <Figure label="Uitgaven" value={s.total} />
               <Figure label="Gespaard" value={s.saved} />
             </span>
           </button>
@@ -309,8 +353,27 @@ function PerAccount({ title, rows, between, onOpen }: { title: string; rows: { a
   );
 }
 
-/** `rows`: the category rows of the selected column; a row opens its sheet. */
-function Categories({ v, rows, onOpen, listKey }: { v: Shown | null; rows: CatRow[]; onOpen: (key: string, el: HTMLElement) => void; listKey: string }) {
+/**
+ * `rows`: the category rows of the selected column, each read against its budget or average (`showRef`: they are loaded; `note`
+ * is the footnote under the list). A row opens its sheet; its chevron drops down the subcategories, which link to Transacties by `href`.
+ */
+function Categories({
+  v,
+  rows,
+  onOpen,
+  href,
+  showRef,
+  note,
+  listKey,
+}: {
+  v: Shown | null;
+  rows: CatRow[];
+  onOpen: (key: string, el: HTMLElement) => void;
+  href: (param: string) => string;
+  showRef: boolean;
+  note: string | null;
+  listKey: string;
+}) {
   if (!v) {
     return (
       <section className="ov-cats anim-in" style={delay(120)}>
@@ -334,18 +397,10 @@ function Categories({ v, rows, onOpen, listKey }: { v: Shown | null; rows: CatRo
       <div className="ov-cat-list" key={listKey}>
         {rows.length === 0 && <p className="ov-cat-empty muted">Geen uitgaven in deze periode.</p>}
         {rows.map((r) => (
-          <button
-            key={r.key}
-            type="button"
-            className="ov-cat"
-            aria-haspopup="dialog"
-            aria-label={r.name + ': ' + eur(r.amount) + (r.share !== null ? ', ' + r.share + ' %' : '') + (r.trend ? ', ' + r.trend.text + ' ' + compare : '') + '. Bekijk de transacties.'}
-            onClick={(e) => onOpen(r.key, e.currentTarget)}
-          >
-            <CatLine r={r} compare={compare} />
-          </button>
+          <CatItem key={r.key} r={r} compare={compare} showRef={showRef} href={href} onOpen={onOpen} />
         ))}
       </div>
+      {note && <p className="ov-cat-foot">{note}</p>}
     </section>
   );
 }
@@ -455,11 +510,19 @@ export function Overzicht() {
   const account = picked?.id;
   const ready = !!all && !invalid && current.length > 0;
 
+  // With the amounts per category and subcategory (`detail`): the breakdown sheets and the dropdowns read them, the answer is small.
   const report = useAsync<Loaded | null>(
-    (signal) => (ready ? api.reportMonths({ scope, account }, signal).then((r) => ({ scope, account, r })) : Promise.resolve(null)),
+    (signal) => (ready ? api.reportMonths({ scope, account, detail: true }, signal).then((r) => ({ scope, account, r })) : Promise.resolve(null)),
     [ready, scope, account, dataVersion],
   );
   const fresh = report.data && report.data.scope === scope && report.data.account === account ? report.data.r : null;
+  // What each category is read against: its budget, else the 6-month average. Asked beside the report (no `from`: the report's own range);
+  // while it is on its way, or when it fails, the rows show their amounts only.
+  const budgets = useAsync<LoadedBudgets | null>(
+    (signal) => (ready ? api.reportBudgets({ scope, account }, signal).then((b) => ({ scope, account, b })) : Promise.resolve(null)),
+    [ready, scope, account, dataVersion],
+  );
+  const refs = budgets.data && budgets.data.scope === scope && budgets.data.account === account ? budgets.data.b : null;
 
   // The selected column, by key; it resets when the period, scope or account changes.
   const resetKey = [view, scope, account, van, tot].join('|');
@@ -600,7 +663,7 @@ export function Overzicht() {
         sel,
         sums,
         prev: base ? sumColumn(base, fresh.months) : null,
-        max: Math.max(1, ...sums.map((s) => Math.max(s.income, s.total, s.saved))),
+        max: Math.max(1, ...sums.map((s) => Math.max(s.income, outOf(s)))),
       };
     }
     const col = v ? v.period.columns[v.sel] : null;
@@ -618,14 +681,26 @@ export function Overzicht() {
           <span className="ov-totals-title">{single.name}</span>
         </>
       ) : null;
-    const rows = v ? catRows(v.sums[v.sel], v.prev, cats.data ?? []) : [];
+    const tree = cats.data ?? [];
+    const detail = v && col && fresh ? sumDetail(col.months, fresh.months) : null;
+    const rows = v && col ? catRows(v.sums[v.sel], v.prev, tree, { refs: columnReferences(col.months, refs), detail: detail ?? undefined }) : [];
+    // A subcategory links to its transactions in the column's period (and the one account the report is for).
+    const subHref = (param: string, accountId = account) => (col ? drillHref(param, periodParam(col), accountId) : '');
     const perAccount = v && col && several.length > 1 ? several.map((a) => ({ a, s: sumColumn(col.months, fresh!.months, a.id) })) : [];
     const between = v ? transferGap(v.sums[v.sel], perAccount.map((x) => x.s)) : 0;
     if (v && params.has('blad') && !blad) staleBlad = true;
     if (blad && v && col) {
       const byId = new Map((all ?? []).map((a) => [a.id, a]));
       const common = { periodTitle: col.title, onClose: closeBlad };
-      if (blad.kind === 'rekening') {
+      if (blad.kind === 'totaal') {
+        // A tile of 0 is a plain tile: a sheet for it is dropped like an unknown one.
+        const s = v.sums[v.sel];
+        const amount = blad.which === 'inkomen' ? s.income : blad.which === 'uitgaven' ? s.total : s.saved;
+        if (amount !== 0) {
+          const list = breakdown(blad.which, s, detail!, tree, (id) => byId.get(id)?.name);
+          sheet = <BreakdownBlad {...common} which={blad.which} amount={amount} periodKey={periodParam(col)} account={account} rows={list} />;
+        } else staleBlad = true;
+      } else if (blad.kind === 'rekening') {
         const found = perAccount.find((x) => x.a.id === blad.id);
         if (found) {
           const { a, s } = found;
@@ -635,25 +710,27 @@ export function Overzicht() {
             </span>
           );
           sheet = (
-            <AccountBlad {...common} account={a} lead={lead} income={s.income} expenses={s.total} saved={s.saved} rows={catRows(s, null, cats.data ?? [])} between={between} onOnly={() => onlyAccount(a.id)} />
+            <AccountBlad
+              {...common}
+              account={a}
+              lead={lead}
+              income={s.income}
+              expenses={s.total}
+              saved={s.saved}
+              rows={catRows(s, null, tree, { refs: columnReferences(col.months, refs, a.id), detail: sumDetail(col.months, fresh!.months, a.id) })}
+              showRef={!!refs}
+              href={(param) => subHref(param, a.id)}
+              between={between}
+              onOnly={() => onlyAccount(a.id)}
+            />
           );
         } else staleBlad = true;
       } else {
         const props = { ...common, param: blad.param, periodKey: periodParam(col), account, accounts: byId, multi: several.length > 1 };
-        if (blad.key === 'saved') {
-          const saved = v.sums[v.sel].saved;
-          const lead = (
-            <span className="ov-blad-ico ov-blad-ico--saved" aria-hidden="true">
-              <Icon name="coins" size={18} stroke={2.2} />
-            </span>
-          );
-          if (saved !== 0) sheet = <CategoryBlad {...props} name="Gespaard" lead={lead} amount={saved} />;
-          else staleBlad = true;
-        } else {
-          const r = rows.find((x) => x.key === blad.key);
-          if (r) sheet = <CategoryBlad {...props} name={r.name} lead={<CatLead r={r} />} amount={r.amount} />;
-          else staleBlad = true;
-        }
+        const r = rows.find((x) => x.key === blad.key);
+        if (r) sheet = <CategoryBlad {...props} name={r.name} lead={<CatLead r={r} />} amount={r.amount} />;
+        // A category that only has a reference (nothing spent) is a row once the references are in: wait for them before dropping the sheet.
+        else if (refs || budgets.error) staleBlad = true;
       }
     }
     body = (
@@ -689,16 +766,25 @@ export function Overzicht() {
         <div className="ov-grid">
           <div className="ov-left">
             <ChartCard range={period ? period.range : ''}>
-              {v ? <Chart v={v} historyLink={v.period.shortHistory} onSelect={(i) => setSelected([resetKey, v!.period.columns[i].key])} /> : <Skeleton />}
+              {v ? <Chart v={v} categories={cats.data ?? []} historyLink={v.period.shortHistory} onSelect={(i) => setSelected([resetKey, v!.period.columns[i].key])} /> : <Skeleton />}
             </ChartCard>
-            <Totals head={head} sum={v ? v.sums[v.sel] : null} short={col ? col.short : ''} title={col ? col.title : ''} onSaved={v ? (el) => openBlad('gespaard', el) : null} />
+            <Totals head={head} sum={v ? v.sums[v.sel] : null} short={col ? col.short : ''} title={col ? col.title : ''} onOpen={v ? (which, el) => openBlad(which, el) : null} />
             {v && col && perAccount.length > 0 && (
               <div className="ov-per-wrap">
                 <PerAccount title={col.title} rows={perAccount} between={between} onOpen={(id, el) => openBlad('rekening-' + id, el)} />
               </div>
             )}
+            {v && <OverzichtSaldo period={v.period} sel={v.sel} account={account} accounts={all ?? []} />}
           </div>
-          <Categories v={v} rows={rows} onOpen={(key, el) => openBlad('categorie-' + categoryParam(key), el)} listKey={resetKey} />
+          <Categories
+            v={v}
+            rows={rows}
+            onOpen={(key, el) => openBlad('categorie-' + categoryParam(key), el)}
+            href={subHref}
+            showRef={!!refs}
+            note={refs ? BUDGET_NOTE : budgets.error ? 'Het budget kon niet worden geladen.' : null}
+            listKey={resetKey}
+          />
         </div>
       </>
     );

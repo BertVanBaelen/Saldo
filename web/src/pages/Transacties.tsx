@@ -207,15 +207,23 @@ function periodOptions(today: string): Option[] {
 
 const catDot = (c: TreeCategory) => <CatIcon icon={c.icon} colour={c.colour} size="sm" />;
 
-/** The text and dot of the category chip: the chosen category, one of the pseudo rows of Overzicht (Gespaard too), or "Niet gecategoriseerd". */
-function categoryChip(param: string | undefined, uncat: boolean, tree: TreeCategory[] | undefined): { text: string; lead?: React.ReactNode } {
+/**
+ * The text and dot of the category chip: the chosen category, one of the pseudo rows of Overzicht (Gespaard too), "Niet gecategoriseerd",
+ * or a value of the breakdown sheets (0.8.1-4): "Boodschappen zelf", "Salaris", "Inkomen · overschrijvingen", "Gespaard · Spaarrekening".
+ */
+function categoryChip(param: string | undefined, uncat: boolean, tree: TreeCategory[] | undefined, accounts?: Map<number, Account>): { text: string; lead?: React.ReactNode } {
   const dot = (cls: string, style?: React.CSSProperties) => <i className={'tx-dot ' + cls} style={style} aria-hidden="true" />;
   if (param === 'naar-gedeeld') return { text: 'Naar gedeelde rekening', lead: dot('tx-dot--shared') };
   if (param === 'naar-eigen') return { text: 'Naar eigen rekening', lead: dot('tx-dot--own') };
   if (param === 'gespaard') return { text: 'Gespaard', lead: dot('tx-dot--saved') };
   if (param === 'geen' || (param === undefined && uncat)) return { text: 'Niet gecategoriseerd', lead: dot('tx-dot--uncat') };
-  const c = param === undefined ? undefined : tree?.find((x) => String(x.id) === param);
-  return c ? { text: c.name, lead: dot('', { background: catColours(c.colour).bg }) } : { text: 'Categorie' };
+  if (param === 'inkomen-overschrijving') return { text: 'Inkomen · overschrijvingen', lead: dot('tx-dot--own') };
+  if (param === 'inkomen-geen') return { text: 'Inkomen · niet gecategoriseerd', lead: dot('tx-dot--uncat') };
+  const account = /^gespaard-rekening-(\d+)$/.exec(param ?? '');
+  if (account) return { text: 'Gespaard · ' + (accounts?.get(Number(account[1]))?.name ?? 'spaarrekening'), lead: dot('tx-dot--saved') };
+  const own = /^(?:inkomen-)?(\d+)(-zelf)?$/.exec(param ?? '');
+  const c = own ? tree?.find((x) => String(x.id) === own[1]) : undefined;
+  return c ? { text: c.name + (own![2] ? ' zelf' : ''), lead: dot('', { background: catColours(c.colour).bg }) } : { text: 'Categorie' };
 }
 
 /** "Alle categorieën", the expense top categories (a subcategory rolls up into its top; a saving one says so and lists the rows that count as Gespaard in it), "Niet gecategoriseerd". No income categories: the drill-down only has the report's expense keys, income is one total on Overzicht. */
@@ -543,7 +551,7 @@ export function Transacties() {
     </button>
   );
   const periodYear = periodKey === 'deze' || periodKey === 'vorige' ? ' ' + toDate(range!.from).getFullYear() : undefined;
-  const catChip = categoryChip(categoryFilter?.param, uncat, cats.data);
+  const catChip = categoryChip(categoryFilter?.param, uncat, cats.data, byId);
 
   const header = noAccounts ? (
     <div className="tx-head tx-head--empty">

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,7 +149,8 @@ func TestTransactionsCategoryFilter(t *testing.T) {
 	}
 
 	// Anything else than an id, none, toShared or toOwn is refused; an unknown id is an empty list.
-	for _, bad := range []string{"abc", "-1", "+2", "0", "1,5", " 2", "toshared", "none "} {
+	for _, bad := range []string{"abc", "-1", "+2", "0", "1,5", " 2", "toshared", "none ",
+		"income-", "income-x", "income-0", "-zelf", "1-zelf-zelf", "saved-account-", "saved-account-2-zelf", "account-2", "income-saved", "saved-7"} {
 		invalidCategory(t, s, ledger.TxQuery{Category: bad}, "Kies een categorie.")
 	}
 	// A savings account has no report row behind it: an empty list (200), whatever the category, unlike the report's 400.
@@ -169,6 +172,11 @@ func TestTransactionsCategoryFilter(t *testing.T) {
 	// A leading zero is the same id.
 	if a, b := list(october("", 0, "2")), list(october("", 0, "002")); !slices.Equal(rowIDs(a), rowIDs(b)) {
 		t.Errorf("002: %v, want %v", rowIDs(b), rowIDs(a))
+	}
+	for _, c := range [][2]string{{"income-7", "income-007"}, {"2-zelf", "02-zelf"}, {"income-7-zelf", "income-07-zelf"}, {"saved-account-2", "saved-account-02"}} {
+		if a, b := list(october("", 0, c[0])), list(october("", 0, c[1])); len(a) == 0 || !slices.Equal(rowIDs(a), rowIDs(b)) {
+			t.Errorf("%s: %v, want %v (not empty)", c[1], rowIDs(b), rowIDs(a))
+		}
 	}
 
 	// The cursor, the order and Total hold with the filter: Bert's thirteen contributions in pages of 4.
@@ -224,7 +232,7 @@ func TestTransactionsCategoryFilterWorld(t *testing.T) {
 		{"persoonlijk", 0, "toShared", []string{"r1", "r14", "r2", "r25", "r26", "t1"}},
 		{"gedeeld", rwZicht, "none", []string{"r17", "r18"}}, // the account wins over the scope, as in the report
 		{"gedeeld", 0, "toOwn", []string{"r11"}},
-		{"alles", 0, "3", []string{"r15"}},
+		{"alles", 0, "3", []string{"r15", "u1", "u2"}}, // u1 on its sub Restaurant (0.8.1-1)
 		// r14 is a split row and a transfer: its parts (Wonen, Overig) are toShared, in no category, and out in Alles.
 		{"persoonlijk", 0, "1", []string{}},
 		{"persoonlijk", 0, "6", []string{"s7"}}, // s7's Overig part (0.8-0a)
@@ -467,6 +475,7 @@ func checkDrillDown(t *testing.T, d *sql.DB, s *ledger.Store, now time.Time, vie
 				}
 				checked++
 			}
+			checkDetailDrillDown(t, s, viewer, sel.scope, sel.account, now, top, saving)
 			// A saving top category lists only rows that are saved (its expense half is always empty).
 			saved := rowIDs(allTransactions(t, s, viewer, ledger.TxQuery{Scope: sel.scope, AccountID: sel.account, Category: "saved", Limit: ledger.MaxLimit}))
 			for _, key := range savingKeys {
@@ -482,6 +491,123 @@ func checkDrillDown(t *testing.T, d *sql.DB, s *ledger.Store, now time.Time, vie
 		t.Error("no expense row was checked")
 	}
 	t.Logf("%d lists checked against the report", checked)
+}
+
+// detailBehind is what a listed row adds to the detail entry behind a detail
+// drill-down key (0.8.1-1): income positive, saved and expenses as spending.
+// A key on a category counts the parts on that category (rolled up: on it or
+// its subs; -zelf: on it only); transfer counts the parts not saved by rule 3,
+// none and saved-account-<id> the whole row (no category; rule 2 takes every part).
+func detailBehind(r ledger.Transaction, key string, top map[int64]int64, saving map[int64]bool) int64 {
+	sign, k := int64(-1), key
+	if v, ok := strings.CutPrefix(key, "income-"); ok {
+		sign, k = 1, v
+	}
+	parts := r.Splits
+	if parts == nil {
+		p := ledger.Split{Amount: r.Amount}
+		if r.Category != nil {
+			p.Category = *r.Category
+		}
+		parts = []ledger.Split{p}
+	}
+	own, zelf := strings.CutSuffix(k, "-zelf")
+	id, _ := strconv.ParseInt(own, 10, 64)
+	var sum int64
+	for _, p := range parts {
+		c := p.Category.ID
+		switch {
+		case strings.HasPrefix(k, "saved-account-") || k == "none",
+			k == "transfer" && !saving[top[c]],
+			c != 0 && (c == id || !zelf && top[c] == id):
+			sum += sign * p.Amount
+		}
+	}
+	return sum
+}
+
+// checkDetailDrillDown (0.8.1-1): every entry of the report's detail, and every
+// rolled-up income or saving top, has a drill-down key whose rows add up to it
+// in every month of the whole history (0 where the report has no such entry),
+// and the rows are those of the fragment itself.
+func checkDetailDrillDown(t *testing.T, s *ledger.Store, viewer int64, scope string, account int64, now time.Time, top map[int64]int64, saving map[int64]bool) {
+	t.Helper()
+	ctx := context.Background()
+	rep, err := s.ReportMonths(ctx, viewer, ledger.ReportQuery{Scope: scope, AccountID: account, Now: now, Detail: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]map[string]int64{} // drill-down key -> month -> amount
+	add := func(key, month string, v int64) {
+		if want[key] == nil {
+			want[key] = map[string]int64{}
+		}
+		want[key][month] += v
+	}
+	id := func(k string) int64 { n, _ := strconv.ParseInt(k, 10, 64); return n }
+	for _, m := range rep.Months {
+		for k, v := range m.Detail.Income {
+			switch {
+			case k == "transfer" || k == "none":
+				add("income-"+k, m.Month, v)
+			case top[id(k)] == id(k):
+				add("income-"+k+"-zelf", m.Month, v)
+				add("income-"+k, m.Month, v)
+			default:
+				add("income-"+k, m.Month, v)
+				add(fmt.Sprint("income-", top[id(k)]), m.Month, v)
+			}
+		}
+		for k, v := range m.Detail.Saved {
+			switch {
+			case strings.HasPrefix(k, "account-"):
+				add("saved-"+k, m.Month, v)
+			case top[id(k)] == id(k):
+				add(k+"-zelf", m.Month, v)
+				add(k, m.Month, v)
+			default:
+				add(k, m.Month, v)
+				add(fmt.Sprint(top[id(k)]), m.Month, v)
+			}
+		}
+		for tk, inner := range m.Detail.Expenses {
+			for c, v := range inner {
+				if c == tk {
+					add(c+"-zelf", m.Month, v)
+				} else {
+					add(c, m.Month, v)
+				}
+			}
+		}
+	}
+	for key, months := range want {
+		label := fmt.Sprintf("viewer %d %s/%d detail key %s", viewer, scope, account, key)
+		rows := allTransactions(t, s, viewer, ledger.TxQuery{Scope: scope, AccountID: account, Category: key, Limit: ledger.MaxLimit})
+		got := map[string]int64{}
+		for _, r := range rows {
+			got[r.BookingDate[:7]] += detailBehind(r, key, top, saving)
+		}
+		for _, m := range rep.Months {
+			if got[m.Month] != months[m.Month] {
+				t.Errorf("%s %s: the rows add up to %d, the detail says %d", label, m.Month, got[m.Month], months[m.Month])
+			}
+			delete(got, m.Month)
+		}
+		maps.DeleteFunc(got, func(_ string, v int64) bool { return v == 0 }) // a row of 0 before the history (r28)
+		if len(got) != 0 {
+			t.Errorf("%s: rows in months the report does not have: %v", label, got)
+		}
+		fragment, err := s.DrillDown(ctx, viewer, scope, account, "0001-01-01", "9999-12-31", key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if listed := rowIDs(rows); !slices.Equal(slices.Sorted(slices.Values(listed)), fragment) {
+			t.Errorf("%s: rows %v, the fragment lists %v", label, listed, fragment)
+		}
+	}
+	if len(rep.Months) > 0 && len(want) == 0 && scope == "alles" {
+		t.Errorf("viewer %d alles: no detail key checked", viewer)
+	}
 }
 
 func TestDrillDownMatchesReport(t *testing.T) {

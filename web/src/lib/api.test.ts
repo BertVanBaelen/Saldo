@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, errorMessage, NETWORK_MESSAGE, onUnauthorized, transactionsPath } from './api';
+import { api, ApiError, errorMessage, NETWORK_MESSAGE, onUnauthorized, reportMonthsPath, transactionsPath } from './api';
 
 function respond(status: number, body: unknown, raw = false) {
   return vi.fn().mockResolvedValue(new Response(raw ? (body as string) : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -120,6 +120,19 @@ describe('api client', () => {
     expect(transactionsPath({ from: '2026-10-01', to: '2026-10-31' })).toBe('/api/transactions?from=2026-10-01&to=2026-10-31');
     expect(transactionsPath({ category: '2' })).toBe('/api/transactions?category=2');
     expect(transactionsPath({ category: 'toShared', account: 1, from: '2026-10-01' })).toBe('/api/transactions?account=1&category=toShared&from=2026-10-01');
+  });
+
+  it('asks the report with detail only when told to, and the budgets without it', async () => {
+    expect(reportMonthsPath()).toBe('/api/reports/months');
+    expect(reportMonthsPath({ scope: 'alles', detail: false })).toBe('/api/reports/months');
+    expect(reportMonthsPath({ detail: true })).toBe('/api/reports/months?detail=1');
+    expect(reportMonthsPath({ scope: 'gedeeld', account: 4, detail: true })).toBe('/api/reports/months?scope=gedeeld&account=4&detail=1');
+    const fetch = respond(200, { months: [] });
+    vi.stubGlobal('fetch', fetch);
+    await api.reportBudgets({ scope: 'persoonlijk', account: 1 });
+    expect(fetch).toHaveBeenCalledWith('/api/reports/budgets?scope=persoonlijk&account=1', expect.objectContaining({ method: 'GET' }));
+    await api.reportBalances({ scope: 'gedeeld', from: '2026-11' });
+    expect(fetch).toHaveBeenCalledWith('/api/reports/balances?scope=gedeeld&from=2026-11', expect.objectContaining({ method: 'GET' }));
   });
 });
 
@@ -416,6 +429,34 @@ describe('categorisation calls', () => {
     expect(sent(equal).body).toBe('{"shares":null}');
     vi.stubGlobal('fetch', respond(403, { error: { code: 'forbidden', message: 'Alleen de beheerder van de rekening kan dit.' } }));
     await expect(api.setContributionShares(4, null)).rejects.toMatchObject({ status: 403, message: 'Alleen de beheerder van de rekening kan dit.' });
+  });
+
+  it('sets shares by member id and contributor key, and adds, changes, removes and links contributors (0.8.1-7)', async () => {
+    const sent = (fetch: ReturnType<typeof respond>) => {
+      const [url, init] = fetch.mock.calls[0];
+      return { url, method: init.method, body: init.body };
+    };
+    const answer = { month: '2026-11', members: [], mySenders: [], contributors: [{ id: 7, name: 'Mama', share: null, received: 0, confirmed: false }] };
+    const call = async (status: number, run: () => Promise<unknown>) => {
+      const f = respond(status, answer);
+      vi.stubGlobal('fetch', f);
+      await expect(run()).resolves.toEqual(answer);
+      return sent(f);
+    };
+
+    expect(await call(200, () => api.setContributionShares(4, { 1: 40, 2: 40, c7: 20 }))).toEqual({ url: '/api/accounts/4/contribution-shares', method: 'PUT', body: '{"shares":{"1":40,"2":40,"c7":20}}' });
+    // The IBAN typed, or the incoming row the server takes it from: the body carries one of them, never a share.
+    expect(await call(201, () => api.addContributor(4, { name: 'Mama', iban: 'BE68 5390 0754 7034' }))).toEqual({ url: '/api/accounts/4/contributors', method: 'POST', body: '{"name":"Mama","iban":"BE68 5390 0754 7034"}' });
+    expect((await call(201, () => api.addContributor(4, { name: 'Mama', transactionId: 314 }))).body).toBe('{"name":"Mama","transactionId":314}');
+    expect(await call(200, () => api.updateContributor(4, 7, { name: 'Oma' }))).toEqual({ url: '/api/accounts/4/contributors/7', method: 'PATCH', body: '{"name":"Oma"}' });
+    expect(await call(200, () => api.removeContributor(4, 7))).toEqual({ url: '/api/accounts/4/contributors/7', method: 'DELETE', body: undefined });
+    expect(await call(200, () => api.offerContributorLink(4, 7, 2))).toEqual({ url: '/api/accounts/4/contributors/7/link', method: 'PUT', body: '{"userId":2}' });
+    expect((await call(200, () => api.offerContributorLink(4, 7, null))).body).toBe('{"userId":null}');
+    expect(await call(200, () => api.answerContributorLink(4, 7, true))).toEqual({ url: '/api/accounts/4/contributors/7/link-answer', method: 'POST', body: '{"yes":true}' });
+    expect((await call(200, () => api.answerContributorLink(4, 7, false))).body).toBe('{"yes":false}');
+
+    vi.stubGlobal('fetch', respond(409, { error: { code: 'conflict', message: 'Deze IBAN kan je hier niet gebruiken.' } }));
+    await expect(api.addContributor(4, { name: 'Mama', iban: 'BE68 5390 0754 7034' })).rejects.toMatchObject({ status: 409, message: 'Deze IBAN kan je hier niet gebruiken.' });
   });
 
   it('passes on the server’s message when a call is refused', async () => {

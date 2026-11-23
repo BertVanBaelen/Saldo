@@ -1,5 +1,5 @@
 /* Planning · Budget (plan 0.8-6), ported class by class from finance-mockup/css/screens/planning.css with the app's tokens, plus the
-   required contribution, the budget editor and the stacked bar (.pl-segs itself is in Planning.css). The breakdown lines and the
+   required contribution, the "Aanpassen" link and the stacked bar (.pl-segs itself is in Planning.css). The breakdown lines and the
    result bar are in PlanningMaanden.css. */
 
 /* ---------- Stacked bar ---------- */
@@ -34,13 +34,14 @@ button.pl-brow { cursor: pointer; }
 .pl-brow-chev { display: flex; color: var(--muted); flex: none; }
 .pl-brows .pl-result { margin-top: 4px; }
 
-/* "+ Budget voor een andere categorie": a dashed button as the mockup's one on Eenmalig, 44 px high */
+/* "Aanpassen": the link to "Planning instellen" under the rows, a dashed 44 px target */
 .pl-badd {
   min-height: 44px; padding: 0 12px;
+  display: flex; align-items: center; justify-content: center;
   border-radius: 12px;
   border: 1px dashed var(--dashed);
   background: transparent; color: var(--greenText);
-  font-size: 14px; font-weight: 600;
+  font-size: 14px; font-weight: 600; text-decoration: none;
 }
 
 /* ---------- Required contribution (shared account) ---------- */
@@ -92,39 +93,3 @@ button.pl-brow { cursor: pointer; }
   .pl-cat-name { font-weight: 600; }
   .pl-cat-track { height: 10px; border-radius: 5px; }
 }
-
-/* ---------- Budget editor (a sheet; no mockup) ---------- */
-
-.pb-sheet { gap: 16px; }
-.pb-head { display: flex; align-items: center; gap: 12px; }
-.pb-title { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
-.pb-close {
-  width: 44px; height: 44px; border-radius: 50%;
-  border: none; background: var(--bg); color: var(--text);
-  display: flex; align-items: center; justify-content: center; flex: none;
-}
-.pb-help { font-size: 13px; line-height: 1.45; color: var(--muted); }
-.pb-err { font-size: 13px; line-height: 1.4; color: var(--negText); }
-.pb-amount { display: flex; align-items: flex-end; gap: 8px; }
-.pb-amount > :nth-child(2) { flex: 1; min-width: 0; }
-.pb-step {
-  width: 44px; height: 44px; flex: none;
-  border-radius: 12px;
-  border: 1px solid var(--lineStrong); background: var(--surface); color: var(--text);
-  font-family: var(--mono); font-size: 20px; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-}
-.pb-avg { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; font-size: 14px; }
-.pb-avg .btn { height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; }
-.pb-actions { display: flex; gap: 8px; }
-.pb-actions .btn { flex: 1; }
-.pb-choices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.pb-choice {
-  width: 100%; min-height: 48px;
-  display: flex; align-items: center; gap: 12px;
-  padding: 6px 0;
-  border: none; border-top: 1px solid var(--line);
-  background: transparent; color: var(--text);
-  font-size: 15px; font-weight: 500; text-align: left;
-}
-.pb-choices li:first-child .pb-choice { border-top: none; }

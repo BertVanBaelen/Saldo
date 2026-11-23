@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlanDay, PlanMonth } from './planning';
-import { dayBalanceLabel, dayChip, dayItem, lowText, previewText, stateTone } from './planningText';
+import { dayBalanceLabel, dayChip, dayItem, lowText, previewText, spreadLabel, spreadLine, stateTone } from './planningText';
 
 const TODAY = '2026-11-18';
 const month = (m: string, end: number, low: [string, number]): PlanMonth => ({
@@ -72,6 +72,21 @@ describe('day card words', () => {
     expect(row('variable', -6141, 'Dagelijkse uitgaven (schatting)').label).toBe('Dagelijkse uitgaven (schatting)');
     // A past day carries no estimate: the same row reads without "(schatting)".
     expect(dayItem({ kind: 'variable', label: 'Dagelijkse uitgaven (schatting)', amount: -6141 }, true).label).toBe('Dagelijkse uitgaven');
+  });
+});
+
+describe('items without a day (0.8.1-9)', () => {
+  it('writes the line above the grid with the day\'s part, and says where the whole amount lands on the running month\'s last day', () => {
+    // 150000 / 31 = 4838 (truncated; the last day has the rest).
+    expect(spreadLine('Zomervakantie', -150000, '2027-07', -4838)).toBe('Zomervakantie −€ 1.500,00 · verdeeld over juli (ongeveer −€ 48,38 per dag)');
+    expect(spreadLine('Belastingteruggave', 68000, '2027-08', 2193)).toBe('Belastingteruggave +€ 680,00 · verdeeld over augustus (ongeveer +€ 21,93 per dag)');
+    expect(spreadLine('Dakwerken', -310000, '2026-11', null)).toBe('Dakwerken −€ 3.100,00 · valt op 1 december');
+    expect(spreadLine('Dakwerken', -310000, '2026-12', null)).toBe('Dakwerken −€ 3.100,00 · valt op 1 januari');
+  });
+
+  it('calls the item on the day card "(verdeeld)"', () => {
+    expect(spreadLabel('Zomervakantie')).toBe('Zomervakantie (verdeeld)');
+    expect(dayItem({ kind: 'planned', label: spreadLabel('Zomervakantie'), amount: -4838, id: 3 }, false)).toMatchObject({ label: 'Zomervakantie (verdeeld)', note: 'Geplande uitgave', tone: 'plan' });
   });
 });
 

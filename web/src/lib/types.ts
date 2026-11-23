@@ -203,7 +203,7 @@ export interface Transaction {
   /** The viewer's own "is / is not a transfer" mark; `null` follows the automatic detection. */
   transferOverride?: boolean | null;
   /** An incoming row of a shared account that matches a member's declared sender (phase 0.6-5); `null` when it matches none. */
-  contribution?: { name: string; me: boolean } | null;
+  contribution?: { name: string; me: boolean; contributorId?: number } | null;
 }
 
 export type TransferKind = 'saved' | 'shared' | 'internal';
@@ -232,12 +232,51 @@ export interface ContributionSender {
   iban: string;
 }
 
+/** A contributor without Saldo (0.8.1-7): a name, an IBAN used only to recognise the payment, and a share. Counted like a member. */
+export interface Contributor {
+  id: number;
+  name: string;
+  /** The percentage set with `PUT .../contribution-shares` (key `c<id>`); `null` while the split is equal. */
+  share: number | null;
+  /** The IBAN, masked (`BE68 •••• •••• 1234`); only for the member who added the contributor and for the manager, never in full. */
+  iban?: string;
+  /** The member the manager offered the link to; only for the manager. */
+  linkUserId?: number;
+  /** Cents received this month from the contributor's IBAN. */
+  received: number;
+  confirmed: boolean;
+  /** As a member's: absent or `null` outside the forecast or without a balance. */
+  required?: number | null;
+  covered?: boolean | null;
+}
+
+/** The manager asks the viewer whether a contributor's IBAN (masked) is theirs. */
+export interface LinkOffer {
+  contributorId: number;
+  name: string;
+  iban: string;
+}
+
+/** POST /api/accounts/{id}/contributors: a name and the IBAN typed, or the incoming row the server takes the IBAN from (never both). */
+export type ContributorBody = { name: string; iban: string } | { name: string; transactionId: number };
+
+/** PATCH /api/accounts/{id}/contributors/{contributorId}: only what changes; a new IBAN is typed or taken from an incoming row. */
+export interface ContributorPatch {
+  name?: string;
+  iban?: string;
+  transactionId?: number;
+}
+
 /** The answer of GET /api/accounts/{id}/contributions; a personal account answers `members: []`. */
 export interface Contributions {
   /** `YYYY-MM`. */
   month: string;
   members: ContributionMember[];
   mySenders: ContributionSender[];
+  /** The contributors without Saldo, after the members (0.8.1-7); left out by the server when there are none, so read it as `?? []`. */
+  contributors?: Contributor[];
+  /** The manager's offers to link a contributor to the viewer; left out when empty, only ever the viewer's own. */
+  linkOffers?: LinkOffer[];
   /** What the account needs this month in cents, rounded up to whole euros (0.8-4); absent or `null` like `required`. */
   need?: number | null;
 }
@@ -470,6 +509,21 @@ export interface ReportFlows {
   income: number;
   saved: number;
   expenses: Record<string, number>;
+  /** Only with `detail: true` (0.8.1-1). */
+  detail?: ReportDetail;
+}
+
+/**
+ * The same amounts split by the row's own category, in cents (docs/api.md, "Reports"; entries of 0 are left out).
+ * `income` and `saved` are keyed by a category id (a subcategory's, or the top's for what is booked on the top itself),
+ * `income` also by `transfer` and `none`, `saved` also by `account-<id>`; `expenses` is `{top key: {own category id: amount}}`
+ * for top category keys only, `expenses[k][k]` being the top's own part. Σ `income` = income, Σ `saved` = saved, Σ `expenses[k]` = expenses[k]
+ * (a top that nets to 0 is not in `expenses`, though its parts can be here).
+ */
+export interface ReportDetail {
+  income: Record<string, number>;
+  saved: Record<string, number>;
+  expenses: Record<string, Record<string, number>>;
 }
 
 export interface ReportMonth extends ReportFlows {
@@ -498,6 +552,47 @@ export interface ReportQuery {
   /** `YYYY-MM`. */
   from?: string;
   to?: string;
+  /** Also the amounts per category and subcategory (`detail=1`, 0.8.1-1). */
+  detail?: boolean;
+}
+
+/** What a category's amount is read against (GET /api/reports/budgets, 0.8.1-2): its budget, else a full-amount 6-month average. */
+export interface ReportReference {
+  categoryId: number;
+  /** Cents. */
+  reference: number;
+  source: 'budget' | 'average';
+}
+
+/** GET /api/reports/budgets: per month and account of the selection, the references of its top expense categories (`[]` before the account's history). */
+export interface ReportBudgets {
+  months: { month: string; accounts: { id: number; categories: ReportReference[] }[] }[];
+}
+
+/** A step point of the balance line (GET /api/reports/balances): the end-of-day balance of `date` holds until the next point. */
+export interface ReportBalancePoint {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  /** Cents. */
+  balance: number;
+}
+
+/** One account of GET /api/reports/balances (0.8.1-5). */
+export interface ReportBalanceAccount {
+  id: number;
+  /** Cents: the account's buffer today (not historised). */
+  buffer: number;
+  /** `YYYY-MM-DD` of the account's first booked row; `null` without one (and while `missing`). */
+  firstDate: string | null;
+  /** No balance snapshot: `points` is empty. */
+  missing: boolean;
+  /** First: the end of the day before `from` (or of the first booked day when later); then the days with booked rows, up to today or the last selected month's end. */
+  points: ReportBalancePoint[];
+}
+
+/** GET /api/reports/balances: one balance line per account of the selection, in the report's account order; never a sum. */
+export interface ReportBalances {
+  accounts: ReportBalanceAccount[];
 }
 
 export interface Alert {

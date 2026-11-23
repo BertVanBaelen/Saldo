@@ -1,8 +1,10 @@
 // Planning · Budget (plan 0.8-6): the month switcher, per account a "Vrij te besteden" / "Tekort" card with its stacked bar and the rows
-// that add up to it, the required contribution of a shared account, the categories of the running month and the budget editor.
+// that add up to it, the required contribution of a shared account and the categories of the running month. The budgets themselves
+// are changed in "Planning instellen" (0.8.1-8): the card links to it with "Aanpassen".
 // Design: finance-mockup/js/screens/planning.js budget(); spec: analysis/screens/planning.md "Budget", analysis/concepts/budget.md.
 // The exported tab stays hook-free (see planningTabs.ts); state and loading live in `Body`.
-import { useId, useState, type CSSProperties } from 'react';
+import { useId, type CSSProperties } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { ErrorState, Skel, useIsDesktop } from '../components/ui';
@@ -15,7 +17,6 @@ import { budgetView, categoryBar, contributionNote, expectedContributions, needN
 import type { Account, TreeCategory } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { TabPanel } from '../ui';
-import { BudgetEditor, type BudgetTarget } from './PlanningBudgetEditor';
 import { monthOffset, addMonths, type PlanningTabProps } from './planningTabs';
 import './PlanningMaanden.css';
 import './PlanningBudget.css';
@@ -74,8 +75,8 @@ function Need({ c, month, buffer, expected }: { c: PlanContribution; month: stri
       </p>
       <p className="pl-need-note">{needNote(c, buffer)}</p>
       <ul className="pl-need-list">
-        {c.members.map((m) => (
-          <li key={m.userId}>
+        {[...c.members].sort((x, y) => Number(x.userId === undefined) - Number(y.userId === undefined)).map((m) => (
+          <li key={m.userId ?? 'c' + m.contributorId}>
             <span>
               {m.me ? 'Jij' : m.name} · {m.share} %
             </span>
@@ -94,14 +95,13 @@ interface CardProps {
   p: PlanAccount;
   m: PlanMonth;
   byId: ReadonlyMap<number, TreeCategory>;
-  /** The categories that could get a budget here but have none. */
-  choices: TreeCategory[];
   /** What the account's contribution items bring this month; `undefined` until they are loaded. */
   expected?: number;
-  onEdit: (t: BudgetTarget) => void;
+  /** `YYYY-MM`: the running month; "Aanpassen" carries the month shown when it is another one. */
+  running: string;
 }
 
-function BudgetCard({ a, p, m, byId, choices, expected, onEdit }: CardProps) {
+function BudgetCard({ a, p, m, byId, expected, running }: CardProps) {
   const shared = isShared(a);
   const editable = a.permission === 'edit';
   const category = (id: number) => {
@@ -133,27 +133,14 @@ function BudgetCard({ a, p, m, byId, choices, expected, onEdit }: CardProps) {
       <div className="pl-brows">
         {rows.map((r) => {
           const cls = 'pl-brow' + (r.sub ? ' pl-brow--sub' : '') + (r.bold ? ' pl-brow--bold' : '');
-          const inner = (
-            <>
+          return (
+            <div className={cls} key={r.key}>
               {r.sq && <i className="pl-sq" style={{ background: r.sq }} aria-hidden="true" />}
               <span className="pl-brow-text">
                 <span>{r.label}</span>
                 <span className="pl-brow-note">{r.note}</span>
               </span>
               <span className="mono pl-brow-amount">{r.amount}</span>
-            </>
-          );
-          // A category's budget can be changed by whoever may edit this account; others see a plain row.
-          return r.entry && editable ? (
-            <button type="button" className={cls} key={r.key} aria-haspopup="dialog" onClick={() => onEdit({ account: a, entry: r.entry })}>
-              {inner}
-              <span className="pl-brow-chev" aria-hidden="true">
-                <Icon name="chevron" size={14} stroke={2.4} />
-              </span>
-            </button>
-          ) : (
-            <div className={cls} key={r.key}>
-              {inner}
             </div>
           );
         })}
@@ -162,21 +149,25 @@ function BudgetCard({ a, p, m, byId, choices, expected, onEdit }: CardProps) {
           <span className="mono">{free}</span>
         </div>
       </div>
-      {editable && choices.length > 0 && (
-        <button type="button" className="pl-badd" aria-haspopup="dialog" onClick={() => onEdit({ account: a })}>
-          + Budget voor een andere categorie
-        </button>
+      {editable && (
+        <Link
+          className="pl-badd"
+          to={'/planning/instellen?rekening=' + a.id + (m.month === running ? '' : '&maand=' + m.month) + '#budgetten'}
+          state={{ fromPlanning: true }}
+          aria-label={'Budgetten aanpassen: ' + a.name}
+        >
+          Aanpassen
+        </Link>
       )}
       {m.contribution && <Need c={m.contribution} month={m.month} buffer={p.buffer} expected={expected} />}
     </section>
   );
 }
 
-function Body({ planning, accounts, scope, month, setMonth, horizon, reload }: PlanningTabProps) {
+function Body({ planning, accounts, scope, month, setMonth, horizon }: PlanningTabProps) {
   const app = useApp();
   const desk = useIsDesktop();
   const tree = useAsync((signal) => api.categories(signal), [app.dataVersion]);
-  const [target, setTarget] = useState<BudgetTarget | null>(null);
   const running = (planning?.today ?? app.today).slice(0, 7);
 
   const plans: { a: Account; p: PlanAccount; m: PlanMonth }[] = [];
@@ -193,8 +184,6 @@ function Body({ planning, accounts, scope, month, setMonth, horizon, reload }: P
   const items = useAsync(async (signal) => (sharedInView ? (await api.planningItems(scope, signal)).items : null), [scope, sharedInView, app.dataVersion]);
   const byId = new Map((tree.data ?? []).map((c) => [c.id, c]));
   const offset = monthOffset(running, month);
-  /** The categories that can get a budget (top expense categories that are not saving) and have none in the month `m`. */
-  const choicesOf = (m?: PlanMonth) => (tree.data ?? []).filter((c) => c.parentId === null && c.type === 'expense' && !c.saving && !m?.budgets.some((b) => b.categoryId === c.id));
 
   // "Per categorie · deze maand": the running month of each account, the first month of the answer.
   const cats = plans.flatMap(({ a, p }) => (p.months[0]?.budgets ?? []).map((b) => ({ a, b })));
@@ -223,7 +212,7 @@ function Body({ planning, accounts, scope, month, setMonth, horizon, reload }: P
         ))}
         <div className="pl-bcards" style={{ '--cols': Math.max(plans.length, 1) } as CSSProperties}>
           {plans.map(({ a, p, m }) => (
-            <BudgetCard key={a.id} a={a} p={p} m={m} byId={byId} choices={choicesOf(m)} expected={items.data && isShared(a) ? expectedContributions(items.data, a.id, month) : undefined} onEdit={setTarget} />
+            <BudgetCard key={a.id} a={a} p={p} m={m} byId={byId} expected={items.data && isShared(a) ? expectedContributions(items.data, a.id, month) : undefined} running={running} />
           ))}
         </div>
         <h2 className="label pl-cats-title">Per categorie · deze maand</h2>
@@ -255,19 +244,6 @@ function Body({ planning, accounts, scope, month, setMonth, horizon, reload }: P
           <p className="pl-note">Nog te weinig geschiedenis voor een gemiddelde.</p>
         )}
         <p className="pl-note">Terugkerende posten tellen niet mee in de budgetten. Zonder budget rekent de planning met het gemiddelde van de afgelopen 6 maanden. Spaarcategorieën hebben geen budget.</p>
-        {target && (
-          <BudgetEditor
-            target={target}
-            month={month}
-            choices={choicesOf(plans.find((x) => x.a.id === target.account.id)?.m)}
-            byId={byId}
-            onClose={() => setTarget(null)}
-            onSaved={() => {
-              setTarget(null);
-              reload();
-            }}
-          />
-        )}
       </>
     );
   }

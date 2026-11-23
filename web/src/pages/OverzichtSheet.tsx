@@ -1,6 +1,7 @@
-// The content sheets of Overzicht (plan 0.8-0c): a category row or the Gespaard tile opens the transactions behind the
-// number, an account row of "Per rekening" opens that account's figures. A bottom sheet on the phone and a side panel
-// from the right from 1024 px (`useIsDesktop`): one content, two presentations, switched while open without closing.
+// The content sheets of Overzicht (plan 0.8-0c): a category row opens the transactions behind the number, an account row
+// of "Per rekening" opens that account's figures, and (0.8.1-4) the Inkomen, Uitgaven and Gespaard tiles open the amounts
+// per category with a dropdown per subcategory. A bottom sheet on the phone and a side panel from the right from 1024 px
+// (`useIsDesktop`): one content, two presentations, switched while open without closing.
 // Overzicht owns the URL state (`?blad=`) and what closing does. Also the pieces the page and the sheets share.
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -9,10 +10,10 @@ import { Icon } from '../components/Icon';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ErrorState, SkelList, useIsDesktop } from '../components/ui';
 import { api, errorMessage } from '../lib/api';
-import { drillQuery, SAVED_NOTE } from '../lib/drilldown';
+import { drillHref, drillParams, drillQuery, SAVED_NOTE } from '../lib/drilldown';
 import { categoryEmoji } from '../lib/emoji';
 import { dayHeading, eur } from '../lib/format';
-import type { CatRow } from '../lib/reports';
+import { BUDGET_NOTE, refText, type BdRow, type CatRow, type Total } from '../lib/reports';
 import type { Account, Transaction, TransactionPage } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { AccLabel, amountClass, Avatar, catView } from './TransactieDetail';
@@ -39,16 +40,19 @@ export function Figure({ label, value }: { label: string; value: number }) {
   );
 }
 
-/** The line of a category row: dot, name and share, trend, amount, share bar. The same in the list and in an account sheet. */
-export function CatLine({ r, compare }: { r: CatRow; compare: string }) {
+/**
+ * The line of a category row: dot, name, trend, amount; under it the amount against its budget or average with a bar
+ * ("€ 66,90 van € 350,00 · 19 %", the bar `--neg` above 100 % and "€ 12,00 te veel"), or "geen budget" without a reference
+ * (`showRef`: the references are loaded). The same in the list and in an account sheet.
+ */
+export function CatLine({ r, compare, showRef }: { r: CatRow; compare: string; showRef: boolean }) {
+  const ref = r.ref;
+  const over = ref !== null && ref.over > 0;
   return (
     <>
       <span className="ov-cat-line">
         <i className={'ov-cat-dot' + (r.colour ? '' : ' ov-cat-dot--uncat')} style={r.colour ? { background: r.colour } : undefined} />
-        <span className="ov-cat-name">
-          {r.name}
-          {r.share !== null && <span className="muted"> {r.share}%</span>}
-        </span>
+        <span className="ov-cat-name">{r.name}</span>
         {r.trend && (
           <span className="ov-cat-trend" style={{ color: r.trend.colour }}>
             <span className="visually-hidden">{compare} </span>
@@ -57,12 +61,85 @@ export function CatLine({ r, compare }: { r: CatRow; compare: string }) {
         )}
         <span className="ov-cat-amount mono">{eur(r.amount)}</span>
       </span>
-      {r.share !== null && (
-        <span className="ov-cat-track">
-          <span className="ov-cat-fill" style={{ width: r.share + '%', background: r.colour || 'var(--dashed)' }} />
-        </span>
+      {ref ? (
+        <>
+          <span className="ov-cat-ref">
+            {refText(r.amount, ref)}
+            {over && <span className="ov-cat-over"> · {eur(ref.over)} te veel</span>}
+          </span>
+          <span className="ov-cat-track">
+            <span className={'ov-cat-fill' + (over ? ' ov-cat-fill--over' : '')} style={{ width: (ref.pct === null ? 100 : Math.min(100, ref.pct)) + '%', background: over ? undefined : r.colour || 'var(--dashed)' }} />
+          </span>
+        </>
+      ) : (
+        showRef && <span className="ov-cat-ref">geen budget</span>
       )}
     </>
+  );
+}
+
+/** What a screen reader hears of a category row: the amount, how far it is through its budget or average, the trend. */
+export function catLabel(r: CatRow, compare: string, showRef: boolean): string {
+  const ref = r.ref;
+  const against = ref
+    ? ', ' +
+      (ref.pct !== null ? ref.pct + ' % van ' : 'van ') +
+      eur(ref.reference) +
+      (ref.source === 'budget' ? ' budget' : ref.source === 'average' ? ' gemiddelde' : ' budget en gemiddelde') +
+      (ref.over > 0 ? ', ' + eur(ref.over) + ' te veel' : '')
+    : showRef
+      ? ', geen budget'
+      : '';
+  return r.name + ': ' + eur(r.amount) + against + (r.trend ? ', ' + r.trend.text + ' ' + compare : '');
+}
+
+// ---------- Subcategories ----------
+
+/** The button that opens the subcategories of a row; a sibling of the row's own button or link, never inside it. */
+function Chevron({ name, open, onToggle }: { name: string; open: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className="ov-chev" aria-expanded={open} aria-label={'Toon subcategorieën van ' + name} onClick={onToggle}>
+      <Icon name="chevronDown" size={16} stroke={2.4} />
+    </button>
+  );
+}
+
+/** The subcategories of a row, indented; each links to its transactions (`href` of its drill-down value). */
+function Subs({ subs, href }: { subs: BdRow[]; href: (param: string) => string }) {
+  return (
+    <ul className="ov-subs">
+      {subs.map((s) => (
+        <li key={s.key}>
+          <Link className="ov-sub" to={href(s.param)}>
+            <i className="ov-sub-dot" style={{ background: s.colour || 'var(--dashed)' }} aria-hidden="true" />
+            <span className="ov-sub-name">{s.name}</span>
+            <span className="ov-sub-amount mono">{eur(s.amount)}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * A category row of the list or of an account sheet: the row (a button that opens its transactions with `onOpen`, else plain),
+ * and with subcategories the chevron beside it that drops them down inline. `href` writes a subcategory's Transacties link.
+ */
+export function CatItem({ r, compare, showRef, href, onOpen }: { r: CatRow; compare: string; showRef: boolean; href: (param: string) => string; onOpen?: (key: string, el: HTMLElement) => void }) {
+  const [open, setOpen] = useState(false);
+  const line = <CatLine r={r} compare={compare} showRef={showRef} />;
+  return (
+    <div className="ov-cat-item">
+      {onOpen ? (
+        <button type="button" className="ov-cat" aria-haspopup="dialog" aria-label={catLabel(r, compare, showRef) + '. Bekijk de transacties.'} onClick={(e) => onOpen(r.key, e.currentTarget)}>
+          {line}
+        </button>
+      ) : (
+        <div className="ov-cat">{line}</div>
+      )}
+      {r.subs.length > 0 && <Chevron name={r.name} open={open} onToggle={() => setOpen(!open)} />}
+      {open && <Subs subs={r.subs} href={href} />}
+    </div>
   );
 }
 
@@ -133,11 +210,11 @@ function Row({ t, acc, multi, first, href }: { t: Transaction; acc: Account | un
 }
 
 interface CategoryBladProps {
-  /** The drill-down `categorie` value: a top category id, `geen`, `naar-gedeeld`, `naar-eigen` or `gespaard`. */
+  /** The drill-down `categorie` value: a top category id, `geen`, `naar-gedeeld` or `naar-eigen`. */
   param: string;
   name: string;
   lead: ReactNode;
-  /** The amount of the Overzicht row (or of the Gespaard tile), cents. */
+  /** The amount of the Overzicht row, cents. */
   amount: number;
   /** The title of the selected column ("oktober 2026") and its drill-down `periode`. */
   periodTitle: string;
@@ -153,8 +230,7 @@ interface CategoryBladProps {
 export function CategoryBlad({ param, name, lead, amount, periodTitle, periodKey, account, accounts, multi, onClose }: CategoryBladProps) {
   const { today, scope, dataVersion, toast } = useApp();
   // The URLSearchParams the page behind "Open in Transacties" reads, passed through the one mapping of lib/drilldown.ts.
-  const link = new URLSearchParams({ categorie: param, periode: periodKey });
-  if (account !== undefined) link.set('rekening', String(account));
+  const link = drillParams(param, periodKey, account);
   const href = '/transacties?' + link.toString();
   const query = { ...drillQuery(link, today), scope, limit: PAGE };
 
@@ -224,15 +300,80 @@ export function CategoryBlad({ param, name, lead, amount, periodTitle, periodKey
       <div className="ov-blad-list" aria-busy={first.loading}>
         {list}
       </div>
-      {param === 'gespaard' && (
-        <p className="ov-note">
-          <Icon name="info" size={15} stroke={2.2} />
-          <span>{SAVED_NOTE}</span>
-        </p>
-      )}
       <Link className="btn btn--secondary" to={href}>
         Open in Transacties
       </Link>
+    </Frame>
+  );
+}
+
+// ---------- The amounts per category behind Inkomen, Uitgaven and Gespaard (0.8.1-4) ----------
+
+const TOTALS: Record<Total, { title: string; icon: 'arrowDown' | 'arrowUp' | 'coins'; tone: string }> = {
+  inkomen: { title: 'Inkomen', icon: 'arrowDown', tone: 'in' },
+  uitgaven: { title: 'Uitgaven', icon: 'arrowUp', tone: 'out' },
+  gespaard: { title: 'Gespaard', icon: 'coins', tone: 'saved' },
+};
+
+/** One row of a breakdown: a link to its transactions, and with subcategories the chevron beside it (never inside the link). */
+function BdItem({ r, href }: { r: BdRow; href: (param: string) => string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="ov-bd-item">
+      <Link className="ov-bd-row" to={href(r.param)}>
+        {r.dot ? (
+          <i className={'ov-cat-dot ov-bd-dot' + (r.colour ? '' : ' ov-cat-dot--uncat')} style={r.colour ? { background: r.colour } : undefined} aria-hidden="true" />
+        ) : (
+          <span className="ov-bd-ico" style={{ background: r.colour }} aria-hidden="true">
+            {categoryEmoji(r.icon)}
+          </span>
+        )}
+        <span className="ov-bd-name">{r.name}</span>
+        <span className="ov-bd-amount mono">{eur(r.amount)}</span>
+      </Link>
+      {r.subs.length > 0 && <Chevron name={r.name} open={open} onToggle={() => setOpen(!open)} />}
+      {open && <Subs subs={r.subs} href={href} />}
+    </div>
+  );
+}
+
+/**
+ * The sheet of a tile: its amount and one row per top key, largest first, each with a dropdown per subcategory; every row,
+ * top or sub, links to Transacties with its drill-down value and the column's period. The rows add up to the amount.
+ */
+export function BreakdownBlad({ which, amount, periodTitle, periodKey, account, rows, onClose }: { which: Total; amount: number; periodTitle: string; periodKey: string; account: number | undefined; rows: BdRow[]; onClose: () => void }) {
+  const t = TOTALS[which];
+  const href = (param: string) => drillHref(param, periodKey, account);
+  const lead = (
+    <span className={'ov-blad-ico ov-blad-ico--' + t.tone} aria-hidden="true">
+      <Icon name={t.icon} size={18} stroke={2.2} />
+    </span>
+  );
+  return (
+    <Frame lead={lead} title={t.title} sub={periodTitle} onClose={onClose}>
+      <p className="ov-blad-total">
+        <span className="mono">{eur(amount)}</span>
+      </p>
+      {rows.length === 0 ? (
+        <p className="ov-blad-empty">Geen verdeling beschikbaar.</p>
+      ) : (
+        <div className="ov-bd-list">
+          {rows.map((r) => (
+            <BdItem key={r.key} r={r} href={href} />
+          ))}
+        </div>
+      )}
+      {which === 'gespaard' && (
+        <>
+          <p className="ov-note">
+            <Icon name="info" size={15} stroke={2.2} />
+            <span>{SAVED_NOTE}</span>
+          </p>
+          <Link className="btn btn--secondary" to={href('gespaard')}>
+            Open in Transacties
+          </Link>
+        </>
+      )}
     </Frame>
   );
 }
@@ -248,6 +389,8 @@ export function AccountBlad({
   expenses,
   saved,
   rows,
+  showRef,
+  href,
   between,
   onOnly,
   onClose,
@@ -258,8 +401,12 @@ export function AccountBlad({
   income: number;
   expenses: number;
   saved: number;
-  /** Its expense rows without trend, largest first. */
+  /** Its expense rows without trend, largest first, read against the account's own budgets and averages. */
   rows: CatRow[];
+  /** The references are loaded: a row without one says "geen budget". */
+  showRef: boolean;
+  /** The Transacties link of a subcategory, for this account and period. */
+  href: (param: string) => string;
   /** The footnote's amount (0: no footnote). */
   between: number;
   onOnly: () => void;
@@ -269,7 +416,7 @@ export function AccountBlad({
     <Frame lead={lead} title={account.name} sub={periodTitle} onClose={onClose}>
       <div className="ov-per-vals ov-blad-figs">
         <Figure label="In" value={income} />
-        <Figure label="Uit" value={expenses} />
+        <Figure label="Uitgaven" value={expenses} />
         <Figure label="Gespaard" value={saved} />
       </div>
       {rows.length > 0 && (
@@ -278,10 +425,9 @@ export function AccountBlad({
             Uitgaven per categorie
           </h3>
           {rows.map((r) => (
-            <div className="ov-cat" key={r.key}>
-              <CatLine r={r} compare="" />
-            </div>
+            <CatItem key={r.key} r={r} compare="" showRef={showRef} href={href} />
           ))}
+          {showRef && <p className="ov-per-foot">{BUDGET_NOTE}</p>}
         </section>
       )}
       {between > 0 && <p className="ov-per-foot">{transferNote(between)}</p>}

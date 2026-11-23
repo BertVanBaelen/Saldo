@@ -65,7 +65,7 @@
 
 /* ---------- Tab bar: the library Tabs (src/ui) with Saldo's phone and desktop sizes ---------- */
 
-/* Phone: full bleed, five tabs sharing the width. Two-class selectors beat the library's single-class utilities. */
+/* Phone: full bleed, the three tabs sharing the width. Two-class selectors beat the library's single-class utilities. */
 .pl-tabs { margin: 0 -20px; padding: 0 10px; }
 .pl-tabs [role="tablist"] { justify-content: space-between; gap: 2px; }
 .pl-tabs .pl-tab { flex: 1 1 auto; justify-content: center; padding: 0 4px; font-size: 13px; font-weight: 500; }
@@ -101,6 +101,10 @@
 .card.pl-cal { padding: 12px; gap: 6px; }
 .pl-cal-skel { display: flex; flex-direction: column; gap: 10px; }
 .pl-nosaldo { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+/* A planned item without a day (0.8.1-9): one line per item above the grid ("… verdeeld over juli (ongeveer … per dag)"). */
+.pl-spread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.pl-spread li { display: flex; align-items: baseline; gap: 8px; }
+.pl-spread .pl-sq { align-self: center; }
 
 .pl-charts {
   display: flex; flex-direction: column; gap: 8px;

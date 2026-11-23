@@ -243,6 +243,24 @@ describe('Transacties · grouping by day', () => {
     }
   });
 
+  it('sends the detail values of the breakdown sheets of Overzicht (0.8.1-4) as the API keys, with chips that name them', async () => {
+    for (const [param, key, chip] of [
+      ['10', '10', 'Energie'],
+      ['2-zelf', '2-zelf', 'Boodschappen zelf'],
+      ['inkomen-7', 'income-7', 'Loon'],
+      ['inkomen-7-zelf', 'income-7-zelf', 'Loon zelf'],
+      ['inkomen-overschrijving', 'income-transfer', 'Inkomen · overschrijvingen'],
+      ['inkomen-geen', 'income-none', 'Inkomen · niet gecategoriseerd'],
+      ['gespaard-rekening-2', 'saved-account-2', 'Gespaard · Spaarrekening'],
+    ]) {
+      const api = stubApi();
+      const { unmount } = renderAt('/transacties?categorie=' + param);
+      await waitFor(() => expect(api.transactions).toHaveBeenCalledWith(expect.objectContaining({ category: key, limit: 50 }), expect.anything()));
+      expect(await screen.findByRole('button', { name: 'Categorie: ' + chip })).toBeTruthy();
+      unmount();
+    }
+  });
+
   it('explains Gespaard under the list until the chip goes; the dropdown marks a saving category and never offers Gespaard', async () => {
     const sparen: TreeCategory = { ...CATEGORIES[0], id: 11, name: 'Sparen', colour: 'c9', icon: '🏦', saving: true };
     stubApi({ categories: [...CATEGORIES, sparen] });

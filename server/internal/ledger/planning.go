@@ -519,18 +519,26 @@ func commitBudgets(ctx context.Context, tx *sql.Tx, in BudgetInput) ([]Budget, e
 	return out, tx.Commit()
 }
 
-// Planned is a one-off expense or income on a day, as the API shows it.
+// Planned is a one-off expense or income on a day, or somewhere in a month
+// (0.8.1-9, WholeMonth: Date is nil and the engine spreads it over the month),
+// as the API shows it. Month is always set. It is stored as the day, or as the
+// month's 1st with whole_month = 1.
 type Planned struct {
-	ID          int64  `json:"id"`
-	AccountID   int64  `json:"accountId"`
-	Date        string `json:"date"`
-	Amount      int64  `json:"amount"`
-	Description string `json:"description"`
+	ID          int64   `json:"id"`
+	AccountID   int64   `json:"accountId"`
+	Date        *string `json:"date"`  // YYYY-MM-DD; nil for a dayless item
+	Month       string  `json:"month"` // YYYY-MM
+	WholeMonth  bool    `json:"wholeMonth"`
+	Amount      int64   `json:"amount"`
+	Description string  `json:"description"`
 }
 
-// PlannedFields are the fields of a planned item in a request.
+// PlannedFields are the fields of a planned item in a request: a date or a
+// month (YYYY-MM, a dayless item), never both. A null counts as not named, so
+// a PATCH may send {"date": null, "month": "2027-07"}.
 type PlannedFields struct {
 	Date        Opt[string] `json:"date"`
+	Month       Opt[string] `json:"month"`
 	Amount      Opt[int64]  `json:"amount"`
 	Description Opt[string] `json:"description"`
 }
@@ -541,9 +549,29 @@ type PlannedInput struct {
 	PlannedFields
 }
 
-func (p *Planned) apply(f PlannedFields) {
-	if f.Date.Set {
-		p.Date = f.Date.V
+// stored is the value of the date column: the day, or the month's 1st for a
+// dayless item.
+func (p Planned) stored() string {
+	if p.Date != nil {
+		return *p.Date
+	}
+	return p.Month + "-01"
+}
+
+// apply puts the named fields on it; a date makes the item dated, a month
+// makes it dayless. Naming both is refused before anything else is checked.
+func (p *Planned) apply(f PlannedFields) error {
+	date, month := f.Date.Set && !f.Date.Null, f.Month.Set && !f.Month.Null
+	switch {
+	case date && month:
+		return apperr.Invalid("Kies een dag of alleen een maand.")
+	case date:
+		p.Date, p.Month, p.WholeMonth = ptr(f.Date.V), "", false
+		if len(f.Date.V) >= 7 {
+			p.Month = f.Date.V[:7]
+		}
+	case month:
+		p.Date, p.Month, p.WholeMonth = nil, f.Month.V, true
 	}
 	if f.Amount.Set {
 		p.Amount = f.Amount.V
@@ -551,11 +579,13 @@ func (p *Planned) apply(f PlannedFields) {
 	if f.Description.Set {
 		p.Description = f.Description.V
 	}
+	return nil
 }
 
-// validate checks a whole planned item; the date must lie from today to the
-// last day of the month planningMonths after this one, but only when it was
-// set or changed (a passed item stays editable until it is removed).
+// validate checks a whole planned item; a date must lie from today to the
+// last day of the month planningMonths after this one, a month from this month
+// to that one, but only when it was set or changed (a passed item stays
+// editable until it is removed).
 func (p *Planned) validate(dateChanged bool, now time.Time) error {
 	p.Description = strings.TrimSpace(p.Description)
 	switch {
@@ -568,18 +598,35 @@ func (p *Planned) validate(dateChanged bool, now time.Time) error {
 	case !dateChanged:
 		return nil
 	}
-	if _, err := time.Parse(time.DateOnly, p.Date); err != nil {
-		if p.Date == "" {
+	n := now.In(clock.Brussels)
+	if p.WholeMonth {
+		if _, err := parseMonth(p.Month); err != nil {
+			return err
+		}
+		first := time.Date(n.Year(), n.Month(), 1, 0, 0, 0, 0, clock.Brussels)
+		switch {
+		case p.Month < first.Format("2006-01"):
+			return apperr.Invalid("Kies een maand vanaf deze maand.")
+		case p.Month > first.AddDate(0, planningMonths, 0).Format("2006-01"):
+			return apperr.Invalid("Kies een maand binnen 24 maanden.")
+		}
+		return nil
+	}
+	date := ""
+	if p.Date != nil {
+		date = *p.Date
+	}
+	if _, err := time.Parse(time.DateOnly, date); err != nil {
+		if date == "" {
 			return apperr.Invalid("Kies een datum vanaf vandaag.")
 		}
 		return apperr.Invalid("Kies een datum als 2026-11-18.")
 	}
-	n := now.In(clock.Brussels)
 	last := time.Date(n.Year(), n.Month()+planningMonths+1, 0, 0, 0, 0, 0, clock.Brussels).Format(time.DateOnly)
 	switch {
-	case p.Date < today(now):
+	case date < today(now):
 		return apperr.Invalid("Kies een datum vanaf vandaag.")
-	case p.Date > last:
+	case date > last:
 		return apperr.Invalid("Kies een datum binnen 24 maanden.")
 	}
 	return nil
@@ -594,20 +641,37 @@ func (s *Store) PlannedItems(ctx context.Context, viewer int64, scope string, no
 	if err != nil || len(sel) == 0 {
 		return out, err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id, account_id, date, amount, description FROM planned_items
+	rows, err := s.db.QueryContext(ctx, `SELECT `+plannedColumns+` FROM planned_items
 		WHERE account_id IN `+idList(sel)+` AND date >= ? ORDER BY date, id`, today(now)[:7]+"-01")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var p Planned
-		if err := rows.Scan(&p.ID, &p.AccountID, &p.Date, &p.Amount, &p.Description); err != nil {
+		p, err := scanPlanned(rows)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+const plannedColumns = `id, account_id, date, whole_month, amount, description`
+
+// scanPlanned reads a row of plannedColumns: a dayless item has no Date, its
+// stored date is only the month's 1st.
+func scanPlanned(r scanner) (Planned, error) {
+	var p Planned
+	var date string
+	if err := r.Scan(&p.ID, &p.AccountID, &date, &p.WholeMonth, &p.Amount, &p.Description); err != nil {
+		return p, err
+	}
+	p.Month = date[:7]
+	if !p.WholeMonth {
+		p.Date = &date
+	}
+	return p, nil
 }
 
 // CreatePlanned stores a planned item, created by the viewer, on an account
@@ -622,12 +686,14 @@ func (s *Store) CreatePlanned(ctx context.Context, viewer int64, in PlannedInput
 		return Planned{}, err
 	}
 	p := Planned{AccountID: in.AccountID}
-	p.apply(in.PlannedFields)
+	if err := p.apply(in.PlannedFields); err != nil {
+		return Planned{}, err
+	}
 	if err := p.validate(true, now); err != nil {
 		return Planned{}, err
 	}
-	err = tx.QueryRowContext(ctx, `INSERT INTO planned_items (account_id, created_by, date, amount, description) VALUES (?, ?, ?, ?, ?) RETURNING id`,
-		p.AccountID, viewer, p.Date, p.Amount, p.Description).Scan(&p.ID)
+	err = tx.QueryRowContext(ctx, `INSERT INTO planned_items (account_id, created_by, date, whole_month, amount, description) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
+		p.AccountID, viewer, p.stored(), p.WholeMonth, p.Amount, p.Description).Scan(&p.ID)
 	if err != nil {
 		return Planned{}, err
 	}
@@ -649,13 +715,16 @@ func (s *Store) UpdatePlanned(ctx context.Context, viewer, id int64, f PlannedFi
 	if err := a.edit(); err != nil {
 		return Planned{}, err
 	}
-	was := p.Date
-	p.apply(f)
-	if err := p.validate(p.Date != was, now); err != nil {
+	was := p
+	if err := p.apply(f); err != nil {
 		return Planned{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE planned_items SET date = ?, amount = ?, description = ? WHERE id = ?`,
-		p.Date, p.Amount, p.Description, id); err != nil {
+	// Switching between a day and a month changes the item even when the stored 1st stays the same.
+	if err := p.validate(p.WholeMonth != was.WholeMonth || p.stored() != was.stored(), now); err != nil {
+		return Planned{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE planned_items SET date = ?, whole_month = ?, amount = ?, description = ? WHERE id = ?`,
+		p.stored(), p.WholeMonth, p.Amount, p.Description, id); err != nil {
 		return Planned{}, err
 	}
 	return p, tx.Commit()
@@ -682,9 +751,7 @@ func (s *Store) DeletePlanned(ctx context.Context, viewer, id int64) error {
 }
 
 func loadPlanned(ctx context.Context, tx *sql.Tx, viewer, id int64) (Planned, access, error) {
-	var p Planned
-	err := tx.QueryRowContext(ctx, `SELECT id, account_id, date, amount, description FROM planned_items WHERE id = ?`, id).
-		Scan(&p.ID, &p.AccountID, &p.Date, &p.Amount, &p.Description)
+	p, err := scanPlanned(tx.QueryRowContext(ctx, `SELECT `+plannedColumns+` FROM planned_items WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return p, access{}, apperr.ErrNotFound
 	}

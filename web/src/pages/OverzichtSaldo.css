@@ -1,0 +1,40 @@
+/* Overzicht "Saldo" card (plan 0.8.1-5): the balance per current account with its buffer. Tokens only, so dark mode follows.
+   The lines are BalanceLine.tsx (an SVG stretched over .ovs-plot, whose height is set inline); the account colour is --a-<colour>. */
+
+.ovs { gap: 14px; }
+@media (min-width: 1024px) { .ovs { padding: 20px; gap: 16px; } }
+.ovs-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px; }
+.ovs-sub { font-size: 12px; color: var(--muted); }
+@media (min-width: 1024px) { .ovs-sub { font-size: 13px; } }
+
+.ovs-acc { display: flex; flex-direction: column; gap: 6px; }
+.ovs-acc + .ovs-acc { padding-top: 12px; border-top: 1px solid var(--line); }
+.ovs-acc-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.ovs-dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.ovs-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ovs-buf { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.ovs-buf::before { content: ""; width: 14px; border-top: 2px dashed var(--muted); }
+@media (min-width: 1024px) { .ovs-name { font-size: 14px; } }
+
+.ovs-plot { position: relative; border-radius: 8px; }
+.ovs-plot svg { display: block; overflow: visible; }
+/* Month labels under the plot, each at the first day of its month. */
+.ovs-axis { position: relative; height: 16px; margin-top: -2px; font-size: 11px; color: var(--muted); }
+.ovs-axis span { position: absolute; top: 2px; padding-left: 4px; white-space: nowrap; }
+.ovs-axis span::before { content: ""; position: absolute; left: 0; top: -2px; height: 12px; border-left: 1px solid var(--line); }
+
+.ovs-stats { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.ovs-muted { font-weight: 400; color: var(--muted); }
+@media (min-width: 1024px) { .ovs-stats { font-size: 13px; } }
+.ovs-none { font-size: 13px; line-height: 1.45; color: var(--muted); }
+.ovs-none a, .ovs-retry { color: var(--greenText); font-weight: 600; }
+.ovs-retry { padding: 0; border: none; background: none; font: inherit; font-weight: 600; text-decoration: underline; min-height: 32px; }
+
+.ovs-legend i.ovs-key { border-radius: 0; background: none; }
+.ovs-legend i.ovs-key--buf { width: 14px; height: 0; border-top: 2px dashed var(--muted); }
+.ovs-legend i.ovs-key--zero { width: 14px; height: 0; border-top: 1.5px solid var(--muted); }
+.ovs-legend i.ovs-key--band { width: 10px; height: 10px; border-radius: 3px; background: var(--soft); }
+
+.ovs-note { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.ovs-note svg { flex: none; margin-top: 1px; }
+@media (min-width: 1024px) { .ovs-note { font-size: 13px; } }

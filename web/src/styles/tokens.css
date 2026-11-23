@@ -55,7 +55,9 @@
   --track: #EAEFEC;
   --dashed: #8A958F;
   /* Overzicht chart bars (income, expenses, saved; analysis/screens/overzicht.md) */
-  --ov-inc: var(--green); --ov-exp: #5B9BD5; --ov-sav: #B07F00;
+  --ov-inc: var(--green); --ov-sav: #B07F00;
+  /* The merged "Kleine posten" piece of a stacked bar: grey, not --c6 (--line in the light theme, and "Overig"); follows --muted and --surface in every theme */
+  --ov-small: color-mix(in srgb, var(--muted) 50%, var(--surface));
   /* Skeleton shimmer and account colours (8 choices, analysis/concepts/account.md) */
   --skel: #E7EDE9;
   --skel2: #F3F7F4;
@@ -135,7 +137,7 @@
     --tint-l-min: 0.68; --tint-l-max: 0.80; --tint-c-max: 0.13;
     --track: #222B27;
     --dashed: #5F6B65;
-    --ov-inc: var(--green); --ov-exp: #7DBDF0; --ov-sav: #E8CB55;
+    --ov-inc: var(--green); --ov-sav: #E8CB55;
   --skel: #1F2824;
   --skel2: #2A3530;
   --a-green: #4ADE80; --a-violet: #9C86FF; --a-blue: #6FB1FF; --a-teal: #4FD1C5;
@@ -197,7 +199,7 @@
   --tint-l-min: 0.68; --tint-l-max: 0.80; --tint-c-max: 0.13;
   --track: #222B27;
   --dashed: #5F6B65;
-  --ov-inc: var(--green); --ov-exp: #7DBDF0; --ov-sav: #E8CB55;
+  --ov-inc: var(--green); --ov-sav: #E8CB55;
   --skel: #1F2824;
   --skel2: #2A3530;
   --a-green: #4ADE80; --a-violet: #9C86FF; --a-blue: #6FB1FF; --a-teal: #4FD1C5;

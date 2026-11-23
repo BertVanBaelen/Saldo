@@ -31,6 +31,7 @@ flowchart LR
 | [0.6](v0.6-shared-accounts/README.md) | Shared accounts | share the joint account with Partner, each seeing only your own accounts | M3 | 2 S · 2 M · 1 L | released (0.6.0), verifying |
 | [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 3 S · 2 M | released (0.7.0), verifying |
 | [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend; savings categories, shared accounts by invitation, Overzicht sheets | M5 | 7 M · 3 L | released (0.8.0), verifying |
+| [0.8.1](v0.8.1-improvements/README.md) | Improvements | month result and lowest point, stacked uit bar, budgets and balance on Overzicht, breakdown sheets, one Planning instellen screen, contributors without Saldo | M5 | 3 S · 4 M · 2 L | released (0.8.1), verifying |
 | [0.9](v0.9-notifications/README.md) | Notifications | get push (Android and iPhone) and e-mail warnings before an account goes into its buffer or below zero | 4.9 | 2 S · 3 M | planned |
 | [1.0](v1.0-release/README.md) | Release | run Saldo with a full security review, tested backups and an export | 13.4 | 3 S · 1 M | planned |
 | [2.0](v2.0-investments/README.md) | Investments | see net worth per platform | v2 | 1 S · 2 M | later |

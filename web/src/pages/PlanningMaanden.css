@@ -44,8 +44,10 @@
   border: 1px solid var(--line);
   overflow: hidden;
 }
-.pl-mcard--under { background: var(--warnSoft); border-color: var(--warnChip); }
-.pl-mcard--neg { background: var(--negSoft); border-color: var(--neg); }
+/* The buffer state (from the month's end): the tone, and a 4 px accent on the left in the state colour. An inset shadow, not a border: the selected row and the tones recolour the borders. */
+.pl-mcard--ok { box-shadow: inset 4px 0 0 var(--green); }
+.pl-mcard--under { background: var(--warnSoft); border-color: var(--warnChip); box-shadow: inset 4px 0 0 var(--warn); }
+.pl-mcard--neg { background: var(--negSoft); border-color: var(--neg); box-shadow: inset 4px 0 0 var(--neg); }
 .pl-mcard-btn {
   width: 100%;
   display: flex; flex-direction: column; gap: 6px;
@@ -56,15 +58,28 @@
 .pl-mcard-top, .pl-mcard-bottom { width: 100%; display: flex; justify-content: space-between; gap: 8px; }
 .pl-mcard-top { align-items: center; }
 .pl-mcard-bottom { align-items: baseline; }
+.pl-mcard-id { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
 .pl-mcard-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 16px; font-weight: 600; }
+.pl-mstate { font-size: 12px; font-weight: 600; }
+.pl-mstate--buffer { color: var(--warn); }
+.pl-mstate--red { color: var(--neg); }
 .pl-lopend { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--muted); }
 .pl-mcard-sum { font-size: 13px; color: var(--muted); }
+/* The lowest point of the month: information on its own line, coloured by its own state, bold when it is worse than the month's end. */
+.pl-mcard-low { font-size: 13px; color: var(--muted); }
+.pl-mcard-low.is-worse { font-weight: 700; }
+.pl-low--ok { color: var(--muted); }
+.pl-low--buffer { color: var(--warn); }
+.pl-low--red { color: var(--neg); }
 .pl-mcard-end { flex: none; font-size: 15px; font-weight: 500; white-space: nowrap; }
 .pl-mcard-body { padding: 2px 16px 14px; display: flex; flex-direction: column; }
 
+/* The month's result (end minus start) by its sign; green is a gain, red a loss, grey nothing. The buffer state is the accent and the label. */
 .pl-mchip { flex: none; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: var(--r-pill); white-space: nowrap; background: var(--soft); color: var(--greenText); }
-.pl-mchip--under { background: var(--warnChip); color: var(--warn); }
-.pl-mchip--neg { background: var(--neg); color: var(--onNeg); }
+.pl-mchip--loss { background: var(--negSoft); color: var(--negText); }
+.pl-mchip--flat { background: var(--track); color: var(--muted); }
+/* A red card is negSoft already: the loss chip stands out on the card's surface. */
+.pl-mcard--neg .pl-mchip--loss { background: var(--surface); }
 
 /* ---------- Breakdown ---------- */
 
@@ -77,6 +92,12 @@
 .pl-line--end > .mono { font-size: 15px; font-weight: 600; }
 .pl-line--buf { padding: 2px 0 8px; border-top: none; font-size: 14px; color: var(--muted); }
 .pl-line--buf > .mono { font-weight: 400; }
+/* Information under the end balance: the month's result and its lowest point. The result bar below stays the buffer verdict. */
+.pl-line--info { padding: 3px 0; border-top: none; }
+.pl-line--info > .mono { font-weight: 600; }
+.pl-res--gain { color: var(--greenText); }
+.pl-res--loss { color: var(--negText); }
+.pl-res--flat { color: var(--muted); }
 
 .pl-result {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
@@ -96,7 +117,7 @@
   .pl-skel { height: 64px; border-radius: 16px; }
   .pl-skel-list, .pl-mlist { gap: 6px; }
   .pl-mrow {
-    display: grid; grid-template-columns: 158px minmax(0, 1fr) 112px 172px; gap: 10px; align-items: center;
+    display: grid; grid-template-columns: 158px minmax(0, 1fr) 112px 112px 120px; gap: 10px; align-items: center;
     min-height: 60px; padding: 8px 16px;
     border-radius: 16px;
     border-width: 2px;
@@ -108,7 +129,9 @@
   .pl-mrow.is-sel { border-color: var(--text); }
   .pl-mrow .pl-mcard-name { font-size: 15px; }
   .pl-mrow .pl-mcard-end { text-align: right; }
+  .pl-mrow-mid { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .pl-mrow-chip { justify-self: end; }
+  .pl-mrow .pl-mstate { justify-self: start; }
   .card.pl-mdetail { padding: 16px 18px; gap: 0; }
   .pl-mdetail-title { font-size: 16px; font-weight: 600; padding-bottom: 2px; }
   .pl-mdetail-sub { display: flex; align-items: center; gap: 6px; padding-bottom: 8px; font-size: 13px; color: var(--muted); }

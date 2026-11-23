@@ -22,6 +22,8 @@ import type {
   Me,
   PendingJoinOffer,
   Permission,
+  ReportBalances,
+  ReportBudgets,
   ReportMonths,
   ReportQuery,
   Rule,
@@ -252,6 +254,48 @@ export const BALANCES: Record<number, BalancePoint[]> = {
   ],
 };
 
+/**
+ * GET /api/reports/balances (0.8.1-5) for Eigen oktober – november 2026, today 18 Nov: the Zichtrekening (buffer € 900) and the Gedeelde rekening (buffer € 600).
+ * The November points are the plan's goldens (Zichtrekening −€ 431,45 on 1 Nov, last value € 1.968,82; Gedeelde rekening last value € 946,08, held through today);
+ * the October ones are invented (end of October € 1.023,55, the Zichtrekening € 640 low on 8 Oct, four days under the buffer).
+ */
+export const BALANCE_LINES: ReportBalances = {
+  accounts: [
+    {
+      id: 1,
+      buffer: 90000,
+      firstDate: '2025-11-03',
+      missing: false,
+      points: [
+        { date: '2026-09-30', balance: 215000 },
+        { date: '2026-10-02', balance: 187000 },
+        { date: '2026-10-08', balance: 64000 },
+        { date: '2026-10-12', balance: 240000 },
+        { date: '2026-10-28', balance: 102355 },
+        { date: '2026-11-01', balance: -43145 },
+        { date: '2026-11-02', balance: 241855 },
+        { date: '2026-11-08', balance: 236615 },
+        { date: '2026-11-12', balance: 235216 },
+        { date: '2026-11-16', balance: 205131 },
+        { date: '2026-11-17', balance: 196882 },
+      ],
+    },
+    {
+      id: 4,
+      buffer: 60000,
+      firstDate: '2026-06-03',
+      missing: false,
+      points: [
+        { date: '2026-09-30', balance: 80000 },
+        { date: '2026-10-15', balance: 52927 },
+        { date: '2026-11-01', balance: 142927 },
+        { date: '2026-11-03', balance: 128427 },
+        { date: '2026-11-15', balance: 94608 },
+      ],
+    },
+  ],
+};
+
 // Invented devices and users (Instellingen → Toestellen and Gebruikers).
 export const DEVICES: Device[] = [
   { id: 3, name: 'Safari op iPhone', createdAt: '2026-06-03T20:14:00+02:00', lastUsedAt: '2026-11-18T08:12:00+01:00', current: true },
@@ -340,6 +384,10 @@ interface Stub {
   contributions?: Contributions | ((id: number) => Contributions);
   /** GET /api/reports/months (0.7-3); default no history. */
   reports?: ReportMonths | ((q: ReportQuery) => ReportMonths);
+  /** GET /api/reports/budgets (0.8.1-2); default no references, so the rows show their amounts against "geen budget". */
+  budgets?: ReportBudgets | ((q: Omit<ReportQuery, 'detail'>) => ReportBudgets);
+  /** GET /api/reports/balances (0.8.1-5), the lines of Overzicht's Saldo card; default no accounts, so the card is left out (`BALANCE_LINES` is the demo). */
+  balanceLines?: ReportBalances | ((q: Omit<ReportQuery, 'detail'>) => ReportBalances);
   /** GET /api/planning (0.8-4); default an empty answer, so no forecast shows. */
   planning?: Planning | ((scope: Scope, horizon: number, month?: string) => Planning);
   /** GET /api/planning/planned, /items and /suggestions (0.8-7); default none. */
@@ -347,6 +395,9 @@ interface Stub {
   items?: RecurringItem[];
   planningSuggestions?: RecurringSuggestion[];
 }
+
+/** A planned item's day fields as the server answers them: a day (`date`, its `month`) or a month alone (`date: null`, `wholeMonth`). */
+const plannedPlace = (date?: string, month?: string) => (date ? { date, month: date.slice(0, 7), wholeMonth: false } : { date: null, month: month ?? '', wholeMonth: true });
 
 /** Stubs every API call; the spies are restored after each test (restoreMocks). */
 export function stubApi(s: Stub = {}) {
@@ -377,16 +428,24 @@ export function stubApi(s: Stub = {}) {
       const r = s.reports ?? { accounts: [], firstMonth: null, firstDate: null, months: [] };
       return structuredClone(typeof r === 'function' ? r(q) : r);
     }),
+    reportBudgets: vi.spyOn(api, 'reportBudgets').mockImplementation(async (q = {}) => {
+      const b = s.budgets ?? { months: [] };
+      return structuredClone(typeof b === 'function' ? b(q) : b);
+    }),
+    reportBalances: vi.spyOn(api, 'reportBalances').mockImplementation(async (q = {}) => {
+      const b = s.balanceLines ?? { accounts: [] };
+      return structuredClone(typeof b === 'function' ? b(q) : b);
+    }),
     planning: vi.spyOn(api, 'planning').mockImplementation(async (scope, horizon = 3, month) => {
       const p = s.planning ?? { today: ME.today, accounts: [], missing: [] };
       return structuredClone(typeof p === 'function' ? p(scope, horizon, month) : p);
     }),
     // Planning a one-off item (0.8-5): answers the stored item; removing answers nothing.
-    createPlanned: vi.spyOn(api, 'createPlanned').mockImplementation(async (b) => ({ id: 9, ...b })),
+    createPlanned: vi.spyOn(api, 'createPlanned').mockImplementation(async (b) => ({ id: 9, accountId: b.accountId, amount: b.amount, description: b.description, ...plannedPlace(b.date, b.month) })),
     deletePlanned: vi.spyOn(api, 'deletePlanned').mockResolvedValue(null),
     // Terugkerend and Eenmalig (0.8-7): the lists answer from the stub (default none); a write answers the item with the change applied.
     plannedItems: vi.spyOn(api, 'plannedItems').mockImplementation(async () => ({ planned: structuredClone(s.planned ?? []) })),
-    updatePlanned: vi.spyOn(api, 'updatePlanned').mockImplementation(async (id, patch) => ({ ...(s.planned ?? []).find((p) => p.id === id)!, ...patch })),
+    updatePlanned: vi.spyOn(api, 'updatePlanned').mockImplementation(async (id, { date, month, ...rest }) => ({ ...(s.planned ?? []).find((p) => p.id === id)!, ...rest, ...(date || month ? plannedPlace(date, month) : {}) })),
     planningItems: vi.spyOn(api, 'planningItems').mockImplementation(async () => ({ items: structuredClone(s.items ?? []) })),
     createPlanningItem: vi.spyOn(api, 'createPlanningItem').mockImplementation(async (b) => ({ id: 20, counterparty: '', amountRule: 'fixed', month: null, endDate: null, state: 'confirmed', ...b })),
     updatePlanningItem: vi.spyOn(api, 'updatePlanningItem').mockImplementation(async (id, patch) => ({ ...(s.items ?? []).find((i) => i.id === id)!, ...patch })),
@@ -415,8 +474,15 @@ export function stubApi(s: Stub = {}) {
     removeContributionSender: vi.spyOn(api, 'removeContributionSender').mockResolvedValue(null),
     setContributionShares: vi.spyOn(api, 'setContributionShares').mockImplementation(async (id, shares) => {
       const c = structuredClone(typeof s.contributions === 'function' ? s.contributions(id) : (s.contributions ?? CONTRIBUTIONS));
-      return { ...c, members: c.members.map((m) => ({ ...m, share: shares ? (shares[m.userId] ?? 0) : null })) };
+      const contributors = c.contributors?.map((x) => ({ ...x, share: shares ? (shares['c' + x.id] ?? 0) : null }));
+      return { ...c, members: c.members.map((m) => ({ ...m, share: shares ? (shares[m.userId] ?? 0) : null })), ...(contributors ? { contributors } : {}) };
     }),
+    // Contributors without Saldo (0.8.1-7): every write answers the contributions as the fixture has them; a test sets its own answer with mockResolvedValue.
+    addContributor: vi.spyOn(api, 'addContributor').mockImplementation(async (id) => structuredClone(typeof s.contributions === 'function' ? s.contributions(id) : (s.contributions ?? CONTRIBUTIONS))),
+    updateContributor: vi.spyOn(api, 'updateContributor').mockImplementation(async (id) => structuredClone(typeof s.contributions === 'function' ? s.contributions(id) : (s.contributions ?? CONTRIBUTIONS))),
+    removeContributor: vi.spyOn(api, 'removeContributor').mockImplementation(async (id) => structuredClone(typeof s.contributions === 'function' ? s.contributions(id) : (s.contributions ?? CONTRIBUTIONS))),
+    offerContributorLink: vi.spyOn(api, 'offerContributorLink').mockImplementation(async (id) => structuredClone(typeof s.contributions === 'function' ? s.contributions(id) : (s.contributions ?? CONTRIBUTIONS))),
+    answerContributorLink: vi.spyOn(api, 'answerContributorLink').mockImplementation(async (id) => structuredClone(typeof s.contributions === 'function' ? s.contributions(id) : (s.contributions ?? CONTRIBUTIONS))),
     accountTransfers: vi.spyOn(api, 'accountTransfers').mockImplementation(async () => structuredClone(s.transfers ?? [])),
     similarPreview: vi.spyOn(api, 'similarPreview').mockImplementation(async (id) => ({
       counterparty: rowOf(id).counterparty,

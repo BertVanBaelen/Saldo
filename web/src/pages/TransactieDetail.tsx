@@ -16,6 +16,7 @@ import { dateFull, eur } from '../lib/format';
 import type { Account, Rule, SimilarPreview, Split, Transaction, TransferKind, TreeCategory } from '../lib/types';
 import type { AsyncState } from '../lib/useAsync';
 import { useAsync } from '../lib/useAsync';
+import { ContributorSheet } from './BijdragenBijdrager';
 
 export interface CatView {
   name: string;
@@ -178,6 +179,8 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
 
   const [note, setNote] = useState(t.note ?? '');
   const [rule, setRule] = useState(false);
+  /** The sheet that makes this incoming payment the contribution of someone without Saldo (a name field only). */
+  const [addContributor, setAddContributor] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const busyRef = useRef(false);
   const [parts, setParts] = useState<Part[] | null>(null);
@@ -659,11 +662,34 @@ export function Detail({ t, acc, mode, onClose, cats, rules, newRule, onChange }
       {transferNote}
       {contributionNote}
       {canClaim && (
-        <div className="tx-tr-marks">
-          <button type="button" className="tx-toggle" data-key="contribution" aria-disabled={off || undefined} aria-busy={busy === 'contribution' || undefined} onClick={claim}>
-            Dit is mijn bijdrage
-          </button>
+        <div className="tx-claim" role="group" aria-labelledby={'tx-claim-' + mode}>
+          <span className="tx-claim-label" id={'tx-claim-' + mode}>
+            Dit is de bijdrage van …
+          </span>
+          <div className="tx-tr-marks">
+            <button type="button" className="tx-toggle" data-key="contribution" aria-disabled={off || undefined} aria-busy={busy === 'contribution' || undefined} onClick={claim}>
+              mij
+            </button>
+            <button type="button" className="tx-toggle" data-key="contributor" aria-haspopup="dialog" aria-disabled={off || undefined} onClick={() => !off && setAddContributor(true)}>
+              iemand zonder Saldo
+            </button>
+          </div>
         </div>
+      )}
+      {addContributor && acc && (
+        <ContributorSheet
+          a={acc}
+          transactionId={t.id}
+          onClose={() => setAddContributor(false)}
+          onDone={(c, text, name) => {
+            setAddContributor(false);
+            // The server took the IBAN from this row: the row is the contributor's now, other rows of it follow when the list loads again.
+            // Its id is the newest contributor of that name (ids only grow), as the server's label carries it.
+            const contributorId = c.contributors?.filter((x) => x.name === name).reduce<number | undefined>((m, x) => (m === undefined || x.id > m ? x.id : m), undefined);
+            onChange({ ...t, contribution: { name, me: false, ...(contributorId !== undefined ? { contributorId } : {}) } });
+            toast(text);
+          }}
+        />
       )}
       {edit}
       {transferMark}

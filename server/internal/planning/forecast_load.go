@@ -38,11 +38,11 @@ const (
 		FROM recurring_items WHERE account_id = ? AND state = 'confirmed' ORDER BY id`
 	fcQueryBudgets = `SELECT b.category_id, b.from_month, b.monthly_amount FROM budgets b JOIN categories c ON c.id = b.category_id
 		WHERE b.account_id = ? AND c.parent_id IS NULL AND c.type = 'expense' AND c.saving = 0 ORDER BY b.category_id, b.from_month`
-	fcQueryPlanned = `SELECT id, date, amount, description FROM planned_items WHERE account_id = ? AND date >= ? ORDER BY date, id`
+	fcQueryPlanned = `SELECT id, date, amount, description, whole_month FROM planned_items WHERE account_id = ? AND date >= ? ORDER BY date, id`
 )
 
 // forecastQueries are every statement the loader runs.
-var forecastQueries = []string{fcQueryAccount, fcQueryRows, fcQueryItems, fcQueryBudgets, fcQueryPlanned}
+var forecastQueries = []string{fcQueryAccount, fcQueryRows, fcQueryItems, fcQueryBudgets, fcQueryPlanned, fcQueryFirstBooked, fcQueryBookedMonths}
 
 // Forecast is the forecast of one current account on today (the Brussels
 // date) for the running month and horizon months after it. It takes no
@@ -81,25 +81,8 @@ func LoadFacts(ctx context.Context, db *sql.DB, account int64, today string) (Fa
 	}
 
 	from := min(fcAddDays(fcAddMonths(today[:7], -fcHistory)+"-01", -fcMatchDays), f.BalanceDate)
-	rows, err := db.QueryContext(ctx, fcQueryRows, account, from)
-	if err != nil {
-		return f, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var r FactRow
-		var p FactPart
-		if err := rows.Scan(&r.ID, &r.Date, &r.Amount, &r.Pending, &r.Name, &r.IBAN, &p.Amount, &p.Category, &p.Variable, &p.Saving); err != nil {
-			return f, err
-		}
-		if n := len(f.Rows); n > 0 && f.Rows[n-1].ID == r.ID {
-			f.Rows[n-1].Parts = append(f.Rows[n-1].Parts, p)
-			continue
-		}
-		r.IBAN, r.Parts = ledger.NormalizeIBAN(r.IBAN), []FactPart{p}
-		f.Rows = append(f.Rows, r)
-	}
-	if err := rows.Err(); err != nil {
+	var err error
+	if f.Rows, err = loadRows(ctx, db, account, from); err != nil {
 		return f, err
 	}
 
@@ -121,23 +104,7 @@ func LoadFacts(ctx context.Context, db *sql.DB, account int64, today string) (Fa
 		return f, err
 	}
 
-	budgets, err := db.QueryContext(ctx, fcQueryBudgets, account)
-	if err != nil {
-		return f, err
-	}
-	defer budgets.Close()
-	for budgets.Next() {
-		var b FactBudget
-		var amount sql.NullInt64
-		if err := budgets.Scan(&b.Category, &b.From, &amount); err != nil {
-			return f, err
-		}
-		if amount.Valid {
-			b.Amount = &amount.Int64
-		}
-		f.Budgets = append(f.Budgets, b)
-	}
-	if err := budgets.Err(); err != nil {
+	if f.Budgets, err = LoadBudgets(ctx, db, account); err != nil {
 		return f, err
 	}
 
@@ -148,10 +115,34 @@ func LoadFacts(ctx context.Context, db *sql.DB, account int64, today string) (Fa
 	defer planned.Close()
 	for planned.Next() {
 		var p FactPlanned
-		if err := planned.Scan(&p.ID, &p.Date, &p.Amount, &p.Description); err != nil {
+		if err := planned.Scan(&p.ID, &p.Date, &p.Amount, &p.Description, &p.WholeMonth); err != nil {
 			return f, err
 		}
 		f.Planned = append(f.Planned, p)
 	}
 	return f, planned.Err()
+}
+
+// loadRows reads the account's rows from from on, a split row once with its parts.
+func loadRows(ctx context.Context, db *sql.DB, account int64, from string) ([]FactRow, error) {
+	rows, err := db.QueryContext(ctx, fcQueryRows, account, from)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FactRow
+	for rows.Next() {
+		var r FactRow
+		var p FactPart
+		if err := rows.Scan(&r.ID, &r.Date, &r.Amount, &r.Pending, &r.Name, &r.IBAN, &p.Amount, &p.Category, &p.Variable, &p.Saving); err != nil {
+			return nil, err
+		}
+		if n := len(out); n > 0 && out[n-1].ID == r.ID {
+			out[n-1].Parts = append(out[n-1].Parts, p)
+			continue
+		}
+		r.IBAN, r.Parts = ledger.NormalizeIBAN(r.IBAN), []FactPart{p}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

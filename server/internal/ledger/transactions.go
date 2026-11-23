@@ -224,11 +224,13 @@ func (s *Store) items(ctx context.Context, viewer int64, prefix string, where []
 	query := prefix + `
 		SELECT tx.id, tx.account_id, tx.booking_date, tx.amount, tx.counterparty_name, tx.communication,
 		       tx.status, c.id, c.name, ` + effectiveColour("c") + `, tx.category_origin, ` + visibleRule + `, tx.note, tx.is_transfer,
-		       ` + transferKind + `, tx.override, cs.user_id, cu.display_name
+		       ` + transferKind + `, tx.override, cs.user_id, cu.display_name, ct.id, ct.name
 		FROM tx LEFT JOIN categories c ON c.id = tx.category_id LEFT JOIN vis ov ON ov.account_id = tx.other_id
 		LEFT JOIN contribution_senders cs ON cs.account_id = tx.account_id AND cs.iban = tx.counterparty_iban
 		     AND tx.shared = 1 AND tx.status = 'booked' AND tx.amount > 0
 		LEFT JOIN users cu ON cu.id = cs.user_id
+		LEFT JOIN contributors ct ON ct.account_id = tx.account_id AND ct.iban = tx.counterparty_iban
+		     AND tx.shared = 1 AND tx.status = 'booked' AND tx.amount > 0
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY tx.booking_date DESC, tx.id DESC
 		LIMIT ?`
@@ -243,14 +245,17 @@ func (s *Store) items(ctx context.Context, viewer int64, prefix string, where []
 		var t Transaction
 		var catID sql.NullInt64
 		var catName, catColour, claimantName sql.NullString
-		var claimant sql.NullInt64
+		var claimant, contributor sql.NullInt64
+		var contributorName sql.NullString
 		if err := rows.Scan(&t.ID, &t.AccountID, &t.BookingDate, &t.Amount, &t.Counterparty, &t.Communication,
 			&t.Status, &catID, &catName, &catColour, &t.CategoryOrigin, &t.RuleID, &t.Note, &t.Transfer,
-			&t.TransferKind, &t.TransferOverride, &claimant, &claimantName); err != nil {
+			&t.TransferKind, &t.TransferOverride, &claimant, &claimantName, &contributor, &contributorName); err != nil {
 			return nil, err
 		}
 		if claimant.Valid {
 			t.Contribution = &ContributionLabel{Name: claimantName.String, Me: claimant.Int64 == viewer}
+		} else if contributor.Valid { // a contributor without Saldo (0.8.1-7)
+			t.Contribution = &ContributionLabel{Name: contributorName.String, ContributorID: &contributor.Int64}
 		}
 		if catID.Valid {
 			t.Category = &Category{ID: catID.Int64, Name: catName.String, Colour: catColour.String}
@@ -498,15 +503,28 @@ func (s *Store) filters(ctx context.Context, viewer int64, q TxQuery) ([]string,
 	return where, args, nil
 }
 
-// categoryKey is the report key of a category value: saved, none, toShared and
-// toOwn as they are, else a decimal id, written like the report's CAST(top_id AS TEXT).
+// categoryKey is the drill-down key of a category value (reportDrillDown):
+// saved, none, toShared, toOwn, income-transfer and income-none as they are;
+// else "<id>", "<id>-zelf", "income-<id>", "income-<id>-zelf" or
+// "saved-account-<id>" with the id decimal, written like the report's CAST(… AS TEXT).
 func categoryKey(v string) (string, error) {
 	switch v {
-	case "saved", "none", "toShared", "toOwn":
+	case "saved", "none", "toShared", "toOwn", "income-transfer", "income-none":
 		return v, nil
 	}
-	if id, err := strconv.ParseUint(v, 10, 63); err == nil && id > 0 { // no sign, no spaces
-		return strconv.FormatUint(id, 10), nil
+	prefix, rest := "", v
+	for _, p := range []string{"income-", "saved-account-"} {
+		if r, ok := strings.CutPrefix(v, p); ok {
+			prefix, rest = p, r
+			break
+		}
+	}
+	suffix := ""
+	if r, ok := strings.CutSuffix(rest, "-zelf"); ok && prefix != "saved-account-" {
+		rest, suffix = r, "-zelf"
+	}
+	if id, err := strconv.ParseUint(rest, 10, 63); err == nil && id > 0 { // no sign, no spaces
+		return prefix + strconv.FormatUint(id, 10) + suffix, nil
 	}
 	return "", apperr.Invalid("Kies een categorie.")
 }

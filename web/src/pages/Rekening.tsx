@@ -8,13 +8,15 @@
 import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
+import { BalanceLine } from '../components/BalanceLine';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
 import { delay, ErrorState, SheetX, Skel, SkelList, useTitle } from '../components/ui';
 import { accColour, accountState, canManage, carrier, contributionLabel, isCurrent, isShared, manager, memberTint, nextManager, others, STATE_CHIP, staleNote, syncLine, syncProblem, syncReportLine } from '../lib/accounts';
 import { api, errorMessage } from '../lib/api';
 import { plural } from '../lib/categories';
-import { dateRelative, dateShort, dateYear, eur, momentLabel, names, parseMoney, toDate } from '../lib/format';
+import { dayNo } from '../lib/balanceChart';
+import { dateRelative, dateShort, dateYear, eur, momentLabel, names, parseMoney } from '../lib/format';
 import type { Account, BalancePoint, Connection, Member, Permission, Transaction } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { ContributionsCard } from './Bijdragen';
@@ -140,9 +142,6 @@ function SyncAlert({ a, today }: { a: Account; today: string }) {
 
 // ---------- Saldoverloop ----------
 
-const DAY = 86400000;
-const dayNo = (d: string) => Math.round(toDate(d).getTime() / DAY);
-
 /** The plotted points: a bank account's last six months, every manual update. */
 export function historyPoints(a: Account, points: BalancePoint[], today: string): BalancePoint[] {
   if (a.source === 'manual') return points;
@@ -159,47 +158,10 @@ function daysUnder(list: BalancePoint[], buffer: number, today: string): number 
   return days;
 }
 
+/** The shared `BalanceLine` (also Overzicht's Saldo card) in Rekening's way: from the first point to today, `var(--acc)`, a manual account as steps with a dashed hold. */
 function Chart({ a, points, today }: { a: Account; points: BalancePoint[]; today: string }) {
-  const W = 600;
-  const H = 150;
   const manual = a.source === 'manual';
-  const buffer = isCurrent(a) ? a.buffer : null;
-  const vals = points.map((p) => p.balance);
-  let lo = Math.min(...vals);
-  let hi = Math.max(...vals);
-  if (buffer !== null) {
-    lo = Math.min(lo, 0);
-    hi = Math.max(hi, buffer);
-  }
-  const pad = Math.max((hi - lo) * (manual ? 0.35 : 0.08), 2000);
-  lo -= pad;
-  hi += pad;
-  const d0 = dayNo(points[0].date);
-  const d1 = Math.max(dayNo(today), d0 + 1);
-  const X = (d: string) => 4 + ((dayNo(d) - d0) / (d1 - d0)) * (W - 8);
-  const Y = (v: number) => H - ((v - lo) / (hi - lo)) * H;
-  const ink = 'var(--acc)';
-  let line = '';
-  points.forEach((p, i) => {
-    if (!i) line = 'M' + X(p.date) + ' ' + Y(p.balance);
-    else if (manual) line += ' H' + X(p.date) + ' V' + Y(p.balance);
-    else line += ' L' + X(p.date) + ' ' + Y(p.balance);
-  });
-  const last = points[points.length - 1];
-  const end = X(today);
-  return (
-    <svg className="rkd-svg" viewBox={'0 0 ' + W + ' ' + H} preserveAspectRatio="none" width="100%" height="100%" aria-hidden="true">
-      {buffer !== null && Y(0) < H && <line x1={0} x2={W} y1={Y(0)} y2={Y(0)} style={{ stroke: 'var(--muted)', strokeWidth: 1.5 }} vectorEffect="non-scaling-stroke" />}
-      {buffer !== null && buffer > 0 && (
-        <line x1={0} x2={W} y1={Y(buffer)} y2={Y(buffer)} style={{ stroke: 'var(--muted)', strokeWidth: 1.5, strokeDasharray: '4 4' }} vectorEffect="non-scaling-stroke" />
-      )}
-      <path d={line + ' L' + X(last.date) + ' ' + H + ' L' + X(points[0].date) + ' ' + H + ' Z'} style={{ fill: ink, opacity: 0.1 }} />
-      <path d={line} fill="none" style={{ stroke: ink, strokeWidth: 2.5, strokeLinejoin: 'round', strokeLinecap: 'round' }} vectorEffect="non-scaling-stroke" />
-      {end > X(last.date) && (
-        <path d={'M' + X(last.date) + ' ' + Y(last.balance) + ' H' + end} fill="none" style={{ stroke: ink, strokeWidth: 2.5, strokeDasharray: '5 5' }} vectorEffect="non-scaling-stroke" />
-      )}
-    </svg>
-  );
+  return <BalanceLine points={points} start={points[0].date} end={today} buffer={isCurrent(a) ? a.buffer : null} step={manual} room={manual ? 0.35 : 0.08} dashedHold />;
 }
 
 function HistoryCard({ a, points, error, onRetry, today }: { a: Account; points: BalancePoint[] | undefined; error: string | null; onRetry: () => void; today: string }) {
@@ -1236,12 +1198,9 @@ export function Rekening() {
           )}
           {manual && a.iban && <TransfersCard a={a} today={today} />}
           <TxCard a={a} page={txs.data} error={txs.error} onRetry={txs.reload} today={today} />
-          {a.members.length > 1 && (
-            <>
-              <ContributionsCard a={a} accounts={accounts.data} onChanged={txs.reload} />
-              <MembersCard a={a} onChanged={replace} onExit={(all) => setDialog(all ? 'deleteAll' : 'leave')} />
-            </>
-          )}
+          {/* Bijdragen belongs to every shared account (the derived kind), also one whose partner is not on Saldo yet; Leden needs more than one member. */}
+          {isShared(a) && <ContributionsCard a={a} accounts={accounts.data} onChanged={txs.reload} />}
+          {a.members.length > 1 && <MembersCard a={a} onChanged={replace} onExit={(all) => setDialog(all ? 'deleteAll' : 'leave')} />}
         </div>
         <div className="rkd-col rkd-col--side">
           {a.role === 'manager' && a.convertibleRules > 0 && <ConvertRules a={a} onDone={accounts.reload} />}

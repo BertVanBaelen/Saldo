@@ -84,6 +84,7 @@ type Budget struct {
 	Source     string
 	Spent      int64
 	Rest       int64
+	Average    int64 // the category's history average (variable spending), whatever Source is
 }
 
 // Facts are what the forecast of one account is built on, all account-level.
@@ -143,12 +144,14 @@ type FactBudget struct {
 	Amount   *int64
 }
 
-// FactPlanned is a planned one-off item.
+// FactPlanned is a planned one-off item. WholeMonth: no day, Date is the
+// month's 1st and the amount is spread over the month (rule 6b, plan 0.8.1-9).
 type FactPlanned struct {
 	ID          int64
 	Date        string
 	Amount      int64
 	Description string
+	WholeMonth  bool
 }
 
 const (
@@ -268,30 +271,16 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 	slices.SortFunc(rows, func(a, b fcRow) int { return cmp.Or(cmp.Compare(a.Date, b.Date), cmp.Compare(a.ID, b.ID)) })
 
 	// History months (rule 7).
-	window := make([]string, fcHistory)
-	for i := range window {
-		window[i] = fcAddMonths(run, i-fcHistory)
-	}
-	eligible := ""
-	if f.FirstBooked != "" {
-		eligible = f.FirstBooked[:7]
-		if f.FirstBooked[8:] != "01" {
-			eligible = fcAddMonths(eligible, 1)
-		}
-	}
 	booked := map[string]bool{}
 	for _, r := range rows {
 		if !r.Pending {
 			booked[r.Date[:7]] = true
 		}
 	}
-	var hist []string
+	hist := HistoryMonths(f.FirstBooked, booked, today)
 	isHist := map[string]bool{}
-	for _, m := range window {
-		if eligible != "" && m >= eligible && booked[m] {
-			hist = append(hist, m)
-			isHist[m] = true
-		}
+	for _, m := range hist {
+		isHist[m] = true
 	}
 
 	// Occurrences from the first history month (the running month without
@@ -363,7 +352,8 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 
 	// Amounts (rule 6): an average item counts the mean of its matched rows in
 	// the 6 complete months before the running month.
-	inWindow := func(d string) bool { return d >= window[0] && d < run }
+	windowStart := fcAddMonths(run, -fcHistory)
+	inWindow := func(d string) bool { return d >= windowStart && d < run }
 	for i, it := range f.Items {
 		if !it.Average {
 			continue
@@ -429,11 +419,41 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 			events = append(events, fcEvent{date: tomorrow, line: "pending", item: Item{Kind: "pending", Label: r.Name, Amount: r.Amount, ID: r.ID}})
 		}
 	}
+	spreadOn := map[string][]fcEvent{} // rule 6b: dayless items, per day after the variable item
 	for _, p := range f.Planned {
+		ev := fcEvent{date: max(p.Date, tomorrow), line: "planned", item: Item{Kind: "planned", Label: p.Description, Amount: p.Amount, ID: p.ID}}
+		if p.WholeMonth {
+			m := p.Date[:7]
+			if m < run || m > lastMonth {
+				continue
+			}
+			first, n := 1, fcDaysIn(m)
+			if m == run {
+				first = fcDate(today).Day() + 1
+			}
+			d := int64(n - first + 1)
+			if d <= 0 { // the running month's last day: the whole amount on tomorrow
+				events = append(events, ev)
+				continue
+			}
+			v := p.Amount / d
+			for k := first; k <= n; k++ {
+				part := v
+				if k == n {
+					part = p.Amount - v*(d-1)
+				}
+				if part != 0 {
+					e := ev
+					e.date, e.item.Amount = fcOn(m, k), part
+					spreadOn[e.date] = append(spreadOn[e.date], e)
+				}
+			}
+			continue
+		}
 		if p.Date < today || p.Date[:7] > lastMonth {
 			continue
 		}
-		events = append(events, fcEvent{date: max(p.Date, tomorrow), line: "planned", item: Item{Kind: "planned", Label: p.Description, Amount: p.Amount, ID: p.ID}})
+		events = append(events, ev)
 	}
 	slices.SortStableFunc(events, func(a, b fcEvent) int { return cmp.Compare(a.date, b.date) })
 	byDate := map[string][]fcEvent{}
@@ -483,31 +503,24 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 		}
 	}
 	plan := func(c int64, m string) (int64, string) {
-		var best *FactBudget
-		for i, b := range f.Budgets {
-			if b.Category == c && b.From <= m && (best == nil || b.From > best.From) {
-				best = &f.Budgets[i]
-			}
-		}
-		if best != nil && best.Amount != nil {
-			return *best.Amount, "budget"
+		if amount, ok := BudgetFor(f.Budgets, c, m); ok {
+			return amount, "budget"
 		}
 		return avg[c], "average"
 	}
 
 	// Balance (rule 1) and the real start of the running month (rule 2).
-	balance := f.Balance
-	var sinceStart int64
+	var bookedRows []DayAmount
 	for _, r := range rows {
-		if r.Pending {
-			continue
+		if !r.Pending {
+			bookedRows = append(bookedRows, DayAmount{Date: r.Date, Amount: r.Amount})
 		}
-		if r.Date > f.BalanceDate {
-			balance += r.Amount
-		}
-		if r.Date[:7] == run {
-			sinceStart += r.Amount
-		}
+	}
+	balance := BalanceOn(f.Balance, f.BalanceDate, bookedRows, today)
+	past := PastBalances(balance, bookedRows, run+"-01", today)
+	pastOn := map[string]int64{}
+	for _, p := range past[1:] {
+		pastOn[p.Date] = p.Balance
 	}
 	bookedOn := map[string][]fcRow{}
 	for _, r := range rows {
@@ -521,7 +534,7 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 	if out.Missed == nil {
 		out.Missed = []Missed{}
 	}
-	bal := balance - sinceStart
+	bal := past[0].Balance // the real end of last month (rule 2)
 	for _, m := range months {
 		mo := Month{Month: m, Start: bal}
 		n := fcDaysIn(m)
@@ -534,7 +547,7 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 		for _, c := range catList {
 			p, src := plan(c, m)
 			planTotal += p
-			b := Budget{CategoryID: c, Plan: p, Source: src, Rest: p}
+			b := Budget{CategoryID: c, Plan: p, Source: src, Rest: p, Average: avg[c]}
 			if m == run {
 				b.Spent = spent[c][run]
 				b.Rest = max(0, p-b.Spent)
@@ -564,7 +577,7 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 						label = f.Items[occs[r.match].item].Description
 					}
 					day.Items = append(day.Items, Item{Kind: "booked", Label: label, Amount: r.Amount, ID: r.ID})
-					bal += r.Amount
+					bal = pastOn[date] // rule 2
 					saved := r.match >= 0 && f.Items[occs[r.match].item].Kind == "saving"
 					for _, p := range r.Parts {
 						switch {
@@ -578,7 +591,7 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 					}
 				}
 			} else {
-				for _, ev := range byDate[date] {
+				expect := func(ev fcEvent) {
 					day.Items = append(day.Items, ev.item)
 					bal += ev.item.Amount
 					sums[ev.line] += ev.item.Amount
@@ -592,6 +605,9 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 						mo.Out -= ev.item.Amount
 					}
 				}
+				for _, ev := range byDate[date] {
+					expect(ev)
+				}
 				if varTotal > 0 && d >= first {
 					v := varTotal / int64(spreadDays)
 					if d == n {
@@ -603,6 +619,9 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 						mo.Out += v
 						sums["variable"] -= v
 					}
+				}
+				for _, ev := range spreadOn[date] {
+					expect(ev)
 				}
 			}
 			day.Items = append(day.Items, missedOn[date]...)

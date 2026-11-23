@@ -1,11 +1,11 @@
 /* Overzicht screen (phase 0.7-3), ported class by class from finance-mockup/css/screens/overzicht.css.
    Design boards: Telefoon-Overzicht, Desktop-Overzicht. Spec: analysis/screens/overzicht.md.
-   The bar colours --ov-inc/--ov-exp/--ov-sav live in styles/tokens.css. The pickers (account filter, custom range,
-   phase 0.7-4) are in "Pickers" below. */
+   The bar colours --ov-inc/--ov-sav/--ov-small live in styles/tokens.css (the Uitgaven blue is gone: Uit is stacked, 0.8.1-3).
+   The pickers (account filter, custom range, phase 0.7-4) are in "Pickers" below. */
 
 .ov-key--inc { background: var(--ov-inc); }
-.ov-key--exp { background: var(--ov-exp); }
-.ov-key--sav { background: var(--ov-sav); }
+/* The legend key of the stacked Uit bar: Gespaard on top of two category colours */
+.ov-key--uit { background: linear-gradient(to bottom, var(--ov-sav) 0 34%, var(--c1) 34% 67%, var(--c2) 67%); }
 
 /* ---------- Header: title, scope switch, period picker ---------- */
 
@@ -73,7 +73,7 @@
 .ov-chart--xs { gap: 2px; --bar-w: 5px; }
 .ov-chart--xs .ov-bars { gap: 2px; }
 /* The running month is lighter: it is not complete yet */
-.ov-col--running .ov-bar { opacity: 0.5; }
+.ov-col--running .ov-bar, .ov-col--running .ov-stack { opacity: 0.5; }
 .ov-col {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px;
@@ -84,7 +84,7 @@
   color: var(--text);
   transition: background 200ms ease;
 }
-.ov-col[aria-pressed="true"] { background: var(--soft); }
+.ov-col[aria-pressed="true"] { background: var(--soft); --ov-gap: var(--soft); }
 .ov-bars { display: flex; align-items: flex-end; gap: 3px; height: 134px; }
 .ov-bar {
   width: var(--bar-w);
@@ -96,6 +96,26 @@
 }
 .ov-col-label { font-size: 12px; font-weight: 500; color: var(--muted); }
 .ov-col[aria-pressed="true"] .ov-col-label { font-weight: 700; color: var(--greenText); }
+
+/* Uit: one bar that is a stack of pieces (plan 0.8.1-3). A piece's share is its flex-grow (its amount), so the pieces
+   always fill the bar; the first piece is at the bottom, Gespaard on top. The bar grows as one (sGrowY). */
+.ov-stack {
+  width: var(--bar-w);
+  height: max(2px, calc(var(--h) * var(--bar-max)));
+  display: flex; flex-direction: column-reverse;
+  border-radius: 4px 4px 1px 1px;
+  overflow: hidden;
+  transform-origin: bottom;
+  animation: sGrowY 520ms var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+.ov-stack:empty { background: var(--lineStrong); }
+/* A 1 px line in the column's own background between the pieces (the pastel colours sit close together): a piece's shadow falls on the one below it */
+.ov-seg { flex: 1 1 0; min-height: 1px; box-shadow: 0 1px 0 var(--ov-gap, var(--surface)); }
+/* The legend of the selected column's pieces, under the chart */
+.ov-stack-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); }
+.ov-stack-legend li { display: flex; align-items: center; gap: 4px; }
+.ov-stack-legend i { width: 8px; height: 8px; border-radius: 2px; flex: none; display: inline-block; }
 
 .ov-skel { height: 172px; display: flex; align-items: flex-end; gap: 12px; }
 .ov-skel span {
@@ -118,10 +138,12 @@
   .ov-chart--l { --bar-w: 40px; }
   .ov-chart--xs { gap: 3px; --bar-w: 8px; }
   .ov-col { gap: 10px; padding: 10px 0 8px; border-radius: 14px; }
-  .ov-col:not([aria-pressed="true"]):hover { background: var(--bg); }
+  .ov-col:not([aria-pressed="true"]):hover { background: var(--bg); --ov-gap: var(--bg); }
   .ov-bars { gap: 4px; height: 250px; }
   .ov-chart--xs .ov-bars { gap: 3px; }
-  .ov-bar { border-radius: 5px 5px 1px 1px; animation-duration: 560ms; }
+  .ov-bar, .ov-stack { border-radius: 5px 5px 1px 1px; animation-duration: 560ms; }
+  .ov-stack-legend { gap: 5px 14px; margin-top: 8px; font-size: 13px; }
+  .ov-stack-legend i { width: 10px; height: 10px; border-radius: 3px; }
   .ov-col-label { font-size: 13px; }
   .ov-skel { height: 300px; gap: 18px; padding: 0 12px; }
   .ov-skel span { height: var(--hd); border-radius: 10px 10px 0 0; }
@@ -145,11 +167,16 @@
 }
 .ov-sum-label { font-size: 12px; color: var(--muted); }
 .ov-sum-value { font-size: 14px; font-weight: 500; white-space: nowrap; }
+/* "Samen uit € x · over € y" under the tiles; a shortfall in --neg */
+.ov-out { padding: 0 4px; font-size: 13px; color: var(--muted); }
+.ov-out .mono { font-weight: 500; color: var(--text); }
+.ov-out .ov-out--neg { color: var(--neg); }
 @media (min-width: 1024px) {
   .ov-sums { gap: 12px; }
   .ov-sum { border-radius: 16px; padding: 14px 16px; }
   .ov-sum-label { font-size: 13px; }
   .ov-sum-value { font-size: 20px; }
+  .ov-out { font-size: 14px; }
 }
 
 /* ---------- Per categorie ---------- */
@@ -170,7 +197,7 @@
   color: var(--text);
   text-decoration: none;
 }
-.ov-cat + .ov-cat { border-top: 1px solid var(--line); }
+.ov-cat-item + .ov-cat-item { border-top: 1px solid var(--line); }
 .ov-cat-line { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .ov-cat-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .ov-cat-name { flex: 1; min-width: 0; font-weight: 500; }
@@ -394,3 +421,51 @@
 .ov-blad-cats .section-title { padding-bottom: 2px; }
 .ov-blad-cats .ov-cat { width: auto; margin: 0; padding: 12px 0; border-radius: 0; background: none; }
 .ov-blad .btn { flex: none; }
+
+/* ---------- Rows against budget, subcategories, breakdown sheets (plan 0.8.1-4) ---------- */
+
+/* A category row is a wrapper: the row's own button (it opens the row's sheet) and, beside it, the chevron of its subcategories.
+   The line keeps a gutter for the chevron, so the amounts line up with or without one. */
+.ov-cat-item { position: relative; }
+.ov-cat-item .ov-cat-line { padding-right: 28px; }
+.ov-cat-ref { display: block; font-size: 12px; line-height: 1.35; color: var(--muted); }
+.ov-cat-over { color: var(--neg); font-weight: 600; }
+.ov-cat-fill--over { background: var(--neg); }
+.ov-cat-foot { padding: 0 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.ov-chev {
+  position: absolute; top: 0; right: -8px;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 50%;
+  background: transparent; color: var(--muted);
+}
+.ov-chev svg { transition: transform 200ms var(--ease-out); }
+.ov-chev[aria-expanded="true"] svg { transform: rotate(180deg); }
+/* The subcategories, indented under their row; each is a link to its transactions */
+.ov-subs { list-style: none; margin: -4px 0 8px; padding: 0 0 0 18px; display: flex; flex-direction: column; }
+.ov-sub { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 28px 4px 0; border-radius: 10px; font-size: 13px; color: var(--text); text-decoration: none; }
+.ov-sub-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.ov-sub-name { flex: 1; min-width: 0; color: var(--muted); }
+.ov-sub-amount { font-weight: 500; white-space: nowrap; }
+
+/* The Inkomen, Uitgaven and Gespaard sheets: one row per category with its amount, a dropdown per subcategory */
+.ov-blad-ico--in { background: var(--soft); color: var(--greenText); }
+.ov-blad-ico--out { background: var(--track); color: var(--text); }
+.ov-bd-list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 2px 16px; }
+.ov-bd-item { position: relative; }
+.ov-bd-item + .ov-bd-item { border-top: 1px solid var(--line); }
+.ov-bd-item .ov-chev { top: 4px; }
+.ov-bd-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 28px 8px 0; border-radius: 10px; color: var(--text); text-decoration: none; font-size: 15px; }
+.ov-bd-ico { width: 32px; height: 32px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--onPastel); }
+.ov-bd-dot { margin: 0 11px; }
+.ov-bd-name { flex: 1; min-width: 0; font-weight: 500; }
+.ov-bd-amount { font-weight: 500; white-space: nowrap; }
+
+@media (min-width: 1024px) {
+  .ov-cats .ov-cat-item { margin: 0 -10px; padding: 0 10px; }
+  .ov-cats .ov-chev { right: 2px; }
+  .ov-cat-ref { font-size: 13px; }
+  .ov-cat-foot { padding: 6px 0 0; font-size: 13px; }
+  .ov-chev:hover { background: var(--bg); }
+  .ov-sub:hover, .ov-bd-row:hover { background: var(--bg); }
+}

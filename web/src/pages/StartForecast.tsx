@@ -7,12 +7,13 @@ import { delay, Skel } from '../components/ui';
 import { accColour } from '../lib/accounts';
 import { api } from '../lib/api';
 import { eur0 } from '../lib/format';
-import { chartLabel, chartScale, monthLabel, resultLabel, type PlanAccount, type PlanState } from '../lib/planning';
+import { chartLabel, chartScale, monthLabel, type PlanAccount, type PlanState } from '../lib/planning';
+import { monthResult, resultText } from '../lib/planningMonths';
 import type { Account } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
-/** The colour of the result under a bar: left over, in the buffer, red. */
-const RESULT: Record<PlanState, string> = { ok: 'var(--greenText)', buffer: 'var(--warn)', red: 'var(--neg)' };
+/** The buffer state of a month by its bar: above the buffer keeps the account's own colour, in the buffer is `--warn`, red is `--neg`. */
+const barColour = (state: PlanState, own: string) => (state === 'ok' ? own : state === 'buffer' ? 'var(--warn)' : 'var(--neg)');
 
 /** One account's bars; positive bars in its own colour, negative ones in `--neg` below the zero line. `running`: the running month (`YYYY-MM`). */
 function Chart({ a, p, height, running, index }: { a: Account; p: PlanAccount; height: number; running: string; index: number }) {
@@ -33,7 +34,7 @@ function Chart({ a, p, height, running, index }: { a: Account; p: PlanAccount; h
         {p.months.map((m, i) => (
           <span className="fc-col" key={m.month} style={{ height }}>
             <span className="fc-pos" style={{ height: zero }}>
-              {m.end > 0 && <span className="fc-bar" style={{ height: px(m.end), background: colour, ...delay(120 + index * 80 + i * 50) }} />}
+              {m.end > 0 && <span className="fc-bar" style={{ height: px(m.end), background: barColour(m.state, colour), ...delay(120 + index * 80 + i * 50) }} />}
             </span>
             <span className="fc-neg" style={{ height: height - zero }}>
               {m.end < 0 && <span className="fc-bar fc-bar--neg" style={{ height: px(m.end), ...delay(120 + index * 80 + i * 50) }} />}
@@ -44,17 +45,20 @@ function Chart({ a, p, height, running, index }: { a: Account; p: PlanAccount; h
         <span className="fc-bufline" style={{ top: zero - px(p.buffer) }} />
       </span>
       <span className="fc-labels">
-        {p.months.map((m) => (
-          <span key={m.month}>
-            <span className="fc-month">{monthLabel(m.month, m.month === running)}</span>
-            <span className="fc-end" style={m.end < 0 ? { color: 'var(--neg)' } : undefined}>
-              {eur0(m.end)}
+        {p.months.map((m) => {
+          const result = monthResult(m);
+          // Whole euros: a result under 50 cents reads "€ 0" and is muted, not green or red.
+          const tone = Math.round(result.cents / 100) === 0 ? 'flat' : result.tone;
+          return (
+            <span key={m.month}>
+              <span className="fc-month">{monthLabel(m.month, m.month === running)}</span>
+              <span className="fc-end" style={m.end < 0 ? { color: 'var(--neg)' } : undefined}>
+                {eur0(m.end)}
+              </span>
+              <span className={'fc-res fc-res--' + tone}>{resultText(result.cents, true)}</span>
             </span>
-            <span className="fc-res" style={{ color: RESULT[m.state] }}>
-              {resultLabel(m)}
-            </span>
-          </span>
-        ))}
+          );
+        })}
       </span>
     </span>
   );

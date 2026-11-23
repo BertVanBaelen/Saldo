@@ -1,8 +1,10 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
@@ -406,4 +408,396 @@ func TestContributionsResetOnMembershipChange(t *testing.T) {
 		}
 		after(t, p, "4:1 4:2")
 	})
+}
+
+// Contributors without Saldo (0.8.1-7) on the demo pair: account 4 is the
+// shared account Bert manages; its November need is 87118 (0.8-3); Partner's
+// account 5 (IBAN BE71000000005038) pays 45000 into it every month.
+
+const (
+	contributorsPath = "/api/accounts/4/contributors"
+	mamaIBAN         = "BE68539007547034" // valid checksum, no account in the demo pair
+	msgIBANInUse     = "Deze IBAN kan je hier niet gebruiken."
+)
+
+// addContributor posts a contributor as h and returns its id (the newest).
+func (p *pair) addContributor(h func(string, string, string) response, path, body string) int64 {
+	p.t.Helper()
+	r := h("POST", path, body)
+	if r.status != http.StatusCreated {
+		p.t.Fatalf("add contributor %s: %d %s", body, r.status, r.body)
+	}
+	c := decode[ledger.Contributions](p.t, r.body).Contributors
+	return c[len(c)-1].ID
+}
+
+// parts is "name share required" of every member, then "name share required
+// received covered" of every contributor.
+func parts(c ledger.Contributions) string {
+	out := ""
+	for _, m := range c.Members {
+		out += fmt.Sprintf("%s %v %v; ", m.Name, deref(m.Share), deref(m.Required))
+	}
+	for _, x := range c.Contributors {
+		out += fmt.Sprintf("%s %v %v %d %v; ", x.Name, deref(x.Share), deref(x.Required), x.Received, deref(x.Covered))
+	}
+	return out
+}
+
+func deref[T any](v *T) any {
+	if v == nil {
+		return nil
+	}
+	return *v
+}
+
+// planParties is the running month's contribution of an account in GET
+// /api/planning as raw objects (to see which keys are there).
+func (p *pair) planParties(h func(string, string, string) response, account int64) []map[string]any {
+	p.t.Helper()
+	a := decode[struct {
+		Accounts []struct {
+			ID     int64
+			Months []struct {
+				Contribution *struct{ Members []map[string]any }
+			}
+		}
+	}](p.t, h("GET", "/api/planning?scope=gedeeld", "").body)
+	for _, x := range a.Accounts {
+		if x.ID == account && x.Months[0].Contribution != nil {
+			return x.Months[0].Contribution.Members
+		}
+	}
+	p.t.Fatalf("no contribution for account %d", account)
+	return nil
+}
+
+func TestContributorsNeedSplitAndRecognition(t *testing.T) {
+	p := newPair(t)
+	mama := p.addContributor(p.bert, contributorsPath, `{"name": " Mama ", "iban": "be68 5390 0754 7034"}`)
+	// Adding resets every share (the seeded 50/50) to equal: ⌈871,18 / 3⌉ = 291 each.
+	if n := p.count(`SELECT COUNT(*) FROM account_access WHERE account_id = 4 AND contribution_share IS NOT NULL`); n != 0 {
+		t.Errorf("%d shares kept", n)
+	}
+	if got := parts(p.contributions(p.bert, "2026-11")); got != "Bert <nil> 29100; Partner <nil> 29100; Mama <nil> 29100 0 false; " {
+		t.Errorf("equal: %s", got)
+	}
+	c := "c" + strconv.FormatInt(mama, 10)
+	if r := p.bert("PUT", sharesPath, `{"shares": {"1": 40, "2": 40, "`+c+`": 20}}`); r.status != http.StatusOK {
+		t.Fatalf("shares: %d %s", r.status, r.body)
+	}
+	if got := parts(p.contributions(p.bert, "2026-11")); got != "Bert 40 34900; Partner 40 34900; Mama 20 17500 0 false; " {
+		t.Errorf("40/40/20: %s", got)
+	}
+	// Planning: the contributor after the members, with contributorId and no userId.
+	got := p.planParties(p.partner, 4)
+	if len(got) != 3 || got[2]["name"] != "Mama" || got[2]["contributorId"] != float64(mama) || got[2]["userId"] != nil ||
+		got[2]["me"] != false || got[2]["share"] != float64(20) || got[2]["required"] != float64(17500) || got[0]["contributorId"] != nil {
+		t.Errorf("planning: %v", got)
+	}
+	// Share keys: every member and contributor exactly once.
+	before := p.snapshot()
+	for _, body := range []string{`{"shares": {"1": 50, "2": 50}}`, `{"shares": {"1": 50, "2": 30, "c999": 20}}`, `{"shares": {"1": 50, "2": 30, "C` + c[1:] + `": 20}}`} {
+		if msg := expectError(t, p.bert("PUT", sharesPath, body), http.StatusBadRequest, "invalid"); msg != "Geef elk lid precies één aandeel." {
+			t.Errorf("%s: %q", body, msg)
+		}
+	}
+	if p.snapshot() != before {
+		t.Error("a refused share wrote")
+	}
+
+	// Recognition: +30000 from Mama's IBAN on 5 November; only this account's
+	// booked incoming rows count.
+	p.bert("PUT", sharesPath, `{"shares": null}`)
+	row := p.incoming(4, mamaIBAN, 30000, "2026-11-05", "booked")
+	p.incoming(1, mamaIBAN, 5000, "2026-11-06", "booked")
+	p.incoming(4, mamaIBAN, 7000, "2026-11-07", "pending")
+	// The bank's balance includes the payment (else the engine, reconstructing
+	// backwards from the newest balance, sees a lower month start and a need 30000 higher).
+	p.exec(`UPDATE balance_snapshots SET balance = balance + 30000 WHERE account_id = 4`)
+	m := p.contributions(p.partner, "2026-11")
+	if got := parts(m); deref(m.Need) != int64(87200) || got != "Bert <nil> 29100; Partner <nil> 29100; Mama <nil> 29100 30000 true; " || !m.Contributors[0].Confirmed {
+		t.Errorf("with Mama's payment: need %v, %s", deref(m.Need), got)
+	}
+	labelled := false
+	for _, x := range decode[ledger.Page](t, p.partner("GET", "/api/transactions?limit=200&account=4", "").body).Items {
+		if x.ID == row {
+			labelled = true
+			equalJSON(t, jsonBody(x.Contribution), `{"name": "Mama", "me": false, "contributorId": `+strconv.FormatInt(mama, 10)+`}`)
+		}
+	}
+	if !labelled {
+		t.Error("Mama's row not listed")
+	}
+	// Removing resets the shares again and the 50/50 answer is 0.8's.
+	p.bert("PUT", sharesPath, `{"shares": {"1": 50, "2": 25, "`+c+`": 25}}`)
+	if r := p.bert("DELETE", contributorsPath+"/"+strconv.FormatInt(mama, 10), ""); r.status != http.StatusOK {
+		t.Fatalf("delete: %d %s", r.status, r.body)
+	}
+	if n := p.count(`SELECT COUNT(*) FROM account_access WHERE contribution_share IS NOT NULL`); n != 0 {
+		t.Errorf("%d shares kept after delete", n)
+	}
+	p.bert("PUT", sharesPath, `{"shares": {"1": 50, "2": 50}}`)
+	if got := parts(p.contributions(p.bert, "2026-11")); got != "Bert 50 43600; Partner 50 43600; " {
+		t.Errorf("50/50: %s", got)
+	}
+}
+
+func TestContributorsIBANRulesAndVisibility(t *testing.T) {
+	p := newPair(t)
+	// An IBAN already a member's sender here: one generic text.
+	claimed := p.incoming(4, mamaIBAN, 100, "2026-11-03", "booked")
+	p.claim(p.partner, `{"transactionId": `+strconv.FormatInt(claimed, 10)+`}`)
+	elsewhere := strconv.FormatInt(p.incoming(1, outsideIBAN, 700, "2026-11-10", "booked"), 10)
+	outgoing := strconv.FormatInt(p.incoming(4, outsideIBAN, -700, "2026-11-10", "booked"), 10)
+	for _, c := range []struct {
+		body   string
+		status int
+		code   string
+		msg    string
+	}{
+		{`{"name": "Mama", "iban": "` + mamaIBAN + `"}`, http.StatusConflict, "conflict", msgIBANInUse},
+		{`{"name": "Mama", "iban": "BE68539007547035"}`, http.StatusBadRequest, "invalid", "Dit lijkt geen geldig IBAN. Kijk het na."},
+		{`{"name": "", "iban": "BE62510007547061"}`, http.StatusBadRequest, "invalid", "Geef een naam van 1 tot 60 tekens."},
+		{`{"name": "Mama"}`, http.StatusBadRequest, "invalid", "Geef een IBAN of een ontvangen betaling."},
+		{`{"name": "Mama", "iban": "BE62510007547061", "share": 20}`, http.StatusBadRequest, "invalid", "De gegevens kloppen niet."},
+		{`{"name": "Mama", "iban": "BE62510007547061", "transactionId": 1}`, http.StatusBadRequest, "invalid", "Geef een IBAN of een ontvangen betaling."},
+		// Prefill: a row of another account, an outgoing row: ClaimSender's refusal.
+		{`{"name": "Mama", "transactionId": ` + elsewhere + `}`, http.StatusBadRequest, "invalid", msgNotSender},
+		{`{"name": "Mama", "transactionId": ` + outgoing + `}`, http.StatusBadRequest, "invalid", msgNotSender},
+	} {
+		before := p.snapshot()
+		if msg := expectError(t, p.bert("POST", contributorsPath, c.body), c.status, c.code); msg != c.msg {
+			t.Errorf("%s: %q", c.body, msg)
+		}
+		if p.snapshot() != before {
+			t.Errorf("%s wrote", c.body)
+		}
+	}
+	// The same IBAN on another shared account is fine (Bert's account 2, flagged).
+	if r := p.bert("PATCH", "/api/accounts/2", `{"shared": true}`); r.status != http.StatusOK {
+		t.Fatalf("flag: %d %s", r.status, r.body)
+	}
+	p.addContributor(p.bert, "/api/accounts/2/contributors", `{"name": "Mama", "iban": "`+mamaIBAN+`"}`)
+	// Who: read-only 403, personal 400, hidden 404.
+	p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+	expectError(t, p.partner("POST", contributorsPath, `{"name": "Oma", "iban": "BE62510007547061"}`), http.StatusForbidden, "forbidden")
+	p.exec(`UPDATE account_access SET permission = 'edit' WHERE account_id = 4 AND user_id = 2`)
+	if msg := expectError(t, p.bert("POST", "/api/accounts/1/contributors", `{"name": "Oma", "iban": "BE62510007547061"}`), http.StatusBadRequest, "invalid"); msg != "Een persoonlijke rekening heeft geen bijdragen." {
+		t.Errorf("personal: %q", msg)
+	}
+	expectError(t, p.partner("POST", "/api/accounts/2/contributors", `{"name": "Oma", "iban": "BE62510007547061"}`), http.StatusNotFound, "not_found")
+
+	// Visibility: Partner adds Oma (an IBAN of an account in Saldo is accepted),
+	// Bert adds Opa from a received payment. The creator and the manager see the
+	// IBAN masked, a third member neither; no answer holds a full IBAN.
+	p.addContributor(p.partner, contributorsPath, `{"name": "Oma", "iban": "BE62510007547061"}`)
+	opaRow := p.incoming(4, "BE09000000000303", 2500, "2026-11-12", "booked")
+	p.addContributor(p.bert, contributorsPath, `{"name": "Opa", "transactionId": `+strconv.FormatInt(opaRow, 10)+`}`)
+	third := p.third("user", "edit")
+	ibans := func(h func(string, string, string) response) string {
+		r := h("GET", contribPath, "")
+		for _, full := range []string{"BE62510007547061", "BE09000000000303", mamaIBAN} {
+			if strings.Contains(r.body, full) {
+				t.Errorf("a full IBAN in %s", r.body)
+			}
+		}
+		out := ""
+		for _, x := range decode[ledger.Contributions](t, r.body).Contributors {
+			out += x.Name + "=" + x.IBAN + " "
+		}
+		return out
+	}
+	for who, c := range map[string]struct {
+		h    func(string, string, string) response
+		want string
+	}{
+		"manager": {p.bert, "Oma=BE62 •••• •••• 7061 Opa=BE09 •••• •••• 0303 "},
+		"creator": {p.partner, "Oma=BE62 •••• •••• 7061 Opa= "},
+		"member":  {func(m, path, b string) response { return do(t, third, m, path, b) }, "Oma= Opa= "},
+	} {
+		if got := ibans(c.h); got != c.want {
+			t.Errorf("%s sees %s", who, got)
+		}
+	}
+	// Renaming and re-pointing: one IBAN per contributor, the same 409.
+	oma := decode[ledger.Contributions](t, p.bert("GET", contribPath, "").body).Contributors[0].ID
+	omaPath := contributorsPath + "/" + strconv.FormatInt(oma, 10)
+	if msg := expectError(t, p.partner("PATCH", omaPath, `{"iban": "`+mamaIBAN+`"}`), http.StatusConflict, "conflict"); msg != msgIBANInUse {
+		t.Errorf("re-point to a sender: %q", msg)
+	}
+	if r := p.partner("PATCH", omaPath, `{"name": "Oma Jet"}`); r.status != http.StatusOK || p.text(`SELECT name FROM contributors WHERE id = ?`, oma) != "Oma Jet" {
+		t.Errorf("rename: %d %s", r.status, r.body)
+	}
+	for _, path := range []string{contributorsPath + "/999", "/api/accounts/2/contributors/" + strconv.FormatInt(oma, 10), contributorsPath + "/abc"} {
+		if msg := expectError(t, p.bert("PATCH", path, `{"name": "X"}`), http.StatusNotFound, "not_found"); msg != "Bijdrager niet gevonden." {
+			t.Errorf("%s: %q", path, msg)
+		}
+	}
+}
+
+func TestContributorsMemberWinsAndLinking(t *testing.T) {
+	audit := func(p *pair) string {
+		return p.text(`SELECT group_concat(event || ' ' || detail, '; ') FROM audit_log WHERE event LIKE 'contributor%'`)
+	}
+	t.Run("member wins", func(t *testing.T) {
+		p := newPair(t)
+		// Bert names Partner's own account's IBAN "Mama" from a received payment.
+		partnerRow := p.count(`SELECT id FROM transactions WHERE account_id = 4 AND counterparty_iban = 'BE71000000005038' AND booking_date >= '2026-11-01'`)
+		mama := p.addContributor(p.bert, contributorsPath, `{"name": "Mama", "transactionId": `+strconv.Itoa(partnerRow)+`}`)
+		if got := p.contributions(p.bert, "2026-11").Contributors[0]; got.Received != 45000 || got.IBAN != "BE71 •••• •••• 5038" {
+			t.Errorf("Mama on Partner's IBAN: %+v", got) // only this account's rows count
+		}
+		// A received payment never replaces a contributor: 409, the generic text.
+		outside := p.incoming(4, outsideIBAN, 900, "2026-11-10", "booked")
+		buur := p.addContributor(p.bert, contributorsPath, `{"name": "Buur", "transactionId": `+strconv.FormatInt(outside, 10)+`}`)
+		snap := p.snapshot()
+		if msg := expectError(t, p.bert("POST", sendersPath, `{"transactionId": `+strconv.FormatInt(outside, 10)+`}`), http.StatusConflict, "conflict"); msg != msgIBANInUse {
+			t.Errorf("transaction claim: %q", msg)
+		}
+		if p.snapshot() != snap {
+			t.Error("the refused claim wrote")
+		}
+		// Partner proves it as her own account: her sender, Mama gone, shares equal.
+		p.bert("PUT", sharesPath, fmt.Sprintf(`{"shares": {"1": 40, "2": 30, "c%d": 15, "c%d": 15}}`, mama, buur))
+		if got := p.claim(p.partner, `{"fromAccountId": 5}`); got.IBAN != "BE71 •••• •••• 5038" {
+			t.Errorf("claim: %+v", got)
+		}
+		c := p.contributions(p.bert, "2026-11")
+		if len(c.Contributors) != 1 || c.Contributors[0].Name != "Buur" || c.Members[1].Received != 45000 {
+			t.Errorf("after the claim: %s", parts(c))
+		}
+		if n := p.count(`SELECT (SELECT COUNT(*) FROM account_access WHERE contribution_share IS NOT NULL) + (SELECT COUNT(*) FROM contributors WHERE share IS NOT NULL)`); n != 0 {
+			t.Errorf("%d shares kept", n)
+		}
+		if got := audit(p); got != "contributor_replaced account=4 contributor="+strconv.FormatInt(mama, 10) {
+			t.Errorf("audit: %q", got)
+		}
+	})
+	setup := func(t *testing.T) (*pair, int64, string) {
+		p := newPair(t)
+		mama := p.addContributor(p.bert, contributorsPath, `{"name": "Mama", "iban": "`+mamaIBAN+`"}`)
+		return p, mama, contributorsPath + "/" + strconv.FormatInt(mama, 10)
+	}
+	t.Run("offer", func(t *testing.T) {
+		p, _, path := setup(t)
+		snap := p.snapshot()
+		expectError(t, p.partner("PUT", path+"/link", `{"userId": 2}`), http.StatusForbidden, "forbidden")
+		for _, user := range []string{"3", "999", "0"} { // not a member, nobody: one answer
+			if msg := expectError(t, p.bert("PUT", path+"/link", `{"userId": `+user+`}`), http.StatusBadRequest, "invalid"); msg != "Kies een lid van deze rekening." {
+				t.Errorf("user %s: %q", user, msg)
+			}
+		}
+		expectError(t, p.partner("POST", path+"/link-answer", `{"yes": true}`), http.StatusNotFound, "not_found") // nothing offered
+			// A read-only member could never answer (answering needs edit): the same refusal, nothing written.
+			p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+			snap = p.snapshot()
+			if msg := expectError(t, p.bert("PUT", path+"/link", `{"userId": 2}`), http.StatusBadRequest, "invalid"); msg != "Kies een lid van deze rekening." {
+				t.Errorf("read-only member: %q", msg)
+			}
+		if p.snapshot() != snap {
+			t.Error("a refused call wrote")
+		}
+	})
+	for _, yes := range []bool{true, false} {
+		t.Run(fmt.Sprintf("answer %v", yes), func(t *testing.T) {
+			p, mama, path := setup(t)
+			p.bert("PUT", sharesPath, fmt.Sprintf(`{"shares": {"1": 40, "2": 40, "c%d": 20}}`, mama))
+			if yes { // re-pointing the IBAN withdraws an offer: she said yes to what she saw
+				p.bert("PUT", path+"/link", `{"userId": 2}`)
+				p.bert("PATCH", path, `{"iban": "BE62510007547061"}`)
+				expectError(t, p.partner("POST", path+"/link-answer", `{"yes": true}`), http.StatusNotFound, "not_found")
+				p.bert("PATCH", path, `{"iban": "`+mamaIBAN+`"}`)
+			}
+			third := p.third("user", "edit")
+			if r := p.bert("PUT", path+"/link", `{"userId": 2}`); r.status != http.StatusOK {
+				t.Fatalf("offer: %d %s", r.status, r.body)
+			}
+			// Only Partner sees the offer; the manager sees whom he asked.
+			equalJSON(t, jsonBody(p.contributions(p.partner, "").LinkOffers), `[{"contributorId": `+strconv.FormatInt(mama, 10)+`, "name": "Mama", "iban": "BE68 •••• •••• 7034"}]`)
+			if b := p.contributions(p.bert, ""); b.LinkOffers != nil || b.Contributors[0].LinkUserID == nil || *b.Contributors[0].LinkUserID != 2 {
+				t.Errorf("Bert: %+v", b)
+			}
+			if r := do(t, third, "GET", contribPath, ""); strings.Contains(r.body, "linkOffers") || strings.Contains(r.body, "linkUserId") || strings.Contains(r.body, "7034") {
+				t.Errorf("Derde: %s", r.body)
+			}
+			if msg := expectError(t, p.bert("POST", path+"/link-answer", `{"yes": true}`), http.StatusNotFound, "not_found"); msg != "Bijdrager niet gevonden." {
+				t.Errorf("Bert answers Partner's offer: %q", msg)
+			}
+			r := p.partner("POST", path+"/link-answer", fmt.Sprintf(`{"yes": %v}`, yes))
+			if r.status != http.StatusOK {
+				t.Fatalf("answer: %d %s", r.status, r.body)
+			}
+			c := decode[ledger.Contributions](t, r.body)
+			if yes {
+				if len(c.Contributors) != 0 || len(c.MySenders) != 1 || c.MySenders[0].IBAN != "BE68 •••• •••• 7034" || c.LinkOffers != nil {
+					t.Errorf("after Ja: %+v", c)
+				}
+				if n := p.count(`SELECT COUNT(*) FROM account_access WHERE contribution_share IS NOT NULL`); n != 0 {
+					t.Errorf("%d shares kept after Ja", n)
+				}
+				if got := audit(p); got != fmt.Sprintf("contributor_linked account=4 contributor=%d user=2", mama) {
+					t.Errorf("audit: %q", got)
+				}
+				return
+			}
+			if len(c.Contributors) != 1 || c.LinkOffers != nil || len(c.MySenders) != 0 || p.count(`SELECT COUNT(*) FROM contributors WHERE link_user IS NOT NULL`) != 0 {
+				t.Errorf("after Nee: %+v", c)
+			}
+			if audit(p) != "" {
+				t.Error("Nee audited")
+			}
+		})
+	}
+}
+
+func TestContributorsOneMemberUnflagAndDetection(t *testing.T) {
+	p := newPair(t)
+	// A flagged account of Bert alone, with Mama 50/50.
+	pot := decode[ledger.Account](t, p.bert("POST", "/api/accounts", `{"name": "Vakantiepot", "type": "current", "colour": "teal", "balance": 120000}`).body).ID
+	potPath := "/api/accounts/" + strconv.FormatInt(pot, 10)
+	if r := p.bert("PATCH", potPath, `{"shared": true}`); r.status != http.StatusOK {
+		t.Fatalf("flag: %d %s", r.status, r.body)
+	}
+	mama := p.addContributor(p.bert, potPath+"/contributors", `{"name": "Mama", "iban": "`+mamaIBAN+`"}`)
+	if r := p.bert("PUT", potPath+"/contribution-shares", `{"shares": {"1": 50, "c`+strconv.FormatInt(mama, 10)+`": 50}}`); r.status != http.StatusOK {
+		t.Fatalf("shares: %d %s", r.status, r.body)
+	}
+	c := decode[ledger.Contributions](t, p.bert("GET", potPath+"/contributions", "").body)
+	if len(c.Members) != 1 || len(c.Contributors) != 1 || deref(c.Contributors[0].Share) != 50 {
+		t.Errorf("contributions: %s", parts(c))
+	}
+	if got := p.planParties(p.bert, pot); len(got) != 2 || got[0]["userId"] != float64(1) || got[1]["contributorId"] != float64(mama) {
+		t.Errorf("planning: %v", got)
+	}
+	// Unflag is refused while contributors exist.
+	if msg := expectError(t, p.bert("PATCH", potPath, `{"shared": false}`), http.StatusBadRequest, "invalid"); msg != "Verwijder eerst de bijdragers." {
+		t.Errorf("unflag: %q", msg)
+	}
+
+	// Detection: Mama's monthly transfer to account 4 is a contribution once
+	// she is a contributor there.
+	for _, d := range []string{"2026-08-07", "2026-09-07", "2026-10-07", "2026-11-07"} {
+		p.incoming(4, "BE62510007547061", 12300, d, "booked")
+	}
+	kind := func() string {
+		for _, s := range decode[struct {
+			Suggestions []struct {
+				AccountID, Amount int64
+				Kind              string
+			}
+		}](t, p.bert("GET", "/api/planning/suggestions?scope=gedeeld", "").body).Suggestions {
+			if s.AccountID == 4 && s.Amount == 12300 {
+				return s.Kind
+			}
+		}
+		return "none"
+	}
+	if got := kind(); got != "income" { // counted as other income and as her part: twice
+		t.Errorf("detection before: %s", got)
+	}
+	p.addContributor(p.partner, contributorsPath, `{"name": "Mama", "iban": "BE62510007547061"}`)
+	if got := kind(); got != "contribution" {
+		t.Errorf("detection: %s", got)
+	}
 }

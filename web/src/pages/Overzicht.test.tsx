@@ -5,8 +5,8 @@ import { AppRoutes } from '../App';
 import { AppProvider, useApp } from '../app/AppContext';
 import { ApiError } from '../lib/api';
 import { drillQuery } from '../lib/drilldown';
-import type { ReportMonth, ReportMonths, ReportQuery } from '../lib/types';
-import { ME, renderAt, SPAAR, stubApi, TRANSACTIONS, ZICHT } from '../test/helpers';
+import type { ReportBudgets, ReportMonth, ReportMonths, ReportQuery, TreeCategory } from '../lib/types';
+import { CATEGORIES, ME, renderAt, SPAAR, stubApi, TRANSACTIONS, ZICHT } from '../test/helpers';
 
 // The demo answer of 0.7-1, close enough: income € 3.300 a month (€ 3.350 in October), € 200 saved,
 // the story's October and September expenses; per account the € 450 contribution counts on both sides.
@@ -54,14 +54,17 @@ describe('Overzicht', () => {
     await screen.findByRole('group', { name: 'Inkomen, uitgaven en gespaard per periode' });
     expect(cols().map((c) => c.textContent)).toEqual(['mei', 'jun', 'jul', 'aug', 'sep', 'okt']);
     expect(cols()[5].getAttribute('aria-pressed')).toBe('true');
-    expect(cols()[5].getAttribute('aria-label')).toBe('oktober 2026: inkomen € 3.350,00, uitgaven € 1.705,49, gespaard € 200,00');
+    expect(cols()[5].getAttribute('aria-label')).toBe('oktober 2026: in € 3.350,00, uit € 1.905,49, waarvan uitgaven € 1.705,49 en gespaard € 200,00');
     expect(tiles()).toEqual(['€ 3.350,00', '€ 1.705,49', '€ 200,00']);
     expect(screen.getByText('Per categorie · oktober 2026')).toBeTruthy();
     expect(screen.getByText('t.o.v. vorige maand', { selector: '.ov-compare' })).toBeTruthy();
     expect(screen.getAllByText('Mei – oktober 2026').length).toBeGreaterThan(0);
     expect(screen.getByText('Alle rekeningen · mei – oktober 2026')).toBeTruthy();
     expect(api.reportMonths).toHaveBeenCalledTimes(1);
-    expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', account: undefined });
+    // The report with the amounts per category (detail), and the references of the rows beside it, for the same selection.
+    expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', account: undefined, detail: true });
+    expect(api.reportBudgets).toHaveBeenCalledTimes(1);
+    expect(api.reportBudgets.mock.calls[0][0]).toEqual({ scope: 'alles', account: undefined });
   });
 
   it('changes the tiles and the categories when another column is selected', async () => {
@@ -87,15 +90,18 @@ describe('Overzicht', () => {
     expect(api.reportMonths).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a category row as a button that opens its sheet, with its share and trend in the label', async () => {
+  it('shows a category row as a button that opens its sheet, with "geen budget" and its trend in the label', async () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht');
-    const row = (await screen.findByText('Boodschappen')).closest('button')!;
+    const row = (await screen.findByText('Boodschappen', { selector: '.ov-cat-name' })).closest('button')!;
     expect(row.getAttribute('aria-haspopup')).toBe('dialog');
-    expect(within(row).getByText('15%', { exact: false })).toBeTruthy();
+    // No reference came back for it (the default stub has none): no bar, the muted "geen budget"; the share of the total is gone.
+    await waitFor(() => expect(within(row).getByText('geen budget')).toBeTruthy());
+    expect(row.querySelector('.ov-cat-track')).toBeNull();
+    expect(row.textContent).not.toContain('15%');
     // Boodschappen against September: −7%, with the compare text for screen readers.
     expect(row.querySelector('.ov-cat-trend')!.textContent).toBe('t.o.v. vorige maand −7%');
-    expect(row.getAttribute('aria-label')).toBe('Boodschappen: € 252,36, 15 %, −7% t.o.v. vorige maand. Bekijk de transacties.');
+    expect(row.getAttribute('aria-label')).toBe('Boodschappen: € 252,36, geen budget, −7% t.o.v. vorige maand. Bekijk de transacties.');
   });
 
   it('shows Per rekening in Alles, with the footnote about the transfers between own accounts', async () => {
@@ -113,7 +119,7 @@ describe('Overzicht', () => {
   it('shows "Naar gedeelde rekening" in Persoonlijk, with the account as head and no Per rekening', async () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht', { ...ME, preferences: { ...ME.preferences, scope: 'persoonlijk' } });
-    expect((await screen.findByText('Naar gedeelde rekening')).closest('button')!.getAttribute('aria-haspopup')).toBe('dialog');
+    expect((await screen.findByText('Naar gedeelde rekening', { selector: '.ov-cat-name' })).closest('button')!.getAttribute('aria-haspopup')).toBe('dialog');
     expect(screen.queryByText('Per rekening')).toBeNull();
     expect(document.querySelector('.ov-totals-title')!.textContent).toBe('Zichtrekening');
   });
@@ -131,8 +137,8 @@ describe('Overzicht', () => {
   it('asks for one account when ?rekening is a current account of the scope; the sheet and its link carry it', async () => {
     const api = stubApi({ reports: () => ({ ...persoonlijk(), accounts: [4] }) });
     renderAt('/overzicht?rekening=4');
-    fireEvent.click((await screen.findByText('Naar gedeelde rekening')).closest('button')!);
-    expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', account: 4 });
+    fireEvent.click((await screen.findByText('Naar gedeelde rekening', { selector: '.ov-cat-name' })).closest('button')!);
+    expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', account: 4, detail: true });
     expect(within(dialog('Naar gedeelde rekening · oktober 2026')).getByRole('link', { name: 'Open in Transacties' }).getAttribute('href')).toBe('/transacties?categorie=naar-gedeeld&periode=2026-10&rekening=4');
     expect(screen.getByText('Gedeelde rekening', { selector: '.ov-chip span' })).toBeTruthy();
   });
@@ -252,9 +258,9 @@ describe('Overzicht · account filter', () => {
     fireEvent.click(accountChip());
     fireEvent.click(within(dialog('Rekening kiezen')).getByRole('button', { name: /^Gedeelde rekening/ }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    await waitFor(() => expect(api.reportMonths.mock.calls.at(-1)![0]).toEqual({ scope: 'alles', account: 4 }));
+    await waitFor(() => expect(api.reportMonths.mock.calls.at(-1)![0]).toEqual({ scope: 'alles', account: 4, detail: true }));
     expect(where()).toBe('/overzicht?rekening=4');
-    await screen.findByText('Naar gedeelde rekening');
+    await screen.findByText('Naar gedeelde rekening', { selector: '.ov-cat-name' });
     expect(accountChip().textContent).toBe('Rekening: Gedeelde rekening');
     expect(document.activeElement).toBe(accountChip());
 
@@ -264,7 +270,7 @@ describe('Overzicht · account filter', () => {
     expect(document.activeElement).toBe(d.getByRole('button', { pressed: true }));
     fireEvent.click(d.getByRole('button', { name: /^Alle rekeningen/ }));
     expect(where()).toBe('/overzicht');
-    await waitFor(() => expect(api.reportMonths.mock.calls.at(-1)![0]).toEqual({ scope: 'alles', account: undefined }));
+    await waitFor(() => expect(api.reportMonths.mock.calls.at(-1)![0]).toEqual({ scope: 'alles', account: undefined, detail: true }));
   });
 
   it('lists the accounts of the scope: Persoonlijk has only the Zichtrekening, and "Alle rekeningen" names it', async () => {
@@ -747,21 +753,6 @@ describe('Overzicht · sheets', () => {
     await d.findByText('Geen transacties meer in deze periode.');
   });
 
-  it('the Gespaard tile opens ?blad=gespaard with category saved and the note', async () => {
-    const api = stubApi({ reports: byScope, transactions: pages });
-    renderAt('/overzicht');
-    await loaded();
-    const tile = screen.getByRole('button', { name: 'Gespaard in oktober 2026: € 200,00. Bekijk de transacties.' });
-    expect(tile.getAttribute('aria-haspopup')).toBe('dialog');
-    fireEvent.click(tile);
-    expect(where()).toBe('/overzicht?blad=gespaard');
-    const d = within(dialog('Gespaard · oktober 2026'));
-    await d.findByText('TotalEnergies');
-    expect(api.transactions).toHaveBeenCalledWith({ uncategorised: false, category: 'saved', account: undefined, from: '2026-10-01', to: '2026-10-31', scope: 'alles', limit: 30 }, expect.anything());
-    expect(d.getByRole('link', { name: 'Open in Transacties' }).getAttribute('href')).toBe('/transacties?categorie=gespaard&periode=2026-10');
-    expect(d.getByText(/^Gespaard telt overschrijvingen naar je spaar- en beleggingsrekeningen/)).toBeTruthy();
-  });
-
   it('an account row opens its figures without a request; "Alleen deze rekening tonen" filters and closes in one step', async () => {
     const api = stubApi({ reports: byScope, transactions: pages });
     renderAt('/overzicht');
@@ -771,7 +762,8 @@ describe('Overzicht · sheets', () => {
     expect(where()).toBe('/overzicht?blad=rekening-1');
     const d = within(dialog('Zichtrekening · oktober 2026'));
     const figure = (label: string) => d.getByText(label, { selector: '.ov-per-label' }).nextElementSibling!.textContent;
-    expect([figure('In'), figure('Uit'), figure('Gespaard')]).toEqual(['€ 2.900,00', '€ 1.482,95', '€ 200,00']);
+    // The figure is Uitgaven (the chart's "Uit" is Uitgaven + Gespaard): Gespaard stands apart.
+    expect([figure('In'), figure('Uitgaven'), figure('Gespaard')]).toEqual(['€ 2.900,00', '€ 1.482,95', '€ 200,00']);
     expect(d.getByText('Wonen')).toBeTruthy();
     expect(d.getByText('Naar gedeelde rekening')).toBeTruthy();
     expect(d.getByText('Overschrijvingen tussen je eigen rekeningen (€ 450,00) tellen per rekening mee, maar niet in het totaal samen.')).toBeTruthy();
@@ -781,7 +773,7 @@ describe('Overzicht · sheets', () => {
     fireEvent.click(d.getByRole('button', { name: 'Alleen deze rekening tonen' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(where()).toBe('/overzicht?rekening=1');
-    await waitFor(() => expect(api.reportMonths.mock.calls.at(-1)![0]).toEqual({ scope: 'alles', account: 1 }));
+    await waitFor(() => expect(api.reportMonths.mock.calls.at(-1)![0]).toEqual({ scope: 'alles', account: 1, detail: true }));
   });
 
   it('Back closes the sheet; Escape closes it through the history and puts focus back on the row', async () => {
@@ -842,5 +834,453 @@ describe('Overzicht · sheets', () => {
 
     setDesktop(false);
     expect([d.classList.contains('sheet'), d.classList.contains('panel')]).toEqual([true, false]);
+  });
+});
+
+// ---------- The stacked Uit bar (0.8.1-3) ----------
+
+const pieces = (col: HTMLElement) => Array.from(col.querySelectorAll<HTMLElement>('.ov-seg')).map((s) => s.style.flexGrow);
+const legendNames = () => Array.from(document.querySelectorAll('.ov-stack-legend li')).map((l) => l.textContent);
+const heights = (col: HTMLElement) => [col.querySelector('.ov-bar')!.getAttribute('style'), col.querySelector('.ov-stack')!.getAttribute('style')];
+
+describe('Overzicht · stacked Uit bar', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('stacks the costs with Gespaard on top; the pieces under 4 px of a 130 px bar merge, the legend keeps the real ones', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht');
+    await loaded();
+    // October: Wonen, Boodschappen, Vervoer; Abonnementen, Overig and Vrije tijd (2 to 3 px) as one piece; Gespaard on top.
+    expect(pieces(cols()[5])).toEqual(['115000', '25236', '14060', '16253', '20000']);
+    const [inc, uit] = heights(cols()[5]);
+    expect(inc).toContain('--h: 1.0000');
+    expect(uit).toContain('--h: 0.5688');
+    expect(legendNames()).toEqual(['Wonen', 'Boodschappen', 'Vervoer', 'Abonnementen', 'Overig', 'Vrije tijd', 'Kleine posten', 'Gespaard']);
+    expect(document.querySelector('.ov-out')!.textContent).toBe('Samen uit € 1.905,49 · over € 1.444,51');
+    expect(document.querySelector('.ov-out--neg')).toBeNull();
+    expect(tiles()).toEqual(['€ 3.350,00', '€ 1.705,49', '€ 200,00']);
+  });
+
+  it('on desktop the bar is 240 px: only Vrije tijd is too thin, and the legend follows the selected column', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
+    stubApi({ reports: byScope });
+    renderAt('/overzicht');
+    await loaded();
+    expect(pieces(cols()[5])).toEqual(['115000', '25236', '14060', '6896', '6562', '2795', '20000']);
+    // September in the order of the selected October, so colours stay in place: Overig (8881) does not jump above Abonnementen (6896).
+    expect(pieces(cols()[4])).toEqual(['115000', '27106', '11560', '6896', '8881', '6690', '20000']);
+    fireEvent.click(cols()[4]);
+    expect(legendNames()).toEqual(['Wonen', 'Boodschappen', 'Vervoer', 'Overig', 'Abonnementen', 'Vrije tijd', 'Gespaard']);
+  });
+
+  it('the bar is as high as the stack, not the net: a negative key adds nothing, a shortfall reads "tekort"', async () => {
+    const month = (m: string): ReportMonth => ({ month: m, income: 10000, saved: 0, expenses: { '1': 15000, '2': -500 } });
+    stubApi({ reports: () => ({ accounts: [1], firstMonth: '2025-11', firstDate: '2025-11-01', months: KEYS.map(month) }) });
+    renderAt('/overzicht');
+    await loaded();
+    // Uit is the highest bar (15000), In 10000 of it; the refund surplus is no piece.
+    const [inc, uit] = heights(cols()[5]);
+    expect(inc).toContain('--h: 0.6667');
+    expect(uit).toContain('--h: 1.0000');
+    expect(pieces(cols()[5])).toEqual(['15000']);
+    expect(document.querySelector('.ov-out')!.textContent).toBe('Samen uit € 145,00 · tekort € 45,00');
+    expect(document.querySelector('.ov-out--neg')!.textContent).toBe('€ 45,00');
+    expect(cols()[5].getAttribute('aria-label')).toBe('oktober 2026: in € 100,00, uit € 145,00, waarvan uitgaven € 145,00 en gespaard € 0,00');
+  });
+});
+
+// ---------- Rows against budget, subcategories and breakdown sheets (0.8.1-4) ----------
+
+const bonus: TreeCategory = { id: 12, name: 'Bonus', type: 'income', colour: 'c7', icon: null, parentId: 7, count: 0, saving: false };
+const sparen: TreeCategory = { id: 20, name: 'Sparen', type: 'expense', colour: 'c9', icon: null, parentId: null, count: 0, saving: true };
+const pensioen: TreeCategory = { id: 21, name: 'Pensioensparen', type: 'expense', colour: 'c9', icon: null, parentId: 20, count: 0, saving: true };
+const TREE = [...CATEGORIES, bonus, sparen, pensioen];
+
+// October with the amounts per own category (detail=1): the identities of 0.8.1-1 hold (Σ income 335000, Σ saved 20000, Σ expenses[k]).
+const OCT_DETAIL: ReportMonth = {
+  month: '2026-10',
+  income: 335000,
+  saved: 20000,
+  expenses: OCT,
+  detail: {
+    income: { '7': 285000, '12': 20000, transfer: 25000, none: 5000 },
+    saved: { 'account-2': 15000, '20': 3000, '21': 2000 },
+    expenses: { '1': { '1': 100000, '10': 15000 }, '2': { '2': 25236 }, '3': { '3': 2795 }, '4': { '4': 14060 }, '5': { '5': 6896 }, '6': { '6': 6562 } },
+  },
+  accounts: [
+    {
+      id: 1,
+      income: 290000,
+      saved: 20000,
+      expenses: { '1': 100500, '3': 2795, '4': 14060, '5': 2598, toShared: 45000 },
+      detail: { income: { '7': 285000, none: 5000 }, saved: { 'account-2': 20000 }, expenses: { '1': { '1': 85500, '10': 15000 }, '3': { '3': 2795 }, '4': { '4': 14060 }, '5': { '5': 2598 } } },
+    },
+    {
+      id: 4,
+      income: 90000,
+      saved: 0,
+      expenses: { '1': 14500, '2': 25236, '5': 4298, '6': 6562 },
+      detail: { income: { '7': 90000 }, saved: {}, expenses: { '1': { '1': 14500 }, '2': { '2': 25236 }, '5': { '5': 4298 }, '6': { '6': 6562 } } },
+    },
+  ],
+};
+// The running November of the demo (alles): € 3.318,50 in, € 200 saved to the Spaarrekening, € 1.756,42 of expenses.
+const NOV_DETAIL: ReportMonth = {
+  month: '2026-11',
+  income: 331850,
+  saved: 20000,
+  expenses: { '1': 115000, '2': 29521, '3': 6690, '4': 13410, '5': 6896, none: 4125 },
+  detail: {
+    income: { '7': 285000, '12': 20000, transfer: 21850, none: 5000 },
+    saved: { 'account-2': 20000 },
+    expenses: { '1': { '1': 100000, '10': 15000 }, '2': { '2': 29521 }, '3': { '3': 6690 }, '4': { '4': 13410 }, '5': { '5': 6896 } },
+  },
+};
+const detailed = (): ReportMonths => {
+  const base = alles();
+  return { ...base, months: base.months.map((m) => (m.month === '2026-10' ? OCT_DETAIL : m.month === '2026-11' ? NOV_DETAIL : m)) };
+};
+
+// The references of the demo (the server's figures of 0.8.1-2): November has budgets (Vrije tijd, Vervoer, Overig on the Zichtrekening,
+// Boodschappen on the shared account), the other categories and all of October run on the average.
+const ref = (categoryId: number, reference: number, source: 'budget' | 'average') => ({ categoryId, reference, source });
+const BUDGETS: ReportBudgets = {
+  months: [
+    {
+      month: '2026-10',
+      accounts: [
+        { id: 1, categories: [ref(1, 100500, 'average'), ref(3, 4028, 'average'), ref(4, 12900, 'average'), ref(5, 2598, 'average'), ref(6, 900, 'average')] },
+        { id: 4, categories: [ref(1, 14500, 'average'), ref(2, 26821, 'average'), ref(5, 4298, 'average'), ref(6, 6247, 'average')] },
+      ],
+    },
+    {
+      month: '2026-11',
+      accounts: [
+        { id: 1, categories: [ref(1, 100500, 'average'), ref(3, 35000, 'budget'), ref(4, 30000, 'budget'), ref(5, 2598, 'average'), ref(6, 28798, 'budget')] },
+        { id: 4, categories: [ref(1, 14500, 'average'), ref(2, 55000, 'budget'), ref(5, 4298, 'average'), ref(6, 6247, 'average')] },
+      ],
+    },
+  ],
+};
+
+const stub = (extra: Parameters<typeof stubApi>[0] = {}) => stubApi({ reports: detailed, budgets: BUDGETS, categories: TREE, transactions: pages, ...extra });
+/** A row of Per categorie, before a sheet is open (the sheets repeat the names). */
+const item = async (name: string) => (await screen.findByText(name, { selector: '.ov-cat-name' })).closest('.ov-cat-item') as HTMLElement;
+const refLine = (el: HTMLElement) => el.querySelector('.ov-cat-ref')!.textContent;
+const cents = (text: string) => Math.round(parseFloat(text.replace('€ ', '').replace(/\./g, '').replace(',', '.')) * 100);
+const november = () => renderAt('/overzicht?periode=eigen&van=2026-10&tot=2026-11');
+const pickNovember = () => fireEvent.click(cols()[1]);
+/** The rows of a breakdown sheet: name and amount, and their links. */
+const bdRows = (d: HTMLElement) => Array.from(d.querySelectorAll('.ov-bd-item')).map((i) => [i.querySelector('.ov-bd-name')!.textContent, i.querySelector('.ov-bd-amount')!.textContent]);
+const href = (el: Element | null) => el!.closest('a')!.getAttribute('href');
+
+describe('Overzicht · rows against budget', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('November, alles: each category against Planning\'s budget, else the 6-month average; "geen budget" for the pseudo row', async () => {
+    stub();
+    november();
+    await loaded();
+    pickNovember();
+    expect(tiles()).toEqual(['€ 3.318,50', '€ 1.756,42', '€ 200,00']);
+    await waitFor(() => expect(refLine(document.querySelector('.ov-cat-item')!)).toContain(' van '));
+    expect(refLine(await item('Vrije tijd'))).toBe('€ 66,90 van € 350,00 · 19 %');
+    expect(refLine(await item('Vervoer'))).toBe('€ 134,10 van € 300,00 · 45 %');
+    expect(refLine(await item('Boodschappen'))).toBe('€ 295,21 van € 550,00 · 54 %');
+    expect(refLine(await item('Wonen'))).toBe('€ 1.150,00 van € 1.150,00 · 100 % · gemiddelde');
+    expect(refLine(await item('Abonnementen'))).toBe('€ 68,96 van € 68,96 · 100 % · gemiddelde');
+    expect(refLine(await item('Niet gecategoriseerd'))).toBe('geen budget');
+    expect((await item('Niet gecategoriseerd')).querySelector('.ov-cat-track')).toBeNull();
+    // A budget on one account and an average on the other: both named. Nothing spent: listed at the end, with a bar of 0.
+    const overig = await item('Overig');
+    expect(refLine(overig)).toBe('€ 0,00 van € 350,45 · 0 % · budget en gemiddelde');
+    expect(Array.from(document.querySelectorAll('.ov-cat-item')).at(-1)).toBe(overig);
+    expect((overig.querySelector('.ov-cat-fill') as HTMLElement).style.width).toBe('0%');
+    expect(overig.querySelector('.ov-cat')!.getAttribute('aria-label')).toBe('Overig: € 0,00, 0 % van € 350,45 budget en gemiddelde. Bekijk de transacties.');
+    // The footnote under the list.
+    expect(screen.getByText(/^Budget zoals in de planning\. Zonder budget: het gemiddelde van wat je de laatste 6 maanden/)).toBeTruthy();
+  });
+
+  it('October, alles: only averages; Vervoer is over 100 % with the bar in --neg and what is too much', async () => {
+    stub();
+    renderAt('/overzicht');
+    await loaded();
+    expect(refLine(await item('Vrije tijd'))).toBe('€ 27,95 van € 40,28 · 69 % · gemiddelde');
+    expect(refLine(await item('Overig'))).toBe('€ 65,62 van € 71,47 · 92 % · gemiddelde');
+    const vervoer = await item('Vervoer');
+    expect(vervoer.querySelector('.ov-cat-ref')!.textContent).toBe('€ 140,60 van € 129,00 · 109 % · gemiddelde · € 11,60 te veel');
+    expect(vervoer.querySelector('.ov-cat-over')!.textContent).toBe(' · € 11,60 te veel');
+    const fill = vervoer.querySelector('.ov-cat-fill') as HTMLElement;
+    expect(fill.className).toContain('ov-cat-fill--over');
+    expect(fill.style.width).toBe('100%');
+    expect(vervoer.querySelector('.ov-cat')!.getAttribute('aria-label')).toBe('Vervoer: € 140,60, 109 % van € 129,00 gemiddelde, € 11,60 te veel, +22% t.o.v. vorige maand. Bekijk de transacties.');
+    // A category within its reference keeps its own colour on the bar.
+    expect(((await item('Vrije tijd')).querySelector('.ov-cat-fill') as HTMLElement).style.width).toBe('69%');
+  });
+
+  it('a column of several months sums its references: Kwartaal K3 is three months of an average of € 40,00', async () => {
+    const q3: ReportBudgets = { months: ['2026-07', '2026-08', '2026-09'].map((month) => ({ month, accounts: [{ id: 1, categories: [ref(3, 4000, 'average')] }, { id: 4, categories: [] }] })) };
+    stub({ budgets: q3 });
+    renderAt('/overzicht?periode=kwartaal');
+    await loaded();
+    // Vrije tijd in July to September: 3 × € 66,90 against 3 × € 40,00, and the category has no reference in other columns.
+    expect(refLine(await item('Vrije tijd'))).toBe('€ 200,70 van € 120,00 · 167 % · gemiddelde · € 80,70 te veel');
+    expect(refLine(await item('Wonen'))).toBe('geen budget');
+  });
+
+  it('over 100 % by a recurring item the budget does not see: € 25,00 of € 20,00', async () => {
+    const gym: ReportMonths = { ...detailed(), months: detailed().months.map((m) => (m.month === '2026-10' ? { ...m, expenses: { ...m.expenses, '3': 2500 } } : m)) };
+    const gymBudgets: ReportBudgets = { months: [{ month: '2026-10', accounts: [{ id: 1, categories: [ref(3, 2000, 'budget')] }, { id: 4, categories: [] }] }] };
+    stub({ reports: gym, budgets: gymBudgets });
+    renderAt('/overzicht');
+    await loaded();
+    const row = await item('Vrije tijd');
+    expect(refLine(row)).toBe('€ 25,00 van € 20,00 · 125 % · € 5,00 te veel');
+    expect(row.querySelector('.ov-cat-fill--over')).not.toBeNull();
+  });
+
+  it('Gedeeld asks for its own references: November, Boodschappen 54 % of its budget, Overig only an average', async () => {
+    const onlyShared = (r: ReportMonths): ReportMonths => ({ ...r, accounts: [4], months: r.months.map((m) => ({ ...m, accounts: undefined, expenses: m.month === '2026-11' ? { '1': 14500, '2': 29521, '5': 4298 } : m.expenses })) });
+    const api = stub({
+      reports: (q) => (q.scope === 'gedeeld' ? onlyShared(detailed()) : detailed()),
+      budgets: (q) => (q.scope === 'gedeeld' ? { months: BUDGETS.months.map((m) => ({ ...m, accounts: m.accounts.filter((a) => a.id === 4) })) } : BUDGETS),
+    });
+    renderAt('/overzicht?periode=eigen&van=2026-10&tot=2026-11', { ...ME, preferences: { ...ME.preferences, scope: 'gedeeld' } });
+    await loaded();
+    pickNovember();
+    expect(api.reportBudgets).toHaveBeenCalledWith({ scope: 'gedeeld', account: undefined }, expect.anything());
+    await waitFor(() => expect(refLine(document.querySelector('.ov-cat-item')!)).toContain(' van '));
+    expect(refLine(await item('Boodschappen'))).toBe('€ 295,21 van € 550,00 · 54 %');
+    expect(refLine(await item('Overig'))).toBe('€ 0,00 van € 62,47 · 0 % · gemiddelde');
+  });
+
+  it('a failed references request leaves the amounts, without bars or "geen budget", and says so under the list', async () => {
+    const api = stub();
+    api.reportBudgets.mockRejectedValue(new ApiError(500, 'internal', 'Er ging iets mis.'));
+    renderAt('/overzicht');
+    await loaded();
+    expect(await screen.findByText('Het budget kon niet worden geladen.')).toBeTruthy();
+    expect(document.querySelector('.ov-cat-ref')).toBeNull();
+    expect(document.querySelector('.ov-cat-track')).toBeNull();
+    expect((await item('Wonen')).querySelector('.ov-cat-amount')!.textContent).toBe('€ 1.150,00');
+  });
+
+  it('the account sheet reads its rows against that account\'s own references', async () => {
+    stub();
+    renderAt('/overzicht');
+    await loaded();
+    await item('Wonen');
+    fireEvent.click(screen.getByRole('button', { name: /^Zichtrekening: in/ }));
+    const d = within(dialog('Zichtrekening · oktober 2026'));
+    expect(d.getByText('€ 27,95 van € 40,28 · 69 % · gemiddelde')).toBeTruthy();
+    expect(d.getByText('€ 1.005,00 van € 1.005,00 · 100 % · gemiddelde')).toBeTruthy();
+    // "Naar gedeelde rekening" has no reference.
+    expect(d.getByText('geen budget')).toBeTruthy();
+  });
+});
+
+describe('Overzicht · subcategories in the list', () => {
+  it('a row with more than one own-category entry has a chevron beside its button, not inside it; it drops down the subcategories without a percentage', async () => {
+    stub();
+    renderAt('/overzicht');
+    await loaded();
+    const wonen = await item('Wonen');
+    const chevron = within(wonen).getByRole('button', { name: 'Toon subcategorieën van Wonen' });
+    expect(chevron.tagName).toBe('BUTTON');
+    expect(chevron.getAttribute('type')).toBe('button');
+    expect(chevron.getAttribute('aria-expanded')).toBe('false');
+    expect(chevron.closest('.ov-cat')).toBeNull();
+    expect(wonen.querySelector('.ov-subs')).toBeNull();
+    // Only Wonen has more than one entry.
+    expect(screen.getAllByRole('button', { name: /^Toon subcategorieën van / })).toHaveLength(1);
+
+    fireEvent.click(chevron);
+    expect(chevron.getAttribute('aria-expanded')).toBe('true');
+    const subs = Array.from(wonen.querySelectorAll('.ov-sub'));
+    expect(subs.map((s) => [s.querySelector('.ov-sub-name')!.textContent, s.querySelector('.ov-sub-amount')!.textContent])).toEqual([
+      ['Wonen zelf', '€ 1.000,00'],
+      ['Energie', '€ 150,00'],
+    ]);
+    expect(subs.every((s) => !s.textContent!.includes('%'))).toBe(true);
+    expect(subs.map((s) => s.getAttribute('href'))).toEqual(['/transacties?categorie=1-zelf&periode=2026-10', '/transacties?categorie=10&periode=2026-10']);
+    // The row itself still opens its sheet; closing the dropdown hides the subcategories again.
+    fireEvent.click(chevron);
+    expect(chevron.getAttribute('aria-expanded')).toBe('false');
+    expect(wonen.querySelector('.ov-subs')).toBeNull();
+    fireEvent.click(wonen.querySelector('.ov-cat')!);
+    expect(where()).toBe('/overzicht?blad=categorie-1');
+  });
+
+  it('a top whose expense nets to 0 has no row, though its detail is in the answer', async () => {
+    const pruned: ReportMonths = {
+      ...detailed(),
+      months: detailed().months.map((m) => (m.month === '2026-10' ? { ...m, detail: { ...m.detail!, expenses: { ...m.detail!.expenses, '5': { '5': 700, '10': -700 } } }, expenses: { ...m.expenses, '5': 0 } } : m)),
+    };
+    // Without a reference for it (the references alone would list the category with € 0,00).
+    stub({ reports: pruned, budgets: { months: [] } });
+    renderAt('/overzicht');
+    await loaded();
+    await item('Wonen');
+    expect(screen.queryByText('Abonnementen', { selector: '.ov-cat-name' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Uitgaven in oktober 2026/ }));
+    expect(within(dialog('Uitgaven · oktober 2026')).queryByText('Abonnementen')).toBeNull();
+  });
+});
+
+describe('Overzicht · breakdown sheets', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('the three tiles are buttons that open ?blad=inkomen, uitgaven and gespaard', async () => {
+    stub();
+    renderAt('/overzicht');
+    await loaded();
+    for (const [name, blad] of [['Inkomen in oktober 2026: € 3.350,00. Bekijk de verdeling.', 'inkomen'], ['Uitgaven in oktober 2026: € 1.705,49. Bekijk de verdeling.', 'uitgaven'], ['Gespaard in oktober 2026: € 200,00. Bekijk de verdeling.', 'gespaard']]) {
+      const tile = screen.getByRole('button', { name });
+      expect(tile.getAttribute('aria-haspopup')).toBe('dialog');
+      fireEvent.click(tile);
+      expect(where()).toBe('/overzicht?blad=' + blad);
+      escape();
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      await waitFor(() => expect(where()).toBe('/overzicht'));
+    }
+  });
+
+  it('a tile of 0 stays a plain tile, and a sheet for it is dropped', async () => {
+    stub({ reports: () => ({ ...persoonlijk(), months: persoonlijk().months.map((m) => ({ ...m, saved: 0 })) }) });
+    renderAt('/overzicht?blad=gespaard');
+    await loaded();
+    await waitFor(() => expect(where()).toBe('/overzicht'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Gespaard in/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Inkomen in/ })).toBeTruthy();
+  });
+
+  it('Inkomen: categories rolled up to their top with a dropdown per subcategory, transfers and uncategorised; the rows add up to the tile', async () => {
+    stub();
+    renderAt('/overzicht');
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: /^Inkomen in oktober 2026/ }));
+    const el = dialog('Inkomen · oktober 2026');
+    const d = within(el);
+    expect(el.querySelector('.ov-blad-total')!.textContent).toBe('€ 3.350,00');
+    const rows = bdRows(el);
+    expect(rows.map(([name]) => name)).toEqual(['Loon', 'Overschrijvingen', 'Niet gecategoriseerd']);
+    expect(rows.reduce((n, [, amount]) => n + cents(amount!), 0)).toBe(335000);
+    expect(rows[0]).toEqual(['Loon', '€ 3.050,00']);
+    expect(href(d.getByText('Loon', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=inkomen-7&periode=2026-10');
+    expect(href(d.getByText('Overschrijvingen', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=inkomen-overschrijving&periode=2026-10');
+    expect(href(d.getByText('Niet gecategoriseerd', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=inkomen-geen&periode=2026-10');
+
+    // Loon has two entries (itself and Bonus): the chevron is a button beside the link, and drops the own part and the sub down.
+    const chevron = d.getByRole('button', { name: 'Toon subcategorieën van Loon' });
+    expect(chevron.closest('a')).toBeNull();
+    expect(chevron.getAttribute('aria-expanded')).toBe('false');
+    expect(d.queryByText('Bonus')).toBeNull();
+    fireEvent.click(chevron);
+    expect(chevron.getAttribute('aria-expanded')).toBe('true');
+    expect(href(d.getByText('Loon zelf'))).toBe('/transacties?categorie=inkomen-7-zelf&periode=2026-10');
+    expect(href(d.getByText('Bonus'))).toBe('/transacties?categorie=inkomen-12&periode=2026-10');
+    expect(d.getByText('Bonus').closest('a')!.textContent).toBe('Bonus€ 200,00');
+    // The other rows have no subcategories, so no chevron.
+    expect(d.getAllByRole('button', { name: /^Toon subcategorieën/ })).toHaveLength(1);
+  });
+
+  it('Uitgaven: the rows of Per categorie with their subcategories, adding up to the tile', async () => {
+    stub();
+    renderAt('/overzicht');
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: /^Uitgaven in oktober 2026/ }));
+    const el = dialog('Uitgaven · oktober 2026');
+    const d = within(el);
+    const rows = bdRows(el);
+    expect(rows.map(([name]) => name)).toEqual(['Wonen', 'Boodschappen', 'Vervoer', 'Abonnementen', 'Overig', 'Vrije tijd']);
+    expect(rows.reduce((n, [, amount]) => n + cents(amount!), 0)).toBe(170549);
+    expect(href(d.getByText('Wonen', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=1&periode=2026-10');
+    fireEvent.click(d.getByRole('button', { name: 'Toon subcategorieën van Wonen' }));
+    expect(href(d.getByText('Wonen zelf'))).toBe('/transacties?categorie=1-zelf&periode=2026-10');
+    expect(href(d.getByText('Energie'))).toBe('/transacties?categorie=10&periode=2026-10');
+    expect(d.getByText('Energie').closest('a')!.textContent).toBe('Energie€ 150,00');
+  });
+
+  it('Gespaard, October: "Naar Spaarrekening" and a saving category with its sub; November: the one row of € 200,00', async () => {
+    stub();
+    november();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: /^Gespaard in oktober 2026/ }));
+    let el = dialog('Gespaard · oktober 2026');
+    let d = within(el);
+    expect(bdRows(el)).toEqual([['Naar Spaarrekening', '€ 150,00'], ['Sparen', '€ 50,00']]);
+    expect(href(d.getByText('Naar Spaarrekening'))).toBe('/transacties?categorie=gespaard-rekening-2&periode=2026-10');
+    fireEvent.click(d.getByRole('button', { name: 'Toon subcategorieën van Sparen' }));
+    expect(href(d.getByText('Sparen zelf'))).toBe('/transacties?categorie=20-zelf&periode=2026-10');
+    expect(href(d.getByText('Pensioensparen'))).toBe('/transacties?categorie=21&periode=2026-10');
+    expect(d.getByText(/^Gespaard telt overschrijvingen naar je spaar- en beleggingsrekeningen/)).toBeTruthy();
+    expect(d.getByRole('link', { name: 'Open in Transacties' }).getAttribute('href')).toBe('/transacties?categorie=gespaard&periode=2026-10');
+    escape();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    pickNovember();
+    fireEvent.click(screen.getByRole('button', { name: /^Gespaard in november 2026/ }));
+    el = dialog('Gespaard · november 2026');
+    expect(bdRows(el)).toEqual([['Naar Spaarrekening', '€ 200,00']]);
+    expect(href(within(el).getByText('Naar Spaarrekening'))).toBe('/transacties?categorie=gespaard-rekening-2&periode=2026-11');
+  });
+
+  it('November, alles: the Inkomen sheet adds up to € 3.318,50 and the Uitgaven sheet to its tile', async () => {
+    stub();
+    november();
+    await loaded();
+    pickNovember();
+    fireEvent.click(screen.getByRole('button', { name: /^Inkomen in november 2026/ }));
+    const income = bdRows(dialog('Inkomen · november 2026'));
+    expect(income.reduce((n, [, amount]) => n + cents(amount!), 0)).toBe(331850);
+    escape();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: /^Uitgaven in november 2026/ }));
+    const out = bdRows(dialog('Uitgaven · november 2026'));
+    expect(out.reduce((n, [, amount]) => n + cents(amount!), 0)).toBe(175642);
+    expect(out.map(([name]) => name)).toEqual(['Wonen', 'Boodschappen', 'Vervoer', 'Abonnementen', 'Vrije tijd', 'Niet gecategoriseerd']);
+  });
+
+  it('a sheet of a report for one account carries that account in its links', async () => {
+    stub({ reports: () => ({ ...detailed(), accounts: [4], months: detailed().months.map((m) => ({ ...m, accounts: undefined })) }) });
+    renderAt('/overzicht?rekening=4');
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: /^Inkomen in oktober 2026/ }));
+    expect(href(within(dialog('Inkomen · oktober 2026')).getByText('Loon', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=inkomen-7&periode=2026-10&rekening=4');
+  });
+
+  it('opens from the URL after the load, on the default column; Escape drops ?blad= and an unknown value is dropped', async () => {
+    stub();
+    renderAt('/overzicht?blad=inkomen');
+    const sheet = await screen.findByRole('dialog', { name: 'Inkomen · oktober 2026' });
+    await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+    escape();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(where()).toBe('/overzicht'));
+  });
+
+  it.each(['onzin', 'inkomen-7', 'categorie-inkomen-7', 'categorie-gespaard'])('drops ?blad=%s without opening anything', async (value) => {
+    stub();
+    renderAt('/overzicht?blad=' + value);
+    await loaded();
+    await waitFor(() => expect(where()).toBe('/overzicht'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('is a side panel from 1024 px', async () => {
+    mockDesktop(true);
+    stub();
+    renderAt('/overzicht?blad=uitgaven');
+    const d = await screen.findByRole('dialog', { name: 'Uitgaven · oktober 2026' });
+    expect([d.classList.contains('sheet'), d.classList.contains('panel')]).toEqual([false, true]);
+    expect(d.closest('.sheet-backdrop--panel')).not.toBeNull();
+  });
+
+  it('without detail (an answer that holds none) the sheet says so and the tile still opens', async () => {
+    stub({ reports: byScope });
+    renderAt('/overzicht?blad=inkomen');
+    const d = await screen.findByRole('dialog', { name: 'Inkomen · oktober 2026' });
+    expect(within(d).getByText('Geen verdeling beschikbaar.')).toBeTruthy();
   });
 });

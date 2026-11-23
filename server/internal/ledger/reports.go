@@ -21,6 +21,7 @@ type ReportQuery struct {
 	AccountID int64     // 0 = every current account of the scope
 	From, To  string    // months YYYY-MM, inclusive; "" = firstMonth / the current month
 	Now       time.Time // the clock; its Brussels month is the current month
+	Detail    bool      // detail=1: the amounts per category and subcategory too (0.8.1-1)
 }
 
 // Report is the answer of GET /api/reports/months (money in cents).
@@ -37,6 +38,18 @@ type ReportTotals struct {
 	Income   int64            `json:"income"`
 	Saved    int64            `json:"saved"`
 	Expenses map[string]int64 `json:"expenses"`
+	Detail   *ReportDetail    `json:"detail,omitempty"`
+}
+
+// ReportDetail splits the totals by the row's own category (0.8.1-1), only
+// with ReportQuery.Detail. Income and Saved are keyed by reportDetail (a
+// category id, transfer, none, account-<id>); Expenses by top category key,
+// then own category id (Expenses[k][k] is the top's own part). Entries of 0
+// are left out. Σ Income = income, Σ Saved = saved, Σ Expenses[k] = expenses[k].
+type ReportDetail struct {
+	Income   map[string]int64            `json:"income"`
+	Saved    map[string]int64            `json:"saved"`
+	Expenses map[string]map[string]int64 `json:"expenses"`
 }
 
 // ReportMonth is one month of a report. Accounts is the per-account view,
@@ -57,14 +70,14 @@ type ReportAccount struct {
 // reportParts extends visibleTx (it starts with a comma, after the tx CTE)
 // with the report layer: first_booked is the first booked date per visible
 // account, parts one row per booked transaction or per split part, with the
-// part's amount and category, its top category's saving flag (0.8-0a), the
+// part's amount, own category (cat_id) and top category, its top category's saving flag (0.8-0a), the
 // other side's type, shared (IsShared) and first booked date. It takes no parameters.
 const reportParts = `, first_booked AS (
     SELECT account_id, MIN(booking_date) AS first FROM booked GROUP BY account_id
 ), parts AS (
     SELECT tx.id, tx.account_id, tx.booking_date, COALESCE(sp.amount, tx.amount) AS amount, tx.shared,
            tx.is_transfer, tx.other_id, ov.type AS other_type, ov.shared AS other_shared, fb.first AS other_first,
-           COALESCE(c.parent_id, c.id) AS top_id, c.type AS cat_type, COALESCE(tc.saving, 0) AS saving
+           COALESCE(c.parent_id, c.id) AS top_id, c.id AS cat_id, c.type AS cat_type, COALESCE(tc.saving, 0) AS saving
     FROM tx
     LEFT JOIN transaction_splits sp ON sp.transaction_id = tx.id
     LEFT JOIN categories c ON c.id = COALESCE(sp.category_id, tx.category_id)
@@ -94,7 +107,7 @@ var reportBase = strings.Replace(visibleTx, "), tx AS (", "), tx AS MATERIALIZED
 func reportBucket(inSel string) string {
 	return `(CASE
     WHEN is_transfer = 1 AND (` + inSel + `) AND other_first <= date(booking_date, '+3 days') THEN 'out'
-    WHEN is_transfer = 1 AND other_type IN ('savings', 'investment') THEN 'saved'
+    WHEN ` + reportToSavings + ` THEN 'saved'
     WHEN saving = 1 THEN 'saved'
     WHEN is_transfer = 1 AND other_id IS NULL THEN 'out'
     WHEN is_transfer = 1 AND amount < 0 THEN 'expense'
@@ -112,6 +125,29 @@ const reportKey = `(CASE
     WHEN is_transfer = 1 THEN CASE WHEN shared = 0 AND other_shared = 1 THEN 'toShared' ELSE 'toOwn' END
     WHEN cat_type = 'expense' THEN CAST(top_id AS TEXT)
     ELSE 'none' END)`
+
+// reportToSavings is rule 2 of reportBucket: a transfer to a savings or
+// investment account the viewer sees (other_type is only known then).
+const reportToSavings = `is_transfer = 1 AND other_type IN ('savings', 'investment')`
+
+// The detail of a parts row per bucket (0.8.1-1), each meaningful only when
+// reportBucket says that bucket. Income: transfer, the own category id of an
+// income category, else none (an expense category is never income). Saved:
+// account-<other id> under rule 2, else the own category id (rule 3, a saving
+// category or its sub). Expense: the own category id when reportKey is a top
+// category id, else the empty text (toShared, toOwn and none carry no detail).
+const (
+	reportIncomeDetail  = `(CASE WHEN is_transfer = 1 THEN 'transfer' WHEN cat_type = 'income' THEN CAST(cat_id AS TEXT) ELSE 'none' END)`
+	reportSavedDetail   = `(CASE WHEN ` + reportToSavings + ` THEN 'account-' || other_id ELSE CAST(cat_id AS TEXT) END)`
+	reportExpenseDetail = `(CASE WHEN is_transfer = 1 THEN '' WHEN cat_type = 'expense' THEN CAST(cat_id AS TEXT) ELSE '' END)`
+)
+
+// reportDetail is the detail of a parts row for the bucket expression it is
+// paired with (the selection's or the per-account one).
+func reportDetail(bucket string) string {
+	return `(CASE ` + bucket + ` WHEN 'income' THEN ` + reportIncomeDetail + ` WHEN 'saved' THEN ` + reportSavedDetail +
+		` WHEN 'expense' THEN ` + reportExpenseDetail + ` ELSE '' END)`
+}
 
 // idList is "(1, 4)" for SQL; the ids come from the database, never from input.
 func idList(ids []int64) string {
@@ -134,17 +170,49 @@ func inSelection(column string, sel []int64) string {
 // CTE, with its arguments, that keeps exactly the rows behind one key of the
 // report for the selection sel (from reportSelection, with the same scope and
 // account as the report). The query must be visibleTx + reportParts. key is
-// "saved" (every row behind the Gespaard number, 0.8-0a) or an expense key
-// ("<top id>", "none", "toShared" or "toOwn"); a saving top category's id
-// lists the rows saved in it. A split row matches when one of its parts does.
+// "saved" (every row behind the Gespaard number, 0.8-0a), an expense key
+// ("none", "toShared" or "toOwn"), or one of the detail keys of 0.8.1-1, as
+// categoryKey normalises them:
+//   - "<id>": a top category rolled up (its own part and its subs, as reportKey;
+//     a saving top lists the rows saved in it by rule 3), a subcategory on its
+//     own, in the expense or the saved bucket;
+//   - "<id>-zelf": the own part of that category only (detail = id);
+//   - "income-<id>": income rolled up for a top, own for a sub;
+//     "income-<id>-zelf", "income-transfer", "income-none": income detail = the value;
+//   - "saved-account-<id>": saved by rule 2 to that account.
+//
+// A split row matches when one of its parts does.
 func reportDrillDown(sel []int64, key string) (string, []any) {
 	bucket := reportBucket(inSelection("other_id", sel))
-	cond := bucket + ` = 'saved'`
+	var cond string
 	var args []any
-	if key != "saved" {
-		cond = `CASE ` + bucket + ` WHEN 'expense' THEN ` + reportKey + ` = ?
-            WHEN 'saved' THEN saving = 1 AND CAST(top_id AS TEXT) = ? ELSE 0 END`
-		args = []any{key, key}
+	income, isIncome := strings.CutPrefix(key, "income-")
+	own, isOwn := strings.CutSuffix(key, "-zelf")
+	switch {
+	case key == "saved":
+		cond = bucket + ` = 'saved'`
+	case strings.HasPrefix(key, "saved-account-"):
+		cond, args = bucket+` = 'saved' AND `+reportSavedDetail+` = ?`, []any{strings.TrimPrefix(key, "saved-")}
+	case isIncome:
+		if v, ok := strings.CutSuffix(income, "-zelf"); ok || income == "transfer" || income == "none" {
+			if ok {
+				income = v
+			}
+			cond, args = bucket+` = 'income' AND `+reportIncomeDetail+` = ?`, []any{income}
+		} else {
+			// The rows whose income detail is a category of that top, or that sub.
+			cond = bucket + ` = 'income' AND is_transfer = 0 AND cat_type = 'income' AND ? IN (CAST(top_id AS TEXT), CAST(cat_id AS TEXT))`
+			args = []any{income}
+		}
+	case isOwn:
+		cond = `CASE ` + bucket + ` WHEN 'expense' THEN ` + reportExpenseDetail + ` = ? WHEN 'saved' THEN ` + reportSavedDetail + ` = ? ELSE 0 END`
+		args = []any{own, own}
+	default:
+		// A top rolled up or a sub on its own; in saved, not the rule-2 rows (their detail is the account).
+		cond = `CASE ` + bucket + ` WHEN 'expense' THEN ` + reportKey + ` = ? OR ` + reportExpenseDetail + ` = ?
+            WHEN 'saved' THEN CASE WHEN ` + reportToSavings + ` THEN 0 ELSE ? IN (CAST(top_id AS TEXT), CAST(cat_id AS TEXT)) END
+            ELSE 0 END`
+		args = []any{key, key, key}
 	}
 	return `tx.id IN (SELECT id FROM parts WHERE ` + inSelection("account_id", sel) + ` AND ` + cond + `)`, args
 }
@@ -192,6 +260,12 @@ func (s *Store) reportSelection(ctx context.Context, viewer int64, scope string,
 		sel = append(sel, id)
 	}
 	return sel, rows.Err()
+}
+
+// ReportSelection is the selection of a report for the routes built on it
+// (0.8.1-2 budgets, 0.8.1-5 balances): the rules and errors of reportSelection.
+func (s *Store) ReportSelection(ctx context.Context, viewer int64, scope string, account int64) ([]int64, error) {
+	return s.reportSelection(ctx, viewer, scope, account)
 }
 
 // parseMonth checks a YYYY-MM month.
@@ -260,10 +334,10 @@ func (s *Store) ReportMonths(ctx context.Context, viewer int64, q ReportQuery) (
 	}
 	index := map[string]*ReportMonth{}
 	for m := fromTime; !m.After(toTime); m = m.AddDate(0, 1, 0) {
-		rm := ReportMonth{Month: m.Format("2006-01"), ReportTotals: ReportTotals{Expenses: map[string]int64{}}}
+		rm := ReportMonth{Month: m.Format("2006-01"), ReportTotals: newTotals(q.Detail)}
 		if len(sel) > 1 {
 			for _, id := range sel {
-				rm.Accounts = append(rm.Accounts, ReportAccount{ID: id, ReportTotals: ReportTotals{Expenses: map[string]int64{}}})
+				rm.Accounts = append(rm.Accounts, ReportAccount{ID: id, ReportTotals: newTotals(q.Detail)})
 			}
 		}
 		out.Months = append(out.Months, rm)
@@ -273,12 +347,18 @@ func (s *Store) ReportMonths(ctx context.Context, viewer int64, q ReportQuery) (
 	}
 
 	end := toTime.AddDate(0, 1, 0).Format("2006-01") + "-01"
+	// With detail, one more column per bucket (the selection's, the per-account one), from the same rows.
+	bucket, own := reportBucket(inSelection("other_id", sel)), reportBucket("0 = 1")
+	detailCols, group := "", "1, 2, 3, 4, 5"
+	if q.Detail {
+		detailCols, group = `, `+reportDetail(bucket)+`, `+reportDetail(own), "1, 2, 3, 4, 5, 6, 7"
+	}
 	rows, err := s.db.QueryContext(ctx, reportBase+`
-		SELECT substr(booking_date, 1, 7), account_id, `+reportBucket(inSelection("other_id", sel))+`, `+reportKey+`,
-		       `+reportBucket("0 = 1")+`, SUM(amount)
+		SELECT substr(booking_date, 1, 7), account_id, `+bucket+`, `+reportKey+`,
+		       `+own+detailCols+`, SUM(amount)
 		FROM parts
 		WHERE `+inSelection("account_id", sel)+` AND booking_date >= ? AND booking_date < ?
-		GROUP BY 1, 2, 3, 4, 5`, viewer, viewer, from+"-01", end)
+		GROUP BY `+group, viewer, viewer, from+"-01", end)
 	if err != nil {
 		return Report{}, err
 	}
@@ -288,15 +368,19 @@ func (s *Store) ReportMonths(ctx context.Context, viewer int64, q ReportQuery) (
 		at[id] = i
 	}
 	for rows.Next() {
-		var month, bucket, key, own string
+		var month, bucket, key, own, detail, ownDetail string
 		var account, amount int64
-		if err := rows.Scan(&month, &account, &bucket, &key, &own, &amount); err != nil {
+		dest := []any{&month, &account, &bucket, &key, &own, &amount}
+		if q.Detail {
+			dest = []any{&month, &account, &bucket, &key, &own, &detail, &ownDetail, &amount}
+		}
+		if err := rows.Scan(dest...); err != nil {
 			return Report{}, err
 		}
 		rm := index[month]
-		rm.add(bucket, key, amount)
+		rm.add(bucket, key, detail, amount)
 		if rm.Accounts != nil {
-			rm.Accounts[at[account]].add(own, key, amount)
+			rm.Accounts[at[account]].add(own, key, ownDetail, amount)
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -311,8 +395,18 @@ func (s *Store) ReportMonths(ctx context.Context, viewer int64, q ReportQuery) (
 	return out, nil
 }
 
-// add sums amount (signed as stored) into its bucket.
-func (r *ReportTotals) add(bucket, key string, amount int64) {
+// newTotals is an empty month or account, with an empty detail when asked.
+func newTotals(detail bool) ReportTotals {
+	r := ReportTotals{Expenses: map[string]int64{}}
+	if detail {
+		r.Detail = &ReportDetail{Income: map[string]int64{}, Saved: map[string]int64{}, Expenses: map[string]map[string]int64{}}
+	}
+	return r
+}
+
+// add sums amount (signed as stored) into its bucket, and into its detail
+// when the totals carry one (an expense key without detail, "", has none).
+func (r *ReportTotals) add(bucket, key, detail string, amount int64) {
 	switch bucket {
 	case "income":
 		r.Income += amount
@@ -321,13 +415,44 @@ func (r *ReportTotals) add(bucket, key string, amount int64) {
 	case "expense":
 		r.Expenses[key] -= amount
 	}
+	if r.Detail == nil {
+		return
+	}
+	switch bucket {
+	case "income":
+		r.Detail.Income[detail] += amount
+	case "saved":
+		r.Detail.Saved[detail] -= amount
+	case "expense":
+		if detail == "" {
+			return
+		}
+		if r.Detail.Expenses[key] == nil {
+			r.Detail.Expenses[key] = map[string]int64{}
+		}
+		r.Detail.Expenses[key][detail] -= amount
+	}
 }
 
-// prune drops the expense keys that sum to 0.
+// prune drops the expense keys and detail entries that sum to 0.
 func (r *ReportTotals) prune() {
-	for k, v := range r.Expenses {
+	dropZero(r.Expenses)
+	if r.Detail == nil {
+		return
+	}
+	dropZero(r.Detail.Income)
+	dropZero(r.Detail.Saved)
+	for k, m := range r.Detail.Expenses {
+		if dropZero(m); len(m) == 0 {
+			delete(r.Detail.Expenses, k)
+		}
+	}
+}
+
+func dropZero(m map[string]int64) {
+	for k, v := range m {
 		if v == 0 {
-			delete(r.Expenses, k)
+			delete(m, k)
 		}
 	}
 }

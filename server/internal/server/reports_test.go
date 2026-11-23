@@ -5,6 +5,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
@@ -218,5 +219,51 @@ func TestReportMonthsEmpty(t *testing.T) {
 	rep := report(t, p.bertH, "?account="+fmt.Sprint(empty)+"&from=2026-10")
 	if rep.FirstMonth != nil || !slices.Equal(monthNames(rep), []string{"2026-10", "2026-11"}) || rep.Months[0].Income != 0 || len(rep.Months[0].Expenses) != 0 {
 		t.Errorf("no rows with from: %+v", rep)
+	}
+}
+
+// detail=1 (0.8.1-1) adds the amounts per own category to every month and account, summed from the same rows;
+// without it, or with another value, the answer is byte for byte the one of 0.8.0.
+func TestReportMonthsDetail(t *testing.T) {
+	h, _ := demoServer(t)
+	plain := do(t, h, "GET", reportsPath+"?from=2026-10&to=2026-11", "")
+	for _, q := range []string{"&detail=0", "&detail=", "&detail=ja"} {
+		if r := do(t, h, "GET", reportsPath+"?from=2026-10&to=2026-11"+q, ""); r.body != plain.body {
+			t.Errorf("%s changed the answer: %s", q, r.body)
+		}
+	}
+	if strings.Contains(plain.body, "detail") {
+		t.Errorf("no detail was asked for: %s", plain.body)
+	}
+	sum := func(m map[string]int64) (n int64) {
+		for _, v := range m {
+			n += v
+		}
+		return n
+	}
+	check := func(label string, f ledger.ReportTotals) {
+		t.Helper()
+		d := f.Detail
+		if d == nil {
+			t.Fatalf("%s: no detail", label)
+		}
+		if sum(d.Income) != f.Income || sum(d.Saved) != f.Saved {
+			t.Errorf("%s: income %d (detail %d), saved %d (detail %d)", label, f.Income, sum(d.Income), f.Saved, sum(d.Saved))
+		}
+		for k, v := range f.Expenses {
+			if sum(d.Expenses[k]) != v && !slices.Contains([]string{"none", "toShared", "toOwn"}, k) {
+				t.Errorf("%s: expenses[%s] %d, detail %d", label, k, v, sum(d.Expenses[k]))
+			}
+		}
+	}
+	rep := report(t, h, "?from=2026-10&to=2026-11&detail=1")
+	for _, m := range rep.Months {
+		check(m.Month, m.ReportTotals)
+		for _, a := range m.Accounts {
+			check(fmt.Sprint(m.Month, " account ", a.ID), a.ReportTotals)
+		}
+	}
+	if _, ok := rep.Months[1].Detail.Saved["account-2"]; !ok {
+		t.Errorf("November saved detail: %v, want the transfer to the Spaarrekening (account-2)", rep.Months[1].Detail.Saved)
 	}
 }

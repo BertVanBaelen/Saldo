@@ -212,3 +212,86 @@ func TestWorld(t *testing.T) {
 	fcCompare(t, "W1 late Toelage", missed(fcForecast(t, w.db, w.W1, fcToday, 3)), "Krant 2026-11-05 -1000")
 	fcCompare(t, "W1 on 9 December", missed(fcForecast(t, w.db, w.W1, "2026-12-09", 3)), "Gym 2026-11-14 -2500") // Toelage and Krant: their next date passed
 }
+
+// TestWorldDayless is rule 6b (plan 0.8.1-9): a one-off without a day spread
+// over its month. Each case adds one dayless item to W1 and compares with W1
+// without it on the same day: the ends move by the item from its month on.
+func TestWorldDayless(t *testing.T) {
+	spread := func(f planning.AccountForecast, month string) string { // "day amount" of every Zomer item in the month
+		var b []string
+		for _, d := range f.Days[month] {
+			for i, it := range d.Items {
+				if it.Label == "Zomer" {
+					if it.Kind != "planned" || i != len(d.Items)-1 {
+						t.Errorf("%s: %s %d is not the day's last planned item: %s", d.Date, it.Kind, i, fcItems(d))
+					}
+					b = append(b, fmt.Sprintf("%s %d", d.Date[8:], it.Amount))
+				}
+			}
+		}
+		return strings.Join(b, " ")
+	}
+	deltas := func(with, without planning.AccountForecast) string { // per month "m:end/need" deltas, need = Costs - OtherIncome
+		var b []string
+		for i, m := range with.Months[:5] {
+			o := without.Months[i]
+			b = append(b, fmt.Sprintf("%s:%d/%d", m.Month[2:], m.End-o.End, m.Need.Costs-m.Need.OtherIncome-(o.Need.Costs-o.Need.OtherIncome)))
+		}
+		return strings.Join(b, " ")
+	}
+	zomer := func(d planning.Day) string {
+		for _, it := range d.Items {
+			if it.Label == "Zomer" {
+				return fmt.Sprintf("%s %d", it.Kind, it.Amount)
+			}
+		}
+		return ""
+	}
+	var december []string
+	for d := 1; d <= 31; d++ {
+		december = append(december, fmt.Sprintf("%02d -100", d))
+	}
+	for _, c := range []struct {
+		name, today, month string
+		amount             int64
+		check              func(with, without planning.AccountForecast) string
+		want               string
+	}{
+		{"December, 31 days", fcToday, "2026-12", -3100, func(with, without planning.AccountForecast) string {
+			return spread(with, "2026-12") + "; " + fcLines(with.Months[1]) + "; " + deltas(with, without)
+		}, strings.Join(december, " ") + "; start 235500 | recurringIn 170000[Toelage,Salaris] | recurringOut -88000[Huur,Krant,Gym,Water] | " +
+			"pending 0 | planned -13100[Zomer,Feest] | variable -10000 | saving 0 | end 294400 | buffer -50000 | free 244400; " +
+			"26-11:0/0 26-12:-3100/3100 27-01:-3100/0 27-02:-3100/0 27-03:-3100/0"},
+		{"running month, after today", fcToday, "2026-11", -1300, func(with, without planning.AccountForecast) string {
+			return spread(with, "2026-11") + "; " + fmt.Sprint(fcLine(with.Months[0], "planned")) + "; " + deltas(with, without)
+		}, "19 -108 20 -108 21 -108 22 -108 23 -108 24 -108 25 -108 26 -108 27 -108 28 -108 29 -108 30 -112; -6300; " +
+			"26-11:-1300/1300 26-12:-1300/0 27-01:-1300/0 27-02:-1300/0 27-03:-1300/0"},
+		{"running month's last day: tomorrow", "2026-11-30", "2026-11", 5000, func(with, without planning.AccountForecast) string {
+			return "[" + spread(with, "2026-11") + "] " + zomer(with.Days["2026-12"][0]) + "; " +
+				fmt.Sprint(fcLine(with.Months[1], "planned")-fcLine(without.Months[1], "planned")) + "; " + deltas(with, without)
+		}, "[] planned 5000; 5000; 26-11:0/-5000 26-12:5000/0 27-01:5000/0 27-02:5000/0 27-03:5000/0"},
+		{"past month: not counted", fcToday, "2026-10", -1000, func(with, without planning.AccountForecast) string {
+			return "[" + spread(with, "2026-10") + spread(with, "2026-11") + "] " + deltas(with, without)
+		}, "[] 26-11:0/0 26-12:0/0 27-01:0/0 27-02:0/0 27-03:0/0"},
+	} {
+		without := planningWorld(t)
+		with := planningWorld(t)
+		if _, err := with.db.Exec(`INSERT INTO planned_items (account_id, date, amount, description, whole_month) VALUES (?, ?, ?, 'Zomer', 1)`,
+			with.W1, c.month+"-01", c.amount); err != nil {
+			t.Fatal(err)
+		}
+		a, b := fcForecast(t, with.db, with.W1, c.today, 24), fcForecast(t, without.db, without.W1, c.today, 24)
+		fcCompare(t, c.name, c.check(a, b), c.want)
+		t.Logf("%s: %s", c.name, fcEnds(a)[:93])
+	}
+
+	// The cents: signed integer division, the last day takes the rest; the
+	// whole amount is in the month's need (rule 12).
+	f := fcFacts("2026-11-27", nil)
+	f.Planned = []planning.FactPlanned{{ID: 6, Date: "2026-10-01", Amount: -1000, Description: "Oud", WholeMonth: true}, // past month: not counted
+		{ID: 7, Date: "2026-11-01", Amount: -1000, Description: "Zomer", WholeMonth: true}}
+	p := planning.Project(f, "2026-11-27", 3)
+	fcIdentities(t, p)
+	fcCompare(t, "sign", spread(p, "2026-11")+fmt.Sprint("; ", p.Months[0].End, " ", p.Months[0].Need.Costs, " ", p.Days["2026-11"][27].Items[0].ID),
+		"28 -333 29 -333 30 -334; 99000 1000 7")
+}

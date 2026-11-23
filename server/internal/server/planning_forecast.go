@@ -38,6 +38,7 @@ type (
 		Source     string `json:"source"`
 		Spent      int64  `json:"spent"`
 		Rest       int64  `json:"rest"`
+		Average    int64  `json:"average"` // the category's 6-month average of variable spending (0 without history), whatever source says
 	}
 	planItem struct {
 		Kind   string `json:"kind"`
@@ -63,11 +64,12 @@ type (
 		Items   []planItem `json:"items"`
 	}
 	planMember struct {
-		UserID   int64  `json:"userId"`
-		Name     string `json:"name"`
-		Me       bool   `json:"me"`
-		Share    int    `json:"share"`
-		Required int64  `json:"required"`
+		UserID        int64  `json:"userId,omitempty"`        // a member
+		ContributorID int64  `json:"contributorId,omitempty"` // a contributor without Saldo (0.8.1-7)
+		Name          string `json:"name"`
+		Me            bool   `json:"me"`
+		Share         int    `json:"share"`
+		Required      int64  `json:"required"`
 	}
 	planContribution struct {
 		Need        int64        `json:"need"`
@@ -187,23 +189,24 @@ func (s *Server) getPlanningForecast(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, r, err, msgAccountNotFound)
 			return
 		}
-		var members []ledger.ContributionMember
+		var parties []contribParty
 		if a.Kind == "shared" {
 			c, err := s.store.Contributions(ctx, viewer, a.ID, "", now)
 			if err != nil {
 				s.fail(w, r, err, msgAccountNotFound)
 				return
 			}
-			members = c.Members
+			parties = partiesOf(c)
 		}
-		out.Accounts = append(out.Accounts, planAccountOf(f, month, members))
+		out.Accounts = append(out.Accounts, planAccountOf(f, month, parties))
 	}
 	writeJSON(w, http.StatusOK, out)
 }
 
-// planAccountOf maps one forecast; members (member order, with their stored
-// shares) make every month of a shared account carry its contribution.
-func planAccountOf(f planning.AccountForecast, month string, members []ledger.ContributionMember) planAccount {
+// planAccountOf maps one forecast; parties (members in member order, then
+// contributors without Saldo, with their stored shares) make every month of a
+// shared account carry its contribution.
+func planAccountOf(f planning.AccountForecast, month string, parties []contribParty) planAccount {
 	return planAccount{ID: f.AccountID, Buffer: f.Buffer, Balance: f.Balance, BalanceDate: f.BalanceDate, DataDate: f.DataDate,
 		Months: mapTo(f.Months, func(m planning.Month) planMonth {
 			pm := planMonth{Month: m.Month, Start: m.Start, End: m.End, Left: m.Left, State: m.State,
@@ -211,8 +214,8 @@ func planAccountOf(f planning.AccountForecast, month string, members []ledger.Co
 				Low:     planLow{Date: m.Low.Date, Balance: m.Low.Balance, State: m.Low.State},
 				Lines:   mapTo(m.Lines, func(l planning.Line) planLine { return planLine{l.Key, l.Amount, append([]string{}, l.Labels...)} }), // labels: [] not null
 				Budgets: mapTo(m.Budgets, func(b planning.Budget) planBudget { return planBudget(b) })}
-			if len(members) > 0 {
-				pm.Contribution = contributionOf(m.Need, members)
+			if len(parties) > 0 {
+				pm.Contribution = contributionOf(m.Need, parties)
 			}
 			return pm
 		}),
@@ -223,13 +226,33 @@ func planAccountOf(f planning.AccountForecast, month string, members []ledger.Co
 		Missed: mapTo(f.Missed, func(m planning.Missed) planMissed { return planMissed(m) })}
 }
 
+// contribParty is one who owes a part of the need: a member (UserID) or a
+// contributor without Saldo (ContributorID, 0.8.1-7), with the stored share.
+type contribParty struct {
+	who   planMember
+	share *int
+}
+
+// partiesOf lists the members, then the contributors.
+func partiesOf(c ledger.Contributions) []contribParty {
+	out := make([]contribParty, 0, len(c.Members)+len(c.Contributors))
+	for _, m := range c.Members {
+		out = append(out, contribParty{planMember{UserID: m.UserID, Name: m.Name, Me: m.Me}, m.Share})
+	}
+	for _, x := range c.Contributors {
+		out = append(out, contribParty{planMember{ContributorID: x.ID, Name: x.Name}, x.Share})
+	}
+	return out
+}
+
 // contributionOf is a month's required contribution (decision 10): the need
-// rounded up to whole euros and each member's part of it.
-func contributionOf(n planning.Need, members []ledger.ContributionMember) *planContribution {
+// rounded up to whole euros and each party's part of it.
+func contributionOf(n planning.Need, parties []contribParty) *planContribution {
 	c := &planContribution{Need: ceilEuros(n.Amount, 100), Costs: n.Costs, OtherIncome: n.OtherIncome, BufferGap: n.BufferGap,
-		Members: mapTo(members, func(m ledger.ContributionMember) planMember {
-			share, required := memberPart(n.Amount, m.Share, len(members))
-			return planMember{UserID: m.UserID, Name: m.Name, Me: m.Me, Share: share, Required: required}
+		Members: mapTo(parties, func(p contribParty) planMember {
+			m := p.who
+			m.Share, m.Required = memberPart(n.Amount, p.share, len(parties))
+			return m
 		})}
 	return c
 }

@@ -1,11 +1,12 @@
-// Planning: the page shell of the five tabs (plan 0.8-5): header with the buffers, the summary per account and the tab bar.
+// Planning: the page shell of the three tabs (plan 0.8-5, 0.8.1-8): header with the buffers and the cog to "Planning instellen", the
+// summary per account and the tab bar.
 // Design: finance-mockup/planning.html, js/screens/planning.js; spec: analysis/screens/planning.md. Loaded lazily (App.tsx).
-// State in the URL: the tab in the hash (`#kalender`, `#maanden`, `#terugkerend`, `#eenmalig`, `#budget`) and the month in `?maand=YYYY-MM`
+// State in the URL: the tab in the hash (`#kalender`, `#maanden`, `#budget`) and the month in `?maand=YYYY-MM`
 // (default the running month; it picks the smallest horizon that holds it). Every URL write goes through `go`: the router's
-// `useSearchParams` setter would drop the hash.
-// The tabs are components with a shared props object (planningTabs.ts); Maanden, Terugkerend, Eenmalig and Budget are filled in by 0.8-6 and 0.8-7.
+// `useSearchParams` setter would drop the hash. The old links `#terugkerend` and `#eenmalig` lead on to `/planning/instellen#…`.
+// The tabs are components with a shared props object (planningTabs.ts).
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { delay, ErrorState, ScopeSwitch, Skel, useTitle } from '../components/ui';
@@ -17,11 +18,9 @@ import type { Account, Scope } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { Tab, TabList, Tabs } from '../ui';
 import { PlanningBudget } from './PlanningBudget';
-import { PlanningEenmalig } from './PlanningEenmalig';
 import { PlanningKalender } from './PlanningKalender';
 import { PlanningMaanden } from './PlanningMaanden';
 import { PlanningSummary, type PlanRow } from './PlanningSummary';
-import { PlanningTerugkerend } from './PlanningTerugkerend';
 import { addMonths, horizonFor, monthOffset, TABS, type PlanningTabId, type PlanningTabProps } from './planningTabs';
 import './Planning.css';
 
@@ -76,7 +75,24 @@ function PageSkeleton() {
   );
 }
 
+/** The cog to "Planning instellen" (the icon set has none). */
+function Cog() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+    </svg>
+  );
+}
+
+/** The old tab links of Terugkerend and Eenmalig now open their section of "Planning instellen" (replace; the month is dropped). */
 export function Planning() {
+  const { hash } = useLocation();
+  if (hash === '#terugkerend' || hash === '#eenmalig') return <Navigate to={{ pathname: '/planning/instellen', hash }} replace />;
+  return <PlanningPage />;
+}
+
+function PlanningPage() {
   useTitle('Planning');
   const { me, today, scope, dataVersion, refreshShell } = useApp();
   const { search, hash } = useLocation();
@@ -146,7 +162,6 @@ export function Planning() {
       refreshShell();
     },
     canEdit: current.some((a) => a.permission === 'edit'),
-    openTab: (t, m) => go({ tab: t, month: m }),
   };
 
   let body;
@@ -167,8 +182,6 @@ export function Planning() {
           </TabList>
           <PlanningKalender {...props} />
           <PlanningMaanden {...props} />
-          <PlanningTerugkerend {...props} />
-          <PlanningEenmalig {...props} />
           <PlanningBudget {...props} />
         </Tabs>
       </>
@@ -184,6 +197,9 @@ export function Planning() {
         <ScopeSwitch className="anim-in" />
         <div className="page-head-actions">
           {current.length > 0 && <BufferPill accounts={current} />}
+          <Link className="icon-btn" to="/planning/instellen" state={{ fromPlanning: true }} aria-label="Planning instellen">
+            <Cog />
+          </Link>
           <Link className="avatar only-phone" to="/meer" aria-label="Profiel en meer" style={{ background: 'var(--c2)' }}>
             {me.user.initial}
           </Link>

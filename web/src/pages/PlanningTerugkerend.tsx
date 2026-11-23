@@ -1,50 +1,40 @@
-// Planning · Terugkerend (plan 0.8-7): the detected items to confirm, the confirmed items, the ignored ones and the item form that
-// adds, confirms, edits and deletes them. Design: finance-mockup/js/screens/planning.js terugkerend(); spec: analysis/screens/planning.md.
-// The exported tab stays hook-free (see planningTabs.ts): everything below `Body` mounts for the selected tab only.
+// Planning instellen · Terugkerend (plan 0.8-7, moved from the Planning tab by 0.8.1-8): the detected items to confirm ("Gevonden · te
+// bevestigen"), the confirmed items as "Inkomend" and "Uitgaand", the ignored ones, and the item sheet that adds, confirms, edits and
+// deletes them. Design: the board "Planning instellen" (Terugkerend); spec: plan 0.8.1-8.
+// A section of the screen, not a tab: it may use hooks. The account in view is the one in `accounts`; the page owns the items' load.
 import { useId, useState } from 'react';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
-import { ErrorState, SkelList, useIsDesktop } from '../components/ui';
+import { ErrorState, SkelList } from '../components/ui';
 import { api, errorMessage } from '../lib/api';
 import { eur } from '../lib/format';
-import { itemRhythm, missedNote, suggestionRhythm, type RecurringItem, type RecurringSuggestion } from '../lib/planningItems';
-import type { Account } from '../lib/types';
-import { useAsync } from '../lib/useAsync';
-import { TabPanel } from '../ui';
+import { itemRhythm, missedNote, monthlySummary, suggestionRhythm, type RecurringItem, type RecurringSuggestion } from '../lib/planningItems';
+import { useAsync, type AsyncState } from '../lib/useAsync';
 import { ItemForm, type ItemFormMode } from './PlanningItemForm';
-import { AccountPill } from './PlanningParts';
-import type { PlanningTabProps } from './planningTabs';
+import type { PlanningSectionProps } from './planningTabs';
 
-export function PlanningTerugkerend(props: PlanningTabProps) {
-  return (
-    <TabPanel id="terugkerend" className="pl-panel">
-      <Body {...props} />
-    </TabPanel>
-  );
+export interface TerugkerendProps extends PlanningSectionProps {
+  /** The page's load of `GET /api/planning/items` (its count is in the section control). */
+  items: AsyncState<{ items: RecurringItem[] }>;
 }
 
-const amountClass = (cents: number) => 'mono pl-rec-amount' + (cents < 0 ? ' pl-rec-amount--neg' : '');
+const amountClass = (cents: number) => 'mono pl-rec-amount' + (cents < 0 ? ' pl-rec-amount--neg' : ' pl-rec-amount--pos');
 /** A suggestion has no id: its account, name, rhythm and amount tell it from the next. */
 const suggestionKey = (s: RecurringSuggestion) => [s.accountId, s.counterparty, s.frequency, s.day, s.amount].join('|');
 
-/** The first two lines of a row, shared by the confirmed and the ignored list: name, then account and rhythm (columns from 1280 px). */
-function RowText({ item, account }: { item: RecurringItem; account: Account }) {
+/** The first two lines of a row, shared by the confirmed and the ignored list: name, then rhythm. */
+function RowText({ item }: { item: RecurringItem }) {
   return (
     <span className="pl-rec-main">
       <span className="pl-rec-name">{item.description}</span>
-      <span className="pl-rec-sub">
-        <AccountPill account={account} />
-        <span className="pl-rec-rhythm">{itemRhythm(item)}</span>
-      </span>
+      <span className="pl-rec-sub">{itemRhythm(item)}</span>
     </span>
   );
 }
 
-function Body({ planning, accounts, scope, reload, canEdit }: PlanningTabProps) {
+export function PlanningTerugkerend({ planning, accounts, scope, reload, canEdit, items }: TerugkerendProps) {
   const { today, dataVersion, toast } = useApp();
-  const desk = useIsDesktop();
   const uid = useId();
-  const items = useAsync((signal) => api.planningItems(scope, signal), [scope, dataVersion]);
   const found = useAsync((signal) => api.planningSuggestions(scope, signal), [scope, dataVersion]);
   const [form, setForm] = useState<ItemFormMode | null>(null);
   const [showIgnored, setShowIgnored] = useState(false);
@@ -71,19 +61,15 @@ function Body({ planning, accounts, scope, reload, canEdit }: PlanningTabProps) 
     );
   }
 
-  // An answer for another scope can still be on screen while the next one loads: only items of the accounts in view show.
+  // An answer for another scope or account can still be on screen while the next one loads: only items of the accounts in view show.
   const accountOf = (id: number) => accounts.find((a) => a.id === id);
   const mayEdit = (id: number) => accountOf(id)?.permission === 'edit';
-  const shown = items.data.items.flatMap((item) => {
-    const account = accountOf(item.accountId);
-    return account ? [{ item, account }] : [];
-  });
-  const confirmed = shown.filter((r) => r.item.state === 'confirmed');
-  const ignored = shown.filter((r) => r.item.state === 'ignored');
-  const open = found.data.suggestions.flatMap((s) => {
-    const account = accountOf(s.accountId);
-    return account ? [{ s, account }] : [];
-  });
+  const shown = items.data.items.filter((item) => accountOf(item.accountId));
+  const confirmed = shown.filter((item) => item.state === 'confirmed');
+  const incoming = confirmed.filter((item) => item.amount > 0);
+  const outgoing = confirmed.filter((item) => item.amount < 0);
+  const ignored = shown.filter((item) => item.state === 'ignored');
+  const open = found.data.suggestions.filter((s) => accountOf(s.accountId));
   const missed = new Map((planning?.accounts ?? []).flatMap((p) => p.missed ?? []).map((m) => [m.itemId, m.date]));
 
   /** A stored, changed or deleted item moves the lists, the forecast and the alerts of Start. */
@@ -126,8 +112,8 @@ function Body({ planning, accounts, scope, reload, canEdit }: PlanningTabProps) 
       changed();
     });
 
-  const row = ({ item, account }: { item: RecurringItem; account: Account }) => {
-    const text = <RowText item={item} account={account} />;
+  const row = (item: RecurringItem) => {
+    const text = <RowText item={item} />;
     const amount = <span className={amountClass(item.amount)}>{eur(item.amount, true)}</span>;
     const date = missed.get(item.id);
     return (
@@ -136,6 +122,9 @@ function Body({ planning, accounts, scope, reload, canEdit }: PlanningTabProps) 
           <button type="button" className="pl-rec" aria-haspopup="dialog" onClick={() => setForm({ type: 'edit', item })}>
             {text}
             {amount}
+            <span className="pl-rec-chev" aria-hidden="true">
+              <Icon name="chevron" size={16} stroke={2.2} />
+            </span>
           </button>
         ) : (
           <div className="pl-rec">
@@ -147,94 +136,94 @@ function Body({ planning, accounts, scope, reload, canEdit }: PlanningTabProps) 
       </li>
     );
   };
+  const list = (label: string, rows: RecurringItem[]) =>
+    rows.length > 0 && (
+      <section className="pl-section" aria-labelledby={uid + label}>
+        <h3 className="pl-h3" id={uid + label}>
+          {label}
+        </h3>
+        <div className="pl-list">
+          <ul className="pl-recs">{rows.map(row)}</ul>
+        </div>
+      </section>
+    );
 
   const ignoredId = uid + '-ignored';
   return (
     <div className="pl-terug">
-      {(open.length > 0 || desk) && (
+      {open.length > 0 && (
         <section className="pl-section" aria-labelledby={uid + '-open'}>
-          <h2 className="pl-h2" id={uid + '-open'}>
-            Te bevestigen <span className="pl-h2-count">· {open.length}</span>
-          </h2>
-          {open.length > 0 ? (
-            <ul className="pl-suggs">
-              {open.map(({ s, account }) => (
-                <li className="pl-sugg" key={suggestionKey(s)}>
-                  <div className="pl-sugg-top">
-                    <span className="pl-sugg-text">
-                      <span className="pl-sugg-name">{s.description}</span>
-                      <span className="pl-sugg-sub">
-                        <AccountPill account={account} />
-                        {suggestionRhythm(s)}
-                      </span>
-                    </span>
-                    <span className="mono pl-sugg-amount">{eur(s.amount, true)}</span>
+          <h3 className="pl-h3" id={uid + '-open'}>
+            Gevonden · te bevestigen · {open.length}
+          </h3>
+          <ul className="pl-suggs">
+            {open.map((s) => (
+              <li className="pl-sugg" key={suggestionKey(s)}>
+                <div className="pl-sugg-top">
+                  <span className="pl-sugg-text">
+                    <span className="pl-sugg-name">{s.description}</span>
+                    <span className="pl-sugg-sub">{suggestionRhythm(s)}</span>
+                  </span>
+                  <span className="mono pl-sugg-amount">{eur(s.amount, true)}</span>
+                </div>
+                {mayEdit(s.accountId) && (
+                  <div className="pl-sugg-actions">
+                    <button type="button" className="btn btn--primary pl-btn-sm" aria-label={'Bevestigen: ' + s.description} disabled={!!working} onClick={() => setForm({ type: 'confirm', suggestion: s })}>
+                      Bevestigen
+                    </button>
+                    <button type="button" className="btn btn--ghost pl-btn-sm" aria-label={'Negeren: ' + s.description} disabled={!!working} aria-busy={working === suggestionKey(s) || undefined} onClick={() => ignore(s)}>
+                      Negeren
+                    </button>
                   </div>
-                  {mayEdit(s.accountId) && (
-                    <div className="pl-sugg-actions">
-                      <button type="button" className="btn btn--primary pl-btn-sm" aria-label={'Bevestigen: ' + s.description} disabled={!!working} onClick={() => setForm({ type: 'confirm', suggestion: s })}>
-                        Bevestigen
-                      </button>
-                      <button type="button" className="btn btn--ghost pl-btn-sm" aria-label={'Negeren: ' + s.description} disabled={!!working} aria-busy={working === suggestionKey(s) || undefined} onClick={() => ignore(s)}>
-                        Negeren
-                      </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {list('Inkomend', incoming)}
+      {list('Uitgaand', outgoing)}
+      {confirmed.length === 0 && <p className="pl-empty-card">Nog geen terugkerende posten.</p>}
+      {confirmed.length > 0 && <p className="pl-sum-line">{monthlySummary(confirmed)}</p>}
+      {ignored.length > 0 && (
+        <section className="pl-section">
+          <h3 className="pl-h3">
+            <button type="button" className="pl-fold" aria-expanded={showIgnored} aria-controls={ignoredId} onClick={() => setShowIgnored((v) => !v)}>
+              Genegeerd · {ignored.length}
+              <Icon name="chevron" size={16} stroke={2.4} />
+            </button>
+          </h3>
+          {showIgnored && (
+            <div className="pl-list" id={ignoredId}>
+              <ul className="pl-recs">
+                {ignored.map((item) => (
+                  <li key={item.id}>
+                    <div className="pl-rec">
+                      <RowText item={item} />
+                      {mayEdit(item.accountId) && (
+                        <button type="button" className="btn btn--ghost pl-btn-sm" aria-label={'Toch tonen: ' + item.description} disabled={!!working} aria-busy={working === 'i' + item.id || undefined} onClick={() => show(item)}>
+                          Toch tonen
+                        </button>
+                      )}
                     </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="pl-empty-card">Alles bevestigd.</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </section>
       )}
-      <div className="pl-terug-main">
-        <section className="pl-section" aria-labelledby={uid + '-confirmed'}>
-          <h2 className="pl-h2" id={uid + '-confirmed'}>
-            Bevestigd
-          </h2>
-          <div className="pl-list">{confirmed.length > 0 ? <ul className="pl-recs pl-recs--cols">{confirmed.map(row)}</ul> : <p className="pl-empty">Nog geen terugkerende posten.</p>}</div>
-        </section>
-        {ignored.length > 0 && (
-          <section className="pl-section">
-            <h2 className="pl-h2">
-              <button type="button" className="pl-fold" aria-expanded={showIgnored} aria-controls={ignoredId} onClick={() => setShowIgnored((v) => !v)}>
-                Genegeerd <span className="pl-h2-count">· {ignored.length}</span>
-                <Icon name="chevron" size={16} stroke={2.4} />
-              </button>
-            </h2>
-            {showIgnored && (
-              <div className="pl-list" id={ignoredId}>
-                <ul className="pl-recs">
-                  {ignored.map(({ item, account }) => (
-                    <li key={item.id}>
-                      <div className="pl-rec">
-                        <RowText item={item} account={account} />
-                        {mayEdit(item.accountId) && (
-                          <button type="button" className="btn btn--ghost pl-btn-sm" aria-label={'Toch tonen: ' + item.description} disabled={!!working} aria-busy={working === 'i' + item.id || undefined} onClick={() => show(item)}>
-                            Toch tonen
-                          </button>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-        )}
-        {error && (
-          <p className="pl-err" role="alert">
-            {error}
-          </p>
-        )}
-        {canEdit && (
-          <button type="button" className="btn btn--dashed btn--block" aria-haspopup="dialog" onClick={() => setForm({ type: 'new' })}>
-            <Icon name="plus" size={16} stroke={2.6} />
-            Terugkerende post toevoegen
-          </button>
-        )}
-      </div>
+      {error && (
+        <p className="pl-err" role="alert">
+          {error}
+        </p>
+      )}
+      {canEdit && (
+        <button type="button" className="btn btn--dashed btn--block" aria-haspopup="dialog" onClick={() => setForm({ type: 'new' })}>
+          <Icon name="plus" size={16} stroke={2.6} />
+          Terugkerende post toevoegen
+        </button>
+      )}
       {form && (
         <ItemForm
           mode={form}

@@ -10,7 +10,7 @@ import { Skel, useIsDesktop } from '../components/ui';
 import { accColour } from '../lib/accounts';
 import { eur } from '../lib/format';
 import type { Horizon, PlanAccount, PlanMonth } from '../lib/planning';
-import { breakdownLines, monthChip, monthSummary, monthTitle, monthTone, resultLabel } from '../lib/planningMonths';
+import { breakdownLines, lowLine, monthAria, monthResult, monthSummary, monthTitle, monthTone, resultLabel, resultText, stateLabel } from '../lib/planningMonths';
 import type { Account } from '../lib/types';
 import { SegmentedControl, TabPanel } from '../ui';
 import { HORIZONS, type PlanningTabProps } from './planningTabs';
@@ -32,6 +32,8 @@ interface Plan {
 /** The rows from the start to the end of one month, with the result bar. */
 function Breakdown({ m, p, name }: { m: PlanMonth; p: PlanAccount; name: string }) {
   const tone = monthTone(m);
+  const result = monthResult(m);
+  const low = lowLine(m);
   return (
     <>
       {breakdownLines(m, p, name).map((l) => (
@@ -47,6 +49,19 @@ function Breakdown({ m, p, name }: { m: PlanMonth; p: PlanAccount; name: string 
         <span>Eindsaldo</span>
         <span className="mono">{eur(m.end)}</span>
       </div>
+      <div className="pl-line pl-line--info">
+        <span>Resultaat deze maand</span>
+        <span className={'mono pl-res pl-res--' + result.tone}>{resultText(result.cents)}</span>
+      </div>
+      {low && (
+        <div className="pl-line pl-line--info">
+          <span className="pl-line-text">
+            <span>Laagste punt</span>
+            <span className="pl-line-note">{low.date}</span>
+          </span>
+          <span className={'mono pl-low pl-low--' + low.state}>{low.amount}</span>
+        </div>
+      )}
       <div className="pl-line pl-line--buf">
         <span>Min. buffer</span>
         <span className="mono">{eur(-p.buffer)}</span>
@@ -67,6 +82,18 @@ function MonthName({ m, today }: { m: PlanMonth; today: string }) {
       {m.month === today.slice(0, 7) && <span className="pl-lopend">lopend</span>}
     </span>
   );
+}
+
+/** The buffer state in words and its colour; nothing above the buffer (the calm default), unless `keep` holds the column of the desktop row. */
+function StateLabel({ m, keep }: { m: PlanMonth; keep?: boolean }) {
+  if (m.state === 'ok' && !keep) return null;
+  return <span className={'pl-mstate pl-mstate--' + m.state}>{m.state === 'ok' ? null : stateLabel(m.state)}</span>;
+}
+
+/** The month's lowest point on a line of its own, in the colour of its own state; bold when it is worse than the end. Nothing when the low is the end. */
+function LowLine({ m }: { m: PlanMonth }) {
+  const low = lowLine(m);
+  return low && <span className={'pl-mcard-low pl-low--' + low.state + (low.worse ? ' is-worse' : '')}>{low.text}</span>;
 }
 
 function Skeletons() {
@@ -159,7 +186,9 @@ function Body({ planning, accounts, month, horizon, setHorizon }: PlanningTabPro
             <div className="pl-mlist">
               {p.months.map((m) => {
                 const tone = monthTone(m);
-                const chip = <span className={'pl-mchip pl-mchip--' + tone + (desk ? ' pl-mrow-chip' : '')}>{monthChip(m)}</span>;
+                const result = monthResult(m);
+                const chip = <span className={'pl-mchip pl-mchip--' + result.tone + (desk ? ' pl-mrow-chip' : '')}>{resultText(result.cents)}</span>;
+                const aria = monthAria(m, today);
                 if (desk) {
                   const on = selected?.id === a.id && selected.month === m.month;
                   return (
@@ -168,13 +197,18 @@ function Body({ planning, accounts, month, horizon, setHorizon }: PlanningTabPro
                       className={'pl-mcard pl-mcard--' + tone + ' pl-mrow' + (on ? ' is-sel' : '')}
                       key={m.month}
                       aria-pressed={on}
+                      aria-label={aria}
                       data-open={on || undefined}
                       onClick={() => setPick({ id: a.id, month: m.month })}
                     >
                       <MonthName m={m} today={today} />
-                      <span className="pl-mcard-sum">{monthSummary(m)}</span>
+                      <span className="pl-mrow-mid">
+                        <span className="pl-mcard-sum">{monthSummary(m)}</span>
+                        <LowLine m={m} />
+                      </span>
                       <span className="mono pl-mcard-end">{eur(m.end)}</span>
                       {chip}
+                      <StateLabel m={m} keep />
                     </button>
                   );
                 }
@@ -187,16 +221,21 @@ function Body({ planning, accounts, month, horizon, setHorizon }: PlanningTabPro
                       className="pl-mcard-btn"
                       aria-expanded={expanded}
                       aria-controls={expanded ? id : undefined}
+                      aria-label={aria}
                       onClick={() => setOpen({ ...open, [a.id]: expanded ? null : m.month })}
                     >
                       <span className="pl-mcard-top">
-                        <MonthName m={m} today={today} />
+                        <span className="pl-mcard-id">
+                          <MonthName m={m} today={today} />
+                          <StateLabel m={m} />
+                        </span>
                         {chip}
                       </span>
                       <span className="pl-mcard-bottom">
                         <span className="pl-mcard-sum">{monthSummary(m)}</span>
                         <span className="mono pl-mcard-end">{eur(m.end)}</span>
                       </span>
+                      <LowLine m={m} />
                     </button>
                     {expanded && (
                       <div className="pl-mcard-body" id={id}>

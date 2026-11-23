@@ -37,9 +37,9 @@ func TestMigrationsApplyToEmptyDatabaseAndAreIdempotent(t *testing.T) {
 	if len(all) == 0 || all[0].version != 1 {
 		t.Fatalf("want migrations starting at 0001, got %+v", all)
 	}
-	for i, m := range all {
-		if m.version != i+1 {
-			t.Fatalf("migration versions must be consecutive: %+v", all)
+	for i := 1; i < len(all); i++ { // gaps are allowed (a number may be reserved by a parallel branch), repeats are not
+		if all[i].version <= all[i-1].version {
+			t.Fatalf("migration versions must increase: %+v", all)
 		}
 	}
 

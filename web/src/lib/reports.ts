@@ -3,8 +3,8 @@
 // (plan 0.7-4). Pure: no React, no requests.
 // Months are handled as `YYYY-MM` strings and month indexes (year × 12 + month − 1): no Date, no time zones.
 import { catColours } from './categories';
-import { dateShort, MINUS, MONTHS, MONTHS_SHORT } from './format';
-import type { ReportMonth, TreeCategory } from './types';
+import { dateShort, eur, MINUS, MONTHS, MONTHS_SHORT } from './format';
+import type { ReportBudgets, ReportMonth, TreeCategory } from './types';
 
 export type View = 'maand' | 'kwartaal' | 'jaar' | 'eigen';
 export const VIEWS: { id: View; label: string }[] = [
@@ -238,6 +238,38 @@ export function sumColumn(months: string[], data: ReportMonth[], accountId?: num
   return sum;
 }
 
+/** The amounts of a column per own category (0.8.1-4): the sum of its months' `detail`, in the shape of `ReportDetail`. */
+export interface DetailSum {
+  income: Record<string, number>;
+  saved: Record<string, number>;
+  expenses: Record<string, Record<string, number>>;
+}
+
+/**
+ * The `detail` of a column, summed like `sumColumn`: for the whole selection or one account of it. A month without
+ * `detail` (the report was asked without it) adds nothing. Months can cancel each other out: entries of 0 are left out.
+ */
+export function sumDetail(months: string[], data: ReportMonth[], accountId?: number): DetailSum {
+  const sum: DetailSum = { income: {}, saved: {}, expenses: {} };
+  const add = (to: Record<string, number>, from: Record<string, number>) => {
+    for (const [k, v] of Object.entries(from)) to[k] = (to[k] ?? 0) + v;
+  };
+  for (const m of data) {
+    if (!months.includes(m.month)) continue;
+    const d = (accountId === undefined ? m : m.accounts?.find((a) => a.id === accountId))?.detail;
+    if (!d) continue;
+    add(sum.income, d.income);
+    add(sum.saved, d.saved);
+    for (const [k, own] of Object.entries(d.expenses)) add((sum.expenses[k] ??= {}), own);
+  }
+  const live = (m: Record<string, number>) => Object.fromEntries(Object.entries(m).filter(([, v]) => v !== 0));
+  return {
+    income: live(sum.income),
+    saved: live(sum.saved),
+    expenses: Object.fromEntries(Object.entries(sum.expenses).map(([k, own]) => [k, live(own)] as const).filter(([, own]) => Object.keys(own).length > 0)),
+  };
+}
+
 export interface Trend {
   text: string;
   colour: string;
@@ -257,6 +289,37 @@ export function trend(v: number, prev: number | null): Trend | null {
   };
 }
 
+/** One own-category entry behind a number: a subcategory, or the part booked on the category itself ("Boodschappen zelf"); also the rows of a breakdown sheet. */
+export interface BdRow {
+  /** Unique in its list. */
+  key: string;
+  name: string;
+  /** CSS colour of the dot or the emoji's disc; `''`: a dashed dot (not categorised). */
+  colour: string;
+  icon: string | null;
+  /** Drawn as a dot, not as an emoji: the pseudo rows and the subcategories. */
+  dot: boolean;
+  amount: number;
+  /** The drill-down `?categorie=` value of the row (lib/drilldown.ts). */
+  param: string;
+  /** The own-category entries behind the row, only when there is more than one. */
+  subs: BdRow[];
+}
+
+/** What a row's amount is read against: `budget`, `average`, or `mixed` (accounts or months with either). */
+export type RefSource = 'budget' | 'average' | 'mixed';
+export interface Ref {
+  /** Cents, summed over the column's months and the selection's accounts. */
+  reference: number;
+  source: RefSource;
+}
+export interface RowRef extends Ref {
+  /** Rounded amount / reference in percent, 0 for an amount below 0; `null` for a reference of 0. */
+  pct: number | null;
+  /** How far the amount is above the reference, cents; 0 when it is not. */
+  over: number;
+}
+
 export interface CatRow {
   /** The expense key: a top category id, `none`, `toShared` or `toOwn`. */
   key: string;
@@ -265,9 +328,13 @@ export interface CatRow {
   colour: string;
   icon: string | null;
   amount: number;
-  /** Rounded percentage of the total; `null` for a negative row. */
+  /** Rounded percentage of the total; `null` for a negative row. Only the Start card shows it: Overzicht reads a row against `ref`. */
   share: number | null;
+  /** The row against its budget or average (0.8.1-4); `null` without a reference (none asked for, or none for this key). */
+  ref: RowRef | null;
   trend: Trend | null;
+  /** The subcategories (and the part on the category itself) when `detail` was given and there is more than one entry. */
+  subs: BdRow[];
 }
 
 const PSEUDO: Record<string, { name: string; colour: string }> = {
@@ -276,24 +343,194 @@ const PSEUDO: Record<string, { name: string; colour: string }> = {
   toOwn: { name: 'Naar eigen rekening', colour: 'var(--muted)' },
 };
 
-/** The category rows of a sum: amount ≠ 0, largest first, a negative row last without share. Shares are not forced to 100. */
-export function catRows(sum: Sum, prev: Sum | null, categories: TreeCategory[]): CatRow[] {
-  return Object.entries(sum.expenses)
+/** Name, colour and icon of an expense key: a pseudo key, a category, or an id that is not (yet) in the tree. Shared by the rows and the stack. */
+function lookup(key: string, categories: TreeCategory[]): { name: string; colour: string; icon: string | null } {
+  const cat = PSEUDO[key] ? null : categories.find((c) => String(c.id) === key);
+  const look = PSEUDO[key] ?? { name: cat?.name ?? 'Categorie ' + key, colour: catColours(cat?.colour ?? 'c6').bg };
+  return { name: look.name, colour: look.colour, icon: cat?.icon ?? null };
+}
+
+/** The id of a category's top: its parent, else itself (an id that is not in the tree is its own top). */
+function topOf(id: string, categories: TreeCategory[]): string {
+  const parent = categories.find((c) => String(c.id) === id)?.parentId;
+  return parent == null ? id : String(parent);
+}
+
+/**
+ * The own-category entries of one top as rows, largest first, when there is more than one: a subcategory by its name, the
+ * part booked on the top itself as "<top> zelf" (its drill-down is `<id>-zelf`). `param` writes a row's `?categorie=`.
+ */
+function subRows(top: string, entries: Record<string, number>, categories: TreeCategory[], param: (id: string, own: boolean) => string): BdRow[] {
+  const ids = Object.keys(entries).filter((id) => entries[id] !== 0);
+  if (ids.length < 2) return [];
+  const topName = lookup(top, categories).name;
+  return ids
+    .sort((a, b) => entries[b] - entries[a] || a.localeCompare(b))
+    .map((id) => {
+      const look = lookup(id, categories);
+      return { key: id, name: id === top ? topName + ' zelf' : look.name, colour: look.colour, icon: look.icon, dot: true, amount: entries[id], param: param(id, id === top), subs: [] };
+    });
+}
+
+/**
+ * The references of a column per top category id (0.8.1-2): the budgets answer summed over the column's months and the
+ * selection's accounts (or one account); `source` is `budget` when every entry is one, `average` when every entry is one,
+ * else `mixed`. `null` (not loaded): none.
+ */
+export function columnReferences(months: string[], budgets: ReportBudgets | null, accountId?: number): Record<string, Ref> {
+  const sources: Record<string, Set<'budget' | 'average'>> = {};
+  const out: Record<string, Ref> = {};
+  for (const m of budgets?.months ?? []) {
+    if (!months.includes(m.month)) continue;
+    for (const a of m.accounts) {
+      if (accountId !== undefined && a.id !== accountId) continue;
+      for (const c of a.categories) {
+        const k = String(c.categoryId);
+        out[k] = { reference: (out[k]?.reference ?? 0) + c.reference, source: c.source };
+        (sources[k] ??= new Set()).add(c.source);
+      }
+    }
+  }
+  for (const [k, set] of Object.entries(sources)) out[k].source = set.size > 1 ? 'mixed' : [...set][0];
+  return out;
+}
+
+function rowRef(amount: number, r: Ref): RowRef {
+  return { ...r, pct: r.reference > 0 ? Math.max(0, Math.round((amount / r.reference) * 100)) : null, over: Math.max(0, amount - r.reference) };
+}
+
+/** "€ 66,90 van € 350,00 · 19 %", then "gemiddelde" or "budget en gemiddelde" when the reference is not all budget. The text under a row. */
+export function refText(amount: number, r: RowRef): string {
+  return eur(amount) + ' van ' + eur(r.reference) + (r.pct !== null ? ' · ' + r.pct + ' %' : '') + (r.source === 'average' ? ' · gemiddelde' : r.source === 'mixed' ? ' · budget en gemiddelde' : '');
+}
+
+/** The footnote under the rows read against a budget or an average. */
+export const BUDGET_NOTE =
+  'Budget zoals in de planning. Zonder budget: het gemiddelde van wat je de laatste 6 maanden in deze categorie uitgaf. Hier telt alles mee, ook terugkerende posten zoals huur; de planning rekent die apart, dus haar budgetten tonen soms meer ruimte.';
+
+/**
+ * The category rows of a sum: amount ≠ 0, largest first, a negative row after them without share. Shares are not forced to 100.
+ * With `refs` (0.8.1-4) each row is read against its reference, and a category with a reference and nothing spent follows at the
+ * end ("€ 0,00 van € 350,00"); with `detail` a row holds its subcategories.
+ */
+export function catRows(sum: Sum, prev: Sum | null, categories: TreeCategory[], extra: { refs?: Record<string, Ref>; detail?: DetailSum } = {}): CatRow[] {
+  const { refs, detail } = extra;
+  const row = (key: string, v: number): CatRow => {
+    const look = lookup(key, categories);
+    return {
+      key,
+      name: look.name,
+      colour: look.colour,
+      icon: look.icon,
+      amount: v,
+      share: v > 0 && sum.total > 0 ? Math.round((v / sum.total) * 100) : null,
+      ref: refs?.[key] ? rowRef(v, refs[key]) : null,
+      trend: trend(v, prev ? (prev.expenses[key] ?? 0) : null),
+      subs: subRows(key, detail?.expenses[key] ?? {}, categories, (id, own) => (own ? id + '-zelf' : id)),
+    };
+  };
+  const spent = Object.entries(sum.expenses)
     .filter(([, v]) => v !== 0)
     .sort((a, b) => b[1] - a[1])
-    .map(([key, v]) => {
-      const cat = PSEUDO[key] ? null : categories.find((c) => String(c.id) === key);
-      const look = PSEUDO[key] ?? { name: cat?.name ?? 'Categorie ' + key, colour: catColours(cat?.colour ?? 'c6').bg };
-      return {
-        key,
-        name: look.name,
-        colour: look.colour,
-        icon: cat?.icon ?? null,
-        amount: v,
-        share: v > 0 && sum.total > 0 ? Math.round((v / sum.total) * 100) : null,
-        trend: trend(v, prev ? (prev.expenses[key] ?? 0) : null),
-      };
-    });
+    .map(([key, v]) => row(key, v));
+  const idle = Object.entries(refs ?? {})
+    .filter(([key, r]) => r.reference > 0 && !sum.expenses[key] && categories.some((c) => String(c.id) === key))
+    .sort((a, b) => b[1].reference - a[1].reference || a[0].localeCompare(b[0]))
+    .map(([key]) => row(key, 0));
+  return [...spent, ...idle];
+}
+
+export type Total = 'inkomen' | 'uitgaven' | 'gespaard';
+
+/**
+ * The rows of a breakdown sheet (0.8.1-4), largest first, adding up to the tile. Uitgaven: the rows of "Per categorie" (without the
+ * categories that only have a reference). Inkomen and Gespaard: the column's `detail` rolled up to the top categories (a top holds
+ * its subcategories and "<top> zelf" for the part booked on it), plus the pseudo rows: income from "Overschrijvingen" and "Niet
+ * gecategoriseerd", saved "Naar <account>". A row with nothing in it is left out. `accountName` names a savings account by id.
+ */
+export function breakdown(which: Total, sum: Sum, detail: DetailSum, categories: TreeCategory[], accountName: (id: number) => string | undefined): BdRow[] {
+  if (which === 'uitgaven') {
+    return catRows(sum, null, categories, { detail }).map((r) => ({ key: r.key, name: r.name, colour: r.colour, icon: r.icon, dot: !!PSEUDO[r.key], amount: r.amount, param: categoryParam(r.key), subs: r.subs }));
+  }
+  const income = which === 'inkomen';
+  const prefix = income ? 'inkomen-' : '';
+  const rows: BdRow[] = [];
+  const tops = new Map<string, Record<string, number>>();
+  for (const [k, v] of Object.entries(income ? detail.income : detail.saved)) {
+    if (v === 0) continue;
+    const account = income ? null : /^account-(\d+)$/.exec(k);
+    if (income && k === 'transfer') rows.push({ key: k, name: 'Overschrijvingen', colour: 'var(--muted)', icon: null, dot: true, amount: v, param: 'inkomen-overschrijving', subs: [] });
+    else if (income && k === 'none') rows.push({ key: k, name: PSEUDO.none.name, colour: '', icon: null, dot: true, amount: v, param: 'inkomen-geen', subs: [] });
+    else if (account) rows.push({ key: k, name: 'Naar ' + (accountName(Number(account[1])) ?? 'spaarrekening'), colour: SAVED_COLOUR, icon: null, dot: true, amount: v, param: 'gespaard-rekening-' + account[1], subs: [] });
+    else {
+      const top = topOf(k, categories);
+      tops.set(top, { ...tops.get(top), [k]: v });
+    }
+  }
+  for (const [top, entries] of tops) {
+    const look = lookup(top, categories);
+    const amount = Object.values(entries).reduce((n, v) => n + v, 0);
+    if (amount === 0) continue;
+    const subs = subRows(top, entries, categories, (id, own) => prefix + id + (own ? '-zelf' : ''));
+    rows.push({ key: top, name: look.name, colour: look.colour, icon: look.icon, dot: false, amount, param: prefix + top, subs });
+  }
+  return rows.sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
+}
+
+// ---------- The stacked "uit" bar (plan 0.8.1-3) ----------
+
+/** One piece of a column's Uit bar. `colour` is a CSS `background` value. */
+export interface Segment {
+  /** The expense key, `saved` (Gespaard, the `blad` key) or `small` (the merged drawing piece). */
+  key: string;
+  name: string;
+  amount: number;
+  colour: string;
+}
+
+export const SAVED_KEY = 'saved';
+export const SMALL_KEY = 'small';
+/** `--ov-sav` is the saved bar of 0.7; `--ov-small` is grey, not a category colour (`--c6` = `--line` in the light theme); both are in styles/tokens.css. */
+const SAVED_COLOUR = 'var(--ov-sav)';
+const SMALL_COLOUR = 'var(--ov-small)';
+/** "Niet gecategoriseerd" has no colour (a dashed dot); in a bar it is dashed stripes on the track. */
+const UNCATEGORISED = 'repeating-linear-gradient(135deg, var(--dashed) 0 2px, var(--track) 2px 5px)';
+
+/**
+ * The pieces of one column, bottom to top: the expense keys above 0, then Gespaard when saved is above 0. Their order is
+ * that of the `selected` column (largest first there; keys it lacks follow by their own amount), so a category keeps its
+ * place, and its colour, across the columns. Negative keys (a refund surplus) and a negative saved add nothing.
+ */
+export function stack(sum: Sum, categories: TreeCategory[], selected: Sum = sum): Segment[] {
+  const rank = (k: string) => Math.max(selected.expenses[k] ?? 0, 0);
+  const keys = Object.keys(sum.expenses)
+    .filter((k) => sum.expenses[k] > 0)
+    .sort((a, b) => Number(rank(b) > 0) - Number(rank(a) > 0) || rank(b) - rank(a) || sum.expenses[b] - sum.expenses[a] || a.localeCompare(b));
+  const segments = keys.map((key) => {
+    const look = lookup(key, categories);
+    return { key, name: look.name, amount: sum.expenses[key], colour: look.colour || UNCATEGORISED };
+  });
+  if (sum.saved > 0) segments.push({ key: SAVED_KEY, name: 'Gespaard', amount: sum.saved, colour: SAVED_COLOUR });
+  return segments;
+}
+
+/** The height of a column's Uit bar: everything above 0 that left the selection (the stack, not `Sum.total`). */
+export const outOf = (sum: Sum) => Object.values(sum.expenses).reduce((n, v) => n + Math.max(v, 0), 0) + Math.max(sum.saved, 0);
+
+/** "Samen uit": expenses and saved, net. Differs from `outOf` only by negative keys, which the bar leaves out. */
+export const netOut = (sum: Pick<Sum, 'total' | 'saved'>) => sum.total + sum.saved;
+
+/**
+ * What is drawn: every piece under `minPx` high (its share of `max` at a bar `barPx` high) merges into one "Kleine posten"
+ * piece, placed below Gespaard, so a phone bar has no hairlines. Gespaard itself is never merged. A rendering step only:
+ * `stack` keeps the real pieces for the legend and the tests. `barPx` is `--bar-max` of `.ov-chart` (130 phone, 240 from 1024 px).
+ */
+export function drawSegments(segments: Segment[], max: number, barPx: number, minPx = 4): Segment[] {
+  const small = (s: Segment) => s.key !== SAVED_KEY && (s.amount / Math.max(max, 1)) * barPx < minPx;
+  const merged = segments.filter(small);
+  if (merged.length === 0) return segments;
+  const rest: Segment = { key: SMALL_KEY, name: 'Kleine posten', amount: merged.reduce((n, s) => n + s.amount, 0), colour: SMALL_COLOUR };
+  return [...segments.filter((s) => !small(s) && s.key !== SAVED_KEY), rest, ...segments.filter((s) => s.key === SAVED_KEY)];
 }
 
 /** Bar size class by the number of columns: > 8 `xs`, > 4 `s`, > 2 `m`, else `l`. */

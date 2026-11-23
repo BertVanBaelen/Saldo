@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { barSize, catRows, columns, defaultSelection, monthIndex, monthKey, monthState, partialNotes, periodParam, pickMonth, presets, rangeStatus, sumColumn, transferGap, trend, type Draft, type Sum } from './reports';
-import type { ReportMonth, TreeCategory } from './types';
+import { barSize, breakdown, catRows, columnReferences, columns, defaultSelection, drawSegments, monthIndex, monthKey, monthState, netOut, outOf, partialNotes, periodParam, pickMonth, presets, rangeStatus, refText, stack, sumColumn, sumDetail, transferGap, trend, type DetailSum, type Draft, type Sum } from './reports';
+import type { ReportBudgets, ReportMonth, TreeCategory } from './types';
 
 const TODAY = '2026-11-18';
 const DEMO = { firstMonth: '2025-11', firstDate: '2025-11-01' };
@@ -225,6 +225,78 @@ describe('sums and category rows', () => {
   });
 });
 
+describe('the stacked Uit bar (stack, outOf, drawSegments; the demo of TestReportMonthsDemo)', () => {
+  const NOV: ReportMonth = { month: '2026-11', income: 331850, saved: 20000, expenses: { '1': 115000, '2': 29521, '3': 6690, '4': 13410, '5': 6896, none: 4125 } };
+  const GEDEELD_NOV: ReportMonth = { month: '2026-11', income: 90000, saved: 0, expenses: { '1': 14500, '2': 29521, '5': 4298 } };
+  const pieces = (s: Sum, selected?: Sum) => stack(s, CATS, selected).map((g) => [g.name, g.amount]);
+  const octAlles = sumColumn(['2026-10'], [SEP, OCT]);
+
+  it('Alles, October: the categories largest first, Gespaard on top; out 1.905,49, over 1.444,51', () => {
+    expect(pieces(octAlles)).toEqual([['Wonen', 115000], ['Boodschappen', 25236], ['Vervoer', 14060], ['Abonnementen', 6896], ['Overig', 6562], ['Vrije tijd', 2795], ['Gespaard', 20000]]);
+    expect(stack(octAlles, CATS)[0].colour).toBe('var(--c1)');
+    expect(stack(octAlles, CATS).at(-1)).toMatchObject({ key: 'saved', colour: 'var(--ov-sav)' });
+    expect([outOf(octAlles), netOut(octAlles), octAlles.income - netOut(octAlles)]).toEqual([190549, 190549, 144451]);
+  });
+
+  it('Persoonlijk, October: "Naar gedeelde rekening" in --shared; out 1.849,53', () => {
+    const s = sumColumn(['2026-10'], [OCT], 1);
+    expect(pieces(s)).toEqual([['Wonen', 100500], ['Naar gedeelde rekening', 45000], ['Vervoer', 14060], ['Vrije tijd', 2795], ['Abonnementen', 2598], ['Gespaard', 20000]]);
+    expect(stack(s, CATS)[1].colour).toBe('var(--shared)');
+    expect([outOf(s), s.income - netOut(s)]).toEqual([184953, 105047]);
+  });
+
+  it('Alles, the running November: out 1.956,42 with "Niet gecategoriseerd" as a striped piece', () => {
+    const s = sumColumn(['2026-11'], [NOV]);
+    expect(outOf(s)).toBe(195642);
+    const none = stack(s, CATS).find((g) => g.key === 'none')!;
+    expect([none.name, none.amount, none.colour]).toEqual(['Niet gecategoriseerd', 4125, expect.stringContaining('repeating-linear-gradient')]);
+    // In October's order (the selected column): Vrije tijd (2795 there) stays below the uncategorised piece, which October lacks.
+    expect(pieces(s, octAlles).map(([n]) => n)).toEqual(['Wonen', 'Boodschappen', 'Vervoer', 'Abonnementen', 'Vrije tijd', 'Niet gecategoriseerd', 'Gespaard']);
+  });
+
+  it('Gedeeld, November: no Gespaard piece, Boodschappen at the bottom; out 483,19', () => {
+    const s = sumColumn(['2026-11'], [GEDEELD_NOV]);
+    expect(pieces(s)).toEqual([['Boodschappen', 29521], ['Wonen', 14500], ['Abonnementen', 4298]]);
+    expect(outOf(s)).toBe(48319);
+  });
+
+  it('a column keeps the order of the selected one, so a colour stays in place', () => {
+    const sep = sumColumn(['2026-09'], [SEP, OCT]);
+    expect(pieces(sep).map(([n]) => n).slice(3, 5)).toEqual(['Overig', 'Abonnementen']);
+    expect(pieces(sep, octAlles).map(([n]) => n).slice(3, 5)).toEqual(['Abonnementen', 'Overig']);
+  });
+
+  it('a negative key or a negative saved adds nothing to the stack; the net "Samen uit" is lower than the bar', () => {
+    const s: Sum = { income: 200000, saved: -300, expenses: { '1': 100000, '6': -500 }, total: 99500 };
+    expect(pieces(s)).toEqual([['Wonen', 100000]]);
+    expect(outOf(s)).toBe(100000);
+    expect(netOut(s)).toBe(99200);
+  });
+
+  it('drawSegments at a 130 px bar on 335.000: what is under 4 px merges below Gespaard, the real pieces stay in the stack', () => {
+    const real = stack(octAlles, CATS);
+    expect(real).toHaveLength(7);
+    const drawn = drawSegments(real, 335000, 130);
+    expect(drawn.map((g) => [g.key, g.amount])).toEqual([['1', 115000], ['2', 25236], ['4', 14060], ['small', 16253], ['saved', 20000]]);
+    expect(drawn[3]).toMatchObject({ name: 'Kleine posten', colour: 'var(--ov-small)' });
+    // Never one of the category colours, and not --c6 (the colour of "Overig", and --line in the light theme).
+    expect(drawn[3].colour).not.toMatch(/--c\d|--line/);
+    expect(real).toHaveLength(7);
+  });
+
+  it('drawSegments: the 4 px edge, a taller bar, nothing to merge, and Gespaard is never merged', () => {
+    const real = stack(octAlles, CATS);
+    // 240 px: the edge is 5.583 of 335.000 cents; Abonnementen (4,9 px) and Overig (4,7 px) stay, only Vrije tijd (2,0 px) merges.
+    expect(drawSegments(real, 335000, 240).filter((g) => g.key === 'small').map((g) => g.amount)).toEqual([2795]);
+    expect(drawSegments(real, 335000, 240).map((g) => g.key)).toEqual(['1', '2', '4', '5', '6', 'small', 'saved']);
+    // Exactly 4 px is kept: 4 / 130 of 335.000 = 10.307,7 cents.
+    expect(drawSegments([{ key: '1', name: 'Wonen', amount: 10308, colour: 'x' }], 335000, 130).map((g) => g.key)).toEqual(['1']);
+    expect(drawSegments([{ key: '1', name: 'Wonen', amount: 10307, colour: 'x' }], 335000, 130).map((g) => g.key)).toEqual(['small']);
+    // A big max leaves a tiny Gespaard as its own piece.
+    expect(drawSegments(stack({ income: 0, saved: 100, expenses: { '1': 50000 }, total: 50000 }, CATS), 335000, 130).map((g) => g.key)).toEqual(['1', 'saved']);
+  });
+});
+
 describe('the custom range picker', () => {
   const i = monthIndex;
   const draft = (from: string, to: string, target: Draft['target']): Draft => ({ from: i(from), to: i(to), target });
@@ -290,5 +362,156 @@ describe('the custom range picker', () => {
     expect(rangeStatus(i('2026-10'), i('2026-10'), TODAY)).toBe('1 maand');
     expect(rangeStatus(i('2026-11'), i('2026-11'), TODAY)).toBe('1 maand · november loopt nog');
     expect(rangeStatus(i('2025-11'), i('2026-11'), TODAY)).toBe('13 maanden · november loopt nog');
+  });
+});
+
+// ---------- Subcategories, breakdown sheets and rows against budget (0.8.1-4) ----------
+
+const sub = (id: number, name: string, parentId: number, type: TreeCategory['type'] = 'expense'): TreeCategory => ({ ...cat(id, name, 'c1'), type, parentId });
+// Wonen with Energie; Loon (income) with Bonus; Sparen (a saving category) with Pensioensparen.
+const TREE: TreeCategory[] = [...CATS, sub(10, 'Energie', 1), { ...cat(7, 'Loon', 'c7'), type: 'income' }, sub(12, 'Bonus', 7, 'income'), { ...cat(20, 'Sparen', 'c9'), saving: true }, sub(21, 'Pensioensparen', 20)];
+const NOV_D: ReportMonth = {
+  month: '2026-11',
+  income: 331850,
+  saved: 20000,
+  expenses: { '1': 115000, '2': 29521, '3': 6690, '4': 13410, '5': 6896, none: 4125 },
+  detail: {
+    income: { '7': 285000, '12': 20000, transfer: 21850, none: 5000 },
+    saved: { 'account-2': 20000 },
+    expenses: { '1': { '1': 100000, '10': 15000 }, '2': { '2': 29521 }, '3': { '3': 6690 }, '4': { '4': 13410 }, '5': { '5': 6896 } },
+  },
+};
+const OCT_D: ReportMonth = { month: '2026-10', income: 1000, saved: 1000, expenses: { '1': 5000 }, detail: { income: { '7': 1000 }, saved: { '20': 3000, '21': -2000 }, expenses: { '1': { '1': 4000, '10': 1000 } } } };
+const sumOf = (m: Record<string, number>) => Object.values(m).reduce((n, v) => n + v, 0);
+
+describe('sumDetail', () => {
+  it('sums the months of a column like sumColumn, for one account too, and leaves out entries that cancel', () => {
+    const twoMonths = sumDetail(['2026-10', '2026-11'], [OCT_D, NOV_D]);
+    expect(twoMonths.expenses['1']).toEqual({ '1': 104000, '10': 16000 });
+    expect(twoMonths.saved).toEqual({ '20': 3000, '21': -2000, 'account-2': 20000 });
+    expect(sumOf(twoMonths.income)).toBe(sumColumn(['2026-10', '2026-11'], [OCT_D, NOV_D]).income);
+    const cancel = sumDetail(['2026-10', '2026-11'], [OCT_D, { ...OCT_D, month: '2026-11', detail: { income: { '7': -1000 }, saved: {}, expenses: { '1': { '10': -1000 } } } }]);
+    expect(cancel.income).toEqual({});
+    expect(cancel.expenses['1']).toEqual({ '1': 4000 });
+    const acc: ReportMonth = { ...NOV_D, accounts: [{ id: 4, income: 5000, saved: 0, expenses: { '2': 100 }, detail: { income: { '7': 5000 }, saved: {}, expenses: { '2': { '2': 100 } } } }] };
+    expect(sumDetail(['2026-11'], [acc], 4)).toEqual({ income: { '7': 5000 }, saved: {}, expenses: { '2': { '2': 100 } } });
+    expect(sumDetail(['2026-11'], [acc], 9)).toEqual({ income: {}, saved: {}, expenses: {} });
+  });
+
+  it('a month asked without detail adds nothing', () => {
+    expect(sumDetail(['2026-09'], [SEP])).toEqual({ income: {}, saved: {}, expenses: {} });
+  });
+});
+
+describe('breakdown (the rows of the Inkomen, Uitgaven and Gespaard sheets)', () => {
+  const nov = sumColumn(['2026-11'], [NOV_D]);
+  const detail = sumDetail(['2026-11'], [NOV_D]);
+  const accountName = (id: number) => (id === 2 ? 'Spaarrekening' : undefined);
+  const brief = (rows: ReturnType<typeof breakdown>) => rows.map((r) => [r.name, r.amount, r.param, r.subs.map((s) => [s.name, s.amount, s.param])]);
+
+  it('Inkomen: income categories rolled up to their top with the part on the top itself, transfers and uncategorised; the rows add up to the tile', () => {
+    const rows = breakdown('inkomen', nov, detail, TREE, accountName);
+    expect(brief(rows)).toEqual([
+      ['Loon', 305000, 'inkomen-7', [['Loon zelf', 285000, 'inkomen-7-zelf'], ['Bonus', 20000, 'inkomen-12']]],
+      ['Overschrijvingen', 21850, 'inkomen-overschrijving', []],
+      ['Niet gecategoriseerd', 5000, 'inkomen-geen', []],
+    ]);
+    expect(sumOf(Object.fromEntries(rows.map((r) => [r.key, r.amount])))).toBe(nov.income);
+    expect(rows.map((r) => r.dot)).toEqual([false, true, true]);
+  });
+
+  it('Gespaard: "Naar <account>" and a saving category with its subcategory; a negative sub nets inside its top', () => {
+    expect(brief(breakdown('gespaard', nov, detail, TREE, accountName))).toEqual([['Naar Spaarrekening', 20000, 'gespaard-rekening-2', []]]);
+    const oct = sumColumn(['2026-10'], [OCT_D]);
+    const rows = breakdown('gespaard', oct, sumDetail(['2026-10'], [OCT_D]), TREE, accountName);
+    expect(brief(rows)).toEqual([['Sparen', 1000, '20', [['Sparen zelf', 3000, '20-zelf'], ['Pensioensparen', -2000, '21']]]]);
+    expect(sumOf(Object.fromEntries(rows.map((r) => [r.key, r.amount])))).toBe(oct.saved);
+    // An account the viewer cannot name still reads as a row.
+    expect(breakdown('gespaard', nov, { ...detail, saved: { 'account-9': 500 } }, TREE, accountName)[0].name).toBe('Naar spaarrekening');
+  });
+
+  it('Uitgaven: the rows of Per categorie plus their subcategories; they add up to the tile; only a key with more than one entry has subs', () => {
+    const rows = breakdown('uitgaven', nov, detail, TREE, accountName);
+    expect(rows.map((r) => [r.name, r.amount])).toEqual([['Wonen', 115000], ['Boodschappen', 29521], ['Vervoer', 13410], ['Abonnementen', 6896], ['Vrije tijd', 6690], ['Niet gecategoriseerd', 4125]]);
+    expect(sumOf(Object.fromEntries(rows.map((r) => [r.key, r.amount])))).toBe(nov.total);
+    expect(brief(rows)[0]).toEqual(['Wonen', 115000, '1', [['Wonen zelf', 100000, '1-zelf'], ['Energie', 15000, '10']]]);
+    expect(rows.filter((r) => r.subs.length > 0).map((r) => r.name)).toEqual(['Wonen']);
+    expect(rows.at(-1)).toMatchObject({ param: 'geen', dot: true, colour: '' });
+  });
+
+  it('a top that nets to 0 has no row, though its detail entries are there', () => {
+    const net0: Sum = { income: 0, saved: 0, expenses: { '2': 500 }, total: 500 };
+    const d: DetailSum = { income: {}, saved: {}, expenses: { '1': { '1': 700, '10': -700 }, '2': { '2': 500 } } };
+    expect(breakdown('uitgaven', net0, d, TREE, accountName).map((r) => r.name)).toEqual(['Boodschappen']);
+    expect(catRows(net0, null, TREE, { detail: d }).map((r) => r.key)).toEqual(['2']);
+  });
+});
+
+describe('references and rows against budget', () => {
+  // November (running): account 1 has budgets for Vrije tijd, Vervoer and Overig, averages for Wonen and Abonnementen; account 4 a budget for Boodschappen, averages for the rest.
+  const budgets: ReportBudgets = {
+    months: [
+      {
+        month: '2026-11',
+        accounts: [
+          { id: 1, categories: [{ categoryId: 1, reference: 100500, source: 'average' }, { categoryId: 3, reference: 35000, source: 'budget' }, { categoryId: 4, reference: 30000, source: 'budget' }, { categoryId: 5, reference: 2598, source: 'average' }, { categoryId: 6, reference: 28798, source: 'budget' }] },
+          { id: 4, categories: [{ categoryId: 1, reference: 14500, source: 'average' }, { categoryId: 2, reference: 55000, source: 'budget' }, { categoryId: 5, reference: 4298, source: 'average' }, { categoryId: 6, reference: 6247, source: 'average' }] },
+        ],
+      },
+      { month: '2026-10', accounts: [{ id: 1, categories: [{ categoryId: 3, reference: 4028, source: 'average' }, { categoryId: 4, reference: 12900, source: 'average' }] }, { id: 4, categories: [] }] },
+    ],
+  };
+
+  it('sums a column over its months and accounts; the source is budget, average or mixed', () => {
+    const nov = columnReferences(['2026-11'], budgets);
+    expect(nov['3']).toEqual({ reference: 35000, source: 'budget' });
+    expect(nov['1']).toEqual({ reference: 115000, source: 'average' });
+    expect(nov['5']).toEqual({ reference: 6896, source: 'average' });
+    expect(nov['6']).toEqual({ reference: 35045, source: 'mixed' });
+    expect(columnReferences(['2026-11'], budgets, 4)['6']).toEqual({ reference: 6247, source: 'average' });
+    expect(columnReferences(['2026-11'], budgets, 1)['2']).toBeUndefined();
+    // A quarter or Eigen over October and November: average then budget is mixed.
+    expect(columnReferences(['2026-10', '2026-11'], budgets)['3']).toEqual({ reference: 39028, source: 'mixed' });
+    expect(columnReferences(['2026-10'], budgets)['3']).toEqual({ reference: 4028, source: 'average' });
+    expect(columnReferences(['2026-11'], null)).toEqual({});
+    expect(columnReferences(['2025-01'], budgets)).toEqual({});
+  });
+
+  it('reads each row against its reference: percentage, over, the source text, the pseudo rows without one', () => {
+    const s: Sum = { income: 0, saved: 0, expenses: { '1': 115000, '2': 29521, '3': 6690, '4': 13410, '5': 6896, none: 4125 }, total: 175642 };
+    const refs = columnReferences(['2026-11'], budgets);
+    const rows = catRows(s, null, TREE, { refs });
+    const text = (name: string) => {
+      const r = rows.find((x) => x.name === name)!;
+      return r.ref ? refText(r.amount, r.ref) : null;
+    };
+    expect(text('Vrije tijd')).toBe('€ 66,90 van € 350,00 · 19 %');
+    expect(text('Vervoer')).toBe('€ 134,10 van € 300,00 · 45 %');
+    expect(text('Boodschappen')).toBe('€ 295,21 van € 550,00 · 54 %');
+    expect(text('Wonen')).toBe('€ 1.150,00 van € 1.150,00 · 100 % · gemiddelde');
+    expect(text('Abonnementen')).toBe('€ 68,96 van € 68,96 · 100 % · gemiddelde');
+    expect(text('Niet gecategoriseerd')).toBeNull();
+    // Overig has a reference and nothing spent: at the end, "€ 0,00 van € 350,45 · 0 %" with budget and average.
+    expect(rows.at(-1)).toMatchObject({ name: 'Overig', amount: 0, key: '6' });
+    expect(text('Overig')).toBe('€ 0,00 van € 350,45 · 0 % · budget en gemiddelde');
+    expect(rows.map((r) => r.name)).toEqual(['Wonen', 'Boodschappen', 'Vervoer', 'Abonnementen', 'Vrije tijd', 'Niet gecategoriseerd', 'Overig']);
+  });
+
+  it('over 100 %: the part above the reference; a reference of 0 has no percentage; a negative row reads 0 %', () => {
+    const over = catRows({ income: 0, saved: 0, expenses: { '3': 2500 }, total: 2500 }, null, TREE, { refs: { '3': { reference: 2000, source: 'budget' } } })[0];
+    expect(over.ref).toMatchObject({ pct: 125, over: 500, source: 'budget' });
+    expect(refText(over.amount, over.ref!)).toBe('€ 25,00 van € 20,00 · 125 %');
+    const zero = catRows({ income: 0, saved: 0, expenses: { '3': 2500 }, total: 2500 }, null, TREE, { refs: { '3': { reference: 0, source: 'budget' } } })[0];
+    expect(zero.ref).toMatchObject({ pct: null, over: 2500 });
+    const neg = catRows({ income: 0, saved: 0, expenses: { '3': -300 }, total: -300 }, null, TREE, { refs: { '3': { reference: 2000, source: 'budget' } } })[0];
+    expect(neg.ref).toMatchObject({ pct: 0, over: 0 });
+    // A budget of 0 is no row of its own, and a category that is not in the tree is not listed for its reference alone.
+    expect(catRows({ income: 0, saved: 0, expenses: {}, total: 0 }, null, TREE, { refs: { '3': { reference: 0, source: 'budget' }, '99': { reference: 500, source: 'average' } } })).toEqual([]);
+  });
+
+  it('without references the rows are the ones of the Start card: share and no ref', () => {
+    const rows = catRows(sumColumn(['2026-10'], [SEP, OCT]), null, TREE);
+    expect(rows.every((r) => r.ref === null && r.subs.length === 0)).toBe(true);
+    expect(rows[0]).toMatchObject({ name: 'Wonen', share: 67 });
   });
 });

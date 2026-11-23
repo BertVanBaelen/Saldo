@@ -1,6 +1,6 @@
 // Planning (plan 0.8-5): the page shell, the summary and the Kalender composition, on the demo answer of GET /api/planning.
 // The geometry, the words and the grid, chart, day card and plan form have their own tests; this one checks that they are wired.
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { AppProvider } from '../app/AppContext';
@@ -100,6 +100,7 @@ function renderPlanning(path = '/planning', me = ME) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="planning" element={<Planning />} />
+          <Route path="planning/instellen" element={<p>Planning instellen</p>} />
         </Routes>
         <Where />
       </MemoryRouter>
@@ -116,7 +117,7 @@ describe('Planning shell', () => {
     stubApi({ planning: demo });
     renderPlanning('/planning#budget');
     await screen.findByRole('tablist', { name: 'Planning' });
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Kalender', 'Maanden', 'Terugkerend', 'Eenmalig', 'Budget']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Kalender', 'Maanden', 'Budget']);
     expect(tab('Budget').getAttribute('aria-selected')).toBe('true');
     expect(await within(screen.getByRole('tabpanel')).findByRole('region', { name: 'Zichtrekening' })).toBeTruthy();
 
@@ -127,14 +128,40 @@ describe('Planning shell', () => {
     // Arrow keys switch (automatic activation); the hash follows. Each key goes to the tab that has the focus.
     act(() => tab('Maanden').focus());
     fireEvent.keyDown(tab('Maanden'), { key: 'ArrowRight' });
-    expect(where()).toBe('/planning#terugkerend');
-    act(() => tab('Terugkerend').focus());
-    fireEvent.keyDown(tab('Terugkerend'), { key: 'End' });
+    expect(where()).toBe('/planning#budget');
+    act(() => tab('Budget').focus());
+    fireEvent.keyDown(tab('Budget'), { key: 'End' });
     expect(where()).toBe('/planning#budget');
     act(() => tab('Budget').focus());
     fireEvent.keyDown(tab('Budget'), { key: 'Home' });
     expect(where()).toBe('/planning#kalender');
     expect(await screen.findByRole('group', { name: 'Dagen in november' })).toBeTruthy();
+  });
+
+  it('has a cog to Planning instellen, and the old tab links lead on to its sections (the month is dropped)', async () => {
+    stubApi({ planning: demo });
+    const first = renderPlanning('/planning');
+    const cog = await screen.findByRole('link', { name: 'Planning instellen' });
+    expect(cog.getAttribute('href')).toBe('/planning/instellen');
+    fireEvent.click(cog);
+    expect(where()).toBe('/planning/instellen');
+    first.unmount();
+
+    renderPlanning('/planning?maand=2027-02#eenmalig');
+    expect(await screen.findByText('Planning instellen')).toBeTruthy();
+    expect(where()).toBe('/planning/instellen#eenmalig');
+    cleanup();
+    renderPlanning('/planning#terugkerend');
+    expect(await screen.findByText('Planning instellen')).toBeTruthy();
+    expect(where()).toBe('/planning/instellen#terugkerend');
+    cleanup();
+
+    // The alerts' link and Bijdragen's keep their tab and month.
+    renderPlanning('/planning?maand=2027-02#maanden');
+    expect(await screen.findByRole('tablist', { name: 'Planning' })).toBeTruthy();
+    expect(tab('Maanden').getAttribute('aria-selected')).toBe('true');
+    expect(where()).toBe('/planning?maand=2027-02#maanden');
+    expect((await screen.findAllByRole('button', { name: /^Februari 2027/ }))[0].getAttribute('aria-expanded')).toBe('true');
   });
 
   it('opens the month of ?maand and asks the smallest horizon that holds it; a month out of reach is the running month', async () => {
@@ -247,6 +274,54 @@ describe('Planning Kalender', () => {
     renderPlanning();
     await screen.findByRole('region', { name: 'Woensdag 18 november' });
     expect(screen.queryByRole('button', { name: /Uitgave of inkomst plannen/ })).toBeNull();
+  });
+
+  // 0.8.1-9: Zomervakantie (id 3) has no day: −€ 1.500,00 over the 31 days of July (30 × −48,38, the last day −48,60); Tuinhuis (id 5) is dated 20 July.
+  const july = (scope: Scope, horizon: number, month = '2026-11'): Forecast => {
+    const f = demo(scope, horizon, month);
+    for (const d of month === '2027-07' ? (f.accounts.find((a) => a.id === 1)?.days ?? []) : []) {
+      const n = Number(d.date.slice(8));
+      d.items.push({ kind: 'planned', label: 'Zomervakantie', amount: n === 31 ? -4860 : -4838, id: 3 });
+      if (n === 20) d.items.push({ kind: 'planned', label: 'Tuinhuis', amount: -9000, id: 5 });
+    }
+    return f;
+  };
+  const JULY_ITEMS = [
+    { id: 3, accountId: 1, date: null, month: '2027-07', wholeMonth: true, amount: -150000, description: 'Zomervakantie' },
+    { id: 5, accountId: 1, date: '2027-07-20', month: '2027-07', wholeMonth: false, amount: -9000, description: 'Tuinhuis' },
+  ];
+
+  it('says above the grid what an item without a day is spread over, marks none of its days and calls it "(verdeeld)" on the day card', async () => {
+    stubApi({ planning: july, planned: JULY_ITEMS });
+    renderPlanning('/planning?maand=2027-07');
+
+    expect(await screen.findByText('Zomervakantie −€ 1.500,00 · verdeeld over juli (ongeveer −€ 48,38 per dag)')).toBeTruthy();
+    // No line for the dated item; the other months have none of their own.
+    expect(screen.queryByText(/Tuinhuis −€/)).toBeNull();
+    // The dated item marks its day with the planned dot (the one dot of the grid); the spread item marks none, nor does the cell name it.
+    const planned = document.querySelectorAll('.pl-grid .pl-day-dot--plan');
+    expect(planned).toHaveLength(1);
+    expect(planned[0].closest('button')!.getAttribute('aria-label')).toMatch(/^20 juli: Tuinhuis, /);
+    expect(dayCell(/^5 juli/).querySelector('.pl-day-dots')!.children).toHaveLength(0);
+    expect(dayCell(/^5 juli/).getAttribute('aria-label')).not.toContain('Zomervakantie');
+
+    // The 1st is selected: the item is on the card with the day's part; the last day carries the rest.
+    let card = within(await screen.findByRole('region', { name: /1 juli/ }));
+    expect(within(card.getByText('Zomervakantie (verdeeld)').closest('li')!).getByText('−€ 48,38')).toBeTruthy();
+    fireEvent.click(dayCell(/^31 juli/));
+    card = within(await screen.findByRole('region', { name: /31 juli/ }));
+    expect(within(card.getByText('Zomervakantie (verdeeld)').closest('li')!).getByText('−€ 48,60')).toBeTruthy();
+    // A dated planned item keeps its plain label.
+    fireEvent.click(dayCell(/^20 juli/));
+    card = within(await screen.findByRole('region', { name: /20 juli/ }));
+    expect(card.getByText('Tuinhuis')).toBeTruthy();
+    expect(card.getByText('Zomervakantie (verdeeld)')).toBeTruthy();
+
+    // June has no such item: the line goes with the month.
+    fireEvent.click(screen.getByRole('button', { name: 'Vorige maand' }));
+    expect(await screen.findByText('Juni 2027')).toBeTruthy();
+    expect(screen.queryByText(/Zomervakantie −€/)).toBeNull();
+    expect(document.querySelector('.pl-spread')).toBeNull();
   });
 });
 

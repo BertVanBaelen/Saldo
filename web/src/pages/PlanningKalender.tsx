@@ -10,11 +10,13 @@ import { PlanningChart, PlanningChartLegend } from '../components/PlanningChart'
 import { Skel, useIsDesktop } from '../components/ui';
 import { useApp } from '../app/AppContext';
 import { accColour, others } from '../lib/accounts';
+import { api } from '../lib/api';
 import { cap, dateShort, eur, eur0, MONTHS, names } from '../lib/format';
-import type { PlanAccount, PlanMonth } from '../lib/planning';
-import { dayHead, stateColor } from '../lib/planningGeometry';
-import { lowText } from '../lib/planningText';
+import type { PlanAccount, PlanDay, PlanMonth } from '../lib/planning';
+import { dayHead, daysInMonth, stateColor } from '../lib/planningGeometry';
+import { lowText, spreadLabel, spreadLine } from '../lib/planningText';
 import type { Account, Scope } from '../lib/types';
+import { useAsync } from '../lib/useAsync';
 import { TabPanel } from '../ui';
 import { addMonths, monthOffset, type PlanningTabProps } from './planningTabs';
 
@@ -97,10 +99,31 @@ function Body({ planning, accounts, scope, month, setMonth, horizon, reload }: P
   }
   const several = plans.length > 1;
   const daysOf = (p: PlanAccount) => p.days ?? [];
+  // Planned items without a day (0.8.1-9): the forecast spreads each over the days of its month, one `planned` item per day with the item's id.
+  // The grid marks none of those days, the day card calls the item "(verdeeld)" and a line above the grid says what it is. When the list
+  // fails to load (or is still loading) the items show as plain planned ones.
+  const planned = useAsync((signal) => api.plannedItems(scope, signal), [scope, app.dataVersion]);
+  const dayless = new Map((planned.data?.planned ?? []).filter((x) => x.wholeMonth).map((x) => [x.id, x]));
+  const spread = (it: PlanDay['items'][number]) => it.kind === 'planned' && dayless.has(it.id ?? 0);
   const entries: PlanEntry[] = plans.flatMap(({ a, p }) => {
-    const day = daysOf(p).find((d) => d.date === selected);
+    const found = daysOf(p).find((d) => d.date === selected);
+    const day = found && { ...found, items: found.items.map((it) => (spread(it) ? { ...it, label: spreadLabel(it.label) } : it)) };
     return day ? [{ account: a, buffer: p.buffer, day }] : [];
   });
+  const lines = plans.flatMap(({ a, p }) =>
+    [...dayless.values()]
+      .filter((x) => x.accountId === a.id && x.month === month)
+      .flatMap((x) => {
+        const part = daysOf(p).flatMap((d) => d.items).find((it) => it.kind === 'planned' && it.id === x.id)?.amount;
+        // No day carries it: on the running month's last day the whole amount is on tomorrow; any other time the forecast is still loading.
+        if (part === undefined && !(month === running && Number(today.slice(8, 10)) === daysInMonth(month))) return [];
+        return [{ a, x, text: spreadLine(x.description, x.amount, month, part ?? null) }];
+      }),
+  );
+  const changed = () => {
+    planned.reload();
+    reload();
+  };
   const offset = monthOffset(running, month);
   const nav = <MonthNav month={month} today={today} scope={scope} canPrev={offset > 0} canNext={offset < horizon} onMonth={setMonth} card={desk} />;
 
@@ -118,7 +141,23 @@ function Body({ planning, accounts, scope, month, setMonth, horizon, reload }: P
         ))}
         {plans.length > 0 && (
           <>
-            <CalendarGrid accounts={plans.map(({ a, p }) => ({ accountId: a.id, name: a.name, days: daysOf(p) }))} month={month} today={planning.today} selected={selected} onSelect={select} />
+            {lines.length > 0 && (
+              <ul className="pl-spread" aria-label="Posten zonder dag">
+                {lines.map(({ a, x, text }) => (
+                  <li key={x.id}>
+                    {several && <i className="pl-sq" style={{ background: accColour(a.colour) }} aria-hidden="true" />}
+                    {text}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <CalendarGrid
+              accounts={plans.map(({ a, p }) => ({ accountId: a.id, name: a.name, days: daysOf(p).map((d) => ({ ...d, items: d.items.filter((it) => !spread(it)) })) }))}
+              month={month}
+              today={planning.today}
+              selected={selected}
+              onSelect={select}
+            />
             <div className="pl-charts">
               <div className="pl-selhead">
                 <span className="pl-selhead-label">{dayHead(selected, planning.today)}</span>
@@ -159,7 +198,7 @@ function Body({ planning, accounts, scope, month, setMonth, horizon, reload }: P
     );
   }
 
-  const day = planning ? <DayCard date={selected} today={planning.today} entries={entries} onChanged={reload} /> : <div className="card"><Skel w="100%" h={160} /></div>;
+  const day = planning ? <DayCard date={selected} today={planning.today} entries={entries} onChanged={changed} /> : <div className="card"><Skel w="100%" h={160} /></div>;
   return desk ? (
     <div className="pl-kal">
       <div className="card pl-cal">

@@ -4,7 +4,9 @@
 // With several accounts the totals are information only ("samen, ter info") with a breakdown per account.
 // A category row and an account row open a sheet (a side panel on desktop) with what is behind the number:
 // `?blad=categorie-<key>`, `?blad=rekening-<id>` (OverzichtSheet.tsx; plan 0.8-0c); the Inkomen, Uitgaven and Gespaard tiles
-// open the amounts per category with a dropdown per subcategory: `?blad=inkomen|uitgaven|gespaard` (plan 0.8.1-4).
+// open the amounts per category with a dropdown per subcategory: `?blad=inkomen|uitgaven|gespaard` (plan 0.8.1-4). A subcategory, the
+// part booked on a top itself, and every row of those three sheets open the same category sheet, titled "Boodschappen › Supermarkt"
+// (plan 0.9.1-1): `lib/overzichtBlad.ts` finds the row behind a `?blad=categorie-<value>`.
 // The rows are read against their budget (else the 6-month average) from GET /api/reports/budgets, loaded beside the report.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -15,6 +17,7 @@ import { accColour, accountIcon, inScope, isCurrent } from '../lib/accounts';
 import { api } from '../lib/api';
 import { categoryFromParam, drillHref } from '../lib/drilldown';
 import { cap, eur } from '../lib/format';
+import { findBladRow } from '../lib/overzichtBlad';
 import { bonHref, bonTarget } from '../lib/receipt';
 import {
   barSize,
@@ -48,7 +51,7 @@ import {
 import type { Account, ReportBudgets, ReportMonths, Scope, TreeCategory } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { AccountPicker, Panel, RangePicker, type PanelKind } from './OverzichtPickers';
-import { AccountBlad, BreakdownBlad, CatItem, CatLead, CategoryBlad, Figure, transferNote } from './OverzichtSheet';
+import { AccountBlad, BreakdownBlad, CatItem, CategoryBlad, Figure, RowLead, transferNote, useBdMemory } from './OverzichtSheet';
 import { OverzichtSaldo } from './OverzichtSaldo';
 import './Overzicht.css';
 
@@ -356,13 +359,13 @@ function PerAccount({ title, rows, between, onOpen }: { title: string; rows: { a
 
 /**
  * `rows`: the category rows of the selected column, each read against its budget or average (`showRef`: they are loaded; `note`
- * is the footnote under the list). A row opens its sheet; its chevron drops down the subcategories, which link to Transacties by `href`.
+ * is the footnote under the list). A row opens its sheet; its chevron drops down the subcategories, which open theirs (`onOpenSub`).
  */
 function Categories({
   v,
   rows,
   onOpen,
-  href,
+  onOpenSub,
   showRef,
   note,
   listKey,
@@ -370,7 +373,7 @@ function Categories({
   v: Shown | null;
   rows: CatRow[];
   onOpen: (key: string, el: HTMLElement) => void;
-  href: (param: string) => string;
+  onOpenSub: (param: string, el: HTMLElement) => void;
   showRef: boolean;
   note: string | null;
   listKey: string;
@@ -398,7 +401,7 @@ function Categories({
       <div className="ov-cat-list" key={listKey}>
         {rows.length === 0 && <p className="ov-cat-empty muted">Geen uitgaven in deze periode.</p>}
         {rows.map((r) => (
-          <CatItem key={r.key} r={r} compare={compare} showRef={showRef} href={href} onOpen={onOpen} />
+          <CatItem key={r.key} r={r} compare={compare} showRef={showRef} sub={{ onOpen: onOpenSub }} onOpen={onOpen} />
         ))}
       </div>
       {note && <p className="ov-cat-foot">{note}</p>}
@@ -557,6 +560,8 @@ export function Overzicht() {
   };
   // In the browser `navigate(-1)` only changes the location on the later popstate: until then the sheet is hidden
   // (`closedAt`), so it does not slide in again once its exit is over. A Forward to the same entry shows it again.
+  // The expanded tops of a breakdown sheet survive a sheet opened from it (it unmounts), so Back finds it as it was (0.9.1-1).
+  const bdMemory = useBdMemory(params.has('blad'));
   const [closedAt, setClosedAt] = useState<string | null>(null);
   useEffect(() => setClosedAt(null), [key]);
   const closeBlad = () => {
@@ -656,7 +661,7 @@ export function Overzicht() {
       period = columns(view, { firstMonth: fresh.firstMonth, firstDate: fresh.firstDate }, today, { from: van, to: tot });
       const cols = period.columns;
       const byKey = selected && selected[0] === resetKey ? cols.findIndex((c) => c.key === selected[1]) : -1;
-      const sel = byKey >= 0 ? byKey : defaultSelection(cols);
+      const sel = byKey >= 0 ? byKey : defaultSelection(cols, view);
       const sums = cols.map((c) => sumColumn(c.months, fresh.months));
       const base = cols[sel].base;
       v = {
@@ -685,7 +690,7 @@ export function Overzicht() {
     const tree = cats.data ?? [];
     const detail = v && col && fresh ? sumDetail(col.months, fresh.months) : null;
     const rows = v && col ? catRows(v.sums[v.sel], v.prev, tree, { refs: columnReferences(col.months, refs), detail: detail ?? undefined }) : [];
-    // A subcategory links to its transactions in the column's period (and the one account the report is for).
+    // A subcategory in an account's sheet links to its transactions in the column's period (and that account; `?blad=` cannot carry it).
     const subHref = (param: string, accountId = account) => (col ? drillHref(param, periodParam(col), accountId) : '');
     const perAccount = v && col && several.length > 1 ? several.map((a) => ({ a, s: sumColumn(col.months, fresh!.months, a.id) })) : [];
     const between = v ? transferGap(v.sums[v.sel], perAccount.map((x) => x.s)) : 0;
@@ -699,7 +704,7 @@ export function Overzicht() {
         const amount = blad.which === 'inkomen' ? s.income : blad.which === 'uitgaven' ? s.total : s.saved;
         if (amount !== 0) {
           const list = breakdown(blad.which, s, detail!, tree, (id) => byId.get(id)?.name);
-          sheet = <BreakdownBlad {...common} which={blad.which} amount={amount} periodKey={periodParam(col)} account={account} rows={list} />;
+          sheet = <BreakdownBlad {...common} which={blad.which} amount={amount} periodKey={periodParam(col)} account={account} rows={list} onOpen={(param, el) => openBlad('categorie-' + param, el)} memory={bdMemory} />;
         } else staleBlad = true;
       } else if (blad.kind === 'rekening') {
         const found = perAccount.find((x) => x.a.id === blad.id);
@@ -726,10 +731,13 @@ export function Overzicht() {
             />
           );
         } else staleBlad = true;
-      } else {
+      } else if (cats.data || cats.error) {
+        // The tree names the rows and rolls the income and saving subcategories up to their tops: wait for it before looking a row up, or dropping the sheet.
         const props = { ...common, param: blad.param, periodKey: periodParam(col), account, accounts: byId, multi: several.length > 1 };
-        const r = rows.find((x) => x.key === blad.key);
-        if (r) sheet = <CategoryBlad {...props} name={r.name} lead={<CatLead r={r} />} amount={r.amount} />;
+        const s = v.sums[v.sel];
+        const name = (id: number) => byId.get(id)?.name;
+        const found = findBladRow(blad.param, { cat: rows, inkomen: breakdown('inkomen', s, detail!, tree, name), gespaard: breakdown('gespaard', s, detail!, tree, name) });
+        if (found) sheet = <CategoryBlad {...props} name={found.title} lead={<RowLead colour={found.row.colour} icon={found.row.icon} dot={found.dot} />} amount={found.amount} />;
         // A category that only has a reference (nothing spent) is a row once the references are in: wait for them before dropping the sheet.
         else if (refs || budgets.error) staleBlad = true;
       }
@@ -793,7 +801,7 @@ export function Overzicht() {
             v={v}
             rows={rows}
             onOpen={(key, el) => openBlad('categorie-' + categoryParam(key), el)}
-            href={subHref}
+            onOpenSub={(param, el) => openBlad('categorie-' + param, el)}
             showRef={!!refs}
             note={refs ? BUDGET_NOTE : budgets.error ? 'Het budget kon niet worden geladen.' : null}
             listKey={resetKey}

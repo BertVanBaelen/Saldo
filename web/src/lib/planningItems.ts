@@ -2,6 +2,7 @@
 // (0.8-2)") with the words of the Terugkerend and Eenmalig tabs (plan 0.8-7). Money in cents, pure functions only.
 import { eur0, MONTHS, MONTHS_SHORT } from './format';
 import type { PlannedItem, PlannedWhen } from './planning';
+import type { TreeCategory } from './types';
 
 export type ItemKind = 'income' | 'expense' | 'saving' | 'transfer' | 'contribution';
 export type Frequency = 'monthly' | 'quarterly' | 'yearly';
@@ -21,6 +22,10 @@ export interface RecurringItem {
   endDate: string | null;
   kind: ItemKind;
   state: 'confirmed' | 'ignored';
+  /** The item's own category (0.9.1-3, docs/api.md "Planning data"): an expense category for an expense item, a saving one for a saving item; `null` or missing is "Zonder categorie". */
+  categoryId?: number | null;
+  /** Only on the list: the category most of the item's matched payments carry. POST and PATCH answer without it, so the screen keeps the one of the list; `null` or missing is none. */
+  suggestedCategoryId?: number | null;
 }
 
 /** A recurring item found in the history (`GET /api/planning/suggestions`): computed on read, never stored. */
@@ -37,8 +42,8 @@ export interface RecurringSuggestion {
   seen: number;
 }
 
-/** What a PATCH may carry: any field except `accountId` and `fromSuggestion` (the server refuses those with a 400). `month` and `endDate` may be `null`. */
-export type ItemPatch = Partial<Omit<RecurringItem, 'id' | 'accountId'>>;
+/** What a PATCH may carry: any field except `accountId`, `fromSuggestion` and `suggestedCategoryId` (the server refuses those with a 400). `month`, `endDate` and `categoryId` may be `null`. */
+export type ItemPatch = Partial<Omit<RecurringItem, 'id' | 'accountId' | 'suggestedCategoryId'>>;
 
 /** The body of `POST /api/planning/items`. `fromSuggestion` makes the server copy the counterparty IBAN of the matching bank rows. */
 export type NewItem = ItemPatch & Pick<RecurringItem, 'accountId' | 'description' | 'amount' | 'frequency' | 'day' | 'kind'> & { fromSuggestion?: boolean };
@@ -55,6 +60,9 @@ export const signedAmount = (kind: ItemKind, cents: number, incoming: boolean) =
 /** Cents as the field shows them: 6247 → "62,47" (the sign comes from Soort). */
 export const centsText = (cents: number) => (Math.abs(cents) / 100).toFixed(2).replace('.', ',');
 
+/** Whether a category suits a kind of item: an expense item takes an expense category that does not count as saved, a saving item one that does, every other kind none. `saving` is the effective flag, so a subcategory answers like its top. */
+export const categoryFits = (kind: ItemKind, c: Pick<TreeCategory, 'type' | 'saving'>) => (kind === 'expense' ? c.type === 'expense' && !c.saving : kind === 'saving' && c.saving);
+
 const nth = (day: number) => day + 'e';
 const monthName = (month: number | null) => MONTHS[(month ?? 1) - 1];
 
@@ -63,12 +71,13 @@ export const dayMonth = (iso: string) => Number(iso.slice(8, 10)) + ' ' + MONTHS
 
 const KIND_NOTE: Partial<Record<ItemKind, string>> = { saving: 'gespaard', transfer: 'overschrijving', contribution: 'bijdrage' };
 
-/** The second line of a confirmed item: "Maandelijks · 1e", "Jaarlijks · 15 januari", then "· gespaard" / "· overschrijving" / "· bijdrage" and "· tot juni 2027". */
-export function itemRhythm(i: Pick<RecurringItem, 'frequency' | 'day' | 'month' | 'endDate' | 'kind'>): string {
+/** The second line of a confirmed item: "Maandelijks · 1e", "Jaarlijks · 15 januari", then "· gespaard" / "· overschrijving" / "· bijdrage", "· tot juni 2027" and "· Wonen" (the category's name, when it has one). */
+export function itemRhythm(i: Pick<RecurringItem, 'frequency' | 'day' | 'month' | 'endDate' | 'kind'>, category?: string): string {
   const parts = [FREQUENCY_LABEL[i.frequency], i.frequency === 'yearly' ? i.day + ' ' + monthName(i.month) : nth(i.day)];
   const note = KIND_NOTE[i.kind];
   if (note) parts.push(note);
   if (i.endDate) parts.push('tot ' + MONTHS[Number(i.endDate.slice(5, 7)) - 1] + ' ' + i.endDate.slice(0, 4));
+  if (category) parts.push(category);
   return parts.join(' · ');
 }
 

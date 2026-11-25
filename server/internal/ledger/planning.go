@@ -37,6 +37,9 @@ type Item struct {
 	EndDate      *string `json:"endDate"`
 	Kind         string  `json:"kind"`  // income | expense | saving | transfer | contribution
 	State        string  `json:"state"` // confirmed | ignored
+	// CategoryID is the item's category (0.9.1-3): an expense category for an expense item (a top one or a
+	// subcategory), a saving category for a saving item; nil is "Zonder categorie".
+	CategoryID *int64 `json:"categoryId"`
 }
 
 // ItemFields are the fields of a recurring item in a request: a PATCH names
@@ -53,6 +56,7 @@ type ItemFields struct {
 	EndDate      Opt[string] `json:"endDate"`
 	Kind         Opt[string] `json:"kind"`
 	State        Opt[string] `json:"state"`
+	CategoryID   Opt[int64]  `json:"categoryId"`
 }
 
 // ItemInput is the body of POST /api/planning/items. FromSuggestion makes the
@@ -102,6 +106,12 @@ func (it *Item) apply(f ItemFields) {
 	}
 	if f.State.Set {
 		it.State = f.State.V
+	}
+	if f.CategoryID.Set {
+		it.CategoryID = nil
+		if !f.CategoryID.Null {
+			it.CategoryID = ptr(f.CategoryID.V)
+		}
 	}
 }
 
@@ -160,6 +170,44 @@ func (it *Item) validate(shared, endChanged bool, today string) error {
 	return nil
 }
 
+// checkCategory checks the item's category against its kind, in the transaction of the write (0.9.1-3): an expense
+// item takes a category whose top is an expense category that does not count as saved, a saving item one whose top
+// does, every other kind none. A category the request names (named) that does not fit is refused; one that was
+// stored and no longer fits (the kind changed) is cleared. An ignored item never keeps one.
+func (it *Item) checkCategory(ctx context.Context, tx *sql.Tx, named bool) error {
+	if it.State == "ignored" {
+		it.CategoryID = nil
+	}
+	if it.CategoryID == nil {
+		return nil
+	}
+	var typ string
+	var saving bool
+	err := tx.QueryRowContext(ctx, `SELECT t.type, t.saving = 1 FROM categories c JOIN categories t ON t.id = COALESCE(c.parent_id, c.id)
+		WHERE c.id = ?`, *it.CategoryID).Scan(&typ, &saving)
+	msg := ""
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		msg = "Die categorie bestaat niet."
+	case err != nil:
+		return err
+	case it.Kind != "expense" && it.Kind != "saving":
+		msg = "Alleen een uitgave of sparen krijgt een categorie."
+	case it.Kind == "expense" && (typ != "expense" || saving):
+		msg = "Kies een uitgavencategorie die niet als gespaard telt."
+	case it.Kind == "saving" && !saving:
+		msg = "Kies een spaarcategorie."
+	}
+	switch {
+	case msg == "":
+	case named:
+		return apperr.Invalid(msg)
+	default:
+		it.CategoryID = nil
+	}
+	return nil
+}
+
 func oneOf(s string, options ...string) bool {
 	for _, o := range options {
 		if s == o {
@@ -191,20 +239,23 @@ func editableCurrent(ctx context.Context, q interface {
 	return a, nil
 }
 
-const itemColumns = `id, account_id, description, counterparty, amount, amount_rule, frequency, expected_day, expected_month, end_date, kind, state`
+const itemColumns = `id, account_id, description, counterparty, amount, amount_rule, frequency, expected_day, expected_month, end_date, kind, state, category_id`
 
 type scanner interface{ Scan(...any) error }
 
 func scanItem(r scanner) (Item, error) {
 	var it Item
-	var month sql.NullInt64
+	var month, category sql.NullInt64
 	var end sql.NullString
 	if err := r.Scan(&it.ID, &it.AccountID, &it.Description, &it.Counterparty, &it.Amount, &it.AmountRule, &it.Frequency,
-		&it.Day, &month, &end, &it.Kind, &it.State); err != nil {
+		&it.Day, &month, &end, &it.Kind, &it.State, &category); err != nil {
 		return it, err
 	}
 	if month.Valid {
 		it.Month = ptr(int(month.Int64))
+	}
+	if category.Valid {
+		it.CategoryID = &category.Int64
 	}
 	if end.Valid {
 		it.EndDate = &end.String
@@ -259,6 +310,9 @@ func (s *Store) CreateItem(ctx context.Context, viewer int64, in ItemInput, now 
 	if err := it.validate(a.shared(), true, today(now)); err != nil {
 		return Item{}, err
 	}
+	if err := it.checkCategory(ctx, tx, true); err != nil {
+		return Item{}, err
+	}
 	var iban any
 	if in.FromSuggestion && key != nil {
 		if iban, err = suggestionIBAN(ctx, tx, it.AccountID, it.Counterparty, it.Amount, key); err != nil {
@@ -266,9 +320,9 @@ func (s *Store) CreateItem(ctx context.Context, viewer int64, in ItemInput, now 
 		}
 	}
 	err = tx.QueryRowContext(ctx, `INSERT INTO recurring_items (account_id, counterparty, counterparty_iban, description, amount, amount_rule,
-		frequency, expected_day, expected_month, end_date, kind, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		frequency, expected_day, expected_month, end_date, kind, state, category_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		it.AccountID, it.Counterparty, iban, it.Description, it.Amount, it.AmountRule, it.Frequency, it.Day, it.Month, it.EndDate,
-		it.Kind, it.State).Scan(&it.ID)
+		it.Kind, it.State, it.CategoryID).Scan(&it.ID)
 	if err != nil {
 		return Item{}, err
 	}
@@ -315,7 +369,9 @@ func suggestionIBAN(ctx context.Context, tx *sql.Tx, account int64, counterparty
 
 // UpdateItem changes the named fields of a recurring item on an account the
 // viewer may edit, checking the whole item again. A changed counterparty
-// clears the IBAN the item matched by. The account never changes.
+// clears the IBAN the item matched by. A category the request does not name
+// is cleared when the new kind or state no longer fits it (checkCategory). The
+// account never changes.
 func (s *Store) UpdateItem(ctx context.Context, viewer, id int64, f ItemFields, now time.Time) (Item, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -334,10 +390,13 @@ func (s *Store) UpdateItem(ctx context.Context, viewer, id int64, f ItemFields, 
 	if err := it.validate(a.shared(), f.EndDate.Set && !equalPtr(was.EndDate, it.EndDate), today(now)); err != nil {
 		return Item{}, err
 	}
+	if err := it.checkCategory(ctx, tx, f.CategoryID.Set); err != nil {
+		return Item{}, err
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE recurring_items SET counterparty = ?1, description = ?2, amount = ?3, amount_rule = ?4, frequency = ?5,
-		expected_day = ?6, expected_month = ?7, end_date = ?8, kind = ?9, state = ?10,
+		expected_day = ?6, expected_month = ?7, end_date = ?8, kind = ?9, state = ?10, category_id = ?12,
 		counterparty_iban = CASE WHEN counterparty = ?1 THEN counterparty_iban END WHERE id = ?11`,
-		it.Counterparty, it.Description, it.Amount, it.AmountRule, it.Frequency, it.Day, it.Month, it.EndDate, it.Kind, it.State, id); err != nil {
+		it.Counterparty, it.Description, it.Amount, it.AmountRule, it.Frequency, it.Day, it.Month, it.EndDate, it.Kind, it.State, id, it.CategoryID); err != nil {
 		return Item{}, err
 	}
 	return it, tx.Commit()

@@ -11,11 +11,19 @@ import (
 // itself is planning.BudgetReference (moved there in 0.9-3c so the overview
 // receipt reads the same one); this file is the route and its wire shape.
 
-// The wire shape.
+// The wire shape. Categories is a []planning.RefCategory, or with average=1
+// (0.9.1-4) a []refWithAverage: RefCategory is also what the receipt reads, so
+// it does not carry the average itself.
 type (
+	refWithAverage struct {
+		CategoryID int64  `json:"categoryId"`
+		Reference  int64  `json:"reference"`
+		Source     string `json:"source"`
+		Average    int64  `json:"average"` // the full-amount 6-month average, 0 without history, also when source is budget
+	}
 	refAccount struct {
-		ID         int64                  `json:"id"`
-		Categories []planning.RefCategory `json:"categories"`
+		ID         int64 `json:"id"`
+		Categories any   `json:"categories"`
 	}
 	refMonth struct {
 		Month    string       `json:"month"`
@@ -47,11 +55,19 @@ func (s *Server) getReportBudgets(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	withAverage := r.URL.Query().Get("average") == "1" // opt-in; any other value is ignored
 	out := refAnswer{Months: make([]refMonth, len(rep.Months))}
 	for i, m := range rep.Months {
 		rm := refMonth{Month: m.Month, Accounts: make([]refAccount, len(rep.Accounts))}
 		for j, id := range rep.Accounts {
-			rm.Accounts[j] = refAccount{ID: id, Categories: facts[id].In(m.Month)}
+			in := facts[id].In(m.Month)
+			var categories any = in
+			if withAverage {
+				categories = mapTo(in, func(c planning.RefCategory) refWithAverage {
+					return refWithAverage{c.CategoryID, c.Reference, c.Source, facts[id].Average(c.CategoryID)}
+				})
+			}
+			rm.Accounts[j] = refAccount{ID: id, Categories: categories}
 		}
 		out.Months[i] = rm
 	}

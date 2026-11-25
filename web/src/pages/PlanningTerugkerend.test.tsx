@@ -7,7 +7,8 @@ import { api as live, ApiError } from '../lib/api';
 import type { Planning } from '../lib/planning';
 import type { RecurringItem, RecurringSuggestion } from '../lib/planningItems';
 import { useAsync } from '../lib/useAsync';
-import { asMember, GEDEELD, ME, stubApi, ZICHT } from '../test/helpers';
+import type { TreeCategory } from '../lib/types';
+import { asMember, CATEGORIES, GEDEELD, ME, stubApi, ZICHT } from '../test/helpers';
 import { PlanningTerugkerend, type TerugkerendProps } from './PlanningTerugkerend';
 
 const item = (id: number, accountId: number, description: string, counterparty: string, amount: number, kind: RecurringItem['kind'], day: number, extra: Partial<RecurringItem> = {}): RecurringItem => ({
@@ -57,13 +58,14 @@ function Toast() {
   const { current } = useApp();
   return <output data-testid="toast">{current?.text}</output>;
 }
-/** The screen's part: it loads the items (their count is in the section control) and hands them to the section. */
-function Section(props: Omit<TerugkerendProps, 'items'>) {
+/** The screen's part: it loads the items (their count is in the section control) and hands them to the section, with the category tree when asked (0.9.1-3). */
+function Section({ withTree, ...props }: Omit<TerugkerendProps, 'items' | 'tree'> & { withTree?: boolean }) {
   const { dataVersion } = useApp();
   const items = useAsync((signal) => live.planningItems(props.scope, signal), [props.scope, dataVersion]);
-  return <PlanningTerugkerend {...props} items={items} />;
+  const tree = useAsync((signal) => live.categories(signal), [dataVersion]);
+  return <PlanningTerugkerend {...props} items={items} tree={withTree ? tree : undefined} />;
 }
-function setup(over: Partial<Omit<TerugkerendProps, 'items'>> = {}) {
+function setup(over: Partial<Omit<TerugkerendProps, 'items' | 'tree'>> & { withTree?: boolean } = {}) {
   const props = { planning: PLANNING, accounts: [ZICHT], scope: 'alles' as const, reload: vi.fn(), canEdit: true, ...over };
   render(
     <AppProvider me={ME}>
@@ -345,5 +347,250 @@ describe('Terugkerend item sheet', () => {
     await screen.findByRole('heading', { name: 'Inkomend' });
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByRole('button', { name: /^Bijdrage Bert/ })).toBeNull();
+  });
+});
+
+// The category of an item (plan 0.9.1-3): the field for Gewone uitgave and Sparen, the suggestion of the list as a chip and a hint, the picker limited to
+// the kind, the PATCH and POST bodies, the note of a row. Wonen (1, with Energie 10), Abonnementen (5), Overig (6) and the saving category Sparen (26).
+const SPAREN: TreeCategory = { id: 26, name: 'Sparen', type: 'expense', colour: 'c9', icon: '🏦', parentId: null, count: 0, saving: true };
+const TREE: TreeCategory[] = [...CATEGORIES, SPAREN];
+/** Huur has none and a suggestion; Netflix has Abonnementen, as its payments say; Spotify has Abonnementen, its payments say Overig; the saving order has Sparen. */
+const WITH_CATEGORIES: RecurringItem[] = ITEMS.map((i) =>
+  i.id === 2
+    ? { ...i, categoryId: null, suggestedCategoryId: 1 }
+    : i.id === 4
+      ? { ...i, categoryId: 5, suggestedCategoryId: 5 }
+      : i.id === 6
+        ? { ...i, categoryId: 5, suggestedCategoryId: 6 }
+        : i.id === 5
+          ? { ...i, categoryId: 26, suggestedCategoryId: null }
+          : i,
+);
+const categoryField = () => within(screen.getByRole('group', { name: 'Categorie' }));
+const open = async (name: RegExp) => fireEvent.click(await screen.findByRole('button', { name }));
+const picker = () => within(screen.getByRole('group', { name: 'Kies een categorie' }));
+const HUUR_PATCH = { description: 'Huur', counterparty: 'Immo Verhaeghe', amount: -100500, amountRule: 'fixed', frequency: 'monthly', day: 1, month: null, endDate: null, kind: 'expense' };
+
+describe('Terugkerend item category', () => {
+  it('names the category in the note of a row, and only when the item has one', async () => {
+    stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    setup({ withTree: true });
+    await screen.findByRole('heading', { name: 'Uitgaand' });
+    const uitgaand = listOf('Uitgaand');
+    expect(await uitgaand.findByText('Maandelijks · 12e · Abonnementen')).toBeTruthy();
+    expect(within(li(uitgaand, 'Naar spaarrekening')).getByText('Maandelijks · 16e · gespaard · Sparen')).toBeTruthy();
+    expect(within(li(uitgaand, 'Huur')).getByText('Maandelijks · 1e')).toBeTruthy();
+  });
+
+  it('shows the field for Gewone uitgave and Sparen only', async () => {
+    stubApi({ items: ITEMS, categories: TREE, planningSuggestions: SUGGESTIONS });
+    setup({ withTree: true });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Terugkerende post toevoegen' }));
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    fireEvent.click(radio('Sparen'));
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    fireEvent.click(radio('+ Inkomst'));
+    expect(screen.queryByRole('group', { name: 'Categorie' })).toBeNull();
+    fireEvent.click(radio('− Uitgave'));
+    fireEvent.click(radio('Overschrijving naar'));
+    expect(screen.queryByRole('group', { name: 'Categorie' })).toBeNull();
+    press('Annuleren');
+
+    // A detected item has no suggested category (the server computes one for stored items only).
+    fireEvent.click(await screen.findByRole('button', { name: 'Bevestigen: Decathlon' }));
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Suggestie/ })).toBeNull();
+  });
+
+  it('has no field when the screen gives no tree', async () => {
+    stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    setup();
+    await open(/^Huur/);
+    expect(screen.getByRole('dialog', { name: 'Terugkerende post' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Categorie' })).toBeNull();
+  });
+
+  it('fills the field from the suggestion chip; the PATCH carries the category and the preview line names it', async () => {
+    const api = stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    setup({ withTree: true });
+
+    await open(/^Huur/);
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Suggestie: Wonen · Gebruiken' }));
+    expect(categoryField().getByText('Wonen')).toBeTruthy();
+    // Nothing is left to suggest, and nothing differs: no chip, no hint.
+    expect(screen.queryByRole('button', { name: /^Suggestie/ })).toBeNull();
+    expect(screen.queryByText(/staan meestal in/)).toBeNull();
+    expect(screen.getByText('−€ 1.005,00 · maandelijks · Zichtrekening · Wonen')).toBeTruthy();
+
+    press('Opslaan');
+    await waitFor(() => expect(toast()).toBe('Terugkerende post aangepast'));
+    expect(api.updatePlanningItem).toHaveBeenCalledWith(2, { ...HUUR_PATCH, categoryId: 1 });
+  });
+
+  it('sends no category when it did not change, and null when "Geen categorie" cleared it', async () => {
+    const api = stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    setup({ withTree: true });
+
+    await open(/^Netflix/);
+    expect(categoryField().getByText('Abonnementen')).toBeTruthy();
+    press('Opslaan');
+    await waitFor(() => expect(api.updatePlanningItem).toHaveBeenCalledTimes(1));
+    expect(api.updatePlanningItem.mock.calls[0][1]).not.toHaveProperty('categoryId');
+
+    await open(/^Netflix/);
+    fireEvent.click(await screen.findByRole('button', { name: 'Geen categorie' }));
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    press('Opslaan');
+    await waitFor(() => expect(api.updatePlanningItem).toHaveBeenCalledTimes(2));
+    expect(api.updatePlanningItem.mock.calls[1][1]).toMatchObject({ categoryId: null });
+  });
+
+  it('offers in "Kies…" only the categories that fit the kind: expense ones for an expense, saving ones for Sparen', async () => {
+    const api = stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    setup({ withTree: true });
+
+    await open(/^Huur/);
+    press('Kies…');
+    expect(picker().getByRole('button', { name: /Wonen/ })).toBeTruthy();
+    expect(picker().getByRole('button', { name: /Overig/ })).toBeTruthy();
+    expect(picker().queryByRole('button', { name: /Sparen/ })).toBeNull();
+    expect(picker().queryByRole('button', { name: /Loon/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Toon inkomsten' })).toBeNull();
+
+    // A main category with subcategories opens them; a subcategory is shown with its main category in the name.
+    fireEvent.click(picker().getByRole('button', { name: /Wonen/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Energie/ }));
+    expect(screen.queryByRole('group', { name: 'Kies een categorie' })).toBeNull();
+    expect(categoryField().getByText('Wonen › Energie')).toBeTruthy();
+
+    // Sparen drops the expense category (it does not fit) and offers the saving one.
+    fireEvent.click(radio('Sparen'));
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    press('Kies…');
+    expect(picker().getAllByRole('button').map((b) => b.textContent)).toEqual(['🏦Sparen']);
+    fireEvent.click(picker().getByRole('button', { name: /Sparen/ }));
+    expect(categoryField().getByText('Sparen')).toBeTruthy();
+    press('Opslaan');
+    await waitFor(() => expect(api.updatePlanningItem).toHaveBeenCalledWith(2, { ...HUUR_PATCH, kind: 'saving', categoryId: 26 }));
+  });
+
+  it('clears a category that no longer fits when the kind changes, and starts empty when the kind comes back', async () => {
+    const api = stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    setup({ withTree: true });
+
+    // An expense category goes when the item becomes Sparen; the suggestion (an expense category too) does not fit either.
+    await open(/^Netflix/);
+    expect(categoryField().getByText('Abonnementen')).toBeTruthy();
+    fireEvent.click(radio('Sparen'));
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Suggestie/ })).toBeNull();
+    press('Opslaan');
+    await waitFor(() => expect(api.updatePlanningItem).toHaveBeenCalledWith(4, expect.objectContaining({ kind: 'saving', categoryId: null })));
+
+    // The saving category goes when the item becomes a Gewone uitgave; with Inkomst the field is gone.
+    await open(/^Naar spaarrekening/);
+    expect(categoryField().getByText('Sparen')).toBeTruthy();
+    fireEvent.click(radio('Gewone uitgave'));
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    fireEvent.click(radio('Sparen'));
+    expect(categoryField().getByText('Zonder categorie')).toBeTruthy();
+    fireEvent.click(radio('+ Inkomst'));
+    expect(screen.queryByRole('group', { name: 'Categorie' })).toBeNull();
+  });
+
+  it('says where the payments usually are when the item has another category, and offers the suggestion again after "Geen categorie"', async () => {
+    stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    setup({ withTree: true });
+
+    // Netflix: the category is the suggestion: no hint, no chip.
+    await open(/^Netflix/);
+    expect(screen.queryByText(/staan meestal in/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Suggestie/ })).toBeNull();
+    press('Annuleren');
+
+    // Spotify: Abonnementen chosen, the payments say Overig. Nothing is changed by itself.
+    await open(/^Spotify/);
+    expect(screen.getByText('Betalingen van deze post staan meestal in Overig.')).toBeTruthy();
+    expect(categoryField().getByText('Abonnementen')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Suggestie/ })).toBeNull();
+    press('Geen categorie');
+    expect(screen.queryByText(/staan meestal in/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Suggestie: Overig · Gebruiken' }));
+    expect(categoryField().getByText('Overig')).toBeTruthy();
+    expect(screen.queryByText(/staan meestal in/)).toBeNull();
+  });
+
+  it('posts the chosen category of a new item, and none when it has none', async () => {
+    const api = stubApi({ items: ITEMS, categories: TREE });
+    setup({ withTree: true });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Terugkerende post toevoegen' }));
+    type('Omschrijving', 'Gas');
+    type('Bedrag (€)', '50');
+    press('Kies…');
+    fireEvent.click(picker().getByRole('button', { name: /Boodschappen/ }));
+    press('Opslaan');
+    await waitFor(() => expect(api.createPlanningItem).toHaveBeenCalledTimes(1));
+    expect(api.createPlanningItem).toHaveBeenLastCalledWith({ accountId: 1, description: 'Gas', counterparty: '', amount: -5000, amountRule: 'fixed', frequency: 'monthly', day: 1, kind: 'expense', categoryId: 2 });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Terugkerende post toevoegen' }));
+    type('Omschrijving', 'Water');
+    type('Bedrag (€)', '20');
+    press('Opslaan');
+    await waitFor(() => expect(api.createPlanningItem).toHaveBeenCalledTimes(2));
+    expect(api.createPlanningItem.mock.calls[1][0]).not.toHaveProperty('categoryId');
+  });
+
+  /** The server's answers: the list carries the suggestion, a PATCH answers the bare item (no `suggestedCategoryId`). */
+  const serverLike = (api: ReturnType<typeof stubApi>) => {
+    let stored = structuredClone(WITH_CATEGORIES);
+    api.planningItems.mockImplementation(async () => ({ items: structuredClone(stored) }));
+    api.updatePlanningItem.mockImplementation(async (id, patch) => {
+      stored = stored.map((i) => (i.id === id ? { ...i, ...patch } : i));
+      const { suggestedCategoryId: _dropped, ...bare } = stored.find((i) => i.id === id)!;
+      return bare;
+    });
+  };
+
+  it('still offers the suggestion after a save that did not take it', async () => {
+    const api = stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    serverLike(api);
+    setup({ withTree: true });
+
+    await open(/^Huur/);
+    expect(await screen.findByRole('button', { name: 'Suggestie: Wonen · Gebruiken' })).toBeTruthy();
+    type('Bedrag (€)', '1010');
+    press('Opslaan');
+    await waitFor(() => expect(toast()).toBe('Terugkerende post aangepast'));
+    expect(api.updatePlanningItem.mock.calls[0][1]).toMatchObject({ amount: -101000 });
+
+    // The reloaded list has the suggestion again: the chip is back on the reopened sheet.
+    expect(await listOf('Uitgaand').findByText('−€ 1.010,00')).toBeTruthy();
+    await open(/^Huur/);
+    expect(await screen.findByRole('button', { name: 'Suggestie: Wonen · Gebruiken' })).toBeTruthy();
+  });
+
+  it('keeps the suggestion of the list across a save that took a category: it neither offers it nor warns, until another one is chosen', async () => {
+    const api = stubApi({ items: WITH_CATEGORIES, categories: TREE });
+    serverLike(api);
+    setup({ withTree: true });
+
+    await open(/^Huur/);
+    fireEvent.click(await screen.findByRole('button', { name: 'Suggestie: Wonen · Gebruiken' }));
+    press('Opslaan');
+    await waitFor(() => expect(toast()).toBe('Terugkerende post aangepast'));
+
+    // The row shows the new category after the reload; the sheet knows the suggestion again, so it neither offers it nor warns.
+    expect(await listOf('Uitgaand').findByText('Maandelijks · 1e · Wonen')).toBeTruthy();
+    await open(/^Huur/);
+    expect(categoryField().getByText('Wonen')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Suggestie/ })).toBeNull();
+    expect(screen.queryByText(/staan meestal in/)).toBeNull();
+    // Another choice is told apart from what the payments say.
+    press('Kies…');
+    fireEvent.click(picker().getByRole('button', { name: /Overig/ }));
+    expect(screen.getByText('Betalingen van deze post staan meestal in Wonen.')).toBeTruthy();
   });
 });

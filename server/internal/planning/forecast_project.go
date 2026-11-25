@@ -77,7 +77,10 @@ type Line struct {
 }
 
 // Budget is a variable category's plan for a month. Source: budget | average.
-// Spent is the running month's (0 later); Rest = max(0, Plan - Spent).
+// A budget row is the month's total for the category (plan 0.9.1-4): Plan is
+// the extra on top of Recurring, max(0, Total - Recurring); without a row Plan
+// is the variable average and Total is 0. Spent is the running month's (0
+// later); Rest = max(0, Plan - Spent).
 type Budget struct {
 	CategoryID int64
 	Plan       int64
@@ -85,6 +88,8 @@ type Budget struct {
 	Spent      int64
 	Rest       int64
 	Average    int64 // the category's history average (variable spending), whatever Source is
+	Total      int64 // the budget row in effect (0 for average)
+	Recurring  int64 // the month's occurrences of the confirmed expense items assigned to the category
 }
 
 // Facts are what the forecast of one account is built on, all account-level.
@@ -114,12 +119,15 @@ type FactRow struct {
 }
 
 // FactPart is an amount in a top category (0: uncategorised). Variable: an
-// expense top category that is not saving. Saving: a saving top category.
+// expense top category that is not saving. Saving: a saving top category. Own
+// is the part's own category, a subcategory or a top one (0: uncategorised);
+// only SuggestCategories reads it.
 type FactPart struct {
 	Category int64
 	Amount   int64
 	Variable bool
 	Saving   bool
+	Own      int64
 }
 
 // FactItem is a confirmed recurring item.
@@ -135,6 +143,7 @@ type FactItem struct {
 	Month        int    // anchor (quarterly) or month (yearly); 0 for monthly
 	EndDate      string // "" none
 	Kind         string // income | expense | saving | transfer | contribution
+	Category     int64  // the top expense category the item is assigned to (0: none; the loader sets it for expense items only)
 }
 
 // FactBudget is a budget row of a valid category; Amount nil: use the average.
@@ -246,19 +255,22 @@ type fcEvent struct {
 	saving bool
 }
 
-// Project computes the forecast from the facts (rules 1–12 of plan 0.8-3).
-// horizon is clamped to 3 … 24.
-func Project(f Facts, today string, horizon int) AccountForecast {
-	horizon = min(max(horizon, 3), 24)
+// fcPass is the result of the match pass: the rows of the window, the
+// occurrences up to the last month, which row each occurrence matched (and
+// which occurrence each row), the history months and the fit test.
+type fcPass struct {
+	rows   []fcRow
+	occs   []fcOcc
+	hist   []string
+	isHist map[string]bool
+	fits   func(int, fcRow) bool
+}
+
+// fcMatch is the match pass of Project (rules 3, 4 and 7's history months),
+// also run by SuggestCategories: rows, occurrences up to lastMonth, matching.
+func fcMatch(f Facts, today, lastMonth string) fcPass {
 	run := today[:7]
-	months := make([]string, horizon+1)
-	for i := range months {
-		months[i] = fcAddMonths(run, i)
-	}
-	lastMonth := months[horizon]
-	tomorrow := fcAddDays(today, 1)
 	pendingFrom := fcAddDays(today, -fcPendingDays)
-	dataDate := min(cmp.Or(f.DataDate, today), today)
 
 	// Rows: booked up to today, pending of the last 14 days (rule 4).
 	var rows []fcRow
@@ -349,6 +361,23 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 			oc.row, rows[best].match = best, o
 		}
 	}
+	return fcPass{rows: rows, occs: occs, hist: hist, isHist: isHist, fits: fits}
+}
+
+// Project computes the forecast from the facts (rules 1–12 of plan 0.8-3).
+// horizon is clamped to 3 … 24.
+func Project(f Facts, today string, horizon int) AccountForecast {
+	horizon = min(max(horizon, 3), 24)
+	run := today[:7]
+	months := make([]string, horizon+1)
+	for i := range months {
+		months[i] = fcAddMonths(run, i)
+	}
+	lastMonth := months[horizon]
+	tomorrow := fcAddDays(today, 1)
+	dataDate := min(cmp.Or(f.DataDate, today), today)
+	pass := fcMatch(f, today, lastMonth)
+	rows, occs, hist, isHist, fits := pass.rows, pass.occs, pass.hist, pass.isHist, pass.fits
 
 	// Amounts (rule 6): an average item counts the mean of its matched rows in
 	// the 6 complete months before the running month.
@@ -372,6 +401,19 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 					occs[o].amount = avg
 				}
 			}
+		}
+	}
+
+	// Assigned costs (plan 0.9.1-4): per top category and month, every occurrence
+	// of its assigned items, paid, late, missed or still to come alike (known
+	// limits: a missed one frees its part of the total).
+	recurring := map[int64]map[string]int64{}
+	for _, oc := range occs {
+		if c := f.Items[oc.item].Category; c != 0 {
+			if recurring[c] == nil {
+				recurring[c] = map[string]int64{}
+			}
+			recurring[c][oc.date[:7]] -= oc.amount
 		}
 	}
 
@@ -487,6 +529,9 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 	for _, b := range f.Budgets {
 		cats[b.Category] = true
 	}
+	for c := range recurring {
+		cats[c] = true
+	}
 	catList := make([]int64, 0, len(cats))
 	for c := range cats {
 		catList = append(catList, c)
@@ -501,12 +546,6 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 		if len(hist) > 0 {
 			avg[c] = max(0, fcDivRound(sum, int64(len(hist))))
 		}
-	}
-	plan := func(c int64, m string) (int64, string) {
-		if amount, ok := BudgetFor(f.Budgets, c, m); ok {
-			return amount, "budget"
-		}
-		return avg[c], "average"
 	}
 
 	// Balance (rule 1) and the real start of the running month (rule 2).
@@ -545,14 +584,17 @@ func Project(f Facts, today string, horizon int) AccountForecast {
 		var varTotal, planTotal int64
 		var spreadDays int
 		for _, c := range catList {
-			p, src := plan(c, m)
-			planTotal += p
-			b := Budget{CategoryID: c, Plan: p, Source: src, Rest: p, Average: avg[c]}
+			b := Budget{CategoryID: c, Plan: avg[c], Source: "average", Average: avg[c], Recurring: recurring[c][m]}
+			if total, ok := BudgetFor(f.Budgets, c, m); ok { // the total: the plan is what is left above the assigned costs
+				b.Total, b.Plan, b.Source = total, max(0, total-b.Recurring), "budget"
+			}
+			planTotal += b.Plan
+			b.Rest = b.Plan
 			if m == run {
 				b.Spent = spent[c][run]
-				b.Rest = max(0, p-b.Spent)
+				b.Rest = max(0, b.Plan-b.Spent)
 			}
-			if b.Plan != 0 || b.Spent != 0 {
+			if b.Plan != 0 || b.Spent != 0 || b.Source == "budget" || b.Recurring != 0 {
 				mo.Budgets = append(mo.Budgets, b)
 			}
 			varTotal += b.Rest

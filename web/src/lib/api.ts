@@ -39,6 +39,7 @@ import type {
   RemovedLink,
   ReportBalances,
   ReportBudgets,
+  ReportBudgetsQuery,
   ReportMonths,
   ReportQuery,
   Receipt,
@@ -183,6 +184,12 @@ export function reportMonthsPath(q: ReportQuery = {}): string {
   return '/api/reports/months' + (q.detail ? (s ? s + '&' : '?') + 'detail=1' : s);
 }
 
+/** `average` adds `average=1`: every category also carries its full-amount 6-month average (0.9.1-4). */
+export function reportBudgetsPath(q: ReportBudgetsQuery = {}): string {
+  const s = reportQueryString(q);
+  return '/api/reports/budgets' + (q.average ? (s ? s + '&' : '?') + 'average=1' : s);
+}
+
 export function receiptPath(q: ReceiptQuery): string {
   const p = new URLSearchParams({ periode: q.periode, van: q.van });
   if (q.tot !== undefined) p.set('tot', q.tot);
@@ -195,7 +202,7 @@ export const api = {
   /** Income, expenses per category and saved per month for a selection (docs/api.md, "Reports"). */
   reportMonths: (q: ReportQuery = {}, signal?: AbortSignal) => request<ReportMonths>('GET', reportMonthsPath(q), { signal }),
   /** What each category's amount is read against, per account and month: its budget, else a 6-month average (docs/api.md, "Reports"); `detail` is not sent. */
-  reportBudgets: (q: Omit<ReportQuery, 'detail'> = {}, signal?: AbortSignal) => request<ReportBudgets>('GET', '/api/reports/budgets' + reportQueryString(q), { signal }),
+  reportBudgets: (q: ReportBudgetsQuery = {}, signal?: AbortSignal) => request<ReportBudgets>('GET', reportBudgetsPath(q), { signal }),
   /** Each account's end-of-day balance line over the months, with its buffer; one entry per account, never a sum (docs/api.md, "Reports"); `detail` is not sent. */
   reportBalances: (q: Omit<ReportQuery, 'detail'> = {}, signal?: AbortSignal) => request<ReportBalances>('GET', '/api/reports/balances' + reportQueryString(q), { signal }),
   /** The receipt of one week, month, quarter, year or custom range (docs/api.md, "Reports"; plan 0.9-3c): `van` is any date inside the period, `tot` too for `eigen`; the scope is always sent. */

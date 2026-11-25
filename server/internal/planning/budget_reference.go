@@ -76,6 +76,10 @@ func LoadBudgetReference(ctx context.Context, db *sql.DB, store *ledger.Store, v
 	return f, nil
 }
 
+// Average is the full-amount average of a category over the history months, 0
+// without history, whatever In says about its budget (0.9.1-4, average=1).
+func (f BudgetReference) Average(category int64) int64 { return f.average[category] }
+
 // In lists the references of a month by category id: a budget row that
 // applies, else the average when there is one. No month before the account's
 // first booked month has any. Never nil.

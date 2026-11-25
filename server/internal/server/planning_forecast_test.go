@@ -452,3 +452,82 @@ func TestPlanningAlertHelpers(t *testing.T) {
 		t.Errorf("a year ahead: %+v", red)
 	}
 }
+
+// TestPlanningBudgetTotals is the budget as a total on the wire (plan 0.9.1-4): every budgets entry has total and
+// recurring; on the demo (nothing assigned) total is plan for a budget and 0 for an average, recurring 0; an assigned
+// item moves recurring and plan, and the shared account's need follows.
+func TestPlanningBudgetTotals(t *testing.T) {
+	p := newPair(t)
+	type budget struct {
+		CategoryID, Plan, Total, Recurring int64
+		Source                             string
+	}
+	type answer struct {
+		Accounts []struct {
+			ID     int64
+			Months []struct {
+				Month        string
+				Budgets      []budget
+				Contribution *struct{ Costs int64 }
+			}
+		}
+	}
+	read := func() (answer, string) {
+		r := p.bert("GET", "/api/planning?horizon=24", "")
+		if r.status != http.StatusOK {
+			t.Fatalf("planning: %d %s", r.status, r.body)
+		}
+		return decode[answer](t, r.body), r.body
+	}
+
+	a, body := read()
+	if !strings.Contains(body, `{"categoryId":2,"plan":55000,"source":"budget","spent":29521,"rest":25479,"average":26821,"total":55000,"recurring":0}`) {
+		t.Errorf("the shared account's Boodschappen entry is not on the wire as expected: %s", body)
+	}
+	var budgets, averages int
+	for _, acc := range a.Accounts {
+		for _, m := range acc.Months {
+			for _, b := range m.Budgets {
+				switch {
+				case b.Recurring != 0:
+					t.Errorf("account %d %s category %d: recurring %d, the seed assigns nothing", acc.ID, m.Month, b.CategoryID, b.Recurring)
+				case b.Source == "budget" && b.Total == b.Plan:
+					budgets++
+				case b.Source == "average" && b.Total == 0:
+					averages++
+				default:
+					t.Errorf("account %d %s: %+v", acc.ID, m.Month, b)
+				}
+			}
+		}
+	}
+	if budgets == 0 || averages == 0 {
+		t.Errorf("%d budget and %d average entries, want both", budgets, averages)
+	}
+
+	// Energie of the shared account goes to Boodschappen (budget 550): that category costs max(total, recurring) in
+	// the need, not total + recurring, so every month's costs drop by the item's amount.
+	energie := int64(p.count(`SELECT -amount FROM recurring_items WHERE account_id = 4 AND description = 'Energie'`))
+	p.exec(`UPDATE recurring_items SET category_id = 2 WHERE account_id = 4 AND description = 'Energie'`)
+	b, _ := read()
+	for i, acc := range b.Accounts {
+		if acc.ID != 4 {
+			continue
+		}
+		for j, m := range acc.Months {
+			was := a.Accounts[i].Months[j]
+			if m.Contribution == nil || m.Contribution.Costs != was.Contribution.Costs-energie {
+				t.Errorf("%s: costs %+v, want %d less %d", m.Month, m.Contribution, was.Contribution.Costs, energie)
+			}
+			for k, x := range m.Budgets {
+				y := was.Budgets[k]
+				if x.CategoryID == 2 && (x.Total != 55000 || x.Recurring != energie || x.Plan != 55000-energie) {
+					t.Errorf("%s Boodschappen: %+v, want total 55000, recurring %d, plan %d", m.Month, x, energie, 55000-energie)
+				}
+				if x.CategoryID != 2 && x != y {
+					t.Errorf("%s category %d changed: %+v, was %+v", m.Month, x.CategoryID, x, y)
+				}
+			}
+		}
+	}
+}

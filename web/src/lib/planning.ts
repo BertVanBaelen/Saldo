@@ -18,12 +18,17 @@ export interface PlanLine {
 /** A category's budget for the month: the plan, where it came from, what was spent and what is left. */
 export interface PlanBudget {
   categoryId: number;
+  /** What the forecast spreads: with a budget row (`source` `budget`) the extra above `recurring`, `max(0, total - recurring)` (0.9.1-4); else the variable average. */
   plan: number;
   source: string;
   spent: number;
   rest: number;
   /** The 6-month average of the category in cents (0.8.1-2, `GET /api/planning` `budgets`); absent or `null` until the server sends it. */
   average?: number | null;
+  /** The budget row in effect, the month's total for the category in cents (0 when `source` is `average`); read a missing value as 0 (0.9.1-4). */
+  total?: number;
+  /** The month's occurrences of the expense items assigned to the category, in cents; read a missing value as 0 (0.9.1-4). */
+  recurring?: number;
 }
 
 /** What each member has to send in so the account ends the month on its buffer; shared accounts only. `required` is in whole euros. */

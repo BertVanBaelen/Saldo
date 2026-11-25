@@ -444,9 +444,11 @@
 }
 .ov-chev svg { transition: transform 200ms var(--ease-out); }
 .ov-chev[aria-expanded="true"] svg { transform: rotate(180deg); }
-/* The subcategories, indented under their row; each is a link to its transactions */
+/* The subcategories, indented under their row; each opens its sheet (in an account's sheet: a link to its transactions) */
 .ov-subs { list-style: none; margin: -4px 0 8px; padding: 0 0 0 18px; display: flex; flex-direction: column; }
 .ov-sub { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 28px 4px 0; border-radius: 10px; font-size: 13px; color: var(--text); text-decoration: none; }
+/* A subcategory or breakdown row that opens a sheet (0.9.1-1) is a button, with the look of the link it replaces */
+button.ov-sub, button.ov-bd-row { width: 100%; border: none; background: transparent; text-align: left; }
 .ov-sub-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .ov-sub-name { flex: 1; min-width: 0; color: var(--muted); }
 .ov-sub-amount { font-weight: 500; white-space: nowrap; }

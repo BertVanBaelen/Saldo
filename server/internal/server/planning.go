@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
@@ -34,13 +35,46 @@ func (s *Server) planningRoutes() {
 	s.planningDetectRoutes()
 }
 
+// listedItem is an item of the list with the category its payments suggest (0.9.1-3, output only: POST and PATCH
+// answer the bare item and refuse the field).
+type listedItem struct {
+	ledger.Item
+	SuggestedCategoryID *int64 `json:"suggestedCategoryId"`
+}
+
+// getPlanningItems adds the suggestion of the account's forecast facts (account-level, the same for every member) to
+// each confirmed expense and saving item; an account without a balance, or an item without a fitting payment, gets null.
 func (s *Server) getPlanningItems(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.PlanningItems(r.Context(), viewerOf(r), r.URL.Query().Get("scope"))
 	if err != nil {
 		s.fail(w, r, err, msgAccountNotFound)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	today := s.brusselsToday()
+	byAccount := map[int64]map[int64]int64{} // account, item id, category id; loaded once per account
+	out := make([]listedItem, len(items))
+	for i, it := range items {
+		out[i].Item = it
+		if it.State != "confirmed" || it.Kind != "expense" && it.Kind != "saving" {
+			continue
+		}
+		suggested, ok := byAccount[it.AccountID]
+		if !ok {
+			f, err := planning.LoadFacts(r.Context(), s.db, it.AccountID, today)
+			if err != nil && !errors.Is(err, planning.ErrNoBalance) {
+				s.fail(w, r, err, msgAccountNotFound)
+				return
+			}
+			if err == nil {
+				suggested = planning.SuggestCategories(f, today)
+			}
+			byAccount[it.AccountID] = suggested
+		}
+		if c, ok := suggested[it.ID]; ok {
+			out[i].SuggestedCategoryID = &c
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": out})
 }
 
 func (s *Server) postPlanningItem(w http.ResponseWriter, r *http.Request) {

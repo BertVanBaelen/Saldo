@@ -72,6 +72,16 @@
 .pin-chip--buffer { background: var(--warnChip); color: var(--warn); }
 .pin-chip--ok { background: var(--soft); color: var(--greenText); }
 
+/* The month stepper above the rows (0.9.1-5a): the look of the Planning tabs' month switcher */
+.pin-mnav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pin-mnav-btn {
+  width: 44px; height: 44px; flex: none; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+}
+.pin-mnav-btn:disabled { opacity: 0.4; }
+.pin-mnav-name { font-size: 17px; font-weight: 600; text-align: center; }
+
 .pin-rows { display: flex; flex-direction: column; padding: 0 14px; }
 .pin-brow { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; }
 .pin-brow + .pin-brow { border-top: 1px solid var(--line); }
@@ -92,6 +102,9 @@
 .pin-fill { display: block; height: 6px; border-radius: 3px; transition: width 300ms ease; }
 .pin-brow-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pin-brow-note { font-size: 12px; color: var(--muted); }
+/* "Vast € 25 + Extra € 5 = € 30" and the warnings of a budget row (a choice to look at, not an error: --warn) */
+.pin-brow-sum { font-size: 13px; color: var(--muted); }
+.pin-brow-warn { margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--warnSoft); color: var(--warn); font-size: 13px; line-height: 1.4; }
 /* The menu button is a 44 px target that takes no more room than the note line */
 .pin-more {
   width: 44px; height: 44px; margin: -16px -10px -16px 0; flex: none;
@@ -114,6 +127,8 @@
 .pin-add-row:disabled { opacity: 0.5; }
 .pin-add-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .pin-add-name { font-size: 15px; font-weight: 500; }
+/* "Zonder categorie" (0.9.1-5b): under the item's line, the suggestion as a chip, then Toewijzen and Annuleren while its effect shows in the strip */
+.pin-uncat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 10px; }
 .pin-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .pin-actions--two { grid-template-columns: minmax(0, 1fr) auto; }
 .pin-actions .btn { height: 46px; font-size: 14px; }
@@ -135,4 +150,5 @@
   .pin-tilegroup { flex: 1 1 200px; min-width: 0; }
   .pin-tiles { grid-template-columns: minmax(0, 1fr); }
   .pin-step { width: 40px; height: 40px; }
+  .pin-mnav-btn { width: 40px; height: 40px; }
 }

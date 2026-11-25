@@ -38,7 +38,9 @@ type (
 		Source     string `json:"source"`
 		Spent      int64  `json:"spent"`
 		Rest       int64  `json:"rest"`
-		Average    int64  `json:"average"` // the category's 6-month average of variable spending (0 without history), whatever source says
+		Average    int64  `json:"average"`   // the category's 6-month average of variable spending (0 without history), whatever source says
+		Total      int64  `json:"total"`     // the budget row in effect, the month's total for the category (0 when source is average)
+		Recurring  int64  `json:"recurring"` // the month's occurrences of the expense items assigned to the category; plan is the extra above it
 	}
 	planItem struct {
 		Kind   string `json:"kind"`

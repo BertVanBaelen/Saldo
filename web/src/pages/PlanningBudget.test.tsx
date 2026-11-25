@@ -51,6 +51,50 @@ describe('Planning · Budget', () => {
   });
 });
 
+describe('Planning · Budget · a budget with fixed costs (0.9.1-5b)', () => {
+  /**
+   * The demo's Zichtrekening with Vrije tijd as a total of € 30 of which € 25 is fixed (recurring 2500, so the extra is € 5 and € 10 is spent),
+   * and Abonnementen with fixed costs only (no budget, nothing planned or spent). The `variable` line is what the entries have left, so the sub rows show.
+   */
+  const withFixed = (scope: Parameters<typeof demoPlanning>[0], horizon = 3): Planning => {
+    const p = structuredClone(demoPlanning(scope, horizon));
+    for (const m of p.accounts.find((a) => a.id === 1)!.months) {
+      m.budgets = m.budgets.map((b) => (b.categoryId === 3 ? { ...b, total: 3000, plan: 500, spent: m.month === '2026-11' ? 1000 : 0, rest: m.month === '2026-11' ? 0 : 500, recurring: 2500 } : { ...b }));
+      m.budgets.push({ categoryId: 5, plan: 0, source: 'average', spent: 0, rest: 0, average: 0, total: 0, recurring: 80000 });
+      m.lines.find((l) => l.key === 'variable')!.amount = -m.budgets.reduce((s, b) => s + b.rest, 0);
+    }
+    return p;
+  };
+
+  it('says "extra" and "vast" in the breakdown and in "Per categorie", and lists no row for a category that only has fixed costs', async () => {
+    stubApi({ planning: withFixed });
+    renderPlanning('/planning#budget');
+    const zicht = await card('Zichtrekening');
+    expect(texts(zicht, '.pl-brow--sub .pl-brow-text')).toEqual([
+      'Vrije tijd€ 10,00 van € 5,00 extra al besteed · vast € 25,00',
+      'Vervoer€ 134,10 van € 300,00 al besteed',
+      'Overig€ 0,00 van € 287,98 al besteed',
+    ]);
+    // The bar and "te veel" are on the extra: € 10 of € 5.
+    expect(texts(screen.getByRole('tabpanel'), '.pl-cat-amount').slice(0, 3)).toEqual(['€ 10,00 van € 5,00 extra · € 5,00 te veel · vast € 25,00', '€ 134,10 van € 300,00', '€ 0,00 van € 287,98']);
+    expect(screen.queryByText('Abonnementen')).toBeNull();
+  });
+
+  it('shows a month later as the extra and what the month costs in the plan', async () => {
+    stubApi({ planning: withFixed });
+    renderPlanning('/planning?maand=2027-01#budget');
+    expect(texts(await card('Zichtrekening'), '.pl-brow--sub .pl-brow-note')[0]).toBe('Extra € 5,00 · totaal € 30,00');
+  });
+
+  it('the note under the categories says a budget is the total, fixed costs included', async () => {
+    stubApi({ planning: demoPlanning });
+    renderPlanning('/planning#budget');
+    await card('Zichtrekening');
+    expect(screen.getByText('Een budget is het totaal per maand, vaste kosten met die categorie inbegrepen. Zonder budget rekent de planning met het gemiddelde van de afgelopen 6 maanden. Spaarcategorieën hebben geen budget.')).toBeTruthy();
+    expect(screen.queryByText(/tellen niet mee/)).toBeNull();
+  });
+});
+
 describe('Planning · Budget · Aanpassen', () => {
   it('links each editable account to its budgets in Planning instellen, with the month shown when it is not the running one', async () => {
     stubApi({ planning: demoPlanning });

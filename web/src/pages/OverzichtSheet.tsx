@@ -2,8 +2,10 @@
 // of "Per rekening" opens that account's figures, and (0.8.1-4) the Inkomen, Uitgaven and Gespaard tiles open the amounts
 // per category with a dropdown per subcategory. A bottom sheet on the phone and a side panel from the right from 1024 px
 // (`useIsDesktop`): one content, two presentations, switched while open without closing.
+// From 0.9.1-1 every row of those lists, subcategories and pseudo rows too, opens the same sheet (`onOpen`), except in the sheet of
+// one account, whose rows stay links to Transacties (its `?blad=` cannot carry the account).
 // Overzicht owns the URL state (`?blad=`) and what closing does. Also the pieces the page and the sheets share.
-import { useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
@@ -104,28 +106,63 @@ function Chevron({ name, open, onToggle }: { name: string; open: boolean; onTogg
   );
 }
 
-/** The subcategories of a row, indented; each links to its transactions (`href` of its drill-down value). */
-function Subs({ subs, href }: { subs: BdRow[]; href: (param: string) => string }) {
+/** What a click on a row of a list does with its drill-down value (`param`): the row that was tapped is the element focus returns to. */
+type OpenParam = (param: string, el: HTMLElement) => void;
+
+/** The accessible name of a row that opens a sheet; like a category row's it ends in "Bekijk de transacties.". */
+const opens = (name: string, amount: number) => name + ': ' + eur(amount) + '. Bekijk de transacties.';
+
+/** What a subcategory does when tapped: open its sheet, or link to its transactions (`href` of its drill-down value). */
+type SubTarget = { onOpen: OpenParam; href?: undefined } | { href: (param: string) => string; onOpen?: undefined };
+
+/** The subcategories of a row, indented: buttons that open a sheet, or links to Transacties. */
+function Subs({ subs, ...to }: { subs: BdRow[] } & SubTarget) {
   return (
     <ul className="ov-subs">
-      {subs.map((s) => (
-        <li key={s.key}>
-          <Link className="ov-sub" to={href(s.param)}>
+      {subs.map((s) => {
+        const row = (
+          <>
             <i className="ov-sub-dot" style={{ background: s.colour || 'var(--dashed)' }} aria-hidden="true" />
             <span className="ov-sub-name">{s.name}</span>
             <span className="ov-sub-amount mono">{eur(s.amount)}</span>
-          </Link>
-        </li>
-      ))}
+          </>
+        );
+        return (
+          <li key={s.key}>
+            {to.onOpen ? (
+              <button type="button" className="ov-sub" data-param={s.param} aria-haspopup="dialog" aria-label={opens(s.name, s.amount)} onClick={(e) => to.onOpen(s.param, e.currentTarget)}>
+                {row}
+              </button>
+            ) : (
+              <Link className="ov-sub" to={to.href(s.param)}>
+                {row}
+              </Link>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
 /**
  * A category row of the list or of an account sheet: the row (a button that opens its transactions with `onOpen`, else plain),
- * and with subcategories the chevron beside it that drops them down inline. `href` writes a subcategory's Transacties link.
+ * and with subcategories the chevron beside it that drops them down inline. `sub` is what a subcategory does: open its sheet, or
+ * link to Transacties.
  */
-export function CatItem({ r, compare, showRef, href, onOpen }: { r: CatRow; compare: string; showRef: boolean; href: (param: string) => string; onOpen?: (key: string, el: HTMLElement) => void }) {
+export function CatItem({
+  r,
+  compare,
+  showRef,
+  sub,
+  onOpen,
+}: {
+  r: CatRow;
+  compare: string;
+  showRef: boolean;
+  sub: SubTarget;
+  onOpen?: (key: string, el: HTMLElement) => void;
+}) {
   const [open, setOpen] = useState(false);
   const line = <CatLine r={r} compare={compare} showRef={showRef} />;
   return (
@@ -138,17 +175,20 @@ export function CatItem({ r, compare, showRef, href, onOpen }: { r: CatRow; comp
         <div className="ov-cat">{line}</div>
       )}
       {r.subs.length > 0 && <Chevron name={r.name} open={open} onToggle={() => setOpen(!open)} />}
-      {open && <Subs subs={r.subs} href={href} />}
+      {open && <Subs subs={r.subs} {...sub} />}
     </div>
   );
 }
 
-/** The icon of a sheet's title for a category row: its emoji on its colour, or the dot of a pseudo row (not categorised, to an account). */
-export function CatLead({ r }: { r: CatRow }) {
-  if (['none', 'toShared', 'toOwn'].includes(r.key)) return <i className={'ov-cat-dot ov-blad-dot' + (r.colour ? '' : ' ov-cat-dot--uncat')} style={r.colour ? { background: r.colour } : undefined} aria-hidden="true" />;
+/**
+ * The icon of a sheet's title: the row's emoji on its colour, or `dot` for a pseudo row (not categorised, transfers, to an
+ * account): a dot, dashed without a colour. Which one it is, is decided by the row (`findBladRow`), not by how a list draws it.
+ */
+export function RowLead({ colour, icon, dot }: { colour: string; icon: string | null; dot: boolean }) {
+  if (dot) return <i className={'ov-cat-dot ov-blad-dot' + (colour ? '' : ' ov-cat-dot--uncat')} style={colour ? { background: colour } : undefined} aria-hidden="true" />;
   return (
-    <span className="ov-blad-ico" style={{ background: r.colour }} aria-hidden="true">
-      {categoryEmoji(r.icon)}
+    <span className="ov-blad-ico" style={{ background: colour }} aria-hidden="true">
+      {categoryEmoji(icon)}
     </span>
   );
 }
@@ -210,8 +250,9 @@ function Row({ t, acc, multi, first, href }: { t: Transaction; acc: Account | un
 }
 
 interface CategoryBladProps {
-  /** The drill-down `categorie` value: a top category id, `geen`, `naar-gedeeld` or `naar-eigen`. */
+  /** The drill-down `categorie` value (lib/drilldown.ts): a category id (top or sub), `<id>-zelf`, `inkomen-<id>[-zelf]`, `inkomen-overschrijving`, `inkomen-geen`, `gespaard-rekening-<id>`, `geen`, `naar-gedeeld` or `naar-eigen`. */
   param: string;
+  /** The title of the sheet: a row's name, or "Boodschappen › Supermarkt" for a subcategory. */
   name: string;
   lead: ReactNode;
   /** The amount of the Overzicht row, cents. */
@@ -315,12 +356,34 @@ const TOTALS: Record<Total, { title: string; icon: 'arrowDown' | 'arrowUp' | 'co
   gespaard: { title: 'Gespaard', icon: 'coins', tone: 'saved' },
 };
 
-/** One row of a breakdown: a link to its transactions, and with subcategories the chevron beside it (never inside the link). */
-function BdItem({ r, href }: { r: BdRow; href: (param: string) => string }) {
-  const [open, setOpen] = useState(false);
+/**
+ * What a breakdown sheet keeps while a sheet opened from it is on screen (0.9.1-1): the expanded tops (by key) and the row that was
+ * tapped (its `param`). The breakdown sheet unmounts meanwhile, so Back would find it collapsed and the tapped button gone. Overzicht
+ * holds this and drops it as soon as no sheet is open (`sheetOpen`).
+ */
+export interface BdMemory {
+  open: string[];
+  last: string | null;
+  toggle: (key: string) => void;
+  remember: (param: string) => void;
+}
+export function useBdMemory(sheetOpen: boolean): BdMemory {
+  const [m, setM] = useState<{ open: string[]; last: string | null }>({ open: [], last: null });
+  useEffect(() => {
+    if (!sheetOpen) setM((s) => (s.open.length || s.last ? { open: [], last: null } : s));
+  }, [sheetOpen]);
+  return {
+    ...m,
+    toggle: (key) => setM((s) => ({ ...s, open: s.open.includes(key) ? s.open.filter((k) => k !== key) : [...s.open, key] })),
+    remember: (param) => setM((s) => ({ ...s, last: param })),
+  };
+}
+
+/** One row of a breakdown: a button that opens its sheet, and with subcategories the chevron beside it (never inside the button). */
+function BdItem({ r, onOpen, open, onToggle }: { r: BdRow; onOpen: OpenParam; open: boolean; onToggle: () => void }) {
   return (
     <div className="ov-bd-item">
-      <Link className="ov-bd-row" to={href(r.param)}>
+      <button type="button" className="ov-bd-row" data-param={r.param} aria-haspopup="dialog" aria-label={opens(r.name, r.amount)} onClick={(e) => onOpen(r.param, e.currentTarget)}>
         {r.dot ? (
           <i className={'ov-cat-dot ov-bd-dot' + (r.colour ? '' : ' ov-cat-dot--uncat')} style={r.colour ? { background: r.colour } : undefined} aria-hidden="true" />
         ) : (
@@ -330,20 +393,52 @@ function BdItem({ r, href }: { r: BdRow; href: (param: string) => string }) {
         )}
         <span className="ov-bd-name">{r.name}</span>
         <span className="ov-bd-amount mono">{eur(r.amount)}</span>
-      </Link>
-      {r.subs.length > 0 && <Chevron name={r.name} open={open} onToggle={() => setOpen(!open)} />}
-      {open && <Subs subs={r.subs} href={href} />}
+      </button>
+      {r.subs.length > 0 && <Chevron name={r.name} open={open} onToggle={onToggle} />}
+      {open && <Subs subs={r.subs} onOpen={onOpen} />}
     </div>
   );
 }
 
 /**
  * The sheet of a tile: its amount and one row per top key, largest first, each with a dropdown per subcategory; every row,
- * top or sub, links to Transacties with its drill-down value and the column's period. The rows add up to the amount.
+ * top, pseudo or sub, opens its own sheet with `onOpen` (its drill-down value), titled "Top › Sub" for a subcategory. The rows add
+ * up to the amount. `href` is the Transacties link of "Open in Transacties" under Gespaard.
  */
-export function BreakdownBlad({ which, amount, periodTitle, periodKey, account, rows, onClose }: { which: Total; amount: number; periodTitle: string; periodKey: string; account: number | undefined; rows: BdRow[]; onClose: () => void }) {
+export function BreakdownBlad({
+  which,
+  amount,
+  periodTitle,
+  periodKey,
+  account,
+  rows,
+  onOpen,
+  memory,
+  onClose,
+}: {
+  which: Total;
+  amount: number;
+  periodTitle: string;
+  periodKey: string;
+  account: number | undefined;
+  rows: BdRow[];
+  onOpen: OpenParam;
+  /** Which tops are expanded and which row opened a sheet: back from that sheet, this one is as it was (`useBdMemory`). */
+  memory: BdMemory;
+  onClose: () => void;
+}) {
   const t = TOTALS[which];
   const href = (param: string) => drillHref(param, periodKey, account);
+  const list = useRef<HTMLDivElement>(null);
+  // Back from a sheet opened from this one: focus goes to the row that was tapped, which is a new element now. Runs after the Sheet's own focus move.
+  useLayoutEffect(() => {
+    if (memory.last) list.current?.querySelector<HTMLElement>('[data-param="' + memory.last + '"]')?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const pick: OpenParam = (param, el) => {
+    memory.remember(param);
+    onOpen(param, el);
+  };
   const lead = (
     <span className={'ov-blad-ico ov-blad-ico--' + t.tone} aria-hidden="true">
       <Icon name={t.icon} size={18} stroke={2.2} />
@@ -357,9 +452,9 @@ export function BreakdownBlad({ which, amount, periodTitle, periodKey, account, 
       {rows.length === 0 ? (
         <p className="ov-blad-empty">Geen verdeling beschikbaar.</p>
       ) : (
-        <div className="ov-bd-list">
+        <div className="ov-bd-list" ref={list}>
           {rows.map((r) => (
-            <BdItem key={r.key} r={r} href={href} />
+            <BdItem key={r.key} r={r} onOpen={pick} open={memory.open.includes(r.key)} onToggle={() => memory.toggle(r.key)} />
           ))}
         </div>
       )}
@@ -425,7 +520,7 @@ export function AccountBlad({
             Uitgaven per categorie
           </h3>
           {rows.map((r) => (
-            <CatItem key={r.key} r={r} compare="" showRef={showRef} href={href} />
+            <CatItem key={r.key} r={r} compare="" showRef={showRef} sub={{ href }} />
           ))}
           {showRef && <p className="ov-per-foot">{BUDGET_NOTE}</p>}
         </section>

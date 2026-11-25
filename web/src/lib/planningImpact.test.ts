@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { demoPlanning } from '../test/planningDemo';
 import type { PlanAccount, PlanBudget, PlanMonth, SavedBudget } from './planning';
-import { amountInEffect, diffText, endState, impactEnds, impactMonth, impactOf, restoreSequence } from './planningImpact';
+import { amountInEffect, diffText, endState, impactEnds, impactMonth, impactOf, restoreSequence, type AssignChange } from './planningImpact';
 
 const TODAY = '2026-11-18';
 const zicht = () => demoPlanning('persoonlijk', 3).accounts[0];
@@ -21,14 +21,14 @@ describe('impactOf', () => {
 
   it('moves every month by the running sum: Vrije tijd + € 10 is € 10 a month, € 40 by February', () => {
     // November: the rest of the budget goes from 28310 to 29310 (spent 6690), each later month 1000 more.
-    expect(impactEnds(zicht(), [{ categoryId: VRIJE_TIJD, plan: 36000 }], '2026-11', TODAY)).toEqual([119685, 106789, 60493, -117403]);
-    const i = impactOf(zicht(), [{ categoryId: VRIJE_TIJD, plan: 36000 }], '2026-11', TODAY)!;
+    expect(impactEnds(zicht(), [{ categoryId: VRIJE_TIJD, total: 36000 }], '2026-11', TODAY)).toEqual([119685, 106789, 60493, -117403]);
+    const i = impactOf(zicht(), [{ categoryId: VRIJE_TIJD, total: 36000 }], '2026-11', TODAY)!;
     expect(i).toMatchObject({ month: '2027-02', end: -117403, state: 'red', diff: -4000 });
     expect(diffText(i.diff)).toBe('€ 40 minder');
   });
 
   it('counts only what is not spent yet in the running month: Vervoer down to € 100 (spent € 134,10) frees € 165,90 and € 200 a month after', () => {
-    const changes = [{ categoryId: VERVOER, plan: 10000 }];
+    const changes = [{ categoryId: VERVOER, total: 10000 }];
     // November 30000 − 13410 = 16590 less reserved, December to February 20000 each: −113403 + 16590 + 60000.
     expect(impactEnds(zicht(), changes, '2026-11', TODAY)).toEqual([120685 + 16590, 108789 + 16590 + 20000, 63493 + 16590 + 40000, -36813]);
     const i = impactOf(zicht(), changes, '2026-11', TODAY)!;
@@ -38,17 +38,17 @@ describe('impactOf', () => {
 
   it('adds up several changes, and leaves the months before `fromMonth` alone', () => {
     const both = [
-      { categoryId: VRIJE_TIJD, plan: 36000 },
-      { categoryId: VERVOER, plan: 10000 },
+      { categoryId: VRIJE_TIJD, total: 36000 },
+      { categoryId: VERVOER, total: 10000 },
     ];
     expect(impactOf(zicht(), both, '2026-11', TODAY)!.end).toBe(-113403 - 4000 + 76590);
     // From February: November to January are as they were, February moves by its own Δ only.
-    const ends = impactEnds(zicht(), [{ categoryId: VRIJE_TIJD, plan: 36000 }], '2027-02', TODAY);
+    const ends = impactEnds(zicht(), [{ categoryId: VRIJE_TIJD, total: 36000 }], '2027-02', TODAY);
     expect(ends).toEqual([120685, 108789, 63493, -113403 - 1000]);
   });
 
   it('reserves nothing more on the last day of the running month (the engine drops the rest)', () => {
-    const ends = impactEnds(zicht(), [{ categoryId: VRIJE_TIJD, plan: 36000 }], '2026-11', '2026-11-30');
+    const ends = impactEnds(zicht(), [{ categoryId: VRIJE_TIJD, total: 36000 }], '2026-11', '2026-11-30');
     expect(ends).toEqual([120685, 108789 - 1000, 63493 - 2000, -113403 - 3000]);
   });
 
@@ -70,7 +70,7 @@ describe('impactOf', () => {
         budgets: m.budgets.map((b) => (b.categoryId === VRIJE_TIJD ? { ...b, plan: 36000, rest: Math.max(0, 36000 - b.spent) } : b)),
       })),
     };
-    const change = [{ categoryId: VRIJE_TIJD, plan: 36000 }];
+    const change = [{ categoryId: VRIJE_TIJD, total: 36000 }];
     // The estimate before the save and the answer after it agree on the end; the card still says € 40 minder against the open state.
     expect(impactOf(open, change, '2026-11', TODAY, open)!.end).toBe(-117403);
     const after = impactOf(saved, change, '2026-11', TODAY, open)!;
@@ -100,9 +100,92 @@ describe('impactEnds with a plan that differs per month (W1: Boodschappen € 10
   };
 
   it('is Δ 2000 in December and 12000 − the average from January on', () => {
-    const ends = impactEnds(account, [{ categoryId: 2, plan: 12000 }], '2026-11', TODAY);
+    const ends = impactEnds(account, [{ categoryId: 2, total: 12000 }], '2026-11', TODAY);
     // November: the unspent part of 120 vs 100 (spent 25): 9500 − 7500 = 2000.
     expect(ends).toEqual([98000, 98000 - 2000, 98000 - 2000 - (12000 - AVERAGE), 98000 - 2000 - 2 * (12000 - AVERAGE)]);
+  });
+});
+
+describe('impactEnds with a budget as total (0.9.1-5a): Vast + Extra = Totaal', () => {
+  const END = 100000;
+  const bud = (o: { plan: number; total: number; recurring: number; spent?: number; source?: string }): PlanBudget => ({
+    categoryId: 2,
+    plan: o.plan,
+    source: o.source ?? 'budget',
+    spent: o.spent ?? 0,
+    rest: Math.max(0, o.plan - (o.spent ?? 0)),
+    total: o.total,
+    recurring: o.recurring,
+  });
+  const month = (m: string, budgets: PlanBudget[]): PlanMonth => ({ month: m, start: 0, end: END, left: 0, state: 'ok', income: 0, out: 0, saved: 0, low: { date: m + '-01', balance: END, state: 'ok' }, lines: [], budgets });
+  /** Boodschappen: a total of 10000 in every month, recurring 2500 in December only (the extra is 7500 then, else 10000). */
+  const account = (spent = 0, source = 'budget'): PlanAccount => ({
+    id: 1,
+    buffer: 0,
+    balance: 0,
+    balanceDate: TODAY,
+    months: [
+      month('2026-11', [bud({ plan: 10000, total: 10000, recurring: 0, spent, source })]),
+      month('2026-12', [bud({ plan: 7500, total: 10000, recurring: 2500, source })]),
+      month('2027-01', [bud({ plan: 10000, total: 10000, recurring: 0, source })]),
+      month('2027-02', [bud({ plan: 10000, total: 10000, recurring: 0, source })]),
+    ],
+  });
+  const monthly = (amount: number, over: Partial<AssignChange['item']> = {}): AssignChange['item'] => ({ amount, frequency: 'monthly', day: 1, month: null, endDate: null, kind: 'expense', ...over });
+
+  it('moves the extra, not the total: a new total of 12000 from December is max(0, T − 2500) − 7500 in December and T − 10000 after it', () => {
+    expect(impactEnds(account(), [{ categoryId: 2, total: 12000 }], '2026-12', TODAY)).toEqual([END, END - 2000, END - 4000, END - 6000]);
+  });
+
+  it('a total below the month recurring costs reserves nothing that month: 2000 − 2500 → extra 0', () => {
+    expect(impactEnds(account(), [{ categoryId: 2, total: 2000 }], '2026-12', TODAY)).toEqual([END, END + 7500, END + 7500 + 8000, END + 7500 + 16000]);
+  });
+
+  it('judges a total of the running month against what is spent: 12000 with 9500 spent is 2000 more reserved', () => {
+    expect(impactEnds(account(9500), [{ categoryId: 2, total: 12000 }], '2026-11', TODAY)[0]).toBe(END - 2000);
+    // On the last day of the month the engine reserves nothing for the rest of it.
+    expect(impactEnds(account(9500), [{ categoryId: 2, total: 12000 }], '2026-11', '2026-11-30')[0]).toBe(END);
+  });
+
+  it('a removed total is the variable average, flat: the assigned costs count outside it', () => {
+    expect(impactEnds(account(), [{ categoryId: 2, total: null, average: 7000 }], '2026-12', TODAY)).toEqual([END, END - (7000 - 7500), END - (7000 - 7500) - (7000 - 10000), END - (7000 - 7500) - 2 * (7000 - 10000)]);
+  });
+
+  it('assigning a monthly −1000 item to a category with a total keeps the total and shrinks the extra: every later end rises by 1000 more', () => {
+    const ends = impactEnds(account(), [{ item: monthly(-1000), from: null, to: 2 }], '2026-11', TODAY);
+    // November nets against spent 0: 9000 − 10000; December has 2500 recurring already: 6500 − 7500, as every later month.
+    expect(ends).toEqual([END + 1000, END + 2000, END + 3000, END + 4000]);
+    // Taking it away again from the same category moves the other way.
+    expect(impactEnds(account(), [{ item: monthly(-1000), from: 2, to: null }], '2026-11', TODAY)).toEqual([END - 1000, END - 2000, END - 3000, END - 4000]);
+  });
+
+  it('assigning nets the running month against spent, and moves nothing on the last day or for a category without a budget', () => {
+    // Spent 9500: the extra goes from 10000 to 9000, 500 less to reserve, not 1000.
+    expect(impactEnds(account(9500), [{ item: monthly(-1000), from: null, to: 2 }], '2026-11', TODAY)[0]).toBe(END + 500);
+    expect(impactEnds(account(9500), [{ item: monthly(-1000), from: null, to: 2 }], '2026-11', '2026-11-30')).toEqual([END, END + 1000, END + 2000, END + 3000]);
+    expect(impactEnds(account(0, 'average'), [{ item: monthly(-1000), from: null, to: 2 }], '2026-11', TODAY)).toEqual([END, END, END, END]);
+  });
+
+  it('counts a yearly item only in the month it is paid, ignores an item past its end date, and ignores a kind that is not an expense', () => {
+    const yearly = monthly(-68400, { frequency: 'yearly', month: 1, day: 15 });
+    // January: 10000 − 68400 → extra 0, so 10000 less reserved there only.
+    expect(impactEnds(account(), [{ item: yearly, from: null, to: 2 }], '2026-11', TODAY)).toEqual([END, END, END + 10000, END + 10000]);
+    expect(impactEnds(account(), [{ item: monthly(-1000, { endDate: '2026-12-31' }), from: null, to: 2 }], '2026-11', TODAY)).toEqual([END + 1000, END + 2000, END + 2000, END + 2000]);
+    expect(impactEnds(account(), [{ item: monthly(-1000, { kind: 'saving' }), from: null, to: 2 }], '2026-11', TODAY)).toEqual([END, END, END, END]);
+  });
+
+  it('combines a changed total and an assignment on one category: T and R change together', () => {
+    // Total 12000 from December and a monthly −1000 item from the start: December new = 12000 − 3500 = 8500 (old 7500), January 12000 − 1000 = 11000 (old 10000).
+    const ends = impactEnds(account(), [{ categoryId: 2, total: 12000 }, { item: monthly(-1000), from: null, to: 2 }], '2026-12', TODAY);
+    // November has only the assignment: 9000 − 10000 = −1000.
+    expect(ends).toEqual([END + 1000, END + 1000 - 1000, END + 1000 - 2000, END + 1000 - 3000]);
+  });
+
+  it('moves an item between two categories: out of one, into the other', () => {
+    const two = account();
+    for (const m of two.months) m.budgets.push({ ...m.budgets[0], categoryId: 3, plan: 5000, total: 5000, recurring: 0, rest: 5000 });
+    // Out of category 2 (+1000 to reserve) into category 3 (−1000): the ends do not move.
+    expect(impactEnds(two, [{ item: monthly(-1000), from: 2, to: 3 }], '2026-11', TODAY)).toEqual([END, END, END, END]);
   });
 });
 

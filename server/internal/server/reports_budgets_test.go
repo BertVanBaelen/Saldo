@@ -235,3 +235,80 @@ func TestReportBudgetsErrors(t *testing.T) {
 		}
 	}
 }
+
+// TestReportBudgetsAverage is average=1 (0.9.1-4): every category also carries its full-amount 6-month average, 0 without
+// history and also when the source is a budget; without the flag (or with any other value) the answer is what it was.
+func TestReportBudgetsAverage(t *testing.T) {
+	p := newPair(t)
+	type avgCat struct {
+		CategoryID, Reference, Average int64
+		Source                         string
+	}
+	type avgAnswer struct {
+		Months []struct {
+			Accounts []struct {
+				ID         int64
+				Categories []avgCat
+			}
+		}
+	}
+	const november = "?account=1&from=2026-11&to=2026-11"
+	plainAnswer := p.bert("GET", budgetsPath+november, "")
+	if strings.Contains(plainAnswer.body, `"average":`) {
+		t.Errorf("the answer without the flag has an average: %s", plainAnswer.body)
+	}
+	for _, other := range []string{"&average=0", "&average=true", "&average="} {
+		if r := p.bert("GET", budgetsPath+november+other, ""); r.status != http.StatusOK || r.body != plainAnswer.body {
+			t.Errorf("%s: %d %s, want the answer without the flag", other, r.status, r.body)
+		}
+	}
+
+	// Vrije tijd (3) has a budget of 350 and an average of 40,28: the reference stays the budget, the average is there too.
+	a := decode[avgAnswer](t, p.bert("GET", budgetsPath+november+"&average=1", "").body)
+	got := map[int64]avgCat{}
+	for _, c := range a.Months[0].Accounts[0].Categories {
+		got[c.CategoryID] = c
+	}
+	if c := got[3]; c != (avgCat{CategoryID: 3, Reference: 35000, Source: "budget", Average: 4028}) {
+		t.Errorf("Vrije tijd: %+v", c)
+	}
+	plain := budgetsOf(t, plainAnswer)
+	for _, c := range plain.Months[0].Accounts[0].Categories { // the same categories, references and sources
+		g, ok := got[c.CategoryID]
+		if !ok || g.Reference != c.Reference || g.Source != c.Source {
+			t.Errorf("category %d: %+v with the flag, %+v without", c.CategoryID, g, c)
+		}
+		if c.Source == "average" && g.Average != c.Reference { // an average reference is the average
+			t.Errorf("category %d: average %d, reference %d", c.CategoryID, g.Average, c.Reference)
+		}
+	}
+	if len(got) != len(plain.Months[0].Accounts[0].Categories) {
+		t.Errorf("%d categories with the flag, %d without", len(got), len(plain.Months[0].Accounts[0].Categories))
+	}
+
+	// A budget on a category without history carries average 0 (never left out). The demo's Zichtrekening has no
+	// Boodschappen history (a seed change that adds one fails here, on purpose).
+	if plain.ref(t, "2026-11", 1, 2) != "" {
+		t.Fatalf("Boodschappen has a reference on the Zichtrekening: %s", plain.ref(t, "2026-11", 1, 2))
+	}
+	p.exec(`INSERT INTO budgets (account_id, category_id, monthly_amount, from_month) VALUES (1, 2, 12300, '2026-11')`)
+	a = decode[avgAnswer](t, p.bert("GET", budgetsPath+november+"&average=1", "").body)
+	for _, c := range a.Months[0].Accounts[0].Categories {
+		if c.CategoryID == 2 && c != (avgCat{CategoryID: 2, Reference: 12300, Source: "budget", Average: 0}) {
+			t.Errorf("Boodschappen with a budget and no history: %+v", c)
+		}
+	}
+	if r := p.bert("GET", budgetsPath+november+"&average=1", ""); !strings.Contains(r.body, `{"categoryId":2,"reference":12300,"source":"budget","average":0}`) {
+		t.Errorf("average 0 is not on the wire: %s", r.body)
+	}
+
+	// Every member of the shared account gets the same answer (no override in the seed), and a hidden account the same 404.
+	const shared = "?account=4&from=2026-09&average=1"
+	if bert, partner := p.bert("GET", budgetsPath+shared, ""), p.partner("GET", budgetsPath+shared, ""); bert.status != http.StatusOK || bert.body != partner.body {
+		t.Errorf("shared account differs between the members:\n%s\n%s", bert.body, partner.body)
+	}
+	missing := p.bert("GET", budgetsPath+"?account=999999", "")
+	if r := p.bert("GET", budgetsPath+"?account=5&average=1", ""); r.status != missing.status || r.body != missing.body {
+		t.Errorf("a hidden account with average=1: %d %s", r.status, r.body)
+	}
+}

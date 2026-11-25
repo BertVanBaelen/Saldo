@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { itemRhythm, lastPlanDay, monthChip, monthlyAmount, monthlySummary, monthYear, oneOffMonths, plannedDate, plannedNote, plannedPlace, plannedWhen, suggestionRhythm, type RecurringSuggestion } from './planningItems';
+import { categoryFits, itemRhythm, lastPlanDay, monthChip, monthlyAmount, monthlySummary, monthYear, oneOffMonths, plannedDate, plannedNote, plannedPlace, plannedWhen, suggestionRhythm, type RecurringSuggestion } from './planningItems';
 
 describe('lastPlanDay', () => {
   it.each([
@@ -15,8 +15,22 @@ describe('the words of Planning instellen', () => {
   it('says the rhythm of an item and of a suggestion in the design\'s words', () => {
     expect(itemRhythm({ frequency: 'yearly', day: 15, month: 1, endDate: null, kind: 'expense' })).toBe('Jaarlijks · 15 januari');
     expect(itemRhythm({ frequency: 'quarterly', day: 3, month: 9, endDate: null, kind: 'expense' })).toBe('Per kwartaal · 3e');
+    // The category's name comes last, after the end date.
+    expect(itemRhythm({ frequency: 'monthly', day: 17, month: null, endDate: '2027-06-30', kind: 'expense' }, 'Wonen › Energie')).toBe('Maandelijks · 17e · tot juni 2027 · Wonen › Energie');
     const s: RecurringSuggestion = { accountId: 1, counterparty: 'Gym', description: 'Gym', amount: -2999, amountRule: 'fixed', frequency: 'monthly', day: 3, month: null, kind: 'expense', seen: 4 };
     expect(suggestionRhythm(s)).toBe('Maandelijks · rond de 3e · 4× gezien');
+  });
+
+  it('lets an expense item take an expense category that does not count as saved, a saving item a saving one, any other kind none', () => {
+    const expense = { type: 'expense' as const, saving: false };
+    const saved = { type: 'expense' as const, saving: true };
+    const income = { type: 'income' as const, saving: false };
+    expect(categoryFits('expense', expense)).toBe(true);
+    expect(categoryFits('expense', saved)).toBe(false);
+    expect(categoryFits('expense', income)).toBe(false);
+    expect(categoryFits('saving', saved)).toBe(true);
+    expect(categoryFits('saving', expense)).toBe(false);
+    for (const kind of ['income', 'transfer', 'contribution'] as const) for (const c of [expense, saved, income]) expect(categoryFits(kind, c)).toBe(false);
   });
 
   it('adds the items up per month: a quarterly one a third, a yearly one a twelfth, in whole euros', () => {

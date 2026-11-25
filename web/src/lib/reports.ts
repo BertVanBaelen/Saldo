@@ -52,7 +52,7 @@ export interface Column {
 export interface Period {
   view: View;
   columns: Column[];
-  /** "mei – oktober 2026", "2026 per kwartaal", "per jaar, sinds november 2025", "Eigen · aug – nov 2026" */
+  /** "mei – november 2026", "2026 per kwartaal", "per jaar, sinds november 2025", "Eigen · aug – nov 2026" */
   range: string;
   /** "vorige maand", "vorig kwartaal"; `''` for Jaar. */
   compare: string;
@@ -81,7 +81,9 @@ export function rangeShort(from: string, to: string): string {
 
 /**
  * The columns of a view. Today is `me.today` (Brussels); the running month is today's month, the last complete
- * month the one before. `custom` is Eigen's `van`/`tot` (`YYYY-MM`); missing or invalid: the last 3 complete
+ * month the one before. Maand: the last 6 complete months and the running one (7 at most); Kwartaal: up to 4 complete
+ * quarters and the running quarter; Jaar: each year up to the running one. A column that holds the running month is partial
+ * (lighter, no trend, "loopt nog"). `custom` is Eigen's `van`/`tot` (`YYYY-MM`); missing or invalid: the last 3 complete
  * months and the running month, clamped to the history.
  */
 export function columns(view: View, h: History, today: string, custom?: { from?: string | null; to?: string | null }): Period {
@@ -128,21 +130,23 @@ export function columns(view: View, h: History, today: string, custom?: { from?:
   let eTo = running;
 
   if (view === 'maand') {
-    const start = last < first ? running : Math.max(first, last - 5);
-    const end = last < first ? running : last;
-    cols = range(start, end).map(monthCol);
+    // The last 6 complete months and the running one (7 at most); a history that starts this month keeps its one column.
+    const start = Math.min(running, Math.max(first, last - 5));
+    cols = range(start, running).map(monthCol);
     base = monthBase(start);
-    rangeText = start === end ? monthTitle(start) : year(start) === year(end) ? MONTHS[start % 12] + ' – ' + monthTitle(end) : rangeShort(monthKey(start), monthKey(end));
+    rangeText = start === running ? monthTitle(start) : year(start) === year(running) ? MONTHS[start % 12] + ' – ' + monthTitle(running) : rangeShort(monthKey(start), monthKey(running));
   } else if (view === 'kwartaal') {
     compare = 'vorig kwartaal';
     const qRunning = Math.floor(running / 3);
     const complete = (q: number) => q !== qRunning && q * 3 >= first && q * 3 + 2 <= last && !(q * 3 === first && firstPartial);
-    // Never the quarter that holds the running month (that one only through Eigen), unless there is no other.
+    // The complete quarters (4 at most), then the running quarter as the last column (5 at most). A history that starts inside the
+    // running quarter has no other, and the running one is its one column.
     const all = range(Math.floor(first / 3), Math.floor(Math.max(first, last) / 3)).filter((q) => q !== qRunning);
     const full = all.filter(complete);
-    const qs = full.length ? full.slice(-4) : all.length ? all : [qRunning];
+    const qs = [...(full.length ? full.slice(-4) : all), qRunning];
     cols = qs.map((q) => {
-      const ms = range(q * 3, q * 3 + 2);
+      // The running quarter holds the months so far: the reports answer ends with the running month (a later `to` is refused).
+      const ms = range(q * 3, Math.min(q * 3 + 2, running));
       const n = (q % 4) + 1;
       const y = Math.floor(q / 4);
       return { key: y + '-K' + n, title: 'K' + n + ' ' + y, short: 'K' + n, months: ms.map(monthKey), partial: partialOf(ms, q * 3 < first), base: null };
@@ -154,18 +158,15 @@ export function columns(view: View, h: History, today: string, custom?: { from?:
     rangeText = y0 === y1 ? y0 + ' per kwartaal' : cols[0].title + ' – ' + cols[cols.length - 1].title;
   } else if (view === 'jaar') {
     compare = '';
-    const end = last < first ? running : last;
-    cols = range(year(first), year(end)).map((y) => {
+    cols = range(year(first), year(running)).map((y) => {
       const s = Math.max(y * 12, first);
-      const e = Math.min(y * 12 + 11, end);
-      const cutStart = s % 12 !== 0;
-      const cutEnd = e % 12 !== 11;
+      const e = Math.min(y * 12 + 11, running);
       let title = String(y);
-      if (cutStart && cutEnd) title += ' · ' + (s === e ? MONTHS[s % 12] : MONTHS[s % 12] + ' – ' + MONTHS[e % 12]);
-      else if (cutStart) title += ' · vanaf ' + MONTHS[s % 12];
-      else if (cutEnd) title += ' · tot ' + MONTHS[e % 12];
+      // Only the year that holds the running month ends early, and its lighter column says "tot <date>" itself: the title spells out
+      // only the start of the history ("2025 · vanaf november"), or the one month of a history that starts in the running month.
+      if (s % 12 !== 0) title += s === e && e % 12 !== 11 ? ' · ' + MONTHS[s % 12] : ' · vanaf ' + MONTHS[s % 12];
       const ms = range(s, e);
-      // Drawn normal when it is only cut to the history (the title says so); partial only with a partial month.
+      // Drawn normal when it is only cut to the history (the title says so); partial only with a partial month (the running one).
       return { key: String(y), title, short: String(y), months: ms.map(monthKey), partial: partialOf(ms), base: null };
     });
     rangeText = 'per jaar, sinds ' + monthTitle(first);
@@ -202,8 +203,12 @@ export function columns(view: View, h: History, today: string, custom?: { from?:
   };
 }
 
-/** The default selection: the last column that is not partial, else the last. */
-export function defaultSelection(cols: Column[]): number {
+/**
+ * The default selection: Maand and Jaar open on their last column, the running month and the running year; Kwartaal and
+ * Eigen on the last column that is not partial (the last complete quarter, the last complete month), else the last.
+ */
+export function defaultSelection(cols: Column[], view: View): number {
+  if (view === 'maand' || view === 'jaar') return cols.length - 1;
   for (let i = cols.length - 1; i >= 0; i--) if (!cols[i].partial) return i;
   return cols.length - 1;
 }
@@ -406,7 +411,7 @@ export function refText(amount: number, r: RowRef): string {
 
 /** The footnote under the rows read against a budget or an average. */
 export const BUDGET_NOTE =
-  'Budget zoals in de planning. Zonder budget: het gemiddelde van wat je de laatste 6 maanden in deze categorie uitgaf. Hier telt alles mee, ook terugkerende posten zoals huur; de planning rekent die apart, dus haar budgetten tonen soms meer ruimte.';
+  'Budget zoals in de planning: het totaal per maand, vaste kosten inbegrepen. Zonder budget: het gemiddelde van wat je de laatste 6 maanden in deze categorie uitgaf. Hier telt alles wat in de categorie geboekt is tegenover het totaal; een vaste post telt hier bij de categorie van haar betaling, in de planning bij de categorie die je haar gaf.';
 
 /**
  * The category rows of a sum: amount ≠ 0, largest first, a negative row after them without share. Shares are not forced to 100.
@@ -533,7 +538,7 @@ export function drawSegments(segments: Segment[], max: number, barPx: number, mi
   return [...segments.filter((s) => !small(s) && s.key !== SAVED_KEY), rest, ...segments.filter((s) => s.key === SAVED_KEY)];
 }
 
-/** Bar size class by the number of columns: > 8 `xs`, > 4 `s`, > 2 `m`, else `l`. */
+/** Bar size class by the number of columns: > 8 `xs`, > 4 `s` (Maand's 7 and Kwartaal's 5 columns), > 2 `m`, else `l`. */
 export const barSize = (n: number) => (n > 8 ? 'xs' : n > 4 ? 's' : n > 2 ? 'm' : 'l');
 
 /** The months a period key stands for: `2026-10`, `2026-K2` (its three months), `2026` (twelve). */

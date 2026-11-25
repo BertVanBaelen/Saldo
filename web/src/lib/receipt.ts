@@ -158,7 +158,7 @@ export function bonTarget(view: View, col: { key: string; title: string; months:
 
 /**
  * Overzicht on the months of a receipt (`from` to `to`, as the model says): the custom range of those months, one column each, which is
- * what Overzicht's URL can pin (it has no URL state for a selected quarter or year, and its Kwartaal view leaves out the running quarter).
+ * what Overzicht's URL can pin (it has no URL state for a selected quarter or year).
  * `account`: Overzicht's `?rekening=`. (Overzicht follows the app-wide scope.)
  */
 export const overzichtRangeHref = (from: string, to: string, account?: number) =>

@@ -755,17 +755,22 @@ func privacyRows() []privacyRow {
 		{"GET /api/reports/budgets", "list", "the account list and the account's check are the report's: another user's account (current or savings) is the 404 of a missing one, before its type is looked at; budget rows and history months are account-level (the same for every member), the average is the viewer's own per-account report of that account; ids and amounts only", func(w *world) []probe {
 			const path = "/api/reports/budgets"
 			ps := []probe{}
-			for _, q := range []string{"", "?scope=alles", "?scope=persoonlijk", "?scope=gedeeld", "?from=2026-11&to=2026-11", "?account=" + id(w.shared)} {
+			for _, q := range []string{"", "?scope=alles", "?scope=persoonlijk", "?scope=gedeeld", "?from=2026-11&to=2026-11", "?account=" + id(w.shared),
+				"?average=1", "?scope=gedeeld&average=1", "?account=" + id(w.shared) + "&average=1"} { // average=1 (0.9.1-4): the same accounts, the viewer's own average
 				ps = append(ps, read(path+q, 200))
 			}
 			return append(ps,
 				probe{as: "bert", method: "GET", path: path + "?account=" + id(w.bertAcc), status: 200},
 				probe{as: "partner", method: "GET", path: path + "?account=" + id(w.partnerAcc), status: 200},
+				probe{as: "bert", method: "GET", path: path + "?account=" + id(w.bertAcc) + "&average=1", status: 200},
+				probe{as: "partner", method: "GET", path: path + "?account=" + id(w.partnerAcc) + "&average=1", status: 200},
 				hidden("partner", "GET", path+"?account="+id(w.bertAcc), "", path+"?account="+none, "", "bert"),
 				hidden("bert", "GET", path+"?account="+id(w.partnerAcc), "", path+"?account="+none, "", "partner"),
 				hidden("partner", "GET", path+"?account="+id(w.bertManual), "", path+"?account="+none, "", "bert"),
-				hidden("bert", "GET", path+"?account="+id(w.partnerManual), "", path+"?account="+none, "", "partner"))
-		}, []string{"TestReportBudgetsErrors", "TestReportBudgetsDemo"}},
+				hidden("bert", "GET", path+"?account="+id(w.partnerManual), "", path+"?account="+none, "", "partner"),
+				hidden("partner", "GET", path+"?account="+id(w.bertAcc)+"&average=1", "", path+"?account="+none+"&average=1", "", "bert"),
+				hidden("bert", "GET", path+"?account="+id(w.partnerAcc)+"&average=1", "", path+"?account="+none+"&average=1", "", "partner"))
+		}, []string{"TestReportBudgetsErrors", "TestReportBudgetsDemo", "TestReportBudgetsAverage"}},
 		{"GET /api/reports/balances", "list", "the account list and the account's check are the report's: another user's account (current or savings) is the 404 of a missing one, before its type is looked at; snapshot, booked rows and buffer are account-level (the same for every member of a shared account, no per-viewer table); dates and amounts of the viewer's own accounts only, never a sum over accounts", func(w *world) []probe {
 			const path = "/api/reports/balances"
 			ps := []probe{}
@@ -821,7 +826,7 @@ func privacyRows() []privacyRow {
 		}, []string{"TestPlanningAPIDemo", "TestPlanningContribution", "TestPrivacySentinels"}},
 		{"GET /api/planning/items", "list", "account-level: the current accounts of the scope the viewer holds; the counterparty IBAN is stored but never shown", func(w *world) []probe {
 			return []probe{read("/api/planning/items", 200), read("/api/planning/items?scope=persoonlijk", 200), read("/api/planning/items?scope=gedeeld", 200)}
-		}, []string{"TestPlanningRoutes", "TestPrivacySentinels"}},
+		}, []string{"TestPlanningRoutes", "TestPlanningItemCategoryIsAccountLevel", "TestPrivacySentinels"}},
 		{"POST /api/planning/items", "byid", "account-level: accountId through accessOf before any field is read (hidden or savings of another user 404), writes need Bewerken", func(w *world) []probe {
 			body := func(account string) string {
 				return `{"accountId":` + account + `,"description":"Gas","amount":-5000,"frequency":"monthly","day":5,"kind":"expense"}`
@@ -838,7 +843,7 @@ func privacyRows() []privacyRow {
 				hidden("partner", "PATCH", "/api/planning/items/"+id(w.bertItem), `{"amount":-1}`, "/api/planning/items/"+none, `{"amount":-1}`, "bert"),
 				hidden("bert", "PATCH", "/api/planning/items/"+id(w.partnerItem), `{"amount":-1}`, "/api/planning/items/"+none, `{"amount":-1}`, "partner"),
 			}
-		}, []string{"TestPlanningRoutes"}},
+		}, []string{"TestPlanningRoutes", "TestPlanningItemCategoryIsAccountLevel"}},
 		{"DELETE /api/planning/items/{id}", "byid", "as PATCH", func(w *world) []probe {
 			return []probe{
 				hidden("partner", "DELETE", "/api/planning/items/"+id(w.bertItem), "", "/api/planning/items/"+none, "", "bert"),
@@ -1789,6 +1794,58 @@ func TestReportIsPerViewer(t *testing.T) {
 	}
 	if after := reports("partner"); slices.Equal(after, partner) {
 		t.Error("Partner's own report did not change with her own rows: the test proves nothing")
+	}
+}
+
+// The category of a recurring item (0.9.1-3) is account-level: both members of the family account read the same
+// suggestedCategoryId (from the account's payments, not from a viewer's rows) and the stored category, no IBAN shows,
+// and a member on Lezen cannot set a category.
+func TestPlanningItemCategoryIsAccountLevel(t *testing.T) {
+	w := newWorld(t)
+	// The family account's item "Gezinsabonnement" (-1100, Partner's IBAN) matches a booked row that carries Boodschappen.
+	row := w.addRow(w.shared, -1100, "2026-11-09", "Gezinsabonnement", "booked", "EUR", ibanPartner)
+	w.exec(`UPDATE transactions SET category_id = 2 WHERE id = ?`, row)
+	type listed struct {
+		ID                  int64
+		Description         string
+		CategoryID          *int64
+		SuggestedCategoryID *int64
+	}
+	const list = "/api/planning/items?scope=gedeeld"
+	item := func(as string) (listed, string) {
+		t.Helper()
+		r, _ := w.send(read(list, 200), as)
+		for _, it := range decode[map[string][]listed](t, r.body)["items"] {
+			if it.Description == "Gezinsabonnement" {
+				return it, r.body
+			}
+		}
+		t.Fatalf("%s: no Gezinsabonnement in %s", as, r.body)
+		return listed{}, ""
+	}
+	bert, bertBody := item("bert")
+	partner, partnerBody := item("partner")
+	if bert.SuggestedCategoryID == nil || *bert.SuggestedCategoryID != 2 || bertBody != partnerBody {
+		t.Errorf("the suggestion differs between members: %s | %s", bertBody, partnerBody)
+	}
+	for _, iban := range neverShown {
+		if strings.Contains(bertBody, iban) {
+			t.Errorf("the list shows %s", iban)
+		}
+	}
+
+	// Lezen: reads stay open (the suggestion too), the write is 403; Bewerken writes it and both members see it.
+	path := "/api/planning/items/" + id(partner.ID)
+	w.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = ? AND user_id = ?`, w.shared, w.partner)
+	if r, _ := w.send(probe{method: "PATCH", path: path, body: `{"categoryId":2}`}, "partner"); r.status != http.StatusForbidden {
+		t.Errorf("Lezen sets a category: %d %s", r.status, r.body)
+	}
+	if got, _ := item("partner"); got.CategoryID != nil || got.SuggestedCategoryID == nil {
+		t.Errorf("Partner on Lezen reads %+v", got)
+	}
+	w.ok(w.bert, "PATCH", path, `{"categoryId":2}`, 200)
+	if got, _ := item("partner"); got.CategoryID == nil || *got.CategoryID != 2 {
+		t.Errorf("Partner does not see the category Bert set: %+v", got)
 	}
 }
 

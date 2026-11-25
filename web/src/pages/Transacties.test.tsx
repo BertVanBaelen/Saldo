@@ -385,9 +385,10 @@ describe('Transacties · grouping by day', () => {
         }
       }
     }
-    // The demo's "2026 · tot oktober" sends the range, "2025 · vanaf november" too; whole periods keep the short key.
-    expect(columns('jaar', histories[0], today).columns.map(periodParam)).toEqual(['2025-11..2025-12', '2026-01..2026-10']);
-    expect(columns('kwartaal', histories[0], today).columns.map(periodParam)).toEqual(['2026-K1', '2026-K2', '2026-K3']);
+    // The running year (January to the running November) sends the range, "2025 · vanaf november" too; whole periods keep the short key.
+    expect(columns('jaar', histories[0], today).columns.map(periodParam)).toEqual(['2025-11..2025-12', '2026-01..2026-11']);
+    // The running quarter holds the months so far, so it is a range too: its rows are the column's, not those of a December that is not here yet.
+    expect(columns('kwartaal', histories[0], today).columns.map(periodParam)).toEqual(['2026-K1', '2026-K2', '2026-K3', '2026-10..2026-11']);
   });
 
   it('counts the uncategorised rows with the total, not a page of rows', async () => {

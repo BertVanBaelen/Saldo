@@ -46,6 +46,7 @@ Every concept and screen file starts with a header line: analysis sections, data
 | [0.8 Planning](plan/v0.8-planning/README.md) | know how each coming month ends for each account; count savings by category; share an account by invitation | 7 M · 3 L | released (0.8.0), verifying |
 | [0.8.1 Improvements](plan/v0.8.1-improvements/README.md) | see the month result and lowest point, costs stacked and read against budget, income, expenses and savings per category, each balance with its buffer; set the planning in one screen; record contributions from someone who does not use Saldo | 3 S · 4 M · 2 L | released (0.8.1), verifying |
 | [0.9 Notifications](plan/v0.9-notifications/README.md) | get push (Android and iPhone) and e-mail warnings before the buffer or zero, and a week and month receipt | 1 S · 5 M · 3 L | released (0.9.0), verifying |
+| [0.9.1 Improvements](plan/v0.9.1-improvements/README.md) | open a subcategory in its own sheet, see the running month, quarter and year on Overzicht, give recurring costs a category and set each budget as the total per month (Vast + Extra), with a warning when it is too low | 2 S · 4 M | released as 0.9.1 |
 | [1.0 Release](plan/v1.0-release/README.md) | run it with a full security review, tested backups and an export | 3 S · 1 M | planned |
 | [2.0 Investments](plan/v2.0-investments/README.md) | see net worth per platform | 1 S · 2 M | later |
 

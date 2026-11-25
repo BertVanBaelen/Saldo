@@ -13,7 +13,7 @@ import { api } from '../lib/api';
 import { catColours } from '../lib/categories';
 import { eur, eur0, MONTHS } from '../lib/format';
 import type { PlanAccount, PlanContribution, PlanMonth } from '../lib/planning';
-import { budgetView, categoryBar, contributionNote, expectedContributions, needNote } from '../lib/planningMonths';
+import { budgetView, categoryBar, contributionNote, expectedContributions, isSpendingRow, needNote } from '../lib/planningMonths';
 import type { Account, TreeCategory } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { TabPanel } from '../ui';
@@ -186,7 +186,7 @@ function Body({ planning, accounts, scope, month, setMonth, horizon }: PlanningT
   const offset = monthOffset(running, month);
 
   // "Per categorie · deze maand": the running month of each account, the first month of the answer.
-  const cats = plans.flatMap(({ a, p }) => (p.months[0]?.budgets ?? []).map((b) => ({ a, b })));
+  const cats = plans.flatMap(({ a, p }) => (p.months[0]?.budgets ?? []).filter(isSpendingRow).map((b) => ({ a, b })));
 
   let body;
   if (!planning || (!tree.data && !tree.error)) {
@@ -243,7 +243,7 @@ function Body({ planning, accounts, scope, month, setMonth, horizon }: PlanningT
         ) : (
           <p className="pl-note">Nog te weinig geschiedenis voor een gemiddelde.</p>
         )}
-        <p className="pl-note">Terugkerende posten tellen niet mee in de budgetten. Zonder budget rekent de planning met het gemiddelde van de afgelopen 6 maanden. Spaarcategorieën hebben geen budget.</p>
+        <p className="pl-note">Een budget is het totaal per maand, vaste kosten met die categorie inbegrepen. Zonder budget rekent de planning met het gemiddelde van de afgelopen 6 maanden. Spaarcategorieën hebben geen budget.</p>
       </>
     );
   }

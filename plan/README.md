@@ -33,6 +33,7 @@ flowchart LR
 | [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend; savings categories, shared accounts by invitation, Overzicht sheets | M5 | 7 M · 3 L | released (0.8.0), verifying |
 | [0.8.1](v0.8.1-improvements/README.md) | Improvements | month result and lowest point, stacked uit bar, budgets and balance on Overzicht, breakdown sheets, one Planning instellen screen, contributors without Saldo | M5 | 3 S · 4 M · 2 L | released (0.8.1), verifying |
 | [0.9](v0.9-notifications/README.md) | Notifications | get push (Android and iPhone) and e-mail warnings before an account goes into its buffer or below zero, and about bank links, joins, contributions and new devices, and a week and month receipt | 4.4, 4.9 | 1 S · 5 M · 3 L | released (0.9.0, 25 Nov 2026), verifying (the real phones and mail clients are open, 0.9-5; refined 18 and 23 Nov 2026) |
+| [0.9.1](v0.9.1-improvements/README.md) | Improvements | open a subcategory of Overzicht in its own sheet, see the running month, quarter and year beside the complete ones, give recurring costs a category and set each budget as the total per month (Vast + Extra = Totaal), warned when it is below the fixed costs or the 6-month average | M4, M5 | 2 S · 4 M | planned (written 25 Nov 2026) |
 | [1.0](v1.0-release/README.md) | Release | run Saldo with a full security review, tested backups and an export | 13.4 | 3 S · 1 M | planned |
 | [2.0](v2.0-investments/README.md) | Investments | see net worth per platform | v2 | 1 S · 2 M | later |
 

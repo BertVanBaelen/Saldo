@@ -614,7 +614,12 @@ export interface ReportReference {
   /** Cents. */
   reference: number;
   source: 'budget' | 'average';
+  /** Only with `average=1` (0.9.1-4): the category's full-amount 6-month average in cents, 0 without history, also when `source` is `budget`. */
+  average?: number;
 }
+
+/** The query of GET /api/reports/budgets: the report's, and `average` to also get each category's 6-month average. */
+export type ReportBudgetsQuery = Omit<ReportQuery, 'detail'> & { average?: boolean };
 
 /** GET /api/reports/budgets: per month and account of the selection, the references of its top expense categories (`[]` before the account's history). */
 export interface ReportBudgets {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barSize, breakdown, catRows, columnReferences, columns, defaultSelection, drawSegments, monthIndex, monthKey, monthState, netOut, outOf, partialNotes, periodParam, pickMonth, presets, rangeStatus, refText, stack, sumColumn, sumDetail, transferGap, trend, type DetailSum, type Draft, type Sum } from './reports';
+import { barSize, breakdown, catRows, columnReferences, columns, defaultSelection, drawSegments, monthIndex, monthKey, monthState, netOut, outOf, partialNotes, periodParam, pickMonth, presets, rangeStatus, refText, stack, sumColumn, sumDetail, transferGap, trend, type Column, type DetailSum, type Draft, type Sum } from './reports';
 import type { ReportBudgets, ReportMonth, TreeCategory } from './types';
 
 const TODAY = '2026-11-18';
@@ -24,47 +24,113 @@ const OCT: ReportMonth = {
 const AUG: ReportMonth = { month: '2026-08', income: 330000, saved: 40000, expenses: { '1': 115000 } };
 
 describe('columns · the demo (history from November 2025, today 18 November 2026)', () => {
-  it('Maand: the last six complete months, trend base April', () => {
+  it('Maand: the last six complete months and the running November (lighter, last, selected by default), trend base April', () => {
     const p = columns('maand', DEMO, TODAY);
-    expect(titles(p)).toEqual(['mei 2026', 'juni 2026', 'juli 2026', 'augustus 2026', 'september 2026', 'oktober 2026']);
-    expect(p.columns.map((c) => c.short)).toEqual(['mei', 'jun', 'jul', 'aug', 'sep', 'okt']);
+    expect(p.columns.map((c) => c.key)).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11']);
+    expect(titles(p)).toEqual(['mei 2026', 'juni 2026', 'juli 2026', 'augustus 2026', 'september 2026', 'oktober 2026', 'november 2026']);
+    expect(p.columns.map((c) => c.short)).toEqual(['mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov']);
     expect(p.columns[0].base).toEqual(['2026-04']);
     expect(p.columns[5].base).toEqual(['2026-09']);
-    expect(p.columns.every((c) => !c.partial)).toBe(true);
-    expect(p.range).toBe('mei – oktober 2026');
+    // The running month is partial: no trend of its own, and (being last) no base for a next one.
+    expect(p.columns.map((c) => c.partial !== null)).toEqual([false, false, false, false, false, false, true]);
+    expect(p.columns[6].partial).toEqual({ aria: '(loopt nog, tot 18 nov)', head: 'lopend · tot 18 nov', note: 'november loopt nog, tot 18 nov.' });
+    expect(p.columns[6].base).toBeNull();
+    expect(partialNotes(p.columns)).toEqual(['Lichtere staven: november loopt nog, tot 18 nov.']);
+    expect(p.range).toBe('mei – november 2026');
     expect(p.compare).toBe('vorige maand');
     expect(p.shortHistory).toBe(false);
-    expect(defaultSelection(p.columns)).toBe(5);
+    expect(defaultSelection(p.columns, 'maand')).toBe(6);
   });
 
-  it('Kwartaal: K1 to K3 2026 (K4 2025 is incomplete in the history), no trend base for K1', () => {
+  it('Kwartaal: K1 to K3 2026 (K4 2025 is incomplete in the history) and the running K4, which opens on the last complete one', () => {
     const p = columns('kwartaal', DEMO, TODAY);
-    expect(titles(p)).toEqual(['K1 2026', 'K2 2026', 'K3 2026']);
-    expect(p.columns.map(periodParam)).toEqual(['2026-K1', '2026-K2', '2026-K3']);
+    expect(titles(p)).toEqual(['K1 2026', 'K2 2026', 'K3 2026', 'K4 2026']);
+    expect(p.columns.map((c) => c.partial !== null)).toEqual([false, false, false, true]);
     expect(p.columns[0].base).toBeNull();
     expect(p.columns[1].base).toEqual(['2026-01', '2026-02', '2026-03']);
     expect(p.columns[2].months).toEqual(['2026-07', '2026-08', '2026-09']);
+    // The running quarter holds the months so far (the reports end with the running month); no trend.
+    expect(p.columns[3].months).toEqual(['2026-10', '2026-11']);
+    expect(p.columns[3].partial).toEqual({ aria: '(loopt nog, tot 18 nov)', head: 'lopend · tot 18 nov', note: 'november loopt nog, tot 18 nov.' });
+    expect(p.columns[3].base).toBeNull();
+    expect(partialNotes(p.columns)).toEqual(['Lichtere staven: november loopt nog, tot 18 nov.']);
+    // The drill-down of a complete quarter is its key; the running one is the range of its months, so it lists what the column counts.
+    expect(p.columns.map(periodParam)).toEqual(['2026-K1', '2026-K2', '2026-K3', '2026-10..2026-11']);
     expect(p.range).toBe('2026 per kwartaal');
     expect(p.compare).toBe('vorig kwartaal');
+    expect(defaultSelection(p.columns, 'kwartaal')).toBe(2);
   });
 
-  it('Jaar: the titles carry the cut, both drawn normal, no trend, default 2026', () => {
+  it('Jaar: 2025 cut to the history, and 2026 holding the running November (lighter, no "tot" in the title), no trend, opens on 2026', () => {
     const p = columns('jaar', DEMO, TODAY);
-    expect(titles(p)).toEqual(['2025 · vanaf november', '2026 · tot oktober']);
-    expect(p.columns.map((c) => c.partial)).toEqual([null, null]);
+    expect(titles(p)).toEqual(['2025 · vanaf november', '2026']);
+    expect(p.columns.map((c) => c.partial?.aria ?? null)).toEqual([null, '(loopt nog, tot 18 nov)']);
     expect(p.columns.map((c) => c.base)).toEqual([null, null]);
-    expect(p.columns[1].months).toHaveLength(10);
+    expect(p.columns[1].months).toHaveLength(11);
+    expect([p.columns[1].months[0], p.columns[1].months[10]]).toEqual(['2026-01', '2026-11']);
+    expect(partialNotes(p.columns)).toEqual(['Lichtere staven: november loopt nog, tot 18 nov.']);
+    expect(p.columns.map(periodParam)).toEqual(['2025-11..2025-12', '2026-01..2026-11']);
     expect(p.range).toBe('per jaar, sinds november 2025');
     expect(p.compare).toBe('');
     expect(p.shortHistory).toBe(true);
     expect(p.historyStart).toBe('november 2025');
-    expect(defaultSelection(p.columns)).toBe(1);
+    expect(defaultSelection(p.columns, 'jaar')).toBe(1);
   });
 
-  it('Jaar: with a first day after the 1st, 2025 holds a partial month and is partial', () => {
+  it('Jaar: with a first day after the 1st, 2025 holds a partial month and is partial; 2026 is the running one', () => {
     const p = columns('jaar', { firstMonth: '2025-11', firstDate: '2025-11-20' }, TODAY);
     expect(p.columns[0].partial?.aria).toBe('(vanaf 20 nov)');
-    expect(p.columns[1].partial).toBeNull();
+    expect(p.columns[1].partial?.aria).toBe('(loopt nog, tot 18 nov)');
+    expect(partialNotes(p.columns)).toEqual(['Lichtere staven: november telt vanaf 20 nov.', 'Lichtere staven: november loopt nog, tot 18 nov.']);
+  });
+
+  it('a history that starts in the running year: its title names where it starts, never where it ends', () => {
+    const p = columns('jaar', { firstMonth: '2026-03', firstDate: '2026-03-01' }, TODAY);
+    expect(titles(p)).toEqual(['2026 · vanaf maart']);
+    expect(p.columns[0].months).toHaveLength(9);
+    expect(p.columns[0].partial).not.toBeNull();
+  });
+
+  it('default selection: Maand and Jaar open on the last column; Kwartaal and Eigen on the last complete one, else the last', () => {
+    const cols = (...partial: boolean[]) => partial.map((p) => ({ partial: p ? { aria: '', head: '', note: '' } : null }) as Column);
+    expect(defaultSelection(cols(false, false, true), 'maand')).toBe(2);
+    expect(defaultSelection(cols(false, true), 'jaar')).toBe(1);
+    expect(defaultSelection(cols(false, false, true), 'kwartaal')).toBe(1);
+    expect(defaultSelection(cols(false, false, true), 'eigen')).toBe(1);
+    expect(defaultSelection(cols(false, true, true), 'eigen')).toBe(0);
+    // Nothing complete: the last, in every view.
+    for (const view of ['maand', 'kwartaal', 'jaar', 'eigen'] as const) expect(defaultSelection(cols(true, true), view), view).toBe(1);
+  });
+
+  it('a long history stays at seven months and five quarters (four complete and the running one)', () => {
+    const h = { firstMonth: '2020-01', firstDate: '2020-01-01' };
+    expect(columns('maand', h, TODAY).columns).toHaveLength(7);
+    const q = columns('kwartaal', h, TODAY);
+    expect(titles(q)).toEqual(['K4 2025', 'K1 2026', 'K2 2026', 'K3 2026', 'K4 2026']);
+    expect(q.range).toBe('K4 2025 – K4 2026');
+    // Its first column is compared with the quarter before it, which is in the history.
+    expect(q.columns[0].base).toEqual(['2025-07', '2025-08', '2025-09']);
+    expect(q.columns[4].base).toBeNull();
+    expect(columns('jaar', h, TODAY).columns).toHaveLength(7);
+  });
+
+  it('the first month of a quarter or a year: the running column holds that one month, and the one before it is complete', () => {
+    const q = columns('kwartaal', DEMO, '2026-10-05');
+    expect(titles(q)).toEqual(['K1 2026', 'K2 2026', 'K3 2026', 'K4 2026']);
+    expect(q.columns[3].months).toEqual(['2026-10']);
+    expect(q.columns[3].partial?.head).toBe('lopend · tot 5 okt');
+    const y = columns('jaar', DEMO, '2027-01-05');
+    expect(titles(y)).toEqual(['2025 · vanaf november', '2026', '2027']);
+    expect(y.columns.map((c) => c.partial !== null)).toEqual([false, false, true]);
+    expect(y.columns[2].months).toEqual(['2027-01']);
+    expect(defaultSelection(y.columns, 'jaar')).toBe(2);
+    const m = columns('maand', DEMO, '2027-01-05');
+    expect(m.columns.map((c) => c.key)).toEqual(['2026-07', '2026-08', '2026-09', '2026-10', '2026-11', '2026-12', '2027-01']);
+    expect(m.range).toBe('jul 2026 – jan 2027');
+    const k = columns('kwartaal', DEMO, '2027-01-05');
+    expect(titles(k)).toEqual(['K1 2026', 'K2 2026', 'K3 2026', 'K4 2026', 'K1 2027']);
+    expect(k.columns[3].partial).toBeNull();
+    expect(k.columns[4].months).toEqual(['2027-01']);
   });
 
   it('Eigen 2026-08 … 2026-11: four columns, november running, base juli', () => {
@@ -76,7 +142,7 @@ describe('columns · the demo (history from November 2025, today 18 November 202
     expect(nov.base).toBeNull();
     expect(p.range).toBe('Eigen · aug – nov 2026');
     expect(partialNotes(p.columns)).toEqual(['Lichtere staven: november loopt nog, tot 18 nov.']);
-    expect(defaultSelection(p.columns)).toBe(2);
+    expect(defaultSelection(p.columns, 'eigen')).toBe(2);
   });
 
   it('Eigen without a valid range: the last three complete months and the running one; clamped to the history', () => {
@@ -112,42 +178,50 @@ describe('columns · short and partial histories', () => {
       expect(p.columns, view).toHaveLength(1);
       expect(p.columns[0].partial, view).not.toBeNull();
       expect(p.columns[0].base, view).toBeNull();
-      expect(defaultSelection(p.columns), view).toBe(0);
+      expect(defaultSelection(p.columns, view), view).toBe(0);
     }
     expect(titles(columns('maand', h, TODAY))).toEqual(['november 2026']);
     expect(titles(columns('kwartaal', h, TODAY))).toEqual(['K4 2026']);
     expect(titles(columns('jaar', h, TODAY))).toEqual(['2026 · november']);
   });
 
-  it('history from 1 August: Maand shows aug, sep, okt, aug normal without trend, the short-history note', () => {
+  it('history from 1 August: Maand shows aug, sep, okt and the running nov; aug normal without trend, the short-history note', () => {
     const p = columns('maand', { firstMonth: '2026-08', firstDate: '2026-08-01' }, TODAY);
-    expect(p.columns.map((c) => c.short)).toEqual(['aug', 'sep', 'okt']);
-    expect(p.columns.map((c) => c.partial)).toEqual([null, null, null]);
+    expect(p.columns.map((c) => c.short)).toEqual(['aug', 'sep', 'okt', 'nov']);
+    expect(p.columns.map((c) => c.partial !== null)).toEqual([false, false, false, true]);
     expect(p.columns[0].base).toBeNull();
     expect(p.columns[1].base).toEqual(['2026-08']);
+    expect(p.columns[3].base).toBeNull();
     expect(p.shortHistory).toBe(true);
-    expect(p.range).toBe('augustus – oktober 2026');
-    expect(defaultSelection(p.columns)).toBe(2);
+    expect(p.range).toBe('augustus – november 2026');
+    expect(defaultSelection(p.columns, 'maand')).toBe(3);
   });
 
-  it('history from 20 August: aug partial, sep without trend, Kwartaal only K3 partial', () => {
+  it('history from 20 August: aug partial, sep without trend, Kwartaal K3 (from the 20th) and the running K4, both partial', () => {
     const h = { firstMonth: '2026-08', firstDate: '2026-08-20' };
     const p = columns('maand', h, TODAY);
     expect(p.columns[0].partial).toEqual({ aria: '(vanaf 20 aug)', head: 'vanaf 20 aug', note: 'augustus telt vanaf 20 aug.' });
     expect(p.columns[1].base).toBeNull();
     expect(p.columns[2].base).toEqual(['2026-09']);
-    expect(partialNotes(p.columns)).toEqual(['Lichtere staven: augustus telt vanaf 20 aug.']);
-    expect(defaultSelection(p.columns)).toBe(2);
+    expect(p.columns[3].base).toBeNull();
+    expect(partialNotes(p.columns)).toEqual(['Lichtere staven: augustus telt vanaf 20 aug.', 'Lichtere staven: november loopt nog, tot 18 nov.']);
+    expect(defaultSelection(p.columns, 'maand')).toBe(3);
+    // Eigen (aug to nov): aug and nov are partial, so it opens on the last complete month, October.
+    expect(defaultSelection(columns('eigen', h, TODAY).columns, 'eigen')).toBe(2);
 
     const q = columns('kwartaal', h, TODAY);
-    expect(titles(q)).toEqual(['K3 2026']);
-    expect(q.columns[0].partial).not.toBeNull();
+    expect(titles(q)).toEqual(['K3 2026', 'K4 2026']);
+    expect(q.columns.every((c) => c.partial !== null)).toBe(true);
+    expect(q.columns.map((c) => c.partial!.head)).toEqual(['vanaf 20 aug', 'lopend · tot 18 nov']);
+    expect(q.columns[1].base).toBeNull();
     expect(q.shortHistory).toBe(true);
+    // Nothing is complete: it opens on the last column.
+    expect(defaultSelection(q.columns, 'kwartaal')).toBe(1);
   });
 
   it('two years: the ranges name both years', () => {
-    expect(columns('maand', DEMO, '2026-05-10').range).toBe('nov 2025 – apr 2026');
-    expect(columns('kwartaal', { firstMonth: '2025-07', firstDate: '2025-07-01' }, TODAY).range).toBe('K4 2025 – K3 2026');
+    expect(columns('maand', DEMO, '2026-05-10').range).toBe('nov 2025 – mei 2026');
+    expect(columns('kwartaal', { firstMonth: '2025-07', firstDate: '2025-07-01' }, TODAY).range).toBe('K4 2025 – K4 2026');
   });
 });
 
@@ -220,8 +294,10 @@ describe('sums and category rows', () => {
     ]);
   });
 
-  it('bar sizes by column count', () => {
+  it('bar sizes by column count: Maand\'s seven and Kwartaal\'s five columns are both `s`', () => {
     expect([barSize(7), barSize(9), barSize(2), barSize(3), barSize(4), barSize(5)]).toEqual(['s', 'xs', 'l', 'm', 'm', 's']);
+    expect(barSize(columns('maand', DEMO, TODAY).columns.length)).toBe('s');
+    expect(barSize(columns('kwartaal', { firstMonth: '2020-01', firstDate: '2020-01-01' }, TODAY).columns.length)).toBe('s');
   });
 });
 
@@ -475,6 +551,25 @@ describe('references and rows against budget', () => {
     expect(columnReferences(['2026-10'], budgets)['3']).toEqual({ reference: 4028, source: 'average' });
     expect(columnReferences(['2026-11'], null)).toEqual({});
     expect(columnReferences(['2025-01'], budgets)).toEqual({});
+  });
+
+  it('a running quarter reads the references of the months so far (October average, November budget) and its rows have no trend', () => {
+    const k4 = columns('kwartaal', DEMO, TODAY).columns[3];
+    expect(k4.months).toEqual(['2026-10', '2026-11']);
+    const refs = columnReferences(k4.months, budgets);
+    // Nothing is pro-rated: November counts its whole budget, October its average.
+    expect(refs['3']).toEqual({ reference: 39028, source: 'mixed' });
+    const sum = sumColumn(k4.months, [OCT, NOV_D]);
+    const rows = catRows(sum, k4.base ? sumColumn(k4.base, [SEP, OCT, NOV_D]) : null, TREE, { refs });
+    const vrijeTijd = rows.find((r) => r.name === 'Vrije tijd')!;
+    expect(refText(vrijeTijd.amount, vrijeTijd.ref!)).toBe('€ 94,85 van € 390,28 · 24 % · budget en gemiddelde');
+    expect(rows.every((r) => r.trend === null)).toBe(true);
+    // The running month alone (Maand): the same rule, one month of its budget.
+    const nov = columns('maand', DEMO, TODAY).columns[6];
+    expect(catRows(sumColumn(nov.months, [OCT, NOV_D]), nov.base ? sumColumn(nov.base, [OCT, NOV_D]) : null, TREE, { refs: columnReferences(nov.months, budgets) }).every((r) => r.trend === null)).toBe(true);
+    // While October (complete) keeps its trend against September.
+    const oct = columns('maand', DEMO, TODAY).columns[5];
+    expect(catRows(sumColumn(oct.months, [SEP, OCT]), sumColumn(oct.base!, [SEP, OCT]), TREE).find((r) => r.name === 'Boodschappen')!.trend!.text).toBe('−7%');
   });
 
   it('reads each row against its reference: percentage, over, the source text, the pseudo rows without one', () => {

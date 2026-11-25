@@ -113,6 +113,14 @@
 .pi-label { font-size: 13px; font-weight: 600; color: var(--muted); }
 .pi-help { font-size: 13px; color: var(--muted); }
 .pi-fixed { font-size: 14px; font-weight: 600; }
+/* The Categorie field of the item sheet (0.9.1-3): the value, "Kies…" and "Geen categorie" on a row that wraps; the suggestion is a chip under it */
+.pi-cat { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; }
+.pi-cat .pi-fixed { min-width: 0; overflow-wrap: anywhere; }
+.pi-chip {
+  align-self: flex-start; min-height: 44px; max-width: 100%; padding: 0 14px;
+  border: none; border-radius: 999px; background: var(--soft); color: var(--greenText);
+  font-size: 13px; font-weight: 600; text-align: left;
+}
 .pi-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
 .pi-grid2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; align-items: start; }
 /* The library segments are wide for three short words at 375 px: tighter (specificity beats the utilities); the kinds under Uitgave / Inkomst may wrap */

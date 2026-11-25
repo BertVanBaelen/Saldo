@@ -1,6 +1,7 @@
 // The words and sums of the Planning tabs Maanden and Budget (plan 0.8-6): the month card (chip, summary), the breakdown, the
 // free-to-spend rows and the stacked bar. Pure functions of the forecast on the wire (lib/planning.ts); amounts in cents.
 // Design: finance-mockup/js/screens/planning.js (monthView, breakdown, model().bud); spec: analysis/screens/planning.md.
+import { itemAmountIn } from './budgetTotal';
 import { cap, dateShort, eur, eur0, MONTHS } from './format';
 import type { PlanAccount, PlanBudget, PlanContribution, PlanMonth, PlanState } from './planning';
 import type { RecurringItem } from './planningItems';
@@ -131,10 +132,19 @@ export interface BudgetRow {
   bold?: boolean;
 }
 
-/** What one budget entry says about itself in the breakdown: spent against the plan (running month) or the full plan. */
+/** An entry the budget lists and "Per categorie" shows as a spending row: a budget (even of € 0), a plan or something spent. An entry that only carries fixed costs (`recurring`) is not one (0.9.1-5b). */
+export const isSpendingRow = (b: PlanBudget) => b.source === 'budget' || b.plan !== 0 || b.spent !== 0;
+
+/** The fixed costs ("vast") of a budgeted category in the month; 0 for a category on its average, whose assigned items count outside its plan. */
+const fixedOf = (b: PlanBudget) => (b.source === 'budget' ? (b.recurring ?? 0) : 0);
+
+/** What one budget entry says about itself in the breakdown: spent against the plan (running month) or the full plan; with fixed costs the plan is the extra above them. */
 function budgetNote(b: PlanBudget, running: boolean): string {
-  if (running) return b.source === 'budget' ? eur(b.spent) + ' van ' + eur(b.plan) + ' al besteed' : 'Gemiddelde ' + eur(b.plan) + ' · ' + eur(b.spent) + ' al besteed';
-  return b.source === 'budget' ? 'Volledig budget ' + eur(b.plan) : 'Gemiddelde ' + eur(b.plan);
+  const fixed = fixedOf(b);
+  if (running) return b.source === 'budget' ? eur(b.spent) + ' van ' + eur(b.plan) + (fixed > 0 ? ' extra al besteed · vast ' + eur(fixed) : ' al besteed') : 'Gemiddelde ' + eur(b.plan) + ' · ' + eur(b.spent) + ' al besteed';
+  if (b.source !== 'budget') return 'Gemiddelde ' + eur(b.plan);
+  // "Totaal" is what the month costs in the plan, as the sum line of Planning instellen: the extra plus the fixed costs.
+  return fixed > 0 ? 'Extra ' + eur(b.plan) + ' · totaal ' + eur(fixed + b.plan) : 'Volledig budget ' + eur(b.plan);
 }
 
 /**
@@ -152,7 +162,7 @@ export function budgetView(p: PlanAccount, m: PlanMonth, accountName: string, ca
   const budgets = -lineAmount(m, 'variable');
   const saved = -lineAmount(m, 'saving');
   const buffer = p.buffer;
-  const entries = m.budgets;
+  const entries = m.budgets.filter(isSpendingRow);
 
   const rows: BudgetRow[] = [{ key: 'start', label: running ? 'Saldo vandaag' : 'Startsaldo 1 ' + name, note: accountName, amount: eur(start), bold: true }];
   if (income) rows.push({ key: 'in', label: 'Nog te ontvangen', note: labelsOf(m, 'recurringIn'), amount: eur(income, true) });
@@ -194,24 +204,17 @@ export function budgetView(p: PlanAccount, m: PlanMonth, accountName: string, ca
   return { rows, segs, aria };
 }
 
-/** The share of a budget entry's bar that is filled and the text next to it ("€ 66,90 van € 350,00"; "€ 12,00 te veel" over the plan). */
+/** The share of a budget entry's bar that is filled and the text next to it ("€ 66,90 van € 350,00"; "€ 12,00 te veel" over the plan). With fixed costs the plan is the extra: "€ 10,00 van € 5,00 extra · € 5,00 te veel · vast € 25,00". */
 export function categoryBar(b: PlanBudget) {
   const over = b.spent > b.plan;
-  const text = eur(b.spent) + ' van ' + eur(b.plan) + (over ? ' · ' + eur(b.spent - b.plan) + ' te veel' : '') + (b.source === 'average' ? ' · gemiddelde' : '');
+  const fixed = fixedOf(b);
+  const text = eur(b.spent) + ' van ' + eur(b.plan) + (fixed > 0 ? ' extra' : '') + (over ? ' · ' + eur(b.spent - b.plan) + ' te veel' : '') + (fixed > 0 ? ' · vast ' + eur(fixed) : '') + (b.source === 'average' ? ' · gemiddelde' : '');
   return { over, fill: over ? 100 : b.plan === 0 ? 0 : Math.round((b.spent / b.plan) * 100), text };
 }
 
 /** What the account's confirmed contribution items bring in `month` (cents): monthly ones always, quarterly and yearly ones in their month, none after their end date. */
 export function expectedContributions(items: RecurringItem[], accountId: number, month: string): number {
-  const m = Number(month.slice(5, 7));
-  const days = new Date(Number(month.slice(0, 4)), m, 0).getDate();
-  return items
-    .filter((i) => {
-      if (i.accountId !== accountId || i.kind !== 'contribution' || i.state !== 'confirmed') return false;
-      if (i.endDate && month + '-' + String(Math.min(i.day, days)).padStart(2, '0') > i.endDate) return false;
-      return i.frequency === 'monthly' || (i.frequency === 'quarterly' ? (((m - (i.month ?? 1)) % 3) + 3) % 3 === 0 : m === i.month);
-    })
-    .reduce((s, i) => s + i.amount, 0);
+  return items.filter((i) => i.accountId === accountId && i.kind === 'contribution' && i.state === 'confirmed').reduce((s, i) => s + itemAmountIn(i, month), 0);
 }
 
 /** "Jullie verwachte bijdragen (€ 900) dekken wat nodig is." / "… zijn € 72 minder dan nodig." */

@@ -128,16 +128,17 @@ describe('Overzicht · Saldo', () => {
     expect(box.getByText('Einde € 1.023,55')).toBeTruthy();
   });
 
-  it('asks for six months in Maand, and for another range when the period changes, without showing the old answer', async () => {
+  it('asks for six complete months and the running one in Maand, and for another range when the period changes, without showing the old answer', async () => {
     const api = await opened('/overzicht');
-    expect(api.reportBalances).toHaveBeenCalledWith({ scope: 'alles', account: undefined, from: '2026-05', to: '2026-10' }, expect.anything());
-    expect(Array.from(card().querySelectorAll('.ovs-axis')[0].children).map((s) => s.textContent)).toEqual(['mei', 'jun', 'jul', 'aug', 'sep', 'okt']);
+    expect(api.reportBalances).toHaveBeenCalledWith({ scope: 'alles', account: undefined, from: '2026-05', to: '2026-11' }, expect.anything());
+    expect(Array.from(card().querySelectorAll('.ovs-axis')[0].children).map((s) => s.textContent)).toEqual(['mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov']);
 
     // The next range never answers: the card holds its place, it does not draw the old lines over the new columns.
     api.reportBalances.mockImplementation(() => new Promise(() => undefined));
     fireEvent.click(screen.getByRole('button', { name: 'Kwartaal' }));
     await waitFor(() => expect(api.reportBalances).toHaveBeenCalledTimes(2));
-    expect(api.reportBalances).toHaveBeenLastCalledWith({ scope: 'alles', account: undefined, from: '2026-01', to: '2026-09' }, expect.anything());
+    // Kwartaal now ends in the running quarter, which holds the months so far: the answer ends with the running month (a later `to` is refused).
+    expect(api.reportBalances).toHaveBeenLastCalledWith({ scope: 'alles', account: undefined, from: '2026-01', to: '2026-11' }, expect.anything());
     expect(screen.getByRole('status', { name: 'Saldo laden' })).toBeTruthy();
     expect(document.querySelector('.ovs-plot')).toBeNull();
   });

@@ -359,6 +359,9 @@ func createCategoryIn(ctx context.Context, tx *sql.Tx, in CategoryInput) (int64,
 // or income category has no budget: moving a top category under another one,
 // turning it income or making it count as saved (itself or through a new
 // parent) deletes its budget rows, and its subcategories' when it is flagged.
+// Every change also clears the recurring items whose category no longer fits
+// (clearUnfitItemCategories); a subcategory moved under another top keeps its
+// items.
 func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in CategoryInput) (TreeCategory, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -446,10 +449,23 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 	if _, err := tx.ExecContext(ctx, `UPDATE categories SET type = ?, colour = ?, tint = ? WHERE parent_id = ?`, typ, col, tint, id); err != nil {
 		return TreeCategory{}, err
 	}
+	if err := clearUnfitItemCategories(ctx, tx); err != nil { // a new type, flag or parent changes what fits
+		return TreeCategory{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return TreeCategory{}, err
 	}
 	return s.category(ctx, viewer, id)
+}
+
+// clearUnfitItemCategories sets the category of every recurring item back to "Zonder categorie" (0.9.1-3) that no
+// longer fits: an expense item's top must be an expense category that does not count as saved, a saving item's top
+// must, and an ignored item has none. The rule of Item.checkCategory, for every item at once.
+func clearUnfitItemCategories(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `UPDATE recurring_items SET category_id = NULL WHERE category_id IS NOT NULL AND id NOT IN (
+		SELECT i.id FROM recurring_items i JOIN categories c ON c.id = i.category_id JOIN categories t ON t.id = COALESCE(c.parent_id, c.id)
+		WHERE i.state <> 'ignored' AND (i.kind = 'expense' AND t.type = 'expense' AND t.saving = 0 OR i.kind = 'saving' AND t.saving = 1))`)
+	return err
 }
 
 // RemoveCategory removes a category without subcategories for everyone and
@@ -460,10 +476,11 @@ func (s *Store) UpdateCategory(ctx context.Context, viewer, id int64, in Categor
 // With a target: transactions keep their origin and rule, and split parts,
 // rules, budgets (one per account, category and month: a clash keeps the
 // target's; only to a top expense category that is not saving, else they are
-// deleted), category mappings and suggestions follow. Without one:
-// transactions lose category, origin and rule; the category's rules,
-// budgets and suggestions are deleted and its mappings become "leave
-// uncategorised"; refused when a split part uses it.
+// deleted), category mappings and suggestions follow, and so do recurring
+// items unless the target does not fit their kind (then they lose it).
+// Without one: transactions lose category, origin and rule; the category's
+// rules, budgets and suggestions are deleted, its recurring items lose it and
+// its mappings become "leave uncategorised"; refused when a split part uses it.
 func (s *Store) RemoveCategory(ctx context.Context, id, moveTo int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -490,6 +507,7 @@ func (s *Store) RemoveCategory(ctx context.Context, id, moveTo int64) error {
 			`UPDATE transactions SET category_id = NULL, category_origin = NULL, rule_id = NULL WHERE category_id = ?1`,
 			`DELETE FROM rules WHERE category_id = ?1`,
 			`DELETE FROM budgets WHERE category_id = ?1`,
+			`UPDATE recurring_items SET category_id = NULL WHERE category_id = ?1`, // the foreign key does it too
 			`UPDATE category_mappings SET category_id = NULL WHERE category_id = ?1`,
 			`DELETE FROM category_suggestions WHERE category_id = ?1`,
 		}
@@ -509,6 +527,7 @@ func (s *Store) RemoveCategory(ctx context.Context, id, moveTo int64) error {
 			`UPDATE transactions SET category_id = ?2 WHERE category_id = ?1`,
 			`UPDATE transaction_splits SET category_id = ?2 WHERE category_id = ?1`,
 			`UPDATE rules SET category_id = ?2 WHERE category_id = ?1`,
+			`UPDATE recurring_items SET category_id = ?2 WHERE category_id = ?1`, // clearUnfitItemCategories below drops the ones that do not fit
 		}
 		// Budgets follow only to a top expense category that is not saving (0.8-0a); else they go.
 		if t.parent == nil && t.typ == "expense" && !t.saving {
@@ -526,6 +545,9 @@ func (s *Store) RemoveCategory(ctx context.Context, id, moveTo int64) error {
 		if _, err := tx.ExecContext(ctx, q, id, moveTo); err != nil {
 			return err
 		}
+	}
+	if err := clearUnfitItemCategories(ctx, tx); err != nil { // an expense item may have followed into a saving category
+		return err
 	}
 	return tx.Commit()
 }

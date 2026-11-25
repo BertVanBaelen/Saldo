@@ -1,16 +1,20 @@
 // The item sheet of Terugkerend (plan 0.8-7, in the layout of the board "Planning instellen" by 0.8.1-8): add a recurring item, confirm a
 // suggestion (prefilled), or edit and delete one. A `Sheet` with the library controls (src/ui). The first control is "− Uitgave" /
 // "+ Inkomst"; the engine's other kinds (Sparen, Overschrijving, Bijdrage) are the second row under it; "Het bedrag is", "Tegenpartij" and
-// "Einddatum" sit under "Meer opties". The account is the screen's and fixed.
+// "Einddatum" sit under "Meer opties". The account is the screen's and fixed. A Gewone uitgave and Sparen also pick a category (0.9.1-3):
+// the value, the suggestion of the item's payments as a chip, "Kies…" for the picker limited to what fits the kind.
 // The server judges the item (sign, kind, month, end date): its Dutch 400 message shows under the fields. Only an empty description and an
 // unreadable amount are caught here, because the amount has to be parsed to cents before it can be sent.
 import { useId, useState, type FormEvent } from 'react';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
+import { CategoryPicker } from '../components/CategoryPicker';
 import { Sheet } from '../components/Sheet';
 import { api, errorMessage } from '../lib/api';
+import { categoryLabel } from '../lib/categories';
 import { cap, MONTHS, parseMoney } from '../lib/format';
 import {
+  categoryFits,
   centsText,
   FREQUENCY_LABEL,
   signedAmount,
@@ -24,7 +28,8 @@ import {
 } from '../lib/planningItems';
 import { AmountInput, DatePicker, Input, SegmentedControl, Select, type Segment } from '../ui';
 import { DirectionSwitch, FixedAccount, Group, previewLine, SheetHead, type Direction } from './PlanningParts';
-import type { Account } from '../lib/types';
+import type { Account, TreeCategory } from '../lib/types';
+import type { AsyncState } from '../lib/useAsync';
 
 /** What the form opens for: a new item, a suggestion to confirm (prefilled, stored with `fromSuggestion`) or a stored item to edit. */
 export type ItemFormMode = { type: 'new' } | { type: 'confirm'; suggestion: RecurringSuggestion } | { type: 'edit'; item: RecurringItem };
@@ -35,6 +40,10 @@ export interface ItemFormProps {
   accounts: Account[];
   /** `YYYY-MM-DD`. */
   today: string;
+  /** The screen's load of the category tree; without it the sheet has no Categorie field. */
+  tree?: AsyncState<TreeCategory[]>;
+  /** Opens the sheet with the category picker already open ("Kies…" of Budgetten › Zonder categorie). */
+  pickCategory?: boolean;
   onClose: () => void;
   /** The item was stored, changed or deleted: the screen loads its lists and the forecast again and closes the form. */
   onSaved: () => void;
@@ -52,6 +61,8 @@ interface State {
   day: string;
   month: string;
   endDate: string | null;
+  /** The category of a Gewone uitgave or Sparen; `null` is "Zonder categorie" (and what every other kind has). */
+  categoryId: number | null;
 }
 
 const DAYS: { value: string; label: string }[] = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
@@ -73,7 +84,7 @@ function initial(mode: ItemFormMode, today: string): State {
   const src = mode.type === 'edit' ? mode.item : mode.type === 'confirm' ? mode.suggestion : null;
   const thisMonth = String(Number(today.slice(5, 7)));
   if (!src) {
-    return { description: '', counterparty: '', kind: 'expense', incoming: false, amount: '', rule: 'fixed', frequency: 'monthly', day: '1', month: thisMonth, endDate: null };
+    return { description: '', counterparty: '', kind: 'expense', incoming: false, amount: '', rule: 'fixed', frequency: 'monthly', day: '1', month: thisMonth, endDate: null, categoryId: null };
   }
   return {
     description: src.description,
@@ -86,10 +97,11 @@ function initial(mode: ItemFormMode, today: string): State {
     day: String(src.day),
     month: src.month === null ? thisMonth : String(src.month),
     endDate: mode.type === 'edit' ? mode.item.endDate : null,
+    categoryId: mode.type === 'edit' ? (mode.item.categoryId ?? null) : null,
   };
 }
 
-export function ItemForm({ mode, accounts, today, onClose, onSaved }: ItemFormProps) {
+export function ItemForm({ mode, accounts, today, tree, pickCategory, onClose, onSaved }: ItemFormProps) {
   const { online, toast } = useApp();
   const uid = useId();
   const [f, setF] = useState(() => initial(mode, today));
@@ -99,6 +111,7 @@ export function ItemForm({ mode, accounts, today, onClose, onSaved }: ItemFormPr
   const [error, setError] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<'description' | 'amount' | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [picking, setPicking] = useState(pickCategory === true);
   const accountId = mode.type === 'edit' ? mode.item.accountId : mode.type === 'confirm' ? mode.suggestion.accountId : (accounts.find((a) => a.permission === 'edit') ?? accounts[0])?.id;
   const account = accounts.find((a) => a.id === accountId);
   if (!account) return null;
@@ -110,10 +123,26 @@ export function ItemForm({ mode, accounts, today, onClose, onSaved }: ItemFormPr
     setError(null);
     setInvalid(null);
   };
+  // A new kind keeps the category only when it fits it; without the tree nothing can be told, so it goes.
+  const byId = new Map((tree?.data ?? []).map((c) => [c.id, c]));
+  const keep = (kind: ItemKind, id: number | null) => {
+    const c = id === null ? undefined : byId.get(id);
+    return c && categoryFits(kind, c) ? id : null;
+  };
+  const pickKind = (kind: ItemKind) => {
+    setF((p) => ({ ...p, kind, categoryId: keep(kind, p.categoryId) }));
+    setPicking(false);
+    setError(null);
+    setInvalid(null);
+  };
   // The other direction can have no such kind (Bijdrage only comes in): the kind falls back to the plain expense or income.
   const pickDirection = (d: Direction) => {
     const incoming = d === 'in';
-    setF((p) => ({ ...p, incoming, kind: kindOptions(incoming, shared).some((k) => k.value === p.kind) ? p.kind : incoming ? 'income' : 'expense' }));
+    setF((p) => {
+      const kind = kindOptions(incoming, shared).some((k) => k.value === p.kind) ? p.kind : incoming ? 'income' : 'expense';
+      return { ...p, incoming, kind, categoryId: keep(kind, p.categoryId) };
+    });
+    setPicking(false);
     setError(null);
   };
   // An item whose end date has passed stays editable: its own date is the earliest the picker offers.
@@ -149,7 +178,8 @@ export function ItemForm({ mode, accounts, today, onClose, onSaved }: ItemFormPr
     setError(null);
     if (mode.type === 'edit') {
       // A PATCH never carries `accountId` or `fromSuggestion`; `null` clears the month and the end date.
-      const patch: ItemPatch = { description, counterparty, amount, amountRule: f.rule, frequency: f.frequency, day: Number(f.day), month, endDate: f.endDate, kind: f.kind };
+      // The category goes only when it changed: a kind switch that dropped it sends the `null`, an untouched one is not overwritten.
+      const patch: ItemPatch = { description, counterparty, amount, amountRule: f.rule, frequency: f.frequency, day: Number(f.day), month, endDate: f.endDate, kind: f.kind, ...(f.categoryId === (mode.item.categoryId ?? null) ? {} : { categoryId: f.categoryId }) };
       api.updatePlanningItem(mode.item.id, patch).then(() => done('Terugkerende post aangepast'), failed);
       return;
     }
@@ -164,6 +194,7 @@ export function ItemForm({ mode, accounts, today, onClose, onSaved }: ItemFormPr
       kind: f.kind,
       ...(month === null ? {} : { month }),
       ...(f.endDate ? { endDate: f.endDate } : {}),
+      ...(f.categoryId === null ? {} : { categoryId: f.categoryId }),
       ...(mode.type === 'confirm' ? { fromSuggestion: true } : {}),
     };
     api.createPlanningItem(body).then(() => done('Toegevoegd aan terugkerende posten'), failed);
@@ -180,16 +211,59 @@ export function ItemForm({ mode, accounts, today, onClose, onSaved }: ItemFormPr
   const confirmId = uid + '-confirm';
   const moreId = uid + '-more';
   const monthly = f.frequency === 'monthly';
+  // The category: a field for a Gewone uitgave and Sparen. The suggestion of the item's payments (from the list, the answers of a write carry none) counts
+  // while it fits the kind; it is a chip while the item has no category, a hint when the item's category is another one.
+  const categorised = !!tree && (f.kind === 'expense' || f.kind === 'saving');
+  const named = (id: number) => categoryLabel(byId.get(id)!, byId);
+  const own = f.categoryId !== null && byId.has(f.categoryId) ? named(f.categoryId) : null;
+  const sug = mode.type === 'edit' ? mode.item.suggestedCategoryId : null;
+  const suggested = sug != null && byId.has(sug) && categoryFits(f.kind, byId.get(sug)!) ? sug : null;
   return (
     <Sheet onClose={guard} labelledBy={titleId}>
       <SheetHead id={titleId} title={editing ? 'Terugkerende post' : 'Nieuwe terugkerende post'} onClose={guard} busy={busy} />
       <form className="pi-form" aria-labelledby={titleId} onSubmit={submit} noValidate>
         <DirectionSwitch value={f.incoming ? 'in' : 'out'} onChange={pickDirection} />
-        <SegmentedControl aria-label="Soort post" className="pi-kind pi-seg" options={kindOptions(f.incoming, shared)} value={f.kind} onChange={(v) => set('kind', v)} />
+        <SegmentedControl aria-label="Soort post" className="pi-kind pi-seg" options={kindOptions(f.incoming, shared)} value={f.kind} onChange={pickKind} />
         <div className="pi-grid2">
           <Input label="Omschrijving" name="description" value={f.description} maxLength={80} placeholder="Bijvoorbeeld: Huur" invalid={invalid === 'description'} onChange={(v) => set('description', v)} />
           <AmountInput label="Bedrag (€)" name="amount" value={f.amount} invalid={invalid === 'amount'} onChange={(v) => set('amount', v)} />
         </div>
+        {categorised && (
+          <Group label="Categorie" named>
+            <div className="pi-cat">
+              <span className="pi-fixed">{f.categoryId === null ? 'Zonder categorie' : (own ?? 'Categorie laden…')}</span>
+              <button type="button" className="pi-link" aria-expanded={picking} onClick={() => setPicking((v) => !v)}>
+                Kies…
+              </button>
+              {f.categoryId !== null && (
+                <button type="button" className="pi-link" onClick={() => set('categoryId', null)}>
+                  Geen categorie
+                </button>
+              )}
+            </div>
+            {suggested !== null && f.categoryId === null && (
+              <button type="button" className="pi-chip" onClick={() => set('categoryId', suggested)}>
+                Suggestie: {named(suggested)} · Gebruiken
+              </button>
+            )}
+            {picking && (
+              <CategoryPicker
+                tree={tree.data}
+                error={tree.error}
+                onRetry={tree.reload}
+                amount={-1}
+                value={f.categoryId}
+                only={(c) => categoryFits(f.kind, c)}
+                label="Kies een categorie"
+                onPick={(id) => {
+                  set('categoryId', id);
+                  setPicking(false);
+                }}
+              />
+            )}
+            {suggested !== null && f.categoryId !== null && f.categoryId !== suggested && <span className="pi-help">Betalingen van deze post staan meestal in {named(suggested)}.</span>}
+          </Group>
+        )}
         <Group label="Ritme">
           <SegmentedControl aria-label="Ritme" className="pi-seg" options={FREQUENCIES} value={f.frequency} onChange={(v) => set('frequency', v)} />
         </Group>
@@ -232,7 +306,7 @@ export function ItemForm({ mode, accounts, today, onClose, onSaved }: ItemFormPr
             {error}
           </p>
         )}
-        <p className="pi-preview">{previewLine(cents, f.incoming ? 'in' : 'out', FREQUENCY_LABEL[f.frequency].toLowerCase(), account.name)}</p>
+        <p className="pi-preview">{previewLine(cents, f.incoming ? 'in' : 'out', FREQUENCY_LABEL[f.frequency].toLowerCase(), account.name, ...(categorised && own ? [own] : []))}</p>
         {!online && <p className="pi-offline">Je bent offline. Opslaan kan weer zodra je verbinding hebt.</p>}
         {confirming ? (
           <div className="pi-confirm" role="group" aria-labelledby={confirmId}>

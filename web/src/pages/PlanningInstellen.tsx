@@ -17,7 +17,7 @@ import { eur0 } from '../lib/format';
 import type { Horizon } from '../lib/planning';
 import { useAsync } from '../lib/useAsync';
 import type { Account } from '../lib/types';
-import { BudgetSection, useBudgetEditor, type BudgetEditor } from './PlanningInstellenBudget';
+import { BudgetSection, MonthStepper, useBudgetEditor, type BudgetEditor } from './PlanningInstellenBudget';
 import { PlanningEenmalig } from './PlanningEenmalig';
 import { PlanningTerugkerend } from './PlanningTerugkerend';
 import { addMonths, horizonFor, monthOffset, SECTIONS, type InstellenSection, type PlanningSectionProps } from './planningTabs';
@@ -202,18 +202,28 @@ export function PlanningInstellen() {
     plan.reload();
     refreshShell();
   };
-  const editor = useBudgetEditor({ planning: answer, saved: budgets.data?.budgets, tree: tree.data ?? [], scope, fromMonth, reload });
+  const editor = useBudgetEditor({ planning: answer, saved: budgets.data?.budgets, tree: tree.data ?? [], items: items.data?.items ?? [], scope, fromMonth, reload });
 
   const current = (accounts.data ?? []).filter((a) => inScope(a, scope) && isCurrent(a));
   const wanted = Number(params.get('rekening'));
   const account = current.find((a) => a.id === wanted) ?? current[0];
 
-  /** Replace the URL: the account and/or the section; the router state stays. */
-  const go = (to: { rekening?: number; section?: InstellenSection }) => {
+  /** Replace the URL: the account, the section and/or the month of the stepper (the running month is no parameter); the router state stays. */
+  const go = (to: { rekening?: number; section?: InstellenSection; maand?: string }) => {
     const p = new URLSearchParams(location.search);
     if (to.rekening !== undefined) p.set('rekening', String(to.rekening));
+    if (to.maand !== undefined) {
+      if (to.maand === running) p.delete('maand');
+      else p.set('maand', to.maand);
+    }
     const q = p.toString();
     navigate({ search: q ? '?' + q : '', hash: to.section ? '#' + to.section : location.hash }, { replace: true, state: location.state });
+  };
+  // A press that waits is saved for the month it was made in; the rows then show the new month without its drafts.
+  const pickMonth = (maand: string) => {
+    editor.flush();
+    editor.forget();
+    go({ maand });
   };
   const pick = (id: number) => {
     if (account && id !== account.id) {
@@ -248,8 +258,27 @@ export function PlanningInstellen() {
     const editable = account.permission === 'edit';
     const sectionProps: PlanningSectionProps = { planning: answer, accounts: [account], scope, reload, canEdit: editable };
     const content: Record<InstellenSection, ReactNode> = {
-      budgetten: !answer || !tree.data ? <Skel w="100%" h={240} /> : <BudgetSection account={account} editor={editor} editable={editable} />,
-      terugkerend: <PlanningTerugkerend {...sectionProps} items={items} />,
+      // The stepper stays on screen while a longer horizon loads (its focus must not be lost between two presses).
+      budgetten: (
+        <>
+          <MonthStepper month={fromMonth} running={running} onMonth={pickMonth} />
+          {!answer || !tree.data ? (
+            <Skel w="100%" h={240} />
+          ) : (
+            <BudgetSection
+              account={account}
+              editor={editor}
+              editable={editable}
+              tree={tree}
+              onItemSaved={() => {
+                items.reload();
+                reload();
+              }}
+            />
+          )}
+        </>
+      ),
+      terugkerend: <PlanningTerugkerend {...sectionProps} items={items} tree={tree} />,
       eenmalig: <PlanningEenmalig {...sectionProps} planned={planned} />,
     };
     if (tree.error) content.budgetten = <ErrorState message={tree.error} onRetry={tree.reload} />;

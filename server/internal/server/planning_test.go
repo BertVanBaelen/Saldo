@@ -1,7 +1,9 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 	"testing"
@@ -90,6 +92,81 @@ func TestPlannedWithoutDayRoutes(t *testing.T) {
 	expectError(t, p.partner("PATCH", one, `{"month":"2026-12"}`), http.StatusNotFound, "not_found")
 }
 
+// The category of a recurring item on the wire (0.9.1-3) on the demo seed, today 2026-11-18: the list also answers
+// suggestedCategoryId (output only, account-level, from the item's matched payments, null for everything else); POST and
+// PATCH answer the bare item and refuse the field. Demo category ids: Wonen 1, Abonnementen 5, Overig 6, Huur 11, Sparen 26.
+// The rules and the lifecycle themselves are tested in ledger.
+func TestPlanningItemCategoryRoutes(t *testing.T) {
+	p := newPair(t)
+	suggestions := func(r response) map[string]string { // description -> the raw suggestedCategoryId ("" when the key is missing)
+		t.Helper()
+		if r.status != http.StatusOK {
+			t.Fatalf("list: %d %s", r.status, r.body)
+		}
+		out := map[string]string{}
+		for _, it := range decode[map[string][]struct {
+			Description         string
+			SuggestedCategoryID json.RawMessage `json:"suggestedCategoryId"`
+		}](t, r.body)["items"] {
+			out[it.Description] = string(it.SuggestedCategoryID)
+		}
+		return out
+	}
+	const list = "/api/planning/items"
+
+	// The demo's suggestions: every item carries the key; Familiale verzekering has no counterparty and no payment of
+	// exactly its amount, the saving order's rows are uncategorised transfers.
+	want := map[string]string{"Huur": "1", "Netflix": "5", "Spotify": "5", "Energie": "1", "Internet en tv": "5",
+		"Familiale verzekering": "null", "Salaris": "null", "Naar gedeelde rekening": "null", "Naar spaarrekening": "null",
+		"Bijdrage Bert": "null", "Bijdrage Partner": "null"}
+	if got := suggestions(p.bert("GET", list+"?scope=alles", "")); !maps.Equal(got, want) {
+		t.Errorf("Bert's suggestions: %v, want %v", got, want)
+	}
+	// Account-level: the shared account's items are byte-identical for both members.
+	if bert, partner := p.bert("GET", list+"?scope=gedeeld", ""), p.partner("GET", list, ""); bert.body != partner.body {
+		t.Errorf("shared items differ between members: %s | %s", bert.body, partner.body)
+	}
+
+	// POST and PATCH answer the bare item with its own category; the suggestion stays what the payments say.
+	r := p.bert("PATCH", list+"/2", `{"categoryId":11}`)
+	if r.status != http.StatusOK || !strings.Contains(r.body, `"categoryId":11`) || strings.Contains(r.body, "suggestedCategoryId") {
+		t.Errorf("patch categoryId: %d %s", r.status, r.body)
+	}
+	r = p.bert("POST", list, `{"accountId":1,"description":"Gas","counterparty":"Eneco","amount":-5000,"frequency":"monthly","day":5,"kind":"expense","categoryId":6}`)
+	if r.status != http.StatusCreated || !strings.Contains(r.body, `"categoryId":6`) || strings.Contains(r.body, "suggestedCategoryId") {
+		t.Errorf("post categoryId: %d %s", r.status, r.body)
+	}
+	if got := suggestions(p.bert("GET", list, "")); got["Huur"] != "1" || got["Gas"] != "null" {
+		t.Errorf("after the writes: Huur %s, Gas %s", got["Huur"], got["Gas"])
+	}
+	for _, it := range decode[map[string][]ledger.Item](t, p.bert("GET", list, "").body)["items"] {
+		if it.ID == 2 && (it.CategoryID == nil || *it.CategoryID != 11) {
+			t.Errorf("the list shows Huur's category %v, want 11", it.CategoryID)
+		}
+	}
+	if msg := expectError(t, p.bert("PATCH", list+"/2", `{"categoryId":26}`), http.StatusBadRequest, "invalid"); msg != "Kies een uitgavencategorie die niet als gespaard telt." {
+		t.Errorf("saving category on an expense item: %q", msg)
+	}
+
+	// suggestedCategoryId is output only: a request carrying it is refused like any unknown field.
+	for _, c := range []struct{ method, path, body string }{
+		{"PATCH", list + "/2", `{"suggestedCategoryId":1}`},
+		{"POST", list, `{"accountId":1,"description":"x","amount":-1,"frequency":"monthly","day":1,"kind":"expense","suggestedCategoryId":1}`},
+	} {
+		if msg := expectError(t, p.bert(c.method, c.path, c.body), http.StatusBadRequest, "invalid"); msg != "De gegevens kloppen niet." {
+			t.Errorf("%s with suggestedCategoryId: %q", c.method, msg)
+		}
+	}
+
+	// An account without a balance has no forecast facts: the list still answers, every suggestion null.
+	p.exec(`DELETE FROM balance_snapshots WHERE account_id = 4`)
+	for _, k := range []string{"Energie", "Internet en tv"} {
+		if got := suggestions(p.partner("GET", list, "")); got[k] != "null" {
+			t.Errorf("%s without a balance: %q, want null", k, got[k])
+		}
+	}
+}
+
 // The planning routes (0.8-1) on the demo seed: Bert holds 7 items on the
 // Zichtrekening (1) and manages the Gedeelde rekening (4) with its 4 items;
 // the budgets are 3 + 1 and the planned items 4 (all on 1); Partner holds 4
@@ -131,10 +208,10 @@ func TestPlanningRoutes(t *testing.T) {
 		t.Errorf("scope: %q", msg)
 	}
 	equalJSON(t, p.bert("GET", "/api/planning/items?scope=gedeeld", "").body, `{"items": [
-		{"id": 8, "accountId": 4, "description": "Bijdrage Bert", "counterparty": "Bert", "amount": 45000, "amountRule": "fixed", "frequency": "monthly", "day": 1, "month": null, "endDate": null, "kind": "contribution", "state": "confirmed"},
-		{"id": 9, "accountId": 4, "description": "Bijdrage Partner", "counterparty": "Partner", "amount": 45000, "amountRule": "fixed", "frequency": "monthly", "day": 1, "month": null, "endDate": null, "kind": "contribution", "state": "confirmed"},
-		{"id": 10, "accountId": 4, "description": "Energie", "counterparty": "Luminus", "amount": -14500, "amountRule": "fixed", "frequency": "monthly", "day": 3, "month": null, "endDate": null, "kind": "expense", "state": "confirmed"},
-		{"id": 11, "accountId": 4, "description": "Internet en tv", "counterparty": "Proximus", "amount": -4298, "amountRule": "fixed", "frequency": "monthly", "day": 9, "month": null, "endDate": null, "kind": "expense", "state": "confirmed"}]}`)
+		{"id": 8, "accountId": 4, "description": "Bijdrage Bert", "counterparty": "Bert", "amount": 45000, "amountRule": "fixed", "frequency": "monthly", "day": 1, "month": null, "endDate": null, "kind": "contribution", "state": "confirmed", "categoryId": null, "suggestedCategoryId": null},
+		{"id": 9, "accountId": 4, "description": "Bijdrage Partner", "counterparty": "Partner", "amount": 45000, "amountRule": "fixed", "frequency": "monthly", "day": 1, "month": null, "endDate": null, "kind": "contribution", "state": "confirmed", "categoryId": null, "suggestedCategoryId": null},
+		{"id": 10, "accountId": 4, "description": "Energie", "counterparty": "Luminus", "amount": -14500, "amountRule": "fixed", "frequency": "monthly", "day": 3, "month": null, "endDate": null, "kind": "expense", "state": "confirmed", "categoryId": null, "suggestedCategoryId": 1},
+		{"id": 11, "accountId": 4, "description": "Internet en tv", "counterparty": "Proximus", "amount": -4298, "amountRule": "fixed", "frequency": "monthly", "day": 9, "month": null, "endDate": null, "kind": "expense", "state": "confirmed", "categoryId": null, "suggestedCategoryId": 5}]}`)
 	if b := p.bert("GET", "/api/planning/budgets?scope=gedeeld", "").body; !strings.Contains(b, `"amount":55000`) || !strings.Contains(b, `"fromMonth":"2026-11"`) {
 		t.Errorf("shared budget: %s", b)
 	}

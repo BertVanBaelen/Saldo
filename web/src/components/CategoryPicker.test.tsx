@@ -262,3 +262,26 @@ describe('CategoryPicker · loading, error and empty', () => {
     expect(screen.getByRole('link', { name: 'Categorieën maken' }).getAttribute('href')).toBe('/categorieen');
   });
 });
+
+describe('CategoryPicker · only', () => {
+  // Boodschappen counts as saved; the filter of a saving item keeps it, the filter of an expense item drops it.
+  const saved = TREE.map((c) => (c.id === 2 ? { ...c, saving: true } : c));
+
+  it('offers only what the filter accepts, subcategories included, and no toggle to the other type', () => {
+    setup({ tree: saved, only: (c) => c.type === 'expense' && !c.saving });
+    expect(tiles()).toEqual(['🏠Wonen', '🏷️Overig']);
+    expect(screen.queryByRole('button', { name: 'Toon inkomsten' })).toBeNull();
+    fireEvent.click(btn('Wonen'));
+    expect(within(screen.getByRole('group', { name: 'Subcategorieën van Wonen' })).getAllByRole('button').map((b) => b.textContent)).toEqual(['🏠Alleen Wonen', '🔑Huur', '⚡Energie']);
+  });
+
+  it('shows a note when nothing is accepted', () => {
+    setup({ only: (c) => c.saving });
+    expect(screen.getByText('Geen passende categorieën.')).toBeTruthy();
+  });
+
+  it('keeps naming a subcategory that is chosen', () => {
+    setup({ only: (c) => c.type === 'expense', value: 12 });
+    expect(screen.getByText('Wonen › Energie')).toBeTruthy();
+  });
+});

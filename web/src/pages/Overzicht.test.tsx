@@ -46,20 +46,26 @@ const byScope = (q: ReportQuery) => (q.scope === 'persoonlijk' ? persoonlijk() :
 const chart = () => screen.getByRole('group', { name: 'Inkomen, uitgaven en gespaard per periode' });
 const cols = () => within(chart()).getAllByRole('button');
 const tiles = () => Array.from(document.querySelectorAll('.ov-sum-value')).map((e) => e.textContent);
+/** Maand opens on the running November (0.9.1-2): the tests about October select it first (the sixth of seven columns). */
+const pickOctober = () => fireEvent.click(cols()[5]);
 
 describe('Overzicht', () => {
-  it('renders the six month columns with the last one selected, and its totals', async () => {
+  it('renders the six complete months and the running one, with the running November selected, and its totals', async () => {
     const api = stubApi({ reports: byScope });
     renderAt('/overzicht');
     await screen.findByRole('group', { name: 'Inkomen, uitgaven en gespaard per periode' });
-    expect(cols().map((c) => c.textContent)).toEqual(['mei', 'jun', 'jul', 'aug', 'sep', 'okt']);
-    expect(cols()[5].getAttribute('aria-pressed')).toBe('true');
-    expect(cols()[5].getAttribute('aria-label')).toBe('oktober 2026: in € 3.350,00, uit € 1.905,49, waarvan uitgaven € 1.705,49 en gespaard € 200,00');
-    expect(tiles()).toEqual(['€ 3.350,00', '€ 1.705,49', '€ 200,00']);
-    expect(screen.getByText('Per categorie · oktober 2026')).toBeTruthy();
-    expect(screen.getByText('t.o.v. vorige maand', { selector: '.ov-compare' })).toBeTruthy();
-    expect(screen.getAllByText('Mei – oktober 2026').length).toBeGreaterThan(0);
-    expect(screen.getByText('Alle rekeningen · mei – oktober 2026')).toBeTruthy();
+    expect(cols().map((c) => c.textContent)).toEqual(['mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov']);
+    expect(cols().map((c) => c.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false', 'false', 'false', 'false', 'true']);
+    expect(cols().map((c) => c.className.includes('ov-col--running'))).toEqual([false, false, false, false, false, false, true]);
+    // November is the demo's September in this fixture (income € 3.300, expenses € 1.761,33).
+    expect(cols()[6].getAttribute('aria-label')).toBe('november 2026 (loopt nog, tot 18 nov): in € 3.300,00, uit € 1.961,33, waarvan uitgaven € 1.761,33 en gespaard € 200,00');
+    expect(tiles()).toEqual(['€ 3.300,00', '€ 1.761,33', '€ 200,00']);
+    expect(screen.getByText('Per categorie · november 2026')).toBeTruthy();
+    expect(screen.getByText('lopend · tot 18 nov', { selector: '.ov-compare' })).toBeTruthy();
+    expect(screen.getByText('Lichtere staven: november loopt nog, tot 18 nov.')).toBeTruthy();
+    expect(chart().className).toContain('ov-chart--s');
+    expect(screen.getAllByText('Mei – november 2026').length).toBeGreaterThan(0);
+    expect(screen.getByText('Alle rekeningen · mei – november 2026')).toBeTruthy();
     expect(api.reportMonths).toHaveBeenCalledTimes(1);
     // The report with the amounts per category (detail), and the references of the rows beside it, for the same selection.
     expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', account: undefined, detail: true });
@@ -83,8 +89,12 @@ describe('Overzicht', () => {
     renderAt('/overzicht');
     await screen.findByRole('group', { name: 'Inkomen, uitgaven en gespaard per periode' });
     fireEvent.click(within(screen.getByRole('group', { name: 'Periode' })).getByRole('button', { name: 'Kwartaal' }));
-    expect(cols().map((c) => c.textContent)).toEqual(['K1', 'K2', 'K3']);
-    expect(cols()[2].getAttribute('aria-pressed')).toBe('true');
+    // The complete quarters and the running K4 (lighter); the view opens on the last complete one.
+    expect(cols().map((c) => c.textContent)).toEqual(['K1', 'K2', 'K3', 'K4']);
+    expect(cols().map((c) => c.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true', 'false']);
+    expect(cols().map((c) => c.className.includes('ov-col--running'))).toEqual([false, false, false, true]);
+    expect(cols()[3].getAttribute('aria-label')).toMatch(/^K4 2026 \(loopt nog, tot 18 nov\): /);
+    expect(chart().className).toContain('ov-chart--m');
     expect(screen.getByRole('button', { name: 'Kwartaal' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByTestId('location').textContent).toBe('/overzicht?periode=kwartaal');
     expect(api.reportMonths).toHaveBeenCalledTimes(1);
@@ -93,6 +103,8 @@ describe('Overzicht', () => {
   it('shows a category row as a button that opens its sheet, with "geen budget" and its trend in the label', async () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht');
+    await loaded();
+    pickOctober();
     const row = (await screen.findByText('Boodschappen', { selector: '.ov-cat-name' })).closest('button')!;
     expect(row.getAttribute('aria-haspopup')).toBe('dialog');
     // No reference came back for it (the default stub has none): no bar, the muted "geen budget"; the share of the total is gone.
@@ -108,6 +120,7 @@ describe('Overzicht', () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht');
     await screen.findByText('Per rekening');
+    pickOctober();
     expect(screen.getByText('Alle rekeningen samen')).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Zichtrekening: in € 2\.900,00.*Bekijk de details\.$/ }).getAttribute('aria-haspopup')).toBe('dialog');
     expect(screen.getByText('Overschrijvingen tussen je eigen rekeningen (€ 450,00) tellen per rekening mee, maar niet in het totaal samen.')).toBeTruthy();
@@ -137,6 +150,8 @@ describe('Overzicht', () => {
   it('asks for one account when ?rekening is a current account of the scope; the sheet and its link carry it', async () => {
     const api = stubApi({ reports: () => ({ ...persoonlijk(), accounts: [4] }) });
     renderAt('/overzicht?rekening=4');
+    await loaded();
+    pickOctober();
     fireEvent.click((await screen.findByText('Naar gedeelde rekening', { selector: '.ov-cat-name' })).closest('button')!);
     expect(api.reportMonths.mock.calls[0][0]).toEqual({ scope: 'alles', account: 4, detail: true });
     expect(within(dialog('Naar gedeelde rekening · oktober 2026')).getByRole('link', { name: 'Open in Transacties' }).getAttribute('href')).toBe('/transacties?categorie=naar-gedeeld&periode=2026-10&rekening=4');
@@ -499,7 +514,7 @@ describe('Overzicht · custom range', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Annuleren' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(where()).toBe('/overzicht');
-    expect(cols()).toHaveLength(6);
+    expect(cols()).toHaveLength(7);
     await waitFor(() => expect(document.activeElement).toBe(eigenButton()));
     // A new open starts from the shown range again, not from the abandoned draft.
     fireEvent.click(eigenButton());
@@ -566,7 +581,7 @@ describe('Overzicht · custom range', () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht#eigen');
     await screen.findByRole('dialog', { name: 'Eigen periode' });
-    expect(cols()).toHaveLength(6);
+    expect(cols()).toHaveLength(7);
     expect(eigenButton().getAttribute('aria-expanded')).toBe('true');
     expect(document.activeElement).toBe(van());
     escape();
@@ -708,6 +723,7 @@ describe('Overzicht · sheets', () => {
     const api = stubApi({ reports: byScope, transactions: pages });
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     fireEvent.click(await rowButton('Boodschappen'));
     const d = within(dialog('Boodschappen · oktober 2026'));
     expect(where()).toBe('/overzicht?blad=categorie-2');
@@ -743,6 +759,7 @@ describe('Overzicht · sheets', () => {
     await loaded();
     let fail!: (e: Error) => void;
     api.transactions.mockImplementationOnce(() => new Promise((_resolve, reject) => (fail = reject)));
+    pickOctober();
     fireEvent.click(await rowButton('Wonen'));
     const d = within(dialog('Wonen · oktober 2026'));
     expect(d.getByRole('status', { name: 'Transacties laden' })).toBeTruthy();
@@ -757,6 +774,7 @@ describe('Overzicht · sheets', () => {
     const api = stubApi({ reports: byScope, transactions: pages });
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     const callsBefore = api.transactions.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: /^Zichtrekening: in/ }));
     expect(where()).toBe('/overzicht?blad=rekening-1');
@@ -780,6 +798,7 @@ describe('Overzicht · sheets', () => {
     stubApi({ reports: byScope, transactions: pages });
     renderWithBack('/overzicht');
     await loaded();
+    pickOctober();
     const row = await rowButton('Boodschappen');
     fireEvent.click(row);
     dialog('Boodschappen · oktober 2026');
@@ -799,7 +818,8 @@ describe('Overzicht · sheets', () => {
   it('opens from the URL after the load, and closing then drops ?blad= without leaving the page', async () => {
     stubApi({ reports: byScope, transactions: pages });
     renderAt('/overzicht?blad=categorie-2');
-    const dialog = await screen.findByRole('dialog', { name: 'Boodschappen · oktober 2026' });
+    // The sheet opens on the default column: the running November.
+    const dialog = await screen.findByRole('dialog', { name: 'Boodschappen · november 2026' });
     // The sheet registers its Escape handler in the effect that also moves the focus in: wait for that before pressing the key.
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
     escape();
@@ -820,6 +840,7 @@ describe('Overzicht · sheets', () => {
     stubApi({ reports: byScope, transactions: pages });
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     fireEvent.click(await rowButton('Boodschappen'));
     const d = dialog('Boodschappen · oktober 2026');
     expect([d.classList.contains('sheet'), d.classList.contains('panel')]).toEqual([true, false]);
@@ -850,6 +871,7 @@ describe('Overzicht · stacked Uit bar', () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     // October: Wonen, Boodschappen, Vervoer; Abonnementen, Overig and Vrije tijd (2 to 3 px) as one piece; Gespaard on top.
     expect(pieces(cols()[5])).toEqual(['115000', '25236', '14060', '16253', '20000']);
     const [inc, uit] = heights(cols()[5]);
@@ -866,6 +888,7 @@ describe('Overzicht · stacked Uit bar', () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     expect(pieces(cols()[5])).toEqual(['115000', '25236', '14060', '6896', '6562', '2795', '20000']);
     // September in the order of the selected October, so colours stay in place: Overig (8881) does not jump above Abonnementen (6896).
     expect(pieces(cols()[4])).toEqual(['115000', '27106', '11560', '6896', '8881', '6690', '20000']);
@@ -970,9 +993,10 @@ const refLine = (el: HTMLElement) => el.querySelector('.ov-cat-ref')!.textConten
 const cents = (text: string) => Math.round(parseFloat(text.replace('€ ', '').replace(/\./g, '').replace(',', '.')) * 100);
 const november = () => renderAt('/overzicht?periode=eigen&van=2026-10&tot=2026-11');
 const pickNovember = () => fireEvent.click(cols()[1]);
-/** The rows of a breakdown sheet: name and amount, and their links. */
+/** The rows of a breakdown sheet: name and amount. */
 const bdRows = (d: HTMLElement) => Array.from(d.querySelectorAll('.ov-bd-item')).map((i) => [i.querySelector('.ov-bd-name')!.textContent, i.querySelector('.ov-bd-amount')!.textContent]);
-const href = (el: Element | null) => el!.closest('a')!.getAttribute('href');
+/** The button of a row (0.9.1-1: a row of the breakdown sheets and of the dropdowns opens a sheet; it used to be a link). */
+const btn = (el: Element | null) => el!.closest('button')!;
 
 describe('Overzicht · rows against budget', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -998,13 +1022,18 @@ describe('Overzicht · rows against budget', () => {
     expect((overig.querySelector('.ov-cat-fill') as HTMLElement).style.width).toBe('0%');
     expect(overig.querySelector('.ov-cat')!.getAttribute('aria-label')).toBe('Overig: € 0,00, 0 % van € 350,45 budget en gemiddelde. Bekijk de transacties.');
     // The footnote under the list.
-    expect(screen.getByText(/^Budget zoals in de planning\. Zonder budget: het gemiddelde van wat je de laatste 6 maanden/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Budget zoals in de planning: het totaal per maand, vaste kosten inbegrepen. Zonder budget: het gemiddelde van wat je de laatste 6 maanden in deze categorie uitgaf. Hier telt alles wat in de categorie geboekt is tegenover het totaal; een vaste post telt hier bij de categorie van haar betaling, in de planning bij de categorie die je haar gaf.',
+      ),
+    ).toBeTruthy();
   });
 
   it('October, alles: only averages; Vervoer is over 100 % with the bar in --neg and what is too much', async () => {
     stub();
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     expect(refLine(await item('Vrije tijd'))).toBe('€ 27,95 van € 40,28 · 69 % · gemiddelde');
     expect(refLine(await item('Overig'))).toBe('€ 65,62 van € 71,47 · 92 % · gemiddelde');
     const vervoer = await item('Vervoer');
@@ -1034,6 +1063,7 @@ describe('Overzicht · rows against budget', () => {
     stub({ reports: gym, budgets: gymBudgets });
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     const row = await item('Vrije tijd');
     expect(refLine(row)).toBe('€ 25,00 van € 20,00 · 125 % · € 5,00 te veel');
     expect(row.querySelector('.ov-cat-fill--over')).not.toBeNull();
@@ -1069,6 +1099,7 @@ describe('Overzicht · rows against budget', () => {
     stub();
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     await item('Wonen');
     fireEvent.click(screen.getByRole('button', { name: /^Zichtrekening: in/ }));
     const d = within(dialog('Zichtrekening · oktober 2026'));
@@ -1084,6 +1115,7 @@ describe('Overzicht · subcategories in the list', () => {
     stub();
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     const wonen = await item('Wonen');
     const chevron = within(wonen).getByRole('button', { name: 'Toon subcategorieën van Wonen' });
     expect(chevron.tagName).toBe('BUTTON');
@@ -1102,7 +1134,11 @@ describe('Overzicht · subcategories in the list', () => {
       ['Energie', '€ 150,00'],
     ]);
     expect(subs.every((s) => !s.textContent!.includes('%'))).toBe(true);
-    expect(subs.map((s) => s.getAttribute('href'))).toEqual(['/transacties?categorie=1-zelf&periode=2026-10', '/transacties?categorie=10&periode=2026-10']);
+    // Each is a button that opens its sheet (0.9.1-1), not a link to Transacties; the sheet itself is tested in "subcategory sheets".
+    expect(subs.map((s) => [s.tagName, s.getAttribute('href'), s.getAttribute('aria-haspopup'), s.getAttribute('aria-label')])).toEqual([
+      ['BUTTON', null, 'dialog', 'Wonen zelf: € 1.000,00. Bekijk de transacties.'],
+      ['BUTTON', null, 'dialog', 'Energie: € 150,00. Bekijk de transacties.'],
+    ]);
     // The row itself still opens its sheet; closing the dropdown hides the subcategories again.
     fireEvent.click(chevron);
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
@@ -1120,6 +1156,7 @@ describe('Overzicht · subcategories in the list', () => {
     stub({ reports: pruned, budgets: { months: [] } });
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     await item('Wonen');
     expect(screen.queryByText('Abonnementen', { selector: '.ov-cat-name' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^Uitgaven in oktober 2026/ }));
@@ -1134,6 +1171,7 @@ describe('Overzicht · breakdown sheets', () => {
     stub();
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     for (const [name, blad] of [['Inkomen in oktober 2026: € 3.350,00. Bekijk de verdeling.', 'inkomen'], ['Uitgaven in oktober 2026: € 1.705,49. Bekijk de verdeling.', 'uitgaven'], ['Gespaard in oktober 2026: € 200,00. Bekijk de verdeling.', 'gespaard']]) {
       const tile = screen.getByRole('button', { name });
       expect(tile.getAttribute('aria-haspopup')).toBe('dialog');
@@ -1159,6 +1197,7 @@ describe('Overzicht · breakdown sheets', () => {
     stub();
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     fireEvent.click(screen.getByRole('button', { name: /^Inkomen in oktober 2026/ }));
     const el = dialog('Inkomen · oktober 2026');
     const d = within(el);
@@ -1167,20 +1206,22 @@ describe('Overzicht · breakdown sheets', () => {
     expect(rows.map(([name]) => name)).toEqual(['Loon', 'Overschrijvingen', 'Niet gecategoriseerd']);
     expect(rows.reduce((n, [, amount]) => n + cents(amount!), 0)).toBe(335000);
     expect(rows[0]).toEqual(['Loon', '€ 3.050,00']);
-    expect(href(d.getByText('Loon', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=inkomen-7&periode=2026-10');
-    expect(href(d.getByText('Overschrijvingen', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=inkomen-overschrijving&periode=2026-10');
-    expect(href(d.getByText('Niet gecategoriseerd', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=inkomen-geen&periode=2026-10');
+    // Every row, top or pseudo, is a button that opens its sheet (0.9.1-1; see "subcategory sheets"), no longer a link to Transacties.
+    expect(btn(d.getByText('Loon', { selector: '.ov-bd-name' })).getAttribute('aria-label')).toBe('Loon: € 3.050,00. Bekijk de transacties.');
+    expect(btn(d.getByText('Overschrijvingen', { selector: '.ov-bd-name' })).getAttribute('aria-label')).toBe('Overschrijvingen: € 250,00. Bekijk de transacties.');
+    expect(btn(d.getByText('Niet gecategoriseerd', { selector: '.ov-bd-name' })).getAttribute('aria-haspopup')).toBe('dialog');
+    expect(d.getByText('Loon', { selector: '.ov-bd-name' }).closest('a')).toBeNull();
 
-    // Loon has two entries (itself and Bonus): the chevron is a button beside the link, and drops the own part and the sub down.
+    // Loon has two entries (itself and Bonus): the chevron is a button beside the row's button, and drops the own part and the sub down.
     const chevron = d.getByRole('button', { name: 'Toon subcategorieën van Loon' });
-    expect(chevron.closest('a')).toBeNull();
+    expect(chevron.closest('.ov-bd-row')).toBeNull();
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
     expect(d.queryByText('Bonus')).toBeNull();
     fireEvent.click(chevron);
     expect(chevron.getAttribute('aria-expanded')).toBe('true');
-    expect(href(d.getByText('Loon zelf'))).toBe('/transacties?categorie=inkomen-7-zelf&periode=2026-10');
-    expect(href(d.getByText('Bonus'))).toBe('/transacties?categorie=inkomen-12&periode=2026-10');
-    expect(d.getByText('Bonus').closest('a')!.textContent).toBe('Bonus€ 200,00');
+    expect(btn(d.getByText('Loon zelf')).getAttribute('aria-label')).toBe('Loon zelf: € 2.850,00. Bekijk de transacties.');
+    expect(btn(d.getByText('Bonus')).getAttribute('aria-label')).toBe('Bonus: € 200,00. Bekijk de transacties.');
+    expect(btn(d.getByText('Bonus')).textContent).toBe('Bonus€ 200,00');
     // The other rows have no subcategories, so no chevron.
     expect(d.getAllByRole('button', { name: /^Toon subcategorieën/ })).toHaveLength(1);
   });
@@ -1189,17 +1230,19 @@ describe('Overzicht · breakdown sheets', () => {
     stub();
     renderAt('/overzicht');
     await loaded();
+    pickOctober();
     fireEvent.click(screen.getByRole('button', { name: /^Uitgaven in oktober 2026/ }));
     const el = dialog('Uitgaven · oktober 2026');
     const d = within(el);
     const rows = bdRows(el);
     expect(rows.map(([name]) => name)).toEqual(['Wonen', 'Boodschappen', 'Vervoer', 'Abonnementen', 'Overig', 'Vrije tijd']);
     expect(rows.reduce((n, [, amount]) => n + cents(amount!), 0)).toBe(170549);
-    expect(href(d.getByText('Wonen', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=1&periode=2026-10');
+    // Every row, top or sub, opens its sheet (0.9.1-1; see "subcategory sheets").
+    expect(btn(d.getByText('Wonen', { selector: '.ov-bd-name' })).getAttribute('aria-label')).toBe('Wonen: € 1.150,00. Bekijk de transacties.');
     fireEvent.click(d.getByRole('button', { name: 'Toon subcategorieën van Wonen' }));
-    expect(href(d.getByText('Wonen zelf'))).toBe('/transacties?categorie=1-zelf&periode=2026-10');
-    expect(href(d.getByText('Energie'))).toBe('/transacties?categorie=10&periode=2026-10');
-    expect(d.getByText('Energie').closest('a')!.textContent).toBe('Energie€ 150,00');
+    expect(btn(d.getByText('Wonen zelf')).getAttribute('aria-label')).toBe('Wonen zelf: € 1.000,00. Bekijk de transacties.');
+    expect(btn(d.getByText('Energie')).getAttribute('aria-label')).toBe('Energie: € 150,00. Bekijk de transacties.');
+    expect(btn(d.getByText('Energie')).textContent).toBe('Energie€ 150,00');
   });
 
   it('Gespaard, October: "Naar Spaarrekening" and a saving category with its sub; November: the one row of € 200,00', async () => {
@@ -1210,10 +1253,10 @@ describe('Overzicht · breakdown sheets', () => {
     let el = dialog('Gespaard · oktober 2026');
     let d = within(el);
     expect(bdRows(el)).toEqual([['Naar Spaarrekening', '€ 150,00'], ['Sparen', '€ 50,00']]);
-    expect(href(d.getByText('Naar Spaarrekening'))).toBe('/transacties?categorie=gespaard-rekening-2&periode=2026-10');
+    expect(btn(d.getByText('Naar Spaarrekening')).getAttribute('aria-label')).toBe('Naar Spaarrekening: € 150,00. Bekijk de transacties.');
     fireEvent.click(d.getByRole('button', { name: 'Toon subcategorieën van Sparen' }));
-    expect(href(d.getByText('Sparen zelf'))).toBe('/transacties?categorie=20-zelf&periode=2026-10');
-    expect(href(d.getByText('Pensioensparen'))).toBe('/transacties?categorie=21&periode=2026-10');
+    expect(btn(d.getByText('Sparen zelf')).getAttribute('aria-label')).toBe('Sparen zelf: € 30,00. Bekijk de transacties.');
+    expect(btn(d.getByText('Pensioensparen')).getAttribute('aria-label')).toBe('Pensioensparen: € 20,00. Bekijk de transacties.');
     expect(d.getByText(/^Gespaard telt overschrijvingen naar je spaar- en beleggingsrekeningen/)).toBeTruthy();
     expect(d.getByRole('link', { name: 'Open in Transacties' }).getAttribute('href')).toBe('/transacties?categorie=gespaard&periode=2026-10');
     escape();
@@ -1223,7 +1266,7 @@ describe('Overzicht · breakdown sheets', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Gespaard in november 2026/ }));
     el = dialog('Gespaard · november 2026');
     expect(bdRows(el)).toEqual([['Naar Spaarrekening', '€ 200,00']]);
-    expect(href(within(el).getByText('Naar Spaarrekening'))).toBe('/transacties?categorie=gespaard-rekening-2&periode=2026-11');
+    expect(btn(within(el).getByText('Naar Spaarrekening')).getAttribute('aria-label')).toBe('Naar Spaarrekening: € 200,00. Bekijk de transacties.');
   });
 
   it('November, alles: the Inkomen sheet adds up to € 3.318,50 and the Uitgaven sheet to its tile', async () => {
@@ -1246,21 +1289,26 @@ describe('Overzicht · breakdown sheets', () => {
     stub({ reports: () => ({ ...detailed(), accounts: [4], months: detailed().months.map((m) => ({ ...m, accounts: undefined })) }) });
     renderAt('/overzicht?rekening=4');
     await loaded();
+    pickOctober();
     fireEvent.click(screen.getByRole('button', { name: /^Inkomen in oktober 2026/ }));
-    expect(href(within(dialog('Inkomen · oktober 2026')).getByText('Loon', { selector: '.ov-bd-name' }))).toBe('/transacties?categorie=inkomen-7&periode=2026-10&rekening=4');
+    // The row opens its sheet, whose request and "Open in Transacties" carry the account (`?blad=` itself cannot).
+    fireEvent.click(btn(within(dialog('Inkomen · oktober 2026')).getByText('Loon', { selector: '.ov-bd-name' })));
+    expect(where()).toBe('/overzicht?rekening=4&blad=categorie-inkomen-7');
+    expect(within(dialog('Loon · oktober 2026')).getByRole('link', { name: 'Open in Transacties' }).getAttribute('href')).toBe('/transacties?categorie=inkomen-7&periode=2026-10&rekening=4');
   });
 
   it('opens from the URL after the load, on the default column; Escape drops ?blad= and an unknown value is dropped', async () => {
     stub();
     renderAt('/overzicht?blad=inkomen');
-    const sheet = await screen.findByRole('dialog', { name: 'Inkomen · oktober 2026' });
+    const sheet = await screen.findByRole('dialog', { name: 'Inkomen · november 2026' });
     await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
     escape();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(where()).toBe('/overzicht'));
   });
 
-  it.each(['onzin', 'inkomen-7', 'categorie-inkomen-7', 'categorie-gespaard'])('drops ?blad=%s without opening anything', async (value) => {
+  // `categorie-inkomen-7` is Loon's sheet since 0.9.1-1 (see "subcategory sheets"); `categorie-gespaard` (everything saved) is a link, not a row.
+  it.each(['onzin', 'inkomen-7', 'categorie-inkomen-99', 'categorie-gespaard'])('drops ?blad=%s without opening anything', async (value) => {
     stub();
     renderAt('/overzicht?blad=' + value);
     await loaded();
@@ -1272,7 +1320,7 @@ describe('Overzicht · breakdown sheets', () => {
     mockDesktop(true);
     stub();
     renderAt('/overzicht?blad=uitgaven');
-    const d = await screen.findByRole('dialog', { name: 'Uitgaven · oktober 2026' });
+    const d = await screen.findByRole('dialog', { name: 'Uitgaven · november 2026' });
     expect([d.classList.contains('sheet'), d.classList.contains('panel')]).toEqual([false, true]);
     expect(d.closest('.sheet-backdrop--panel')).not.toBeNull();
   });
@@ -1280,7 +1328,7 @@ describe('Overzicht · breakdown sheets', () => {
   it('without detail (an answer that holds none) the sheet says so and the tile still opens', async () => {
     stub({ reports: byScope });
     renderAt('/overzicht?blad=inkomen');
-    const d = await screen.findByRole('dialog', { name: 'Inkomen · oktober 2026' });
+    const d = await screen.findByRole('dialog', { name: 'Inkomen · november 2026' });
     expect(within(d).getByText('Geen verdeling beschikbaar.')).toBeTruthy();
   });
 });
@@ -1294,9 +1342,10 @@ describe('Overzicht · the bill beside the account filter (0.9-3d)', () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht');
     await ready();
-    const link = (await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' })) as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/overzicht/bon/maand/2026-10-01?scope=alles');
-    expect(link.getAttribute('title')).toBe('Bekijk de bon van oktober 2026');
+    // Maand opens on the running November: its receipt (the running month, as it is).
+    const link = (await screen.findByRole('link', { name: 'Bekijk de bon van november 2026' })) as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/overzicht/bon/maand/2026-11-01?scope=alles');
+    expect(link.getAttribute('title')).toBe('Bekijk de bon van november 2026');
     expect(link.closest('.ov-tools')).not.toBeNull();
     expect(link.previousElementSibling!.textContent).toContain('Alle rekeningen');
     expect(link.classList.contains('filter-chip')).toBe(true);
@@ -1312,7 +1361,7 @@ describe('Overzicht · the bill beside the account filter (0.9-3d)', () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht');
     await ready();
-    await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' });
+    await screen.findByRole('link', { name: 'Bekijk de bon van november 2026' });
     fireEvent.click(cols()[4]);
     expect(bon()!.getAttribute('href')).toBe('/overzicht/bon/maand/2026-09-01?scope=alles');
     expect(bon()!.getAttribute('aria-label')).toBe('Bekijk de bon van september 2026');
@@ -1330,7 +1379,7 @@ describe('Overzicht · the bill beside the account filter (0.9-3d)', () => {
     expect(bon()!.getAttribute('aria-label')).toBe('Bekijk de bon van K2 2026');
   });
 
-  it('is there on Jaar: the selected year, titled by the year alone (the column says "tot oktober")', async () => {
+  it('is there on Jaar: the selected year (the running one, lighter), titled by the year alone', async () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht?periode=jaar');
     await ready();
@@ -1338,6 +1387,7 @@ describe('Overzicht · the bill beside the account filter (0.9-3d)', () => {
     const link = await screen.findByRole('link', { name: 'Bekijk de bon van 2026' });
     expect(link.getAttribute('href')).toBe('/overzicht/bon/jaar/2026-01-01?scope=alles');
     // The first year's column is cut to the history ("vanaf november"); the receipt is the calendar year, and says what it holds.
+    expect(cols().map((c) => c.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
     fireEvent.click(cols()[0]);
     expect(bon()!.getAttribute('href')).toBe('/overzicht/bon/jaar/2025-01-01?scope=alles');
     expect(bon()!.getAttribute('aria-label')).toBe('Bekijk de bon van 2025');
@@ -1358,17 +1408,17 @@ describe('Overzicht · the bill beside the account filter (0.9-3d)', () => {
   it('carries the scope the viewer is in', async () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht', { ...ME, preferences: { ...ME.preferences, scope: 'persoonlijk' } });
-    expect((await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-10-01?scope=persoonlijk');
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van november 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-11-01?scope=persoonlijk');
   });
 
   it('carries the account the filter is on, and only then (not an account that is merely the only one)', async () => {
     stubApi({ reports: byScope });
     renderAt('/overzicht?rekening=1');
-    expect((await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-10-01?scope=alles&rekening=1');
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van november 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-11-01?scope=alles&rekening=1');
     cleanup();
     // Persoonlijk has one current account: it is shown as the subject, but the filter is not on it.
     renderAt('/overzicht', { ...ME, preferences: { ...ME.preferences, scope: 'persoonlijk' } });
-    expect((await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-10-01?scope=persoonlijk');
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van november 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-11-01?scope=persoonlijk');
   });
 
   it('writes the account into the receipt of a quarter, a year and a custom range too', async () => {
@@ -1390,5 +1440,311 @@ describe('Overzicht · the bill beside the account filter (0.9-3d)', () => {
     renderAt('/overzicht');
     await screen.findByText('Nog geen geschiedenis');
     expect(bon()).toBeNull();
+  });
+});
+
+// ---------- The running month, quarter and year (0.9.1-2) ----------
+
+describe('Overzicht · the running month, quarter and year (0.9.1-2)', () => {
+  it('Maand opens on the running November: its tiles, its rows "so far" of the budget and no trend; October keeps its trend', async () => {
+    stub();
+    renderAt('/overzicht');
+    await loaded();
+    expect(cols().map((c) => c.textContent)).toEqual(['mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov']);
+    expect(cols()[6].getAttribute('aria-pressed')).toBe('true');
+    expect(cols()[6].className).toContain('ov-col--running');
+    expect(tiles()).toEqual(['€ 3.318,50', '€ 1.756,42', '€ 200,00']);
+    expect(screen.getByText('Per categorie · november 2026')).toBeTruthy();
+    expect(screen.getByText('lopend · tot 18 nov', { selector: '.ov-compare' })).toBeTruthy();
+    expect(screen.getByText('Lichtere staven: november loopt nog, tot 18 nov.')).toBeTruthy();
+    await waitFor(() => expect(refLine(document.querySelector('.ov-cat-item')!)).toContain(' van '));
+    expect(refLine(await item('Vrije tijd'))).toBe('€ 66,90 van € 350,00 · 19 %');
+    expect(refLine(await item('Boodschappen'))).toBe('€ 295,21 van € 550,00 · 54 %');
+    // No trend on a partial column: not on the rows, not in their labels.
+    expect(document.querySelector('.ov-cat-trend')).toBeNull();
+    expect((await item('Vrije tijd')).querySelector('.ov-cat')!.getAttribute('aria-label')).not.toContain('t.o.v.');
+
+    // October (complete) is compared with September again.
+    pickOctober();
+    expect(cols()[5].getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('t.o.v. vorige maand', { selector: '.ov-compare' })).toBeTruthy();
+    expect((await item('Vervoer')).querySelector('.ov-cat-trend')!.textContent).toBe('t.o.v. vorige maand +22%');
+  });
+
+  it('Kwartaal ends in the running K4: lighter, opens on K3, its rows read against the months so far (October average, November budget), no trend', async () => {
+    const k4: ReportBudgets = {
+      months: [
+        { month: '2026-10', accounts: [{ id: 1, categories: [ref(3, 4028, 'average')] }, { id: 4, categories: [] }] },
+        { month: '2026-11', accounts: [{ id: 1, categories: [ref(3, 35000, 'budget')] }, { id: 4, categories: [] }] },
+      ],
+    };
+    stub({ budgets: k4 });
+    renderAt('/overzicht?periode=kwartaal');
+    await loaded();
+    expect(cols().map((c) => c.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true', 'false']);
+    expect(screen.getByText('Per categorie · K3 2026')).toBeTruthy();
+    // The bill follows the selection: the running quarter from its first day, as it is.
+    fireEvent.click(cols()[3]);
+    expect(cols()[3].getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('Per categorie · K4 2026')).toBeTruthy();
+    expect(screen.getByText('lopend · tot 18 nov', { selector: '.ov-compare' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Bekijk de bon van K4 2026' }).getAttribute('href')).toBe('/overzicht/bon/kwartaal/2026-10-01?scope=alles');
+    // October 27,95 + November 66,90 against 40,28 + 350,00: nothing pro-rated.
+    expect(refLine(await item('Vrije tijd'))).toBe('€ 94,85 van € 390,28 · 24 % · budget en gemiddelde');
+    expect(document.querySelector('.ov-cat-trend')).toBeNull();
+    // The sheet lists exactly the months of the column: the range of the months so far, not the whole calendar quarter.
+    fireEvent.click((await item('Vrije tijd')).querySelector('.ov-cat')!);
+    const link = within(dialog('Vrije tijd · K4 2026')).getByRole('link', { name: 'Open in Transacties' });
+    expect(link.getAttribute('href')).toBe('/transacties?categorie=3&periode=2026-10..2026-11');
+    expect(drillQuery(new URL(link.getAttribute('href')!, 'http://saldo.test').searchParams, ME.today)).toMatchObject({ category: '3', from: '2026-10-01', to: '2026-11-30' });
+  });
+
+  it('Jaar: 2026 holds January to the running November, lighter and selected; its sheet lists those months', async () => {
+    stub();
+    renderAt('/overzicht?periode=jaar&blad=categorie-1');
+    await loaded();
+    expect(cols().map((c) => c.textContent)).toEqual(['2025', '2026']);
+    expect(cols()[1].getAttribute('aria-pressed')).toBe('true');
+    expect(cols()[1].className).toContain('ov-col--running');
+    expect(cols()[0].className).not.toContain('ov-col--running');
+    expect(cols()[1].getAttribute('aria-label')).toMatch(/^2026 \(loopt nog, tot 18 nov\): /);
+    // Nine of the demo's September, October, and the running November.
+    expect(tiles()).toEqual(['€ 36.368,50', '€ 19.313,88', '€ 2.200,00']);
+    expect(screen.getByText('lopend · tot 18 nov', { selector: '.ov-compare' })).toBeTruthy();
+    const link = within(await screen.findByRole('dialog', { name: 'Wonen · 2026' })).getByRole('link', { name: 'Open in Transacties' });
+    expect(link.getAttribute('href')).toBe('/transacties?categorie=1&periode=2026-01..2026-11');
+  });
+});
+
+// ---------- Subcategory sheets (0.9.1-1) ----------
+
+// Boodschappen of October and November is booked on Supermarkt (a subcategory) and on itself; the totals of the answer do not change.
+const supermarkt: TreeCategory = { id: 11, name: 'Supermarkt', type: 'expense', colour: 'c2', icon: '🧺', parentId: 2, count: 0, saving: false };
+const SUB_TREE = [...TREE, supermarkt];
+const withSupermarkt = (): ReportMonths => {
+  const base = detailed();
+  const split = (m: ReportMonth, own: number): ReportMonth => ({ ...m, detail: { ...m.detail!, expenses: { ...m.detail!.expenses, '2': { '2': own, '11': 20000 } } } });
+  return { ...base, months: base.months.map((m) => (m.month === '2026-10' ? split(m, 5236) : m.month === '2026-11' ? split(m, 9521) : m)) };
+};
+const stubSub = (extra: Parameters<typeof stubApi>[0] = {}) => stub({ reports: withSupermarkt, categories: SUB_TREE, ...extra });
+// The custom range October to November opens on October (the last complete column) and keeps its URL: no other state to pick a column.
+const EIGEN = '/overzicht?periode=eigen&van=2026-10&tot=2026-11';
+const whereBack = () => screen.getByTestId('where').textContent;
+/** The query the page behind a link makes, as the sheet must have asked for it. */
+const queryOf = (link: HTMLElement) => drillQuery(new URL(link.getAttribute('href')!, 'http://saldo.test').searchParams, ME.today);
+
+describe('Overzicht · subcategory sheets (0.9.1-1)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('Uitgaven: a subcategory and the "zelf" row open their sheet in place; the heading is "Top › Sub", the link and the request are the sub\'s, and Back returns to the Uitgaven sheet', async () => {
+    const api = stubSub();
+    renderWithBack(EIGEN);
+    await loaded();
+    pickNovember();
+    fireEvent.click(screen.getByRole('button', { name: /^Uitgaven in november 2026/ }));
+    let d = within(dialog('Uitgaven · november 2026'));
+    fireEvent.click(d.getByRole('button', { name: 'Toon subcategorieën van Boodschappen' }));
+    const sub = d.getByRole('button', { name: 'Supermarkt: € 200,00. Bekijk de transacties.' });
+    expect(sub.getAttribute('aria-haspopup')).toBe('dialog');
+    fireEvent.click(sub);
+
+    // No page switch: the URL gets `blad`, the Uitgaven sheet is replaced by the sheet of the subcategory.
+    expect(whereBack()).toBe(EIGEN + '&blad=categorie-11');
+    const el = dialog('Boodschappen › Supermarkt · november 2026');
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(el.querySelector('.ov-blad-ico')!.textContent).toBe('🧺');
+    d = within(el);
+    await d.findByText('TotalEnergies');
+    // The row's own amount, and the same query as the Transacties link it shows.
+    expect(el.querySelector('.ov-blad-total')!.textContent).toBe('€ 200,00 · 4 transacties');
+    const link = d.getByRole('link', { name: 'Open in Transacties' });
+    expect(link.getAttribute('href')).toBe('/transacties?categorie=11&periode=2026-11');
+    expect(queryOf(link)).toEqual({ uncategorised: false, category: '11', account: undefined, from: '2026-11-01', to: '2026-11-30' });
+    expect(api.transactions).toHaveBeenCalledWith({ ...queryOf(link), scope: 'alles', limit: 30 }, expect.anything());
+
+    // Back returns to the Uitgaven sheet of the same column, Boodschappen still expanded (see the test below).
+    fireEvent.click(screen.getByRole('button', { name: 'test-back' }));
+    expect(whereBack()).toBe(EIGEN + '&blad=uitgaven');
+    d = within(dialog('Uitgaven · november 2026'));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(d.getByRole('button', { name: 'Toon subcategorieën van Boodschappen' }).getAttribute('aria-expanded')).toBe('true');
+
+    // The part booked on Boodschappen itself: "Boodschappen zelf", sheet "Boodschappen › zelf", `category=2-zelf`.
+    fireEvent.click(d.getByRole('button', { name: 'Boodschappen zelf: € 95,21. Bekijk de transacties.' }));
+    expect(whereBack()).toBe(EIGEN + '&blad=categorie-2-zelf');
+    const zelf = dialog('Boodschappen › zelf · november 2026');
+    // The top's own look (Boodschappen has no icon in this fixture: the default emoji), not the sub's 🧺.
+    expect(zelf.querySelector('.ov-blad-ico')!.textContent).toBe('🏷️');
+    const zelfLink = within(zelf).getByRole('link', { name: 'Open in Transacties' });
+    expect(zelfLink.getAttribute('href')).toBe('/transacties?categorie=2-zelf&periode=2026-11');
+    expect(api.transactions).toHaveBeenCalledWith({ ...queryOf(zelfLink), scope: 'alles', limit: 30 }, expect.anything());
+    expect(queryOf(zelfLink).category).toBe('2-zelf');
+    expect(zelf.querySelector('.ov-blad-total')!.textContent).toMatch(/^€ 95,21/);
+  });
+
+  it('Back from a subcategory opened in a breakdown sheet returns to that sheet with the same top expanded and focus on the tapped row, also through Escape; closing the sheet forgets it', async () => {
+    stubSub();
+    renderWithBack(EIGEN);
+    await loaded();
+    const tile = () => screen.getByRole('button', { name: /^Uitgaven in oktober 2026/ });
+    const sheet = () => within(dialog('Uitgaven · oktober 2026'));
+    const wonen = () => sheet().getByRole('button', { name: 'Toon subcategorieën van Wonen' });
+    const energie = () => sheet().getByRole('button', { name: 'Energie: € 150,00. Bekijk de transacties.' });
+    fireEvent.click(tile());
+    fireEvent.click(wonen());
+    fireEvent.click(energie());
+    dialog('Wonen › Energie · oktober 2026');
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+
+    // Back: the Uitgaven sheet again, Wonen still expanded, the focus on the (new) Energie button.
+    fireEvent.click(screen.getByRole('button', { name: 'test-back' }));
+    expect(whereBack()).toBe(EIGEN + '&blad=uitgaven');
+    expect(wonen().getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(energie());
+
+    // Escape on the sub sheet goes back through the history in the same way.
+    fireEvent.click(energie());
+    dialog('Wonen › Energie · oktober 2026');
+    escape();
+    await waitFor(() => expect(whereBack()).toBe(EIGEN + '&blad=uitgaven'));
+    expect(wonen().getAttribute('aria-expanded')).toBe('true');
+    await waitFor(() => expect(document.activeElement).toBe(energie()));
+
+    // A top row opened from the sheet gets its focus back too, and keeps its dropdown open.
+    fireEvent.click(sheet().getByRole('button', { name: 'Wonen: € 1.150,00. Bekijk de transacties.' }));
+    dialog('Wonen · oktober 2026');
+    fireEvent.click(screen.getByRole('button', { name: 'test-back' }));
+    expect(wonen().getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(sheet().getByRole('button', { name: 'Wonen: € 1.150,00. Bekijk de transacties.' }));
+
+    // Closing the breakdown sheet itself forgets it: opened again, everything is collapsed.
+    escape();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(whereBack()).toBe(EIGEN));
+    fireEvent.click(tile());
+    expect(wonen().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('"Per categorie": the sub row of the dropdown opens the same sheet as from the Uitgaven sheet, the top row still its own; focus returns to the sub when the sheet closes', async () => {
+    stubSub();
+    renderAt(EIGEN);
+    await loaded();
+    pickNovember();
+    const boodschappen = await item('Boodschappen');
+    fireEvent.click(within(boodschappen).getByRole('button', { name: 'Toon subcategorieën van Boodschappen' }));
+    const sub = within(boodschappen).getByRole('button', { name: 'Supermarkt: € 200,00. Bekijk de transacties.' });
+    // A native button: Enter and Space click it, as on every button (jsdom does not simulate that key handling).
+    expect([sub.tagName, sub.getAttribute('type'), sub.getAttribute('aria-haspopup'), sub.getAttribute('href')]).toEqual(['BUTTON', 'button', 'dialog', null]);
+    expect(sub.closest('.ov-cat')).toBeNull();
+    fireEvent.click(sub);
+    expect(where()).toBe(EIGEN + '&blad=categorie-11');
+    expect(dialog('Boodschappen › Supermarkt · november 2026')).toBeTruthy();
+
+    escape();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(where()).toBe(EIGEN));
+    await waitFor(() => expect(document.activeElement).toBe(sub));
+
+    // The top row of the same item: its own sheet.
+    fireEvent.click(boodschappen.querySelector('.ov-cat')!);
+    expect(where()).toBe(EIGEN + '&blad=categorie-2');
+    expect(dialog('Boodschappen · november 2026')).toBeTruthy();
+  });
+
+  // [sheet, tile, the row's text, the row's parent when it sits in a dropdown, `blad`, the sheet's heading, the `category` of its request, the amount, the lead is a dot]
+  const ROWS: [string, string, string | null, string, string, string, string, boolean][] = [
+    ['Inkomen', 'Loon', null, 'inkomen-7', 'Loon', 'income-7', '€ 3.050,00', false],
+    ['Inkomen', 'Overschrijvingen', null, 'inkomen-overschrijving', 'Overschrijvingen', 'income-transfer', '€ 250,00', true],
+    ['Inkomen', 'Niet gecategoriseerd', null, 'inkomen-geen', 'Niet gecategoriseerd', 'income-none', '€ 50,00', true],
+    ['Inkomen', 'Bonus', 'Loon', 'inkomen-12', 'Loon › Bonus', 'income-12', '€ 200,00', false],
+    ['Inkomen', 'Loon zelf', 'Loon', 'inkomen-7-zelf', 'Loon › zelf', 'income-7-zelf', '€ 2.850,00', false],
+    ['Gespaard', 'Naar Spaarrekening', null, 'gespaard-rekening-2', 'Naar Spaarrekening', 'saved-account-2', '€ 150,00', true],
+    ['Gespaard', 'Sparen', null, '20', 'Sparen', '20', '€ 50,00', false],
+    ['Gespaard', 'Pensioensparen', 'Sparen', '21', 'Sparen › Pensioensparen', '21', '€ 20,00', false],
+    ['Uitgaven', 'Wonen', null, '1', 'Wonen', '1', '€ 1.150,00', false],
+    ['Uitgaven', 'Energie', 'Wonen', '10', 'Wonen › Energie', '10', '€ 150,00', false],
+  ];
+  it.each(ROWS)('%s sheet: "%s" opens ?blad=categorie-%s without leaving the page', async (tile, row, parent, blad, heading, category, amount, dot) => {
+    const api = stubSub();
+    renderAt(EIGEN);
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: new RegExp('^' + tile + ' in oktober 2026') }));
+    const sheet = within(dialog(tile + ' · oktober 2026'));
+    if (parent) fireEvent.click(sheet.getByRole('button', { name: 'Toon subcategorieën van ' + parent }));
+    fireEvent.click(btn(sheet.getByText(row, { selector: parent ? '.ov-sub-name' : '.ov-bd-name' })));
+    expect(where()).toBe(EIGEN + '&blad=categorie-' + blad);
+    const el = dialog(heading + ' · oktober 2026');
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect([!!el.querySelector('.ov-blad-dot'), !!el.querySelector('.ov-blad-ico')]).toEqual([dot, !dot]);
+    await within(el).findByText('TotalEnergies');
+    expect(el.querySelector('.ov-blad-total')!.textContent).toBe(amount + ' · 4 transacties');
+    const link = within(el).getByRole('link', { name: 'Open in Transacties' });
+    expect(link.getAttribute('href')).toBe('/transacties?categorie=' + blad + '&periode=2026-10');
+    expect(api.transactions).toHaveBeenCalledWith({ ...queryOf(link), scope: 'alles', limit: 30 }, expect.anything());
+    expect(queryOf(link).category).toBe(category);
+  });
+
+  it('on desktop the sheet of a subcategory is the side panel, in place of the Uitgaven panel', async () => {
+    mockDesktop(true);
+    stubSub();
+    renderAt(EIGEN + '&blad=uitgaven');
+    const panel = await screen.findByRole('dialog', { name: 'Uitgaven · oktober 2026' });
+    expect(panel.classList.contains('panel')).toBe(true);
+    fireEvent.click(within(panel).getByRole('button', { name: 'Toon subcategorieën van Wonen' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'Energie: € 150,00. Bekijk de transacties.' }));
+    const sub = dialog('Wonen › Energie · oktober 2026');
+    expect([sub.classList.contains('panel'), sub.classList.contains('sheet')]).toEqual([true, false]);
+    expect(sub.closest('.sheet-backdrop--panel')).not.toBeNull();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  });
+
+  it('a reload with ?blad=categorie-<sub id> opens the sheet on the default column; closing then drops ?blad= without leaving the page', async () => {
+    stubSub();
+    renderAt(EIGEN + '&blad=categorie-11');
+    const el = await screen.findByRole('dialog', { name: 'Boodschappen › Supermarkt · oktober 2026' });
+    expect(el.querySelector('.ov-blad-total')!.textContent).toMatch(/^€ 200,00/);
+    await waitFor(() => expect(el.contains(document.activeElement)).toBe(true));
+    escape();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(where()).toBe(EIGEN));
+  });
+
+  it.each(['categorie-99999', 'categorie-11-zelf', 'categorie-inkomen-11', 'categorie-20-zelf-zelf'])('drops ?blad=%s without opening anything', async (value) => {
+    stubSub();
+    renderAt(EIGEN + '&blad=' + value);
+    await loaded();
+    await waitFor(() => expect(where()).toBe(EIGEN));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('waits for the category tree before it looks an income subcategory up: with the references in but the tree not, the blad is kept, then opens', async () => {
+    const api = stubSub();
+    let release!: (tree: TreeCategory[]) => void;
+    api.categories.mockImplementation(() => new Promise<TreeCategory[]>((resolve) => (release = resolve)));
+    renderAt(EIGEN + '&blad=categorie-inkomen-7-zelf');
+    await loaded();
+    // The references are in (a row says "geen budget" or reads against its reference), the tree is not.
+    await waitFor(() => expect(document.querySelector('.ov-cat-ref')).not.toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(where()).toBe(EIGEN + '&blad=categorie-inkomen-7-zelf');
+    await act(async () => release(structuredClone(SUB_TREE)));
+    const el = await screen.findByRole('dialog', { name: 'Loon › zelf · oktober 2026' });
+    expect(el.querySelector('.ov-blad-total')!.textContent).toMatch(/^€ 2\.850,00/);
+    expect(where()).toBe(EIGEN + '&blad=categorie-inkomen-7-zelf');
+  });
+
+  it('the sheet of one account keeps links for its subcategories: Transacties for that account (its ?blad= cannot carry it)', async () => {
+    stubSub();
+    renderAt(EIGEN);
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: /^Zichtrekening: in/ }));
+    const d = within(dialog('Zichtrekening · oktober 2026'));
+    fireEvent.click(d.getByRole('button', { name: 'Toon subcategorieën van Wonen' }));
+    const subs = Array.from(dialog('Zichtrekening · oktober 2026').querySelectorAll('.ov-sub'));
+    expect(subs.map((s) => [s.tagName, s.getAttribute('href')])).toEqual([
+      ['A', '/transacties?categorie=1-zelf&periode=2026-10&rekening=1'],
+      ['A', '/transacties?categorie=10&periode=2026-10&rekening=1'],
+    ]);
+    expect(subs.every((s) => s.getAttribute('aria-haspopup') === null)).toBe(true);
   });
 });

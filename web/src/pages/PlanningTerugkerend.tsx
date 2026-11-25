@@ -7,8 +7,10 @@ import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
 import { ErrorState, SkelList } from '../components/ui';
 import { api, errorMessage } from '../lib/api';
+import { categoryLabel } from '../lib/categories';
 import { eur } from '../lib/format';
 import { itemRhythm, missedNote, monthlySummary, suggestionRhythm, type RecurringItem, type RecurringSuggestion } from '../lib/planningItems';
+import type { TreeCategory } from '../lib/types';
 import { useAsync, type AsyncState } from '../lib/useAsync';
 import { ItemForm, type ItemFormMode } from './PlanningItemForm';
 import type { PlanningSectionProps } from './planningTabs';
@@ -16,23 +18,25 @@ import type { PlanningSectionProps } from './planningTabs';
 export interface TerugkerendProps extends PlanningSectionProps {
   /** The page's load of `GET /api/planning/items` (its count is in the section control). */
   items: AsyncState<{ items: RecurringItem[] }>;
+  /** The page's load of `GET /api/categories` (0.9.1-3): names the category of a row and gives the item sheet its Categorie field; without it neither shows. */
+  tree?: AsyncState<TreeCategory[]>;
 }
 
 const amountClass = (cents: number) => 'mono pl-rec-amount' + (cents < 0 ? ' pl-rec-amount--neg' : ' pl-rec-amount--pos');
 /** A suggestion has no id: its account, name, rhythm and amount tell it from the next. */
 const suggestionKey = (s: RecurringSuggestion) => [s.accountId, s.counterparty, s.frequency, s.day, s.amount].join('|');
 
-/** The first two lines of a row, shared by the confirmed and the ignored list: name, then rhythm. */
-function RowText({ item }: { item: RecurringItem }) {
+/** The first two lines of a row, shared by the confirmed and the ignored list: name, then rhythm (and the category's name, when there is one). */
+function RowText({ item, category }: { item: RecurringItem; category?: string }) {
   return (
     <span className="pl-rec-main">
       <span className="pl-rec-name">{item.description}</span>
-      <span className="pl-rec-sub">{itemRhythm(item)}</span>
+      <span className="pl-rec-sub">{itemRhythm(item, category)}</span>
     </span>
   );
 }
 
-export function PlanningTerugkerend({ planning, accounts, scope, reload, canEdit, items }: TerugkerendProps) {
+export function PlanningTerugkerend({ planning, accounts, scope, reload, canEdit, items, tree }: TerugkerendProps) {
   const { today, dataVersion, toast } = useApp();
   const uid = useId();
   const found = useAsync((signal) => api.planningSuggestions(scope, signal), [scope, dataVersion]);
@@ -112,8 +116,10 @@ export function PlanningTerugkerend({ planning, accounts, scope, reload, canEdit
       changed();
     });
 
+  const byId = new Map((tree?.data ?? []).map((c) => [c.id, c]));
   const row = (item: RecurringItem) => {
-    const text = <RowText item={item} />;
+    const own = item.categoryId == null ? undefined : byId.get(item.categoryId);
+    const text = <RowText item={item} category={own && categoryLabel(own, byId)} />;
     const amount = <span className={amountClass(item.amount)}>{eur(item.amount, true)}</span>;
     const date = missed.get(item.id);
     return (
@@ -229,6 +235,7 @@ export function PlanningTerugkerend({ planning, accounts, scope, reload, canEdit
           mode={form}
           accounts={accounts}
           today={planning?.today ?? today}
+          tree={tree}
           onClose={() => setForm(null)}
           onSaved={() => {
             setForm(null);

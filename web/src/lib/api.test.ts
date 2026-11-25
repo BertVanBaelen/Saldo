@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, errorMessage, NETWORK_MESSAGE, onUnauthorized, reportMonthsPath, transactionsPath } from './api';
+import { api, ApiError, errorMessage, NETWORK_MESSAGE, onUnauthorized, reportBudgetsPath, reportMonthsPath, transactionsPath } from './api';
 
 function respond(status: number, body: unknown, raw = false) {
   return vi.fn().mockResolvedValue(new Response(raw ? (body as string) : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -131,6 +131,11 @@ describe('api client', () => {
     vi.stubGlobal('fetch', fetch);
     await api.reportBudgets({ scope: 'persoonlijk', account: 1 });
     expect(fetch).toHaveBeenCalledWith('/api/reports/budgets?scope=persoonlijk&account=1', expect.objectContaining({ method: 'GET' }));
+    expect(reportBudgetsPath({ scope: 'alles', average: false })).toBe('/api/reports/budgets');
+    expect(reportBudgetsPath({ average: true })).toBe('/api/reports/budgets?average=1');
+    expect(reportBudgetsPath({ scope: 'gedeeld', account: 4, average: true })).toBe('/api/reports/budgets?scope=gedeeld&account=4&average=1');
+    await api.reportBudgets({ scope: 'persoonlijk', account: 1, average: true });
+    expect(fetch).toHaveBeenCalledWith('/api/reports/budgets?scope=persoonlijk&account=1&average=1', expect.objectContaining({ method: 'GET' }));
     await api.reportBalances({ scope: 'gedeeld', from: '2026-11' });
     expect(fetch).toHaveBeenCalledWith('/api/reports/balances?scope=gedeeld&from=2026-11', expect.objectContaining({ method: 'GET' }));
   });

@@ -23,19 +23,21 @@ export interface CategoryPickerProps {
   disabled?: boolean;
   /** A save is running: the chosen category is marked and shows `aria-busy`. */
   busy?: boolean;
+  /** Offer only what this accepts, for a main category and a subcategory each (a recurring item: the ones that fit its kind). Also hides the toggle to the other type. */
+  only?: (c: TreeCategory) => boolean;
   /** The id of the element that names the group, or a text when there is none. */
   labelledBy?: string;
   label?: string;
 }
 
-export function CategoryPicker({ tree, error, onRetry, amount, value, onPick, disabled, busy, labelledBy, label }: CategoryPickerProps) {
+export function CategoryPicker({ tree, error, onRetry, amount, value, onPick, only, disabled, busy, labelledBy, label }: CategoryPickerProps) {
   const [other, setOther] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [chosen, setChosen] = useState<number | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const focusKey = useRef<string | null>(null);
   const byId = useMemo(() => new Map((tree ?? []).map((c) => [c.id, c])), [tree]);
-  const groups = useMemo(() => groupTree(tree ?? []), [tree]);
+  const groups = useMemo(() => groupTree(only ? (tree ?? []).filter(only) : (tree ?? [])), [tree, only]);
 
   // Focus follows the step, in the same commit that swaps it: into the first row, back onto the tile.
   useLayoutEffect(() => {
@@ -169,13 +171,15 @@ export function CategoryPicker({ tree, error, onRetry, amount, value, onPick, di
         </div>
       ) : (
         <p className="cat-pick-note" {...group}>
-          {type === 'income' ? 'Nog geen inkomstencategorieën.' : 'Nog geen uitgavencategorieën.'}
+          {only ? 'Geen passende categorieën.' : type === 'income' ? 'Nog geen inkomstencategorieën.' : 'Nog geen uitgavencategorieën.'}
         </p>
       )}
       {cur && cur.parentId !== null && <p className="cat-pick-cur">{categoryLabel(cur, byId)}</p>}
-      <button type="button" className="cat-pick-link cat-pick-toggle" data-key="type" onClick={() => setOther(!other)}>
-        {type === 'income' ? 'Toon uitgaven' : 'Toon inkomsten'}
-      </button>
+      {!only && (
+        <button type="button" className="cat-pick-link cat-pick-toggle" data-key="type" onClick={() => setOther(!other)}>
+          {type === 'income' ? 'Toon uitgaven' : 'Toon inkomsten'}
+        </button>
+      )}
     </div>
   );
 }

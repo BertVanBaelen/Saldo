@@ -1,2 +1,8 @@
 # Test fixture, not a secret: the made-up link token in TestTokensNotLogged.
 ab3d903bda820bb498722e35a2c37efb8b41747f:server/internal/server/security_test.go:generic-api-key:81
+# Test vectors, not secrets: the published example values of RFC 8291 Appendix A (Web Push encryption) and the
+# example token of RFC 8292 (VAPID), copied verbatim into the push package's tests (checked against the RFC text).
+aeaa6f466b168e7e0e06ee4ff0c0bb98a7833a2d:server/internal/push/vapid_test.go:generic-api-key:62
+aeaa6f466b168e7e0e06ee4ff0c0bb98a7833a2d:server/internal/push/encrypt_test.go:generic-api-key:26
+aeaa6f466b168e7e0e06ee4ff0c0bb98a7833a2d:server/internal/push/encrypt_test.go:generic-api-key:28
+aeaa6f466b168e7e0e06ee4ff0c0bb98a7833a2d:server/internal/push/encrypt_test.go:generic-api-key:29

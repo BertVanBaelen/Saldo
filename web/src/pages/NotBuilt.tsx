@@ -10,9 +10,8 @@ interface Soon {
   text: string;
 }
 
-export const SOON: Partial<Record<ScreenId, Soon>> = {
-  meldingen: { version: '0.9', text: 'Pushmeldingen en e-mails per soort aan- of uitzetten, met een vooruitblik en stille uren.' },
-};
+// No screen waits for a later version right now: add `id: { version, text }` here when one does.
+export const SOON: Partial<Record<ScreenId, Soon>> = {};
 
 export function NotBuilt({ id }: { id: ScreenId | null }) {
   const item = id ? navItem(id) : undefined;

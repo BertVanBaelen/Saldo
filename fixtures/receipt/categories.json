@@ -1,0 +1,262 @@
+[
+  {
+    "id": 1,
+    "name": "Wonen",
+    "type": "expense",
+    "colour": "c1",
+    "parentId": null,
+    "icon": "🏠",
+    "count": 26,
+    "saving": false
+  },
+  {
+    "id": 11,
+    "name": "Huur",
+    "type": "expense",
+    "colour": "c1",
+    "parentId": 1,
+    "icon": "🏠",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 12,
+    "name": "Energie",
+    "type": "expense",
+    "colour": "c1",
+    "parentId": 1,
+    "icon": "⚡",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 13,
+    "name": "Internet en tv",
+    "type": "expense",
+    "colour": "c1",
+    "parentId": 1,
+    "icon": "📶",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 14,
+    "name": "Verzekeringen",
+    "type": "expense",
+    "colour": "c1",
+    "parentId": 1,
+    "icon": "🛡️",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 2,
+    "name": "Boodschappen",
+    "type": "expense",
+    "colour": "c2",
+    "parentId": null,
+    "icon": "🛒",
+    "count": 66,
+    "saving": false
+  },
+  {
+    "id": 15,
+    "name": "Supermarkt",
+    "type": "expense",
+    "colour": "c2",
+    "parentId": 2,
+    "icon": "🛒",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 16,
+    "name": "Bakker",
+    "type": "expense",
+    "colour": "c2",
+    "parentId": 2,
+    "icon": "🍽️",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 3,
+    "name": "Vrije tijd",
+    "type": "expense",
+    "colour": "c3",
+    "parentId": null,
+    "icon": "🎟️",
+    "count": 18,
+    "saving": false
+  },
+  {
+    "id": 17,
+    "name": "Uitgaan",
+    "type": "expense",
+    "colour": "c3",
+    "parentId": 3,
+    "icon": "🍺",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 18,
+    "name": "Sport",
+    "type": "expense",
+    "colour": "c3",
+    "parentId": 3,
+    "icon": "🏋️",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 19,
+    "name": "Cultuur",
+    "type": "expense",
+    "colour": "c3",
+    "parentId": 3,
+    "icon": "🎬",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 20,
+    "name": "Vakantie",
+    "type": "expense",
+    "colour": "c3",
+    "parentId": 3,
+    "icon": "✈️",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 4,
+    "name": "Vervoer",
+    "type": "expense",
+    "colour": "c4",
+    "parentId": null,
+    "icon": "🚗",
+    "count": 33,
+    "saving": false
+  },
+  {
+    "id": 21,
+    "name": "Brandstof",
+    "type": "expense",
+    "colour": "c4",
+    "parentId": 4,
+    "icon": "⛽",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 22,
+    "name": "Openbaar vervoer",
+    "type": "expense",
+    "colour": "c4",
+    "parentId": 4,
+    "icon": "🚌",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 23,
+    "name": "Onderhoud",
+    "type": "expense",
+    "colour": "c4",
+    "parentId": 4,
+    "icon": "🔧",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 5,
+    "name": "Abonnementen",
+    "type": "expense",
+    "colour": "c5",
+    "parentId": null,
+    "icon": "🔁",
+    "count": 39,
+    "saving": false
+  },
+  {
+    "id": 24,
+    "name": "Streaming",
+    "type": "expense",
+    "colour": "c5",
+    "parentId": 5,
+    "icon": "📺",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 25,
+    "name": "Telefoon",
+    "type": "expense",
+    "colour": "c5",
+    "parentId": 5,
+    "icon": "📱",
+    "count": 0,
+    "saving": false
+  },
+  {
+    "id": 6,
+    "name": "Overig",
+    "type": "expense",
+    "colour": "c6",
+    "parentId": null,
+    "icon": "📦",
+    "count": 18,
+    "saving": false
+  },
+  {
+    "id": 26,
+    "name": "Sparen",
+    "type": "expense",
+    "colour": "c9",
+    "parentId": null,
+    "icon": "🏦",
+    "count": 0,
+    "saving": true
+  },
+  {
+    "id": 7,
+    "name": "Salaris",
+    "type": "income",
+    "colour": "soft",
+    "parentId": null,
+    "icon": "💼",
+    "count": 13,
+    "saving": false
+  },
+  {
+    "id": 8,
+    "name": "Terugbetaling",
+    "type": "income",
+    "colour": "soft",
+    "parentId": null,
+    "icon": "↩️",
+    "count": 2,
+    "saving": false
+  },
+  {
+    "id": 9,
+    "name": "Bijdrage",
+    "type": "income",
+    "colour": "soft",
+    "parentId": null,
+    "icon": "🐷",
+    "count": 26,
+    "saving": false
+  },
+  {
+    "id": 10,
+    "name": "Overig inkomen",
+    "type": "income",
+    "colour": "soft",
+    "parentId": null,
+    "icon": "👛",
+    "count": 0,
+    "saving": false
+  }
+]

@@ -185,6 +185,9 @@ func (s *Store) Redeem(ctx context.Context, token, name, email, password, ip str
 		if _, err := tx.ExecContext(ctx, `UPDATE devices SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`, now, t.user.Int64); err != nil {
 			return err
 		}
+		if err := deleteOtherPush(ctx, tx, t.user.Int64, 0); err != nil {
+			return err
+		}
 		if err := s.audit(ctx, tx, EventPasswordChanged, t.user.Int64, 0, ip, "reset"); err != nil {
 			return err
 		}
@@ -352,6 +355,9 @@ func (s *Store) ChangePassword(ctx context.Context, user, keep int64, current, n
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE devices SET revoked_at = ? WHERE user_id = ? AND id <> ? AND revoked_at IS NULL`, now, user, keep); err != nil {
+		return err
+	}
+	if err := deleteOtherPush(ctx, tx, user, keep); err != nil {
 		return err
 	}
 	if err := s.audit(ctx, tx, EventPasswordChanged, user, keep, ip, ""); err != nil {

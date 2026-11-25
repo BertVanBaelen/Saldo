@@ -4,8 +4,9 @@
 // State in the URL: the tab in the hash (`#kalender`, `#maanden`, `#budget`) and the month in `?maand=YYYY-MM`
 // (default the running month; it picks the smallest horizon that holds it). Every URL write goes through `go`: the router's
 // `useSearchParams` setter would drop the hash. The old links `#terugkerend` and `#eenmalig` lead on to `/planning/instellen#…`.
+// `?rekening=<id>` (the link of a planning notification, plan 0.9-3 step 8) names the account the warning is about; see `link` below.
 // The tabs are components with a shared props object (planningTabs.ts).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../app/AppContext';
 import { Icon } from '../components/Icon';
@@ -25,6 +26,10 @@ import { addMonths, horizonFor, monthOffset, TABS, type PlanningTabId, type Plan
 import './Planning.css';
 
 const MONTH_PARAM = /^\d{4}-(0[1-9]|1[0-2])$/;
+/** An account id in `?rekening=`: plain digits, no sign, no leading zero. Anything else is no link at all. */
+const ACCOUNT_PARAM = /^[1-9]\d{0,8}$/;
+/** The scope that holds an account: the one the in-app scope switch would pick for it. */
+const scopeOf = (a: Account): Scope => (a.kind === 'shared' ? 'gedeeld' : 'persoonlijk');
 
 /** The desktop buffer pill: each account's own buffer on its own line (never a sum), with the way to change it. */
 function BufferPill({ accounts }: { accounts: Account[] }) {
@@ -94,13 +99,14 @@ export function Planning() {
 
 function PlanningPage() {
   useTitle('Planning');
-  const { me, today, scope, dataVersion, refreshShell } = useApp();
+  const { me, today, scope, setScope, dataVersion, refreshShell } = useApp();
   const { search, hash } = useLocation();
   const navigate = useNavigate();
   // The horizon the Maanden tab picked (3 months after the running one by default); a `?maand=` further out widens it (`eff`).
   const [horizon, setHorizonState] = useState<Horizon>(3);
 
   const raw = new URLSearchParams(search).get('maand');
+  const rekening = new URLSearchParams(search).get('rekening');
   // Whole months from a running month to `?maand`; a month before it or beyond the 24 months of the longest horizon falls back to the running month.
   const offsetIn = (run: string) => {
     const asked = raw && MONTH_PARAM.test(raw) ? monthOffset(run, raw) : 0;
@@ -139,8 +145,30 @@ function PlanningPage() {
   };
 
   const all = accounts.data;
+  // `?rekening=<id>`: the account a notification is about. A link counts only when the id is a CURRENT account of `GET /api/accounts`, which
+  // lists what the viewer can see (the client cannot tell a hidden account from an unknown id, and need not). Anything else (not a number,
+  // not visible, a savings account) is no link: no error, no switch, no reordering.
+  // The page then (1) switches to the account's scope ONLY when the account is outside the active one (Persoonlijk holds no shared
+  // account and the other way round; Alles lists every account, so a click from there never rewrites the user's saved choice). The switch
+  // is exactly one tap on the scope switch (`setScope`): it shows at once and it is saved as the user's choice; there is no second
+  // mechanism. It happens once per link (`handled`), so a later tap on another scope is not undone while `?rekening` is still in the URL.
+  // While it is pending the skeleton shows, not the old scope.
+  // (2) puts that account FIRST wherever the page lists accounts: accounts are independent (one summary card, one buffer line and one month
+  // list per account, never a sum), so "first" is the order of `current`, which the summary, the buffer pill and every tab follow. The URL
+  // is left alone: the link stays shareable and `maand` and the hash keep working as before.
+  const link = rekening && ACCOUNT_PARAM.test(rekening) ? (all ?? []).find((a) => a.id === Number(rekening) && isCurrent(a)) : undefined;
+  const [handled, setHandled] = useState<string | null>(null);
+  const switching = !!link && handled !== rekening && !inScope(link, scope);
+  useEffect(() => {
+    if (!link || !rekening || handled === rekening) return;
+    setHandled(rekening);
+    if (!inScope(link, scope)) setScope(scopeOf(link));
+  }, [link, rekening, handled, scope, setScope]);
+
   const inView = (all ?? []).filter((a) => inScope(a, scope));
-  const current = inView.filter(isCurrent);
+  const listed = inView.filter(isCurrent);
+  const first = link && listed.find((a) => a.id === link.id);
+  const current = first ? [first, ...listed.filter((a) => a !== first)] : listed;
   const rows = answer
     ? current.flatMap((a): PlanRow[] => {
         const p = answer.accounts.find((x) => x.id === a.id);
@@ -162,10 +190,12 @@ function PlanningPage() {
       refreshShell();
     },
     canEdit: current.some((a) => a.permission === 'edit'),
+    focus: first?.id,
   };
 
   let body;
   if (!all) body = accounts.error ? <ErrorState message={accounts.error} onRetry={accounts.reload} /> : <PageSkeleton />;
+  else if (switching) body = <PageSkeleton />;
   else if (!current.length || (rows && !rows.length)) body = <NoAccounts scope={scope} savingsOnly={inView.length > 0} />;
   else if (plan.error) body = <ErrorState message={plan.error} onRetry={plan.reload} />;
   else {

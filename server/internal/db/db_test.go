@@ -19,6 +19,7 @@ var tables = []string{
 	"import_batches", "rules", "recurring_items", "budgets", "planned_items",
 	"transfer_overrides", "notification_prefs", "push_subscriptions", "notification_log",
 	"app_settings", "schema_migrations",
+	"push_keys", // 0.9-2
 }
 
 func TestMigrationsApplyToEmptyDatabaseAndAreIdempotent(t *testing.T) {

@@ -124,21 +124,25 @@ Priority: **M** = must, **S** = should, **C** = could.
 |---|---|---|---|
 | Rekening staat rood | The forecast puts an account below € 0 within the look-ahead | on | on |
 | Rekening komt in de buffer | The forecast puts an account below its own buffer within the look-ahead | on | off |
-| Koppeling verloopt | 14 and 3 days before a consent expires | on | on |
+| Koppeling verloopt | 14 and 3 days before a consent expires (to the owner, and to the manager of a shared account the link feeds when no other source covers it) | on | on |
 | Synchronisatie gestopt | A consent lapsed or the sync keeps failing | on | on |
 | Iemand sluit aan | Someone joins a shared account you manage | on | on |
+| Uitnodiging voor een gedeelde rekening | A manager invites you to a shared account | on | on |
 | Bijdrage ontbreekt **[C]** | A member's contribution to a shared account hasn't arrived by the 3rd | off | off |
-| Te categoriseren | New uncategorised transactions, at most once a day at 19:00 | on | off |
+| Te categoriseren | New bank-synced uncategorised transactions since the last digest (not imports), at most once a day from 19:00, count only | on | off |
 | Nieuw toestel aangemeld | Someone signed in to your login on a new device, which is now trusted (7) | on | always |
+| Weekoverzicht | Sunday 19:00, for the week Monday to Sunday that is ending; a receipt of income, expenses per category and subcategory, saved and what is left, against the previous week | off | off |
+| Maandoverzicht | 19:00 on the last day of the month, the same receipt with each category against its budget | off | off |
 
 - **Always by email, cannot be turned off:** login code, invitation, password reset link, new device signed in.
-- **Look-ahead** for the planning warnings: 1, 3 (default) or 6 months. One message per account, per month and per state, sent the morning after the forecast changes, so not every day again.
-- **Quiet hours** for push, default 22:00 to 07:00. A **test notification** button in the settings. Security messages (new device) ignore quiet hours.
+- **Week and month overview** (opt-in, one per user over all their current accounts, "ter info"): the push is generic and opens a page where the overview prints as a receipt (Kokonut UI's Receipt Printer, adapted) with every category, subcategory and price; the e-mail carries the same receipt as a static block. The comparison is against the previous full period even though the period is still running at 19:00 (today's bank rows are not booked yet, which the receipt says). Nothing is sent for an empty period.
+- **Look-ahead** for the planning warnings: 1, 3 (default) or 6 months. They follow Start's alert (the first red month and the first buffer month before it, by month end). One message per account, per month and per state, sent at 07:00 the morning after the forecast changes, so not every day again; at most one per account per morning (red before buffer); when the month is back to ok the state re-arms and a new dip notifies again. After the upgrade the first run sends nothing (it records the current states).
+- **Quiet hours** for push, 22:00 to 07:00 (a plain switch, on by default); a push that falls due inside them waits until they end. A **test notification** button in the settings. Security messages (new device) ignore quiet hours.
 - Messages about an account always **name the account**: its name, personal or shared, and the masked IBAN (for example `BE68 •••• •••• 4821`). The email subject names it too.
-- **Push content:** title, one line and the key amount (for example `−€ 1.033`). On Android the red planning notification expands to a small chart of the coming months; iPhone shows only the title and the line (no image), with the app icon. On the **lock screen** no amounts or account names are shown **[verify]** (risk 14). On Android this depends on the "sensitive notifications" setting, on iPhone on "Show previews: when unlocked".
+- **Push content:** title, one line and the key amount (for example `−€ 1.033`). On Android the red planning notification expands to a small chart of the coming months; iPhone shows only the title and the line (no image), with the app icon. On the **lock screen** no amounts or account names are shown **[verify]** (risk 14): a web push cannot hide its text, so pushes are generic until the spike of 0.9-2 shows otherwise, and the expandable chart is not built. On Android this depends on the "sensitive notifications" setting, on iPhone on "Show previews: when unlocked".
 - **iPhone:** Web Push works only for Saldo added to the home screen (iOS 16.4 or later); the user allows notifications from inside the installed app.
 - **Android status-bar icon:** a one-colour silhouette of the app icon (the coin peeking from the wallet), 24 × 24 dp with 2 dp margin, delivered as a vector. The colour of the notification circle follows the type: green for info, ochre for a warning, red for an error. iPhone always shows the app icon.
-- **Email style:** a white card with the Saldo logo, a short label and the key amount or code in the colour of the type, an account block (see above), a details table, one green button, and a footer that says why you get the email, with a link to the notification settings (not on login, invitation, password and new-device emails). Templates in v1 (10): login code, planning red, planning in the buffer, link expires in 14 days, link expires in 3 days, sync stopped, invitation, member joined, new password, new device signed in. Dutch, with a plain-text part. Sender `saldo@<your-domain>`.
+- **Email style:** a white card with the Saldo logo, a short label and the key amount or code in the colour of the type, an account block (see above), a details table, one green button, and a footer that says why you get the email, with a link to the notification settings (not on login, invitation, password and new-device emails). Templates in v1: the ten of the design (login code, planning red, planning in the buffer, link expires in 14 days, link expires in 3 days, sync stopped, invitation, member joined, new password, new device signed in) plus the six 0.9 adds (shared-account invitation, contribution missing, to categorise, the manager variants of the bank mails, the week and the month overview). Dutch, with a plain-text part. Sender `saldo@<your-domain>`.
 
 ## 5. Calculation rules
 
@@ -341,7 +345,7 @@ Each milestone ends with something you can use. Spikes are short checks, not fea
 | **M3** | 0.6 | **Shared account and transfers:** account membership, privacy tests for every endpoint, transfer detection, scope filter, contributions | Your partner links the shared account, joins it, and sees only her accounts |
 | **M4** | 0.7 | **Overview of past months:** period picker, categories, trends | You can answer "what did we spend per category last quarter" |
 | **M5** | 0.8 | **Planning and forecast:** recurring items, budgets, one-offs, projection per account | The core question in section 1 is answered for the next 3 months, per account |
-| **Notifications** | 0.9 | Remaining emails, Web Push on Android and iPhone, warnings, Meldingen settings | A forecast that turns red sends one push and one email the next morning |
+| **Notifications** | 0.9 | Remaining emails, Web Push on Android and iPhone, warnings, Meldingen settings, the week and month receipt | A forecast that turns red sends one push and one email the next morning |
 | **Release** | 1.0 | Export, full security review, backup and restore test, documentation, 1.0.0 | Both of you use Saldo daily and a restore has been tested |
 | **v2** | 2.0 | Investments: manual or imported values per platform, net worth, optional price lookups by ISIN | Net worth per platform is visible |
 

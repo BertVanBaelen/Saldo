@@ -1,0 +1,166 @@
+{
+  "period": "maand",
+  "from": "2026-10-01",
+  "to": "2026-10-31",
+  "label": "Oktober 2026",
+  "scope": "alles",
+  "scopeLabel": "Alle rekeningen samen · ter info",
+  "running": false,
+  "partialFrom": null,
+  "stand": "2026-11-18T20:00:00+01:00",
+  "income": {
+    "total": 335000,
+    "prev": 330000,
+    "trend": {
+      "pct": 2,
+      "kind": "flat"
+    },
+    "rows": [
+      {
+        "key": "7",
+        "name": "Salaris",
+        "emoji": "💼",
+        "amount": 285000
+      },
+      {
+        "key": "9",
+        "name": "Bijdrage",
+        "emoji": "🐷",
+        "amount": 45000
+      },
+      {
+        "key": "8",
+        "name": "Terugbetaling",
+        "emoji": "↩️",
+        "amount": 5000
+      }
+    ]
+  },
+  "expenses": {
+    "total": 170549,
+    "prev": 176133,
+    "trend": {
+      "pct": -3,
+      "kind": "flat"
+    },
+    "groups": [
+      {
+        "key": "1",
+        "name": "Wonen",
+        "emoji": "🏠",
+        "amount": 115000,
+        "prev": 115000,
+        "trend": {
+          "pct": 0,
+          "kind": "flat"
+        },
+        "budget": {
+          "amount": 115000,
+          "kind": "average",
+          "pct": 100
+        }
+      },
+      {
+        "key": "2",
+        "name": "Boodschappen",
+        "emoji": "🛒",
+        "amount": 25236,
+        "prev": 27106,
+        "trend": {
+          "pct": -7,
+          "kind": "down"
+        },
+        "budget": {
+          "amount": 26821,
+          "kind": "average",
+          "pct": 94
+        }
+      },
+      {
+        "key": "4",
+        "name": "Vervoer",
+        "emoji": "🚗",
+        "amount": 14060,
+        "prev": 11560,
+        "trend": {
+          "pct": 22,
+          "kind": "up"
+        },
+        "budget": {
+          "amount": 12900,
+          "kind": "average",
+          "pct": 109
+        }
+      },
+      {
+        "key": "5",
+        "name": "Abonnementen",
+        "emoji": "🔁",
+        "amount": 6896,
+        "prev": 6896,
+        "trend": {
+          "pct": 0,
+          "kind": "flat"
+        },
+        "budget": {
+          "amount": 6896,
+          "kind": "average",
+          "pct": 100
+        }
+      },
+      {
+        "key": "6",
+        "name": "Overig",
+        "emoji": "📦",
+        "amount": 6562,
+        "prev": 8881,
+        "trend": {
+          "pct": -26,
+          "kind": "down"
+        },
+        "budget": {
+          "amount": 7147,
+          "kind": "average",
+          "pct": 92
+        }
+      },
+      {
+        "key": "3",
+        "name": "Vrije tijd",
+        "emoji": "🎟️",
+        "amount": 2795,
+        "prev": 6690,
+        "trend": {
+          "pct": -58,
+          "kind": "down"
+        },
+        "budget": {
+          "amount": 4028,
+          "kind": "average",
+          "pct": 69
+        }
+      }
+    ]
+  },
+  "saved": {
+    "total": 20000,
+    "prev": 20000,
+    "trend": {
+      "pct": 0,
+      "kind": "flat"
+    },
+    "rows": [
+      {
+        "key": "account-2",
+        "name": "Naar Spaarrekening",
+        "amount": 20000
+      }
+    ]
+  },
+  "result": {
+    "total": 144451,
+    "prev": 133867
+  },
+  "notes": [],
+  "empty": false
+}

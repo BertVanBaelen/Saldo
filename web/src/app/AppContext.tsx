@@ -2,6 +2,7 @@
 // See analysis/concepts/app-shell.md and analysis/concepts/scope.md.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, errorMessage } from '../lib/api';
+import { syncPush } from '../lib/push';
 import type { Alert, Me, Scope, SyncStatus, Theme, User } from '../lib/types';
 
 export interface Toast {
@@ -105,6 +106,11 @@ export function AppProvider({ me: initial, children }: { me: Me; children: React
   const scopeRef = useRef(scope);
 
   useEffect(() => applyTheme(theme), [theme]);
+
+  // Web Push heals itself once per app start, after sign-in (the provider mounts when the viewer is known): src/lib/push.ts.
+  useEffect(() => {
+    void syncPush(initial.user.id);
+  }, [initial.user.id]);
 
   const toast = useCallback((text: string, action?: Toast['action']) => {
     window.clearTimeout(toastTimer.current);

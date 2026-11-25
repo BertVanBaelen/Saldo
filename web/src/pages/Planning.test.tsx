@@ -2,12 +2,12 @@
 // The geometry, the words and the grid, chart, day card and plan form have their own tests; this one checks that they are wired.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider } from '../app/AppContext';
 import { ApiError } from '../lib/api';
 import type { Planning as Forecast, PlanAccount, PlanDay, PlanMonth, PlanState } from '../lib/planning';
-import type { Scope } from '../lib/types';
-import { asMember, GEDEELD, ME, stubApi, ZICHT } from '../test/helpers';
+import type { Account, Scope } from '../lib/types';
+import { asMember, GEDEELD, ME, SPAAR, stubApi, ZICHT } from '../test/helpers';
 import { Planning } from './Planning';
 
 // ---------- The demo answer: Zichtrekening (1, buffer € 900) and Gedeelde rekening (4, buffer € 600) ----------
@@ -356,5 +356,179 @@ describe('Planning states', () => {
     fireEvent.click(screen.getByRole('button', { name: /Opnieuw proberen/ }));
     expect(await screen.findByRole('group', { name: 'Dagen in november' })).toBeTruthy();
     await waitFor(() => expect(api.planning).toHaveBeenCalledTimes(2));
+  });
+});
+
+// ---------- ?rekening=<id>: the link of a planning notification (plan 0.9-3 step 8) ----------
+
+describe('Planning ?rekening (a notification link)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const desktop = () => vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
+
+  // A second personal current account (id 5), so that "first" can be told from the API order; its forecast is the shared fixture's (every month ok).
+  const TWEEDE: Account = { ...ZICHT, id: 5, name: 'Tweede rekening', colour: 'blue', buffer: 60000 };
+  const ACCOUNTS = [ZICHT, TWEEDE, SPAAR, GEDEELD];
+  const withTweede = (scope: Scope, horizon: number, month?: string): Forecast => {
+    const f = demo(scope, horizon, month);
+    if (scope !== 'gedeeld') f.accounts.push({ ...accountOf(4, month ?? '2026-11'), id: 5 });
+    return f;
+  };
+  /** The summary cards of the page, top to bottom (the names of the accounts). */
+  const summary = () => Array.from(document.querySelectorAll('.pl-sum-card .pl-sum-name')).map((e) => e.textContent);
+  const pressed = (name: string) => screen.getByRole('button', { name }).getAttribute('aria-pressed');
+  const summaryReady = (name: string) => screen.findByRole('button', { name: new RegExp('^' + name + ': (vrij te besteden|tekort)') });
+
+  it('leaves Alles alone for a link (Alles lists every account), saves nothing and lists the linked account first', async () => {
+    // Without the link the accounts come in the API order.
+    const plain = stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    renderPlanning('/planning');
+    await summaryReady('Tweede rekening');
+    expect(summary()).toEqual(['Zichtrekening', 'Tweede rekening', 'Gedeelde rekening']);
+    expect(plain.savePreferences).not.toHaveBeenCalled();
+    cleanup();
+
+    const api = stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    renderPlanning('/planning?rekening=5');
+    await summaryReady('Tweede rekening');
+    // The account is in Alles already: the saved choice is not rewritten by a click on a notification.
+    expect(pressed('Alles')).toBe('true');
+    // (The stub's spy is shared with the plain render above: no call may have asked for another scope.)
+    expect(api.planning.mock.calls.every((c) => c[0] === 'alles')).toBe(true);
+    expect(api.savePreferences).not.toHaveBeenCalled();
+    // The linked account is on top, the others keep the API order; the buffer pill follows; the URL is left as linked.
+    expect(summary()).toEqual(['Tweede rekening', 'Zichtrekening', 'Gedeelde rekening']);
+    expect(screen.getAllByText(/^Buffer · /).map((e) => e.textContent)).toEqual(['Buffer · Tweede rekening', 'Buffer · Zichtrekening', 'Buffer · Gedeelde rekening']);
+    expect(where()).toBe('/planning?rekening=5');
+  });
+
+  it('switches to Persoonlijk for a personal account when the saved scope is Gedeeld, and saves the scope like the switch does', async () => {
+    const api = stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    renderPlanning('/planning?rekening=5', inScope('gedeeld'));
+    await summaryReady('Tweede rekening');
+    expect(pressed('Persoonlijk')).toBe('true');
+    expect(pressed('Gedeeld')).toBe('false');
+    expect(api.planning).toHaveBeenLastCalledWith('persoonlijk', 3, undefined, expect.anything());
+    // Persoonlijk holds the two personal accounts; the linked one is on top, the shared account is out of view.
+    expect(summary()).toEqual(['Tweede rekening', 'Zichtrekening']);
+    expect(api.savePreferences).toHaveBeenCalledTimes(1);
+    expect(api.savePreferences).toHaveBeenCalledWith({ scope: 'persoonlijk' });
+    expect(where()).toBe('/planning?rekening=5');
+  });
+
+  it('switches to Gedeeld for a shared account, and does nothing when the account is in the scope already', async () => {
+    const api = stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    const first = renderPlanning('/planning?rekening=4', inScope('persoonlijk'));
+    await summaryReady('Gedeelde rekening');
+    expect(pressed('Gedeeld')).toBe('true');
+    expect(api.planning).toHaveBeenLastCalledWith('gedeeld', 3, undefined, expect.anything());
+    expect(summary()).toEqual(['Gedeelde rekening']);
+    expect(api.savePreferences).toHaveBeenCalledTimes(1);
+    expect(api.savePreferences).toHaveBeenCalledWith({ scope: 'gedeeld' });
+    first.unmount();
+    api.savePreferences.mockClear();
+
+    // Already in Persoonlijk: no switch, nothing saved; the account still comes first.
+    renderPlanning('/planning?rekening=5', inScope('persoonlijk'));
+    await summaryReady('Tweede rekening');
+    expect(pressed('Persoonlijk')).toBe('true');
+    expect(summary()).toEqual(['Tweede rekening', 'Zichtrekening']);
+    expect(api.savePreferences).not.toHaveBeenCalled();
+  });
+
+  it('does not undo a later tap on the scope switch while ?rekening is still in the URL', async () => {
+    const api = stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    // Saved scope Persoonlijk, a link to the shared account: the link switches to Gedeeld.
+    renderPlanning('/planning?rekening=4', inScope('persoonlijk'));
+    await summaryReady('Gedeelde rekening');
+    expect(pressed('Gedeeld')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Alles' }));
+    await summaryReady('Zichtrekening');
+    expect(pressed('Alles')).toBe('true');
+    // Still first in the wider view; saved twice in all (the link, then the tap).
+    expect(summary()).toEqual(['Gedeelde rekening', 'Zichtrekening', 'Tweede rekening']);
+    expect(api.savePreferences.mock.calls.map((c) => c[0])).toEqual([{ scope: 'gedeeld' }, { scope: 'alles' }]);
+  });
+
+  // The client cannot tell an account the viewer may not see from one that does not exist: GET /api/accounts lists the visible accounts only.
+  it.each([
+    ['an id that is not in the list (unknown, or an account the viewer cannot see)', '3'],
+    ['a savings account', '2'],
+    ['text', 'abc'],
+    ['a number with a fraction', '1.5'],
+    ['an exponent', '1e0'],
+    ['a leading zero', '05'],
+    ['zero', '0'],
+    ['a negative number', '-1'],
+    ['an empty value', ''],
+  ])('falls back to the normal view, silently, for %s (?rekening=%s)', async (_what, id) => {
+    const api = stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    const path = '/planning?rekening=' + id;
+    renderPlanning(path);
+    // Wait for something that only shows once the accounts are in, so "nothing changed" is not just "nothing loaded yet".
+    await summaryReady('Gedeelde rekening');
+    expect(summary()).toEqual(['Zichtrekening', 'Tweede rekening', 'Gedeelde rekening']);
+    expect(pressed('Alles')).toBe('true');
+    expect(api.savePreferences).not.toHaveBeenCalled();
+    expect(api.planning.mock.calls.map((c) => c[0])).toEqual(['alles']);
+    expect(screen.queryByRole('button', { name: /Opnieuw proberen/ })).toBeNull();
+    expect(where()).toBe(path);
+  });
+
+  it('keeps the saved scope when the link is not usable (a savings account under Gedeeld)', async () => {
+    const api = stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    renderPlanning('/planning?rekening=2', inScope('gedeeld'));
+    await summaryReady('Gedeelde rekening');
+    expect(pressed('Gedeeld')).toBe('true');
+    expect(summary()).toEqual(['Gedeelde rekening']);
+    expect(api.savePreferences).not.toHaveBeenCalled();
+    expect(api.planning.mock.calls.map((c) => c[0])).toEqual(['gedeeld']);
+  });
+
+  it('works together with ?maand and the hash: the month opens, the tab stays, the URL is not rewritten', async () => {
+    const api = stubApi({ planning: demo });
+    renderPlanning('/planning?maand=2027-02&rekening=1#maanden');
+    expect((await screen.findAllByRole('button', { name: /^Februari 2027/ }))[0].getAttribute('aria-expanded')).toBe('true');
+    expect(pressed('Alles')).toBe('true');
+    expect(tab('Maanden').getAttribute('aria-selected')).toBe('true');
+    expect(api.planning).toHaveBeenLastCalledWith('alles', 3, '2027-02', expect.anything());
+    expect(api.savePreferences).not.toHaveBeenCalled();
+    expect(where()).toBe('/planning?maand=2027-02&rekening=1#maanden');
+  });
+
+  it('keeps ?rekening and the hash in the URL when the month or the tab changes', async () => {
+    stubApi({ planning: demo });
+    renderPlanning('/planning?rekening=1#kalender');
+    await screen.findByRole('group', { name: 'Dagen in november' });
+    fireEvent.click(screen.getByRole('button', { name: 'Volgende maand' }));
+    expect(where()).toBe('/planning?rekening=1&maand=2026-12#kalender');
+    fireEvent.click(tab('Maanden'));
+    expect(where()).toBe('/planning?rekening=1&maand=2026-12#maanden');
+  });
+
+  it('lists the linked account first in the Maanden tab, with the month of ?maand open in every list', async () => {
+    stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    renderPlanning('/planning?maand=2027-02&rekening=5#maanden');
+    const first = await screen.findByRole('region', { name: 'Tweede rekening' });
+    expect(Array.from(document.querySelectorAll('.pl-malist')).map((e) => e.getAttribute('aria-label'))).toEqual(['Tweede rekening', 'Zichtrekening', 'Gedeelde rekening']);
+    expect(within(first).getByRole('button', { name: /^Februari 2027/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(within(screen.getByRole('region', { name: 'Zichtrekening' })).getByRole('button', { name: /^Februari 2027/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(Array.from(document.querySelectorAll('.pl-bufcard-label')).map((e) => e.textContent)).toEqual(['Buffer · Tweede rekening', 'Buffer · Zichtrekening', 'Buffer · Gedeelde rekening']);
+  });
+
+  it('on a desktop selects the linked account in the right panel, also when another account is the first one that is not ok', async () => {
+    desktop();
+    // February: the Zichtrekening is red, the Tweede rekening is fine. Without the link the red one is selected.
+    stubApi({ planning: withTweede, accounts: ACCOUNTS });
+    const plain = renderPlanning('/planning?maand=2027-02#maanden');
+    await screen.findByRole('region', { name: 'Tweede rekening' });
+    const sub = () => document.querySelector('.pl-mdetail-sub')!.textContent;
+    expect(sub()).toBe('Zichtrekening');
+    plain.unmount();
+
+    renderPlanning('/planning?maand=2027-02&rekening=5#maanden');
+    const linked = await screen.findByRole('region', { name: 'Tweede rekening' });
+    expect(sub()).toBe('Tweede rekening');
+    expect(within(linked).getByRole('button', { name: /^Februari 2027/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(screen.getByRole('region', { name: 'Zichtrekening' })).getByRole('button', { name: /^Februari 2027/ }).getAttribute('aria-pressed')).toBe('false');
   });
 });

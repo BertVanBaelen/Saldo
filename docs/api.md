@@ -14,7 +14,7 @@ The web app talks to the Go server over JSON under `/api`. This file is the cont
 ## Endpoints
 
 ### `GET /api/health`
-`200 {"status": "ok", "version": "0.8.1", "demo": true}`. Also served as `GET /healthz` for the Home Assistant watchdog.
+`200 {"status": "ok", "version": "0.9.0", "demo": true}`. Also served as `GET /healthz` for the Home Assistant watchdog.
 
 ### `GET /api/me`
 ```json
@@ -784,6 +784,43 @@ Money in cents. One entry per account of the selection, never a sum over account
 
 The balance is **reconstructed backwards** from the account's newest balance snapshot, the forecast's rules 1 and 2 (`planning/history.go`, the code `GET /api/planning` runs for the running month's past days): the balance now is the snapshot plus the booked rows dated after the snapshot's date, and the end of day d is that balance minus the booked rows dated after d (pending rows never count). So the line of the running month is the forecast's own past `days`, and the point before it is the month's `start`. A missing booked row shifts every earlier day (the line drifts); the buffer drawn for a past day is today's. An account without any balance snapshot answers `"missing": true` and `"points": []` (as `GET /api/planning` lists it under `missing`), with its `buffer`. The history is account-level (snapshot, booked rows and buffer are the same for every member of a shared account: Bert and Partner get the same bytes for it); only the selection follows the viewer, so another user's account never appears.
 
+### `GET /api/reports/receipt` (0.9-3c)
+The receipt of one week, month, quarter, year or custom range of months (Overzicht's Maand, Kwartaal, Jaar and Eigen, and the week of the notifications): what came in, went out per category and subcategory, went to savings, the result and the comparison with the previous period, built once in Go (`receipt.Build`, package `server/internal/receipt`) so the week and month e-mail (0.9-3e) and the receipt page (0.9-3d) show the same numbers. It sums the report rule of `GET /api/reports/months` over the period (`ledger.ReportRange`, with `detail`); nothing is recomputed.
+
+Query: `periode` `week`, `maand`, `kwartaal`, `jaar` or `eigen` (required); `van` a date `YYYY-MM-DD` **inside** the period (required; the server normalises it to the period, so the 1st, the 15th and the 31st give the same bytes); `tot` a date `YYYY-MM-DD`, required for `eigen` and ignored for the other kinds; `scope` `alles` (default), `persoonlijk` or `gedeeld`; `account` an account id (a current account the viewer holds; it wins over `scope`, and the answer echoes the `scope` asked, `alles` by default). A **week** is the ISO week, Monday to Sunday (Brussels dates; 29 Dec 2025 is in week 1 of 2026), a **month** the calendar month, a **quarter** the calendar quarter (Jan–Mar, Apr–Jun, Jul–Sep, Oct–Dec) holding `van`, a **year** the calendar year holding `van`, and **eigen** the whole months from `van`'s month to `tot`'s (the 1st of the one to the last day of the other, at most 600 months, as `GET /api/reports/months`). The answer's `period` echoes the kind; `from` and `to` are the normalised dates.
+
+```json
+{"period": "maand", "from": "2026-10-01", "to": "2026-10-31", "label": "Oktober 2026",
+ "scope": "alles", "scopeLabel": "Alle rekeningen samen · ter info",
+ "running": false, "partialFrom": null, "stand": "2026-11-18T20:00:00+01:00",
+ "income":   {"total": 335000, "prev": 330000, "trend": {"pct": 2, "kind": "flat"},
+              "rows": [{"key": "7", "name": "Salaris", "emoji": "💼", "amount": 285000}, ...]},
+ "expenses": {"total": 170549, "prev": 176133, "trend": {"pct": -3, "kind": "flat"}, "groups": [
+   {"key": "2", "name": "Boodschappen", "emoji": "🛒", "amount": 25236, "prev": 27106,
+    "trend": {"pct": -7, "kind": "down"}, "budget": {"amount": 26821, "kind": "average", "pct": 94},
+    "children": [{"key": "21", "name": "Supermarkt", "amount": 20000}, {"key": "2", "name": "Boodschappen zelf", "amount": 5236}]},
+   {"key": "none", "name": "Niet gecategoriseerd", "amount": 840, "prev": 3285, "trend": {"pct": -74, "kind": "down"}}, ...]},
+ "saved":    {"total": 20000, "prev": 20000, "trend": {"pct": 0, "kind": "flat"},
+              "rows": [{"key": "account-2", "name": "Naar Spaarrekening", "amount": 20000}]},
+ "result":   {"total": 144451, "prev": 133867},
+ "notes": [], "empty": false}
+```
+(The excerpt is shortened and its `children` are illustrative: the demo's October has none. The full answer on the demo is `fixtures/receipt/model-month-2026-10.json`, pinned by `TestReceiptFixtures`.)
+
+- Money in cents, as everywhere. The model carries numbers and words only: no colour and no verdict. `account` (the id) is present only when one account was asked for. Every list is `[]`, never `null`; `partialFrom`, `prev`, `trend`, `budget` and `emoji` are absent or `null` as shown below.
+- `label` is "Week 47 · 16–22 nov 2026" (the ISO week-year around New Year, "26 okt – 1 nov 2026" across a month end), "Oktober 2026", "3e kwartaal 2026 · jul–sep", "Jaar 2026" ("Jaar 2025 · vanaf 1 nov" for a year the history only partly covers; the other kinds say that with `partialFrom` and the note), or for `eigen` "Mei – oktober 2026", "Nov 2025 – okt 2026" across years and "Oktober 2026" for one month. `scopeLabel` names the account, or the scope's accounts with "samen · ter info" when several are summed: a sum of accounts is shown as information, never read against a budget.
+- `running` is true while the period's last day is today (Brussels) or later: the current week, month, quarter, year or range is valid, and the bank delivers today's rows only tomorrow, so the snapshot reads low (the `notes` say so). `stand` is the server's time of the answer (RFC 3339, Brussels). **Pending rows stay out**, as in every report.
+- **Sections and rows.** `income`, `expenses` and `saved` hold a `total` and their rows (`rows`; for expenses `groups`). A row is a top category (`key` its id, `name`, `emoji`), largest amount first, rows of 0 left out; the pseudo rows: income `transfer` "Overschrijvingen" and `none` "Niet gecategoriseerd", expenses `none` "Niet gecategoriseerd", `toShared` "Naar gedeelde rekening" and `toOwn` "Naar eigen rekening", saved `account-<id>` "Naar <rekening>". `children` are the own-category amounts of the top's subcategories (largest first, `key` the category id) and are present only when two or more entries are in the row; the part booked on the top itself is the row "<top> zelf" (the wording of Overzicht's breakdown). A category the tree no longer knows is "Categorie <id>".
+- **Comparison.** `prev` and `trend` come from the previous period of the same kind (last week, last month, the previous quarter, the previous calendar year; for `eigen` the range of as many whole months just before it) **even while the period is running**. They are absent when there is no comparison: the previous period starts before the account's history, or the current period is a partial first one (`partialFrom` is then the date the history starts, "Je geschiedenis begint op 19 nov." is in `notes`). `trend.kind` is `up` (rounded percent above +5), `down` (below −5), `flat`, or `new` (the previous amount was 0 or below, `pct` absent); no trend on a row of 0 or less. `pct` is JavaScript's `Math.round`, the number Overzicht shows.
+- **Budgets, months only.** An expense group of a month carries `budget`: `amount` the sum of the references of the selection's accounts for that category (`GET /api/reports/budgets`: the budget row, else the full-amount average of the history), `kind` `budget`, `average` or `mixed` (accounts that disagree), `pct` the group's amount as a percent of it (absent when the reference is 0, never negative). A week, a quarter, a year and a custom range have no `budget`; a category with no reference has none. In `alles` it is the sum of each account's plan, shown as text, never judged.
+- `result` is `income − expenses − saved`, and the previous period's in `prev`.
+- `notes` are lines for under the receipt: "Loopt nog, tot zo 22 nov: de bank geeft de transacties van vandaag pas morgen door." while running; "Niet volledig: <rekening> is niet bijgewerkt sinds <datum>." (or "…is nog niet bijgewerkt.") for each bank account of the selection whose sync fails or is stale and whose last sync was not after the period (manual accounts never); "Je geschiedenis begint op <datum>." for a partial first period.
+- `empty` is true when nothing of income, expenses or saved is in the period (the trigger of 0.9-3e then sends nothing). A period before the history is such an answer: `200`, not an error.
+
+Errors, all JSON like the others and checked before anything is read: unknown or missing `periode` `400 invalid` "Kies week, maand, kwartaal, jaar of eigen."; a missing or malformed `van` (also `2026-1-5`, `2026-02-30`) `400 invalid` "Kies een datum als JJJJ-MM-DD."; for `eigen` a missing or empty `tot` `400 invalid` "Kies een einddatum.", a malformed one the date message above, a `tot` before `van` `400 invalid` "De einddatum ligt voor de begindatum.", more than 600 months `400 invalid` "Kies een periode van hooguit 50 jaar."; a period that has not begun (its first day is after today; the running quarter, year or range is fine) `400 invalid` "De periode ligt in de toekomst."; an unknown `scope` `400` "Kies alles, persoonlijk of gedeeld."; a savings account `400` "Kies een betaalrekening."; another user's account (current or savings), an unknown or a malformed `account` `404 not_found` "Rekening niet gevonden." (one answer for all of them). Without a session `401`.
+
+**Privacy.** Only the viewer's own current accounts enter a sum (rule 1 and 5 below); the budget references are account-level, the same for every member of an account; the notes name only accounts the viewer holds. `TestReceiptIsPerViewer` shows that rows added to Partner's accounts change none of Bert's receipts byte for byte.
+
 ## Categorise a transaction (phase 0.4-3)
 
 A category by hand, "apply to similar and create a rule", a note and a split, per transaction. Every route needs `permission: edit` on the transaction's account: a transaction the viewer cannot see (another user's, an unknown or a malformed id) answers `404 not_found` ("Transactie niet gevonden."), one of a read-only account `403 forbidden`. Each change is one database transaction and answers the transaction as in `GET /api/transactions`. Error messages never repeat a note, a counterparty or an amount, and none of them is logged.
@@ -983,6 +1020,58 @@ Every group of the account, by key, then sign (income first). `runs` has the can
 - `missed` lists the occurrences "Verwacht, niet gezien" (`itemId`, `label`, `date`, `amount`): not counted, until a payment arrives or the item's next date passes. `dataDate` is the newest date Saldo has the account's rows for (the newest successful sync; a manual account: its snapshot or newest row), shown as "Stand van …" when it is before today. `balance` is the start of the forecast (the snapshot plus booked rows dated after it, up to today: a booked row dated after today does not count in it, it is part of the day grid when its day comes), not always Start's "Saldo nu" (known limits, plan 0.8).
 - `missing` lists the ids of current accounts of the scope without a balance snapshot (they are not in `accounts`).
 - `contribution` is on every month of a **shared** account (the flag or more than one member; a flagged account with one member has that member at 100 %) and nowhere else. `costs`, `otherIncome` and `bufferGap` are the engine's `Need` parts in cents, `need` is the total rounded up to whole euros, and each member's `required` is their part in whole euros, rounded up: ⌈need × share / 100⌉, with `share` the stored `contribution_share` or, while none is stored, 100 / members (shown rounded down: 33 for three) and the part ⌈need / members⌉. Members in member order with the names `GET /api/accounts/{id}/contributions` shows, only for accounts the viewer holds. `need` and `required` are the same for every member and for a read-only one; the manager sets the shares (`PUT /api/accounts/{id}/contribution-shares`). The same figures are on `GET /api/accounts/{id}/contributions` (see "Contributions"); `GET /api/alerts` carries the planning alerts (see there).
+
+## Mail images (0.9-1)
+### `GET /mail/<file>` (public)
+The logo and the two account icons the notification mails point at: `logo.png`, `person.png` (green, personal account) and `people.png` (violet, shared account), PNG because Gmail and Outlook drop SVG. The mails link them as `<public_url>/mail/<file>` (the layout does so only when it is given a base URL). **No session and no data**: mail clients fetch images without cookies, and the files are static, embedded in the binary (`mail.Image`) and looked up by exact file name. `200` with `Content-Type: image/png`, `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=86400` and an `ETag` (`304` for a matching `If-None-Match`); `GET` and `HEAD` only (other methods get the web app's `405`). Anything else under `/mail/` (the folder, another name, another case, a deeper or an encoded path) is a plain `404`, never the web app's `index.html` and never a listing. It lives outside `/api/` and is not part of the JSON contract.
+
+## Push (0.9-2)
+Web Push to the installed app (RFC 8030/8291/8292, package `server/internal/push`). A subscription belongs to the **session's device**: it is stored, removed and tested for that device only, one per device, at most 10 per user. Signing a device out (`DELETE /api/devices/{id}`, `POST /api/devices/sign-out-others`, `POST /api/auth/logout`, a password change or reset) deletes its subscription in the same transaction; deleting the device or the user deletes it by cascade; the hourly `push-prune` job removes those of devices idle for 90 days (no longer signed in). A push service that answers `404`/`410` (gone) deletes the subscription. Push is **enabled** when the server has a sender and its VAPID key and `public_url` is `https` (a phone subscribes only on an https origin); demo mode uses the fake sender (nothing leaves the demo) and is always enabled; there each demo user gets one stand-in device "Demo-toestel" the first time it subscribes. All routes need a signed-in device and keep the CSRF rule of every other route.
+
+### `GET /api/push/key`
+`200 {"key": "<VAPID public key: base64url, uncompressed P-256 point>", "enabled": true | false}`. The key is the `applicationServerKey` for `PushManager.subscribe`. When `enabled` is false the app shows push as unavailable and does not subscribe.
+
+### `PUT /api/push/subscription`
+Body: `PushSubscription.toJSON()`, i.e. `{"endpoint": "https://…", "expirationTime": null, "keys": {"p256dh": "…", "auth": "…"}}` (`expirationTime` is accepted and ignored; other unknown fields are refused). `204`. Stored for this device (replacing its earlier one) with the platform from the User-Agent (`android`, `ios`, `other`) and `last_used_at` now. The endpoint must be `https` on port 443 on a known push service (`fcm.googleapis.com`, `updates.push.services.mozilla.com`, `*.push.apple.com`, `*.notify.windows.com`), at most 2048 characters; `p256dh` a 65-octet uncompressed P-256 point and `auth` 16 octets (base64url, with or without padding). An endpoint that another row holds (the same browser under another sign-in) is deleted and inserted anew for the caller, never updated: only that browser knows the endpoint. Errors: `400 invalid` "Dit toestel kan geen pushmeldingen krijgen." (endpoint or keys refused, or the session has no device), `400 invalid` "Je hebt al 10 toestellen met pushmeldingen." (10 subscriptions on other devices), `400 invalid` "De gegevens kloppen niet." (bad JSON), `415`, `503 unavailable` "Pushmeldingen zijn niet beschikbaar: Saldo heeft een https-adres nodig." (push not enabled).
+
+### `DELETE /api/push/subscription`
+`204`: removes this device's subscription; also when it has none.
+
+### `POST /api/notifications/test`
+Sends the generic test push to **this device's** subscription only: payload `{"title": "Testmelding", "body": "Pushmeldingen werken op dit toestel.", "url": "/meldingen", "tone": "info", "tag": "test"}`, TTL 15 minutes, topic `test`. `200 {"sent": true}` (the push service accepted it; in demo mode the fake recorded it, nothing arrives). Errors: `409 conflict` "Pushmeldingen staan uit op dit toestel." (this device has no subscription, or the push service answered that it is gone: it is then deleted), `429 rate_limited` with `Retry-After` (more than 5 sends per user per hour; a `409` does not count), `503 unavailable` (push not enabled, message as above), `500 internal` (another delivery error; logged without the endpoint).
+
+## Notifications (0.9-4)
+The Meldingen settings of the signed-in user (package `server/internal/notify`, `settings.go`; the types are the one table `notify.Types`). **Per user only**: the viewer comes from the session, no route takes a user id, and one user's change never reads or writes another's. The push switch of a **device** is not here (it is that device's subscription, see "Push"); the e-mail channel, quiet hours, look-ahead and the chips per type are per user. Nothing is cached: the next `Deliver` and the next planning run read what was saved. Both routes need a signed-in device and keep the rules of every other write (JSON content type, 64 KiB, the cross-origin refusal).
+
+### `GET /api/notifications`
+```json
+{
+  "channels": { "email": true, "quietHours": true },
+  "lookahead": 3,
+  "groups": [ { "id": "planning", "label": "Planning" }, { "id": "bank", "label": "Bank" }, { "id": "gedeeld", "label": "Gedeeld" },
+              { "id": "transacties", "label": "Transacties" }, { "id": "overzicht", "label": "Overzicht" }, { "id": "beveiliging", "label": "Beveiliging" } ],
+  "types": [
+    { "key": "rood", "name": "Rekening staat rood", "subline": "Als een rekening in de planning onder € 0 zakt", "group": "planning", "dot": "neg", "push": true, "email": true, "emailLocked": false },
+    { "key": "device", "name": "Nieuw toestel aangemeld", "subline": "Als iemand inlogt op een nieuw toestel", "group": "beveiliging", "dot": "warn", "push": true, "email": true, "emailLocked": true }
+  ]
+}
+```
+(`types` shortened here: the answer lists all eleven.)
+- `channels.email` is `users.notify_email` (the e-mail channel; the new-device mail ignores it), `channels.quietHours` is `users.quiet_hours` (a push inside 22:00-07:00 Brussels waits; `device` ignores it) and `lookahead` is `users.lookahead_months`: 1, 3 or 6 (default 3), the planning warnings' look-ahead, also Start's alert.
+- `groups` are in screen order; `label` is mixed case (the screen styles it uppercase). `types` follows `notify.Types`: grouped as `groups`, in the order of the screen, and ready to render. `key` is `rood`, `buffer`, `consent`, `stop`, `joined`, `invite`, `contrib`, `cat`, `week`, `month`, `device`; `group` is a `groups[].id`; `dot` is the colour token without its dashes (`neg`, `warn`, `shared`, `green`: `var(--neg)` ...); `name` and `subline` are the Dutch texts of the screen.
+- `push` and `email` are the user's **effective** choice: the stored `notification_prefs` row, or the default of the table when there is none (a missing row is the default, not "on"; rows of unknown types are ignored), so the screen never repeats a default. Defaults: `rood`, `consent`, `stop`, `joined`, `invite` push on and e-mail on; `buffer` and `cat` push on, e-mail off; `contrib`, `week` and `month` off and off; `device` on and on. `emailLocked` is true when the e-mail cannot be turned off: only `device`, whose `email` is always true.
+- Whether **this device** can show push (a subscription, the browser's permission) comes from `GET /api/push/key` and the browser, not from here: a user without a subscribed device gets no push whatever the chips say.
+- Errors: `401 unauthorized`.
+
+### `PUT /api/notifications`
+A partial update; the answer is the same shape as `GET`, after the change. Every part is optional:
+```json
+{ "channels": { "email": false, "quietHours": false }, "lookahead": 6, "types": { "rood": { "push": false }, "week": { "push": true, "email": true } } }
+```
+- `channels.email` and `channels.quietHours` are booleans; each alone is fine. `lookahead` is 1, 3 or 6. `types` is an object by type key with `push` and/or `email` booleans: the half that is not sent keeps its **current effective value** (the stored row's, or the default's) and the type is stored as an explicit row (`notification_prefs`, upsert per user and type). A type that is named with no `push` or `email`, and `{}`, `{"channels": {}}` or `{"types": {}}`, change nothing (nothing is written, the answer is the current state; a `null` part counts as absent).
+- All or nothing: the body is validated first (in this order: `lookahead`, then the type keys in alphabetical order) and applied in **one transaction** with the `users` columns and the type rows. A refused body saves none of its parts.
+- Errors: `400 invalid` "Dit soort melding bestaat niet." (a type key that is not one of the eleven, exact case); `400 invalid` "Deze e-mail kan je niet uitzetten." (`email: false` on `device`; `true` is accepted); `400 invalid` "Kies 1, 3 of 6 maanden." (`lookahead` is a number but not 1, 3 or 6); `400 invalid` "De gegevens kloppen niet." (bad JSON, an unknown field anywhere, such as `channels.push`, a wrong type such as `"lookahead": "3"` or `3.5`, or trailing data); `401 unauthorized`; `413 too_large`; `415 unsupported_media_type`; `403 forbidden` for a cross-origin request.
+- Not a notification: login codes, invitations and password links always go by e-mail and have no setting; `POST /api/notifications/test` is described under "Push".
 
 ## Privacy rules and the route table (0.6-2)
 The rules every route keeps, for every user (analysis 2, risk 7):

@@ -1,24 +1,58 @@
-# 0.9-3 · Triggers, preferences and scheduler
+# 0.9-3 · Notification core and the planning warnings
 
 | | |
 |---|---|
 | Version | [0.9 Notifications](README.md) |
-| Status | planned |
-| Size | M |
+| Status | built 24 Nov 2026 (0.9.0-dev), see "Built 24 Nov 2026" below |
+| Size | L |
 | Features | NOTIF-3 |
-| Concepts | [notification](../../analysis/concepts/notification.md), [forecast](../../analysis/concepts/forecast.md), [bank-connection](../../analysis/concepts/bank-connection.md), [shared-account](../../analysis/concepts/shared-account.md), [categorisation-rule](../../analysis/concepts/categorisation-rule.md) |
-| Analysis | 4.9, risk 15 |
-| Depends on | [0.9-1](01-email-templates.md), [0.9-2](02-web-push.md), [0.8-3](../v0.8-planning/03-forecast-engine.md) (`planning.Forecast(ctx, db, account, today, horizon)`, no viewer), [0.8-4](../v0.8-planning/04-forecast-api-and-start.md) (the month-end red and buffer rule of the planning alerts) |
+| Concepts | [notification](../../analysis/concepts/notification.md), [forecast](../../analysis/concepts/forecast.md), [buffer-and-states](../../analysis/concepts/buffer-and-states.md), [bank-connection](../../analysis/concepts/bank-connection.md), [user-and-visibility](../../analysis/concepts/user-and-visibility.md) |
+| Screens | none (the API of [0.9-4](04-meldingen-screen.md)); one query parameter on Planning |
+| Analysis | 4.9, risks 5b, 15 |
+| Depends on | [0.9-1](01-email-templates.md) (templates), [0.9-2](02-web-push.md) (push; a stub `Sender` is enough to start), [0.8-3](../v0.8-planning/03-forecast-engine.md) (`planning.Forecast(ctx, db, account, today, horizon)`, no viewer), [0.8-4](../v0.8-planning/04-forecast-api-and-start.md) (the month-end rule). **Start after 0.8 is merged**: step 1 moves code 0.8-4 wrote |
+| Who | Opus: steps 1 (migration, the log), 2, 5 (the state machine). Sonnet: the rest, from this file |
 
 ## Goal
-The right message, once, at the right time, only about accounts you can see.
+The right message, once, at the right time, only about accounts you can see; one dispatcher that every later trigger uses.
+
+## What exists (checked 18 Nov 2026, with the graph)
+- `notify.Service` (0.3-2) sends the two bank reminders by **e-mail only**, reads `notification_prefs` with "no row = on", and keeps repeats out with a mutex plus a read-then-write on `notification_log`. Called by one hourly job in `cmd/saldo/main.go`.
+- `server/planning_alerts.go` holds the month-end red/buffer rule (`accountPlanningAlerts`, `monthLabel`, `eur0`); `notify` cannot import `server`. `planning.Forecast` has three callers (the forecast route, contributions, the alerts).
+- `jobs.Scheduler` knows intervals only. `notification_log` has a lookup index, no unique key. `users` has `lookahead_months` and nothing for channels or quiet hours.
+
+## The model
+- **Types** (`notify.Types`, one table in Go for the API and the sender): key, Dutch name, group, default push/email, `AlwaysEmail`, `Security`. Keys: `rood`, `buffer`, `consent`, `stop`, `joined`, `invite`, `contrib`, `cat`, `device`, `week`, `month` (README decision 9). Defaults: rood on/on, buffer on/off, consent on/on, stop on/on, joined on/on, invite on/on, contrib off/off, cat on/off, device on/always, week off/off, month off/off (opt-in, [0.9-3e](03e-week-and-month-overview-notifications.md)).
+- **Channels per user**: e-mail on/off (`users.notify_email`), push = "has at least one subscription" (0.9-2), `users.quiet_hours` (push only, fixed 22:00–07:00 Brussels, security ignores it). A type's chip is stored in `notification_prefs` whatever the channel switch says, and **comes back** when the channel is turned on (mockup rule).
+- **Message**: `{User, Type, Key, Account, Push (title, body, url, tone), Email (a rendered `mail.Message`), Expires}`. **Key** is the repeat key: `account:<id>|rood|<month>|red`, `connection:<id>|consent|14d:<valid_until>`, `digest:<date>`, `notice:<id>`.
+- **Log**: one row per user, channel and key, `status` = `claimed` | `sent` | `suppressed`, unique on `(user_id, channel, dedupe)`.
 
 ## Steps
-1. `notification_pref` per user and type with the defaults from analysis 4.9; channel switches.
-2. Triggers: forecast red / buffer per account within the look-ahead (1, 3 or 6 months), consent 14 and 3 days, sync stopped, member joined, to categorise (19:00 digest), new device, contribution missing [C].
-3. `notification_log`: one message per account, month and state; sent the morning after the forecast changes.
-4. Quiet hours for push (default 22:00–07:00, on); security messages ignore them.
-5. Tests for repeat protection and visibility.
+1. **Move the forecast rule (Sonnet).** `planning.Warnings(f AccountForecast, look int)` returns `{Red, Buffer *Warning}`; a `Warning` has the month, the end balance, the buffer, the lowest day, the **red-from date** (the start of the run of red days that ends on the month's last day, so a dip on the 1st that recovers does not mislead), the **largest outgoing item** of the month (recurring or planned) and the amount under the buffer. `eur0` and `monthLabel` move to `ledger/dutch.go` (`Eur0`, `MonthLabel`). `server/planning_alerts.go` keeps only the mapping to `ledger.Alert`. The existing tests of the helpers move with the code; nothing changes in `GET /api/alerts` (a golden test).
+2. **Migration 0019 (Opus; 0.9-2 owns 0018 with the push tables).** `users.notify_email INTEGER NOT NULL DEFAULT 1`, `users.quiet_hours INTEGER NOT NULL DEFAULT 1`; `notification_log` rebuilt with `dedupe TEXT NOT NULL`, `status`, `claimed_at`, the unique index, existing rows (0.3-2: consent and stop mails, `connection_id`) back-filled with `dedupe = connection:<id>|<type>|<state>` and `status = sent`; a tiny table `notify_runs (name TEXT PRIMARY KEY, day TEXT)` for the daily triggers and the per-trigger baseline markers.
+3. **The dispatcher (Opus).** `notify.Deliver(ctx, now, Message)`: loads the user's effective preferences (defaults merged), decides the channels (type chip, channel switch, `AlwaysEmail`, subscriptions), **re-checks that the user still can see the account** (else the message is dropped, not logged), applies quiet hours to push (returns `Wait` without claiming; the next run delivers it), **claims** the log row first, sends, marks `sent`; a failed send deletes the claim (retried on the next run); a claim older than 10 minutes without `sent` is retried (a crash between claim and send). Event messages carry `Expires` (3 days) and are dropped after it. Channels a user has off still get a `suppressed` row, so turning a channel on later never replays old states. A user with several subscriptions counts as sent when **any** subscription accepts the push; a per-subscription error only prunes the subscription on `404`/`410` and otherwise retries on the next run (the `Topic`/`tag` makes a duplicate on a device harmless). Port `CheckConnections` onto it with the same behaviour (owner only; the manager comes in 0.9-3b) and the same mails; its old tests stay green (`TestConsentReminders`, `TestFailingSyncStopsOncePerEpisode`, `TestConcurrentRunsSendOnce`, …).
+4. **Text and payloads (Sonnet).** `notify/text.go`: for every type a **generic** and a **full** push text (the board's copy), one builder `Payload(type, data, detail)`; `notify.Detail` from the spike (0.9-2 step 8) picks the level, default generic. Generic texts: "Planning: actie nodig" (rood), "Planning: let op" (buffer), "Bankkoppeling verloopt binnenkort", "Bankkoppeling: actie nodig" (stop), "Gedeelde rekening: er is iets nieuws" (joined, invite), "Gedeelde rekening: let op" (contrib), "8 transacties te categoriseren" (cat, the count only), "Nieuw toestel aangemeld" (device), all with the line "Ontgrendel om de details te zien". **Property test**: no generic text contains an account name, a bank name or a `€` amount, for names chosen to be easy to leak.
+5. **The planning trigger (Opus).** A daily trigger: due when Brussels time is 07:00 or later and `notify_runs.day` for `planning` is not today; sets the day only when the run finished without error (a restart or an error retries, the log makes it idempotent). For each user and each **current** account they can see (personal, shared, manual current; savings have no forecast): one `planning.Forecast` per account per run (horizon 6, cut per user to their look-ahead, 1/3/6), skipped when the account has no balance, and for a bank account whose newest data is older than 3 days (the sync message covers it). Then per (user, account), the state machine of README decisions 2 and 4:
+   - the **candidates** are what Start shows: the first red month and the first buffer month before it;
+   - **re-arm**: log rows of an account's month whose state is now ok are deleted (rows of past months too);
+   - a candidate whose key is not logged is **due**, unless a row of the same month with a worse state exists: then it is a silent downgrade (red → buffer inside the same month) and only logged as `suppressed`;
+   - **at most one due message per account per morning**, red before buffer; the other stays due for the next morning;
+   - rows are written for every channel (`sent` or `suppressed`), so a chip or channel that was off never replays;
+   - quiet hours are the half-open interval [22:00, 07:00): at 07:00:00 it is no longer quiet, so the 07:00 push does not wait another tick;
+   - the e-mail uses `PlanningRed`/`PlanningBuffer` with the link `/planning?maand=YYYY-MM&rekening=<id>#maanden`, the push the same URL.
+6. **Baseline, per trigger (Opus).** Each trigger has its own marker in `notify_runs` (`baseline:planning`, `baseline:connections`, and in 0.9-3b `baseline:joined`, `baseline:invite`, `baseline:contrib`, `baseline:digest`, and in 0.9-3e `baseline:week`, `baseline:month`), written on **that trigger's own first run**: it records the current states as `suppressed` for every user and channel (planning states, the existing e-mail reminder rows copied to the push channel) and sends nothing (README decision 4). A trigger that lands in a later phase therefore never sends pre-upgrade state. Tests: a database with red and buffer accounts and old reminders sends nothing on the first run and one message when a state then changes.
+7. **Scheduler and wiring (Sonnet).** `jobs.Every(15*time.Minute, "notifications", svc.Run)` in `cmd/saldo/main.go`, replacing the hourly "reminders" job; `Run` calls the connection reminders, the planning trigger and (0.9-3b) the others, in that order, each a catch-up that decides what is due at `now`. No job in demo mode (as today). Update the main.go comment and `docs/architecture.md`.
+8. **Planning opens the right account (Sonnet).** `Planning.tsx` accepts `?rekening=<id>` next to `maand`: it shows that account first, and switches to the account's scope (Persoonlijk or Gedeeld) **only when the account is outside the active scope** (Alles lists every account, so a click from a notification never rewrites the user's saved choice; built and tested 24 Nov 2026); an account the viewer cannot see, a savings account or a malformed id falls back to the normal view without an error. Test in `Planning.test.tsx`.
+9. **Tests (Opus for the matrix).** On `planningWorld` and the demo seed with a fake clock: **repeat protection** (two runs, a restart in between, two goroutines), **re-arm** (red, fixed, red again for the same month sends twice), **silent downgrade**, **one per morning** (red and buffer of one account), **visibility** (Partner never gets a message about Bert's personal account; a member who left between claim and send gets nothing; a read-only member gets the shared account's), **stale data** (no message), **quiet hours** (a push due at 03:00 goes out after 07:00, the e-mail does not wait), **look-ahead per user** (1 / 3 / 6), **channels** (a chip off, a channel off, turned on later: no replay), **defaults** (no rows: buffer, cat and contrib mail off), **first run** (nothing sent). **Golden messages**: derived by a throwaway script from the demo story (as the 0.8-3 goldens), listed here when known: a simulated month in which the insurance is confirmed (one buffer message the next morning), the car repair added (one red message), removed and added again (a second one), and nothing for the shared account.
 
 ## Done when
-The demo story produces exactly the expected messages over a simulated month.
+The demo story produces exactly the expected messages over a simulated month, also across a restart; every repeat, visibility, quiet-hours and default test is green; the first run after the upgrade sends nothing; Start's alerts are byte-identical to before the move.
+
+## Built 24 Nov 2026 (what differs from the plan above)
+- **Golden story.** On the demo, deleting the car repair leaves February at € 866 against the € 900 buffer: in the buffer, never back to ok, so "removed and added again" is a silent downgrade, not a second red message. The test makes February ok in between (€ 300 from savings in January) to get the second red; the plan's story was wrong, not the code.
+- **No replay, also for bank reminders.** A reminder suppressed while its chip was off is not sent when the chip is switched on later (the 0.3-2 test `TestPrefsOffAreRespected` was changed to say so).
+- **A channel that cannot deliver counts as off** (no mailer, an unparsable address, no push subscription, no sender) and gets a `suppressed` row; setting up SMTP later does not send the running episode's reminders.
+- **The planning day stays open for retries until 10:00 Brussels** after a failed send or forecast; from 10:00 it is recorded anyway (with a warning) and the rest goes the next morning, so one broken mailbox cannot re-run every forecast every 15 minutes all day.
+- **Baseline per trigger skips that trigger entirely on its first run**, at any time of day. The connections baseline only copies the mailed reminders to push.
+- **Push tag** is `planning-<account>-<type>` (a buffer push does not replace a red one still on the phone); the RFC 8030 Topic is a 22-character hash of the tag.
+- **`notify.Service` is built after `server.New`** in `main.go`; 0.9-3b moves it up so the sign-in handler can use it (new-device message).
+- A simulated-month transcript on the demo is in `notify/demo_test.go` (`TestDemoMonth`).

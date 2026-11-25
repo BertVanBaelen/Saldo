@@ -1,0 +1,64 @@
+{
+  "months": [
+    {
+      "month": "2026-10",
+      "accounts": [
+        {
+          "id": 1,
+          "categories": [
+            {
+              "categoryId": 1,
+              "reference": 100500,
+              "source": "average"
+            },
+            {
+              "categoryId": 3,
+              "reference": 4028,
+              "source": "average"
+            },
+            {
+              "categoryId": 4,
+              "reference": 12900,
+              "source": "average"
+            },
+            {
+              "categoryId": 5,
+              "reference": 2598,
+              "source": "average"
+            },
+            {
+              "categoryId": 6,
+              "reference": 900,
+              "source": "average"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "categories": [
+            {
+              "categoryId": 1,
+              "reference": 14500,
+              "source": "average"
+            },
+            {
+              "categoryId": 2,
+              "reference": 26821,
+              "source": "average"
+            },
+            {
+              "categoryId": 5,
+              "reference": 4298,
+              "source": "average"
+            },
+            {
+              "categoryId": 6,
+              "reference": 6247,
+              "source": "average"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

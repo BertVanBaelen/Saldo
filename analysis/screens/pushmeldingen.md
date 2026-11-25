@@ -1,6 +1,6 @@
 # Pushmeldingen
 
-Analysis: 4.9, 12 (screen 14), risk 14 · Design: Meldingen-Android, Meldingen-Icoon · Mockup: `finance-mockup/berichten.html` · Concepts: [notification](../concepts/notification.md), [buffer-and-states](../concepts/buffer-and-states.md), [design-system](../concepts/design-system.md#app-icon-beurs) · Phases: [0.1-5](../../plan/v0.1-mockup/05-emails-and-push.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.9-2](../../plan/v0.9-notifications/02-web-push.md), [0.9-5](../../plan/v0.9-notifications/05-lock-screen-check.md)
+Analysis: 4.9, 12 (screen 14), risk 14 · Design: Meldingen-Android, Meldingen-Icoon · Mockup: `finance-mockup/berichten.html` · Concepts: [notification](../concepts/notification.md), [buffer-and-states](../concepts/buffer-and-states.md), [design-system](../concepts/design-system.md#app-icon-beurs) · Phases: [0.1-5](../../plan/v0.1-mockup/05-emails-and-push.md), [0.1-6](../../plan/v0.1-mockup/06-decisions-in-the-mockup.md), [0.1-7](../../plan/v0.1-mockup/07-missing-designs.md), [0.1-8](../../plan/v0.1-mockup/08-review-and-freeze.md), [0.9-2](../../plan/v0.9-notifications/02-web-push.md) (including the lock-screen spike), [0.9-5](../../plan/v0.9-notifications/05-lock-screen-check.md)
 
 ## Content
 Lock screen without amounts, notification shade in light and dark, the expanded red planning notification with a small chart, and the status-bar icon (24×24 dp silhouette, 2 dp margin, circle colour per type).
@@ -22,3 +22,12 @@ Mockup: `finance-mockup/berichten.html` (sections "Pushmeldingen", "Meldingsicoo
 **Lock screen rule**: no amounts, no account names. Generic titles "Planning: actie nodig" (red) and "Bankkoppeling verloopt binnenkort" (ochre), line "Ontgrendel om de details te zien"; same coloured circle.
 **Shade themes** (Android's own, not the app tokens): light shade `#E6ECE8`, card `#FFFFFF`, chip `#EEF2EF`; dark shade `#0B0F0D`, card `#1C221F`, chip `#2A322E`. Bars `#15803D`/`#C62828` light, `#4ADE80`/`#FF6B6B` dark.
 **Status-bar icon** (Meldingen-Icoon): silhouette of coin + wallet with clasp hole on a 24 dp grid, 2 dp margin, one colour, 1.5 dp gap between coin and wallet so they stay apart at 16 px; deliver as vector drawable. Circle colour per type: green info, ochre warning, red error.
+
+## Build notes (0.9)
+What a **web push** can and cannot do, checked against the plan of 18 Nov 2026 ([README of 0.9](../../plan/v0.9-notifications/README.md), [0.9-2](../../plan/v0.9-notifications/02-web-push.md)):
+- **Lock screen:** a PWA cannot hide the text; the spike of 0.9-2 step 8 measures what both phones show. Until then every push is the generic text of "Lock screen rule" above (no amounts, no account names, no bank names). The detailed shade of the board (amount pill, account title, line) is built only if the spike allows it.
+- **Expandable chart: not built** unless the spike allows it. A web push `image` is fetched by the browser without cookies (a public or one-time URL carrying a balance forecast) and appears on the lock screen too. A tap opens the Planning screen, which has the chart.
+- **Status-bar icon:** Web Push takes a monochrome `badge` PNG (from `statusbar-icon.svg`), not a vector drawable. **Circle colour per type:** not available; a large `icon` PNG per tone (the app icon with a green, ochre or red ring) stands in. iPhone shows the app icon and ignores both.
+- **Actions** ("Bekijk planning" / "Later", …) stay defined and not shown.
+- **Test notification** and the install card for iPhone: [meldingen](meldingen.md).
+- **Overviews** (`week`, `month`, 0.9-3e): generic title "Weekoverzicht: je bon staat klaar" / "Maandoverzicht: je bon staat klaar", line "Tik om te zien waar je geld heen ging.", tone info (green), no amounts; at detail `full` "Uitgegeven € 412 · gespaard € 50 · over € 390". A tap opens the receipt page ([overzichtbon](overzichtbon.md)); the printer cannot run in a push.

@@ -1,0 +1,90 @@
+demo bert /api/alerts
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in februari","note":"Verwacht eindsaldo −€ 1.134 · bekijk de planning","href":"/planning?maand=2027-02#maanden","accountId":1},{"kind":"warn","type":"planning","title":"Zichtrekening zakt in de buffer in januari","note":"Verwacht € 635, € 265 onder de buffer van € 900","href":"/planning?maand=2027-01#maanden","accountId":1},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+demo bert /api/alerts?scope=persoonlijk
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in februari","note":"Verwacht eindsaldo −€ 1.134 · bekijk de planning","href":"/planning?maand=2027-02#maanden","accountId":1},{"kind":"warn","type":"planning","title":"Zichtrekening zakt in de buffer in januari","note":"Verwacht € 635, € 265 onder de buffer van € 900","href":"/planning?maand=2027-01#maanden","accountId":1},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+demo bert /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+demo partner /api/alerts
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+demo partner /api/alerts?scope=persoonlijk
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+demo partner /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+look1 bert /api/alerts
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+look1 bert /api/alerts?scope=persoonlijk
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+look1 bert /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+look1 partner /api/alerts
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+look1 partner /api/alerts?scope=persoonlijk
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+look1 partner /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+look6 bert /api/alerts
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in februari","note":"Verwacht eindsaldo −€ 1.134 · bekijk de planning","href":"/planning?maand=2027-02#maanden","accountId":1},{"kind":"warn","type":"planning","title":"Zichtrekening zakt in de buffer in januari","note":"Verwacht € 635, € 265 onder de buffer van € 900","href":"/planning?maand=2027-01#maanden","accountId":1},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+look6 bert /api/alerts?scope=persoonlijk
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in februari","note":"Verwacht eindsaldo −€ 1.134 · bekijk de planning","href":"/planning?maand=2027-02#maanden","accountId":1},{"kind":"warn","type":"planning","title":"Zichtrekening zakt in de buffer in januari","note":"Verwacht € 635, € 265 onder de buffer van € 900","href":"/planning?maand=2027-01#maanden","accountId":1},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+look6 bert /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+look6 partner /api/alerts
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+look6 partner /api/alerts?scope=persoonlijk
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+look6 partner /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+buffer150000 bert /api/alerts
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in februari","note":"Verwacht eindsaldo −€ 1.134 · bekijk de planning","href":"/planning?maand=2027-02#maanden","accountId":1},{"kind":"warn","type":"planning","title":"Zichtrekening zakt in de buffer in november","note":"Verwacht € 1.207, € 293 onder de buffer van € 1.500","href":"/planning?maand=2026-11#maanden","accountId":1},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+buffer150000 bert /api/alerts?scope=persoonlijk
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in februari","note":"Verwacht eindsaldo −€ 1.134 · bekijk de planning","href":"/planning?maand=2027-02#maanden","accountId":1},{"kind":"warn","type":"planning","title":"Zichtrekening zakt in de buffer in november","note":"Verwacht € 1.207, € 293 onder de buffer van € 1.500","href":"/planning?maand=2026-11#maanden","accountId":1},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+buffer150000 bert /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+buffer150000 partner /api/alerts
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+buffer150000 partner /api/alerts?scope=persoonlijk
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+buffer150000 partner /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+partnerred bert /api/alerts
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in februari","note":"Verwacht eindsaldo −€ 1.134 · bekijk de planning","href":"/planning?maand=2027-02#maanden","accountId":1},{"kind":"warn","type":"planning","title":"Zichtrekening zakt in de buffer in november","note":"Verwacht € 1.207, € 293 onder de buffer van € 1.500","href":"/planning?maand=2026-11#maanden","accountId":1},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+partnerred bert /api/alerts?scope=persoonlijk
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in februari","note":"Verwacht eindsaldo −€ 1.134 · bekijk de planning","href":"/planning?maand=2027-02#maanden","accountId":1},{"kind":"warn","type":"planning","title":"Zichtrekening zakt in de buffer in november","note":"Verwacht € 1.207, € 293 onder de buffer van € 1.500","href":"/planning?maand=2026-11#maanden","accountId":1},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"},{"kind":"ok","type":"categorise","title":"4 transacties te categoriseren","note":"","href":"/transacties?filter=niet-gecategoriseerd"}]
+
+partnerred bert /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 12 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+partnerred partner /api/alerts
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in november","note":"Verwacht eindsaldo −€ 500.039 · bekijk de planning","href":"/planning?maand=2026-11#maanden","accountId":5},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+partnerred partner /api/alerts?scope=persoonlijk
+[{"kind":"neg","type":"planning","title":"Zichtrekening staat rood in november","note":"Verwacht eindsaldo −€ 500.039 · bekijk de planning","href":"/planning?maand=2026-11#maanden","accountId":5},{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+
+partnerred partner /api/alerts?scope=gedeeld
+[{"kind":"warn","type":"consent","title":"Toestemming verloopt over 14 dagen","note":"Argenta · opnieuw autoriseren","href":"/bankkoppelingen"}]
+

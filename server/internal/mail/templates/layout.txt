@@ -9,7 +9,8 @@ Saldo · {{.Kicker}}
 {{end}}
 {{.Intro}}
 
-{{if .Rows}}{{range .Rows}}{{.Label}}: {{.Value}}
+{{if .Receipt}}{{template "receipt" .Receipt}}
+{{end}}{{if .Rows}}{{range .Rows}}{{.Label}}: {{.Value}}
 {{end}}
 {{end}}{{if .Button}}{{.Button}}:
 {{.ButtonURL}}
@@ -18,4 +19,5 @@ Saldo · {{.Kicker}}
 
 --
 {{.Why}}
-Saldo draait op je eigen Home Assistant.
+{{if .SettingsURL}}Meldingen aanpassen: {{.SettingsURL}}
+{{end}}Saldo draait op je eigen Home Assistant.

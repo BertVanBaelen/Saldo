@@ -28,19 +28,30 @@
 <table role="presentation" class="sx-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EEF2EF" style="background:#EEF2EF;">
 <tr><td class="sx-outer" align="center" style="padding:24px 18px;">
 <table role="presentation" class="sx-card" width="520" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:100%;max-width:520px;background:#FFFFFF;border:1px solid #E2E8E4;border-radius:16px;border-collapse:separate;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;color:#121A16;">
-<tr><td class="sx-px sx-brand" style="padding-top:22px;padding-left:30px;padding-right:30px;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:17px;line-height:28px;font-weight:600;letter-spacing:-0.02em;color:#166534;">Saldo</td></tr>
+{{if .LogoURL}}<tr><td class="sx-px" style="padding-top:22px;padding-left:30px;padding-right:30px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="vertical-align:middle;"><img src="{{.LogoURL}}" width="28" height="28" alt="" style="display:block;border:0;width:28px;height:28px;"></td>
+<td class="sx-brand" style="vertical-align:middle;padding-left:8px;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:17px;line-height:28px;font-weight:600;letter-spacing:-0.02em;color:#166534;">Saldo</td>
+</tr></table>
+</td></tr>{{else}}<tr><td class="sx-px sx-brand" style="padding-top:22px;padding-left:30px;padding-right:30px;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:17px;line-height:28px;font-weight:600;letter-spacing:-0.02em;color:#166534;">Saldo</td></tr>{{end}}
 <tr><td class="sx-px" style="padding-top:22px;padding-left:30px;padding-right:30px;">
 <div class="sx-tone" style="font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:{{.Tone.Text}};">{{.Kicker}}</div>
-<h1 class="sx-text" style="margin:6px 0 0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:24px;line-height:1.2;font-weight:600;letter-spacing:-0.02em;color:#121A16;">{{.Heading}}</h1>
+<h1 class="sx-text" style="margin:6px 0 0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:24px;line-height:1.2;font-weight:600;letter-spacing:-0.02em;color:#121A16;">{{brk .Heading}}</h1>
 {{- if .Accounts}}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;border-collapse:separate;">
 {{- range $i, $a := .Accounts}}
 {{- if $i}}
 <tr><td height="6" style="height:6px;line-height:6px;font-size:6px;">&nbsp;</td></tr>
 {{- end}}
-<tr><td class="sx-acct" bgcolor="#FFFFFF" style="padding:9px 12px;border:1px solid #E2E8E4;border-radius:12px;background:#FFFFFF;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-<div class="sx-text" style="font-size:15px;line-height:20px;font-weight:600;color:#121A16;">{{$a.Name}}</div>
-<div class="sx-muted" style="font-size:12px;line-height:16px;color:#56615B;">{{$a.Sub}}</div>
+<tr><td class="sx-acct" bgcolor="#FFFFFF" style="padding:9px 12px;border:1px solid #E2E8E4;border-radius:12px;background:#FFFFFF;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">{{if $.LogoURL}}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="30" height="30" align="center" valign="middle" bgcolor="{{if $a.Shared}}#5B3FD9{{else}}#15803D{{end}}" style="width:30px;height:30px;border-radius:50%;background:{{if $a.Shared}}#5B3FD9{{else}}#15803D{{end}};"><img src="{{$a.Icon}}" width="16" height="16" alt="{{$a.IconAlt}}" style="display:block;border:0;width:16px;height:16px;margin:0 auto;"></td>
+<td style="padding-left:10px;vertical-align:middle;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<div class="sx-text" style="font-size:15px;line-height:20px;font-weight:600;color:#121A16;">{{brk $a.Name}}</div>
+<div class="sx-muted" style="font-size:12px;line-height:16px;color:#56615B;">{{brk $a.Sub}}</div>
+</td></tr></table>{{else}}
+<div class="sx-text" style="font-size:15px;line-height:20px;font-weight:600;color:#121A16;">{{brk $a.Name}}</div>
+<div class="sx-muted" style="font-size:12px;line-height:16px;color:#56615B;">{{brk $a.Sub}}</div>{{end}}
 </td></tr>
 {{- end}}
 </table>
@@ -54,7 +65,10 @@
 {{- end}}
 </td></tr>
 <tr><td class="sx-px" style="padding-top:18px;padding-bottom:26px;padding-left:30px;padding-right:30px;">
-<p class="sx-text" style="margin:0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;line-height:1.55;color:#2B3530;">{{.Intro}}</p>
+<p class="sx-text" style="margin:0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;line-height:1.55;color:#2B3530;">{{brk .Intro}}</p>
+{{- if .Receipt}}
+{{template "receipt" .Receipt}}
+{{- end}}
 {{- if .Rows}}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;border-collapse:separate;"><tr>
 <td class="sx-line" style="padding:2px 16px;border:1px solid #E2E8E4;border-radius:12px;">
@@ -71,10 +85,10 @@
 <td class="sx-btn" bgcolor="#15803D" style="border-radius:12px;background:#15803D;"><a href="{{.ButtonURL}}" target="_blank" style="display:inline-block;padding:12px 20px;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:12px;">{{.Button}}</a></td>
 </tr></table>
 {{- end}}
-<p class="sx-muted" style="margin:16px 0 0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:1.5;color:#56615B;">{{.Note}}</p>
+<p class="sx-muted" style="margin:16px 0 0;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:1.5;color:#56615B;">{{brk .Note}}</p>
 </td></tr>
 <tr><td class="sx-px sx-foot" bgcolor="#FAFBFA" style="padding-top:16px;padding-bottom:22px;padding-left:30px;padding-right:30px;border-top:1px solid #E2E8E4;border-radius:0 0 16px 16px;background:#FAFBFA;font-family:Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:1.55;color:#6B766F;">
-{{.Why}}<br>Saldo draait op je eigen Home Assistant.
+{{brk .Why}}{{if .SettingsURL}} <a href="{{.SettingsURL}}" target="_blank" style="color:#166534;text-decoration:underline;">Meldingen aanpassen</a>{{end}}<br>Saldo draait op je eigen Home Assistant.
 </td></tr>
 </table>
 </td></tr>

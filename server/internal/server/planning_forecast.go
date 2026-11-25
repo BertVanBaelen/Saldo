@@ -248,24 +248,11 @@ func partiesOf(c ledger.Contributions) []contribParty {
 // contributionOf is a month's required contribution (decision 10): the need
 // rounded up to whole euros and each party's part of it.
 func contributionOf(n planning.Need, parties []contribParty) *planContribution {
-	c := &planContribution{Need: ceilEuros(n.Amount, 100), Costs: n.Costs, OtherIncome: n.OtherIncome, BufferGap: n.BufferGap,
+	c := &planContribution{Need: planning.CeilEuros(n.Amount, 100), Costs: n.Costs, OtherIncome: n.OtherIncome, BufferGap: n.BufferGap,
 		Members: mapTo(parties, func(p contribParty) planMember {
 			m := p.who
-			m.Share, m.Required = memberPart(n.Amount, p.share, len(parties))
+			m.Share, m.Required = planning.MemberPart(n.Amount, p.share, len(parties))
 			return m
 		})}
 	return c
-}
-
-// ceilEuros is num/den cents rounded up to whole euros, in cents.
-func ceilEuros(num, den int64) int64 { return (num + den - 1) / den * 100 }
-
-// memberPart is a member's share in percent (the stored one, else equal) and
-// their part of the need in whole euros rounded up: ⌈need × share / 100⌉, and
-// ⌈need / n⌉ for equal shares (so three members never sum below the need).
-func memberPart(need int64, share *int, members int) (int, int64) {
-	if share != nil {
-		return *share, ceilEuros(need*int64(*share), 10000)
-	}
-	return 100 / members, ceilEuros(need, int64(100*members))
 }

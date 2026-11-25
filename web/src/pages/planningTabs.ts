@@ -27,7 +27,7 @@ export type PlanningSectionProps = Pick<PlanningTabProps, 'planning' | 'accounts
 export interface PlanningTabProps {
   /** The forecast for the scope, horizon and month in the URL (`GET /api/planning`); `undefined` while that answer loads, so a tab stays mounted (focus, open cards) across a horizon or month change. */
   planning: Planning | undefined;
-  /** The current accounts in view, in `GET /api/accounts` order: name, colour, kind and the viewer's `permission` (the forecast carries none of them). */
+  /** The current accounts in view, in `GET /api/accounts` order, except that the account of a `?rekening=` link comes first: name, colour, kind and the viewer's `permission` (the forecast carries none of them). */
   accounts: Account[];
   scope: Scope;
   /** `YYYY-MM`: the month of the Kalender, the Budget tab and the Maanden detail. Always inside the forecast. */
@@ -40,6 +40,8 @@ export interface PlanningTabProps {
   reload: () => void;
   /** The viewer may edit at least one account in view: without it a tab shows no edit controls. */
   canEdit: boolean;
+  /** The account a `?rekening=` link points at (it is `accounts[0]`); the Maanden tab selects it on a desktop. `undefined` without a valid link. */
+  focus?: number;
 }
 
 export const HORIZONS: Horizon[] = [3, 6, 12, 24];

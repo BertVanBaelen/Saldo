@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	htmltemplate "html/template"
+	"strings"
 	"text/template"
 	"time"
 
@@ -12,18 +13,36 @@ import (
 )
 
 // Every mail shares one layout, adapted from the designs in
-// finance-mockup/emails (board option A "rustig"). The four sign-in mails are
-// always sent and cannot be turned off. The bank mails could, but the
-// Meldingen screen arrives in 0.9, so no mail has a "Meldingen aanpassen" link
-// yet.
+// finance-mockup/emails (board option A "rustig"). The four sign-in mails
+// (login code, invitation, new password, new device) are always sent and
+// cannot be turned off, so they never carry the "Meldingen aanpassen" link.
+// The notification mails carry it when their builder is given a SettingsURL,
+// and use the logo and account icons (PNGs served from <BaseURL>/mail/) when it
+// is given a BaseURL. Without a BaseURL there is no public address: no images,
+// the text brand, and the layout is the one the sign-in mails always had.
 
 //go:embed templates
 var files embed.FS
 
 var (
-	htmlLayout = htmltemplate.Must(htmltemplate.ParseFS(files, "templates/layout.html"))
-	textLayout = template.Must(template.ParseFS(files, "templates/layout.txt"))
+	htmlLayout = htmltemplate.Must(htmltemplate.New("layout.html").Funcs(htmltemplate.FuncMap{
+		"brk":  func(s string) string { return softBreak(s, 30) },
+		"brkn": func(s string) string { return softBreak(s, 16) }, // narrow receipt columns
+	}).ParseFS(files, "templates/layout.html", "templates/receipt.html"))
+	textLayout = template.Must(template.ParseFS(files, "templates/layout.txt", "templates/receipt.txt"))
 )
+
+// Links are the absolute addresses the notification mails may carry. The
+// caller builds them from the public URL; both may be empty.
+type Links struct {
+	// BaseURL is the app's public address ("https://saldo.example.com"). When
+	// set, the brand and the account icons are images from <BaseURL>/mail/
+	// (logo.png, person.png, people.png).
+	BaseURL string
+	// SettingsURL is the Meldingen screen. When set, the footer says
+	// "Meldingen aanpassen" and links to it.
+	SettingsURL string
+}
 
 // layout holds the parts of a mail in the order the design shows them.
 type layout struct {
@@ -33,29 +52,57 @@ type layout struct {
 	Accounts           []account // account block, optional
 	Figure, FigureNote string    // key figure box, optional
 	Intro              string
+	Receipt            *receiptView // the overview mails' receipt block, optional
 	Rows               []row
 	Button, ButtonURL  string // optional
 	Note               string
 	Why                string // footer: why you get this mail
+
+	BaseURL, SettingsURL string // see Links
+	// LogoURL is derived from BaseURL by render.
+	LogoURL string
 }
 
 type row struct{ Label, Value string }
 
-type account struct{ Name, Sub string }
+// account is one entry of the account block. Shared picks the violet
+// two-person icon over the green one-person icon; Icon and IconAlt are filled
+// in by render when the mail has a BaseURL.
+type account struct {
+	Name, Sub     string
+	Shared        bool
+	Icon, IconAlt string
+}
 
 // tone is the colour of the kicker and the key figure: info (green), warn
-// (ochre) or error (red), light and dark.
+// (ochre), error (red) or shared (violet), light and dark.
 type tone struct{ Text, Soft, DarkText, DarkSoft string }
 
 var (
-	toneInfo  = tone{"#166534", "#DCFCE7", "#86EFAC", "#13321F"}
-	toneWarn  = tone{"#8A5A00", "#FFF4DB", "#F5B94A", "#2E2414"}
-	toneError = tone{"#B42323", "#FBE9E9", "#FF7B7B", "#3A1A1C"}
+	toneInfo   = tone{"#166534", "#DCFCE7", "#86EFAC", "#13321F"}
+	toneWarn   = tone{"#8A5A00", "#FFF4DB", "#F5B94A", "#2E2414"}
+	toneError  = tone{"#B42323", "#FBE9E9", "#FF7B7B", "#3A1A1C"}
+	toneShared = tone{"#4A31C2", "#ECE8FF", "#B7A6FF", "#231D3D"}
 )
 
 func render(to string, l layout) (Message, error) {
 	if l.Tone == (tone{}) {
 		l.Tone = toneInfo
+	}
+	if base := strings.TrimRight(l.BaseURL, "/"); base != "" {
+		l.BaseURL = base
+		l.LogoURL = base + "/mail/logo.png"
+		accounts := make([]account, len(l.Accounts))
+		copy(accounts, l.Accounts)
+		for i := range accounts {
+			accounts[i].Icon, accounts[i].IconAlt = base+"/mail/person.png", "Persoonlijke rekening"
+			if accounts[i].Shared {
+				accounts[i].Icon, accounts[i].IconAlt = base+"/mail/people.png", "Gedeelde rekening"
+			}
+		}
+		l.Accounts = accounts
+	} else {
+		l.BaseURL = ""
 	}
 	var h, t bytes.Buffer
 	if err := htmlLayout.Execute(&h, l); err != nil {

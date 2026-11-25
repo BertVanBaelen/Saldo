@@ -17,6 +17,8 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 	"github.com/BertVanBaelen/Saldo/server/internal/mail"
+	"github.com/BertVanBaelen/Saldo/server/internal/notify"
+	"github.com/BertVanBaelen/Saldo/server/internal/push"
 	"github.com/BertVanBaelen/Saldo/server/internal/ratelimit"
 )
 
@@ -47,7 +49,10 @@ type Options struct {
 	// Viewer, when set, resolves the signed-in user instead of the device
 	// cookie (for tests). Demo mode acts as DemoViewer without a cookie.
 	Viewer func(*http.Request) (int64, bool)
-	Syncer Syncer
+	// ViewerDevice, with Viewer (tests only), gives the session's device;
+	// without it the session has none.
+	ViewerDevice func(*http.Request) int64
+	Syncer       Syncer
 	// Bank links bank accounts (docs/api.md, "Bank link"); nil answers 503
 	// on those routes.
 	Bank *banklink.Service
@@ -57,6 +62,17 @@ type Options struct {
 	// PublicURL is the address Saldo is opened on (no trailing slash): the
 	// trusted origin, the cookie's Secure flag and the links in mails.
 	PublicURL string
+	// Push sends Web Push messages (0.9-2): push.Web when public_url is
+	// https, push.Fake in demo mode, nil when push is off (GET /api/push/key
+	// then answers enabled false and the other push routes 503).
+	Push push.Sender
+	// PushKey is the VAPID public key browsers subscribe with (base64url
+	// uncompressed P-256 point, push.LoadOrCreateKeys).
+	PushKey string
+	// Notify is the notification dispatcher (0.9-3b): a new device's
+	// "Nieuw toestel aangemeld" goes through it (e-mail always, push to the
+	// user's other devices). nil (tests, demo) sends the direct mail as before.
+	Notify *notify.Service
 	// Now is the clock of rate limits, sign-in codes, links and devices;
 	// time.Now when nil.
 	Now func() time.Time
@@ -68,6 +84,7 @@ type Server struct {
 	db       *sql.DB
 	store    *ledger.Store
 	auth     *auth.Store
+	pushes   *push.Store
 	log      *slog.Logger
 	cooldown *ratelimit.Cooldown
 	limits   limits
@@ -98,6 +115,7 @@ func newServer(o Options) (*Server, http.Handler) {
 		db:       o.DB,
 		store:    ledger.New(o.DB),
 		auth:     auth.New(o.DB, o.Now),
+		pushes:   push.NewStore(o.DB),
 		log:      o.Logger,
 		cooldown: ratelimit.NewCooldown(SyncCooldown, o.Now),
 		limits:   newLimits(o.Now),
@@ -177,6 +195,7 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/reports/months", s.getReportMonths)
 	m.HandleFunc("GET /api/reports/budgets", s.getReportBudgets)
 	m.HandleFunc("GET /api/reports/balances", s.getReportBalances)
+	m.HandleFunc("GET /api/reports/receipt", s.getReportReceipt)
 	m.HandleFunc("PATCH /api/transactions/{id}", s.patchTransaction)
 	m.HandleFunc("GET /api/transactions/{id}/similar", s.getSimilar)
 	m.HandleFunc("POST /api/transactions/{id}/similar", s.postSimilar)
@@ -212,11 +231,18 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/rules/{id}/apply", s.postRuleApply)
 	m.HandleFunc("PATCH /api/rules/{id}", s.patchRule)
 	m.HandleFunc("DELETE /api/rules/{id}", s.deleteRule)
+	m.HandleFunc("GET /api/push/key", s.getPushKey)
+	m.HandleFunc("PUT /api/push/subscription", s.putPushSubscription)
+	m.HandleFunc("DELETE /api/push/subscription", s.deletePushSubscription)
+	m.HandleFunc("GET /api/notifications", s.getNotifications)
+	m.HandleFunc("PUT /api/notifications", s.putNotifications)
+	m.HandleFunc("POST /api/notifications/test", s.postNotificationTest)
 	m.HandleFunc("GET /api/suggestions", s.listSuggestions)
 	m.HandleFunc("POST /api/suggestions/confirm", s.postSuggestionConfirm)
 	m.HandleFunc("POST /api/suggestions/dismiss", s.postSuggestionDismiss)
 	m.HandleFunc("GET /api/suggestions/backfill", s.getBackfill)
 	m.HandleFunc("POST /api/suggestions/backfill", s.postBackfill)
+	m.HandleFunc("GET /mail/", s.getMailImage)
 	m.HandleFunc("/api/", s.apiFallback)
 	m.HandleFunc("/api", s.apiFallback)
 	m.HandleFunc("/", s.serveWeb)

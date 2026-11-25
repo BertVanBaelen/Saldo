@@ -415,18 +415,7 @@ func TestPlanningAlerts(t *testing.T) {
 }
 
 func TestPlanningAlertHelpers(t *testing.T) {
-	for cents, want := range map[int64]string{0: "€ 0", 49: "€ 0", 50: "€ 1", 63493: "€ 635", 99999: "€ 1.000", -113403: "−€ 1.134", 123456789: "€ 1.234.568"} {
-		if got := eur0(cents); got != want {
-			t.Errorf("eur0(%d) = %q, want %q", cents, got, want)
-		}
-	}
-	for _, c := range []struct{ month, want string }{
-		{"2026-11", "november"}, {"2027-10", "oktober"}, {"2027-11", "november 2027"}, {"2028-01", "januari 2028"},
-	} {
-		if got := monthLabel(c.month, "2026-11"); got != c.want {
-			t.Errorf("monthLabel(%s) = %q, want %q", c.month, got, c.want)
-		}
-	}
+	// Eur0 and MonthLabel are tested in ledger (dutch_test.go).
 	// A hand-built chain: the buffer alert is the first month before the red one, months after it count for nothing.
 	chain := func(buffer int64, ends ...int64) planning.AccountForecast {
 		f := planning.AccountForecast{Buffer: buffer}

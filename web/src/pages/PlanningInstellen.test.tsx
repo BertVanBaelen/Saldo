@@ -67,7 +67,7 @@ describe('Planning instellen · tiles', () => {
     expect(shared.getAttribute('aria-checked')).toBe('true');
     expect(await screen.findByText('Boodschappen')).toBeTruthy();
     expect(screen.queryByText('Vrije tijd')).toBeNull();
-    expect(screen.getByText('€ 550', { selector: '.in-total .mono' })).toBeTruthy();
+    expect(screen.getByText('€ 550', { selector: '.pin-total .mono' })).toBeTruthy();
 
     // Arrow keys move and pick; Home goes back to the first.
     act(() => shared.focus());

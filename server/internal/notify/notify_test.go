@@ -65,7 +65,13 @@ func setup(t *testing.T) (*sql.DB, *recorder, *Service) {
 	addConnection(t, d, 1, 1, "Argenta", t0.AddDate(0, 0, 14), t0.Add(-5*time.Hour))
 	addAccount(t, d, 1, 1, 1, "Zichtrekening", fullIBAN)
 	r := &recorder{}
-	return d, r, New(d, r, "https://saldo.example.com", nil)
+	return d, r, newService(d, r, "https://saldo.example.com")
+}
+
+// newService is the dispatcher with e-mail only (no push store), as the
+// 0.3-2 reminders were.
+func newService(d *sql.DB, mailer mail.Sender, publicURL string) *Service {
+	return New(Options{DB: d, Mailer: mailer, PublicURL: publicURL})
 }
 
 func exec(t *testing.T, d *sql.DB, q string, args ...any) {
@@ -212,7 +218,10 @@ func TestPrefsOffAreRespected(t *testing.T) {
 	exec(t, d, `UPDATE provider_connections SET sync_status = 'failed', last_sync_at = ? WHERE id = 1`, ts(t0.Add(-80*time.Hour)))
 	run(t, s, r, t0, stop) // only the consent mails are off
 	exec(t, d, `UPDATE notification_prefs SET email = 1 WHERE user_id = 1`)
-	run(t, s, r, t0.Add(time.Hour), mail14)
+	// 0.9-3: switching the chip on does not replay the 14-day reminder that
+	// was suppressed while it was off (0.3-2 sent it here); the next one comes.
+	run(t, s, r, t0.Add(time.Hour))
+	run(t, s, r, t0.AddDate(0, 0, 11), mail3)
 }
 
 func TestMailShowsTheMaskedIBANOnly(t *testing.T) {
@@ -236,15 +245,15 @@ func TestMailShowsTheMaskedIBANOnly(t *testing.T) {
 
 func TestAddressesAndMailerMissing(t *testing.T) {
 	d, r, _ := setup(t)
-	if err := New(d, nil, "", nil).CheckConnections(context.Background(), t0); err != nil {
+	if err := newService(d, nil, "").CheckConnections(context.Background(), t0); err != nil {
 		t.Fatal(err)
 	}
 	exec(t, d, `UPDATE users SET email = 'not an address' WHERE id = 1`)
-	run(t, New(d, r, "", nil), r, t0)
+	run(t, newService(d, r, ""), r, t0)
 	// A pending link (credentials saved, no consent) has nothing to remind of.
 	exec(t, d, `UPDATE users SET email = 'bert@example.com' WHERE id = 1`)
 	exec(t, d, `UPDATE provider_connections SET status = 'pending', valid_until = NULL, last_sync_at = NULL WHERE id = 1`)
-	run(t, New(d, r, "", nil), r, t0.AddDate(0, 1, 0))
+	run(t, newService(d, r, ""), r, t0.AddDate(0, 1, 0))
 }
 
 func TestConcurrentRunsSendOnce(t *testing.T) {
@@ -274,7 +283,7 @@ func mailTo(t *testing.T, d *sql.DB, to string, now time.Time) (mail.Message, er
 	t.Helper()
 	exec(t, d, `DELETE FROM notification_log`)
 	r := &recorder{}
-	if err := New(d, r, "https://saldo.example.com", nil).CheckConnections(context.Background(), now); err != nil {
+	if err := newService(d, r, "https://saldo.example.com").CheckConnections(context.Background(), now); err != nil {
 		return mail.Message{}, err
 	}
 	for _, m := range r.sent {

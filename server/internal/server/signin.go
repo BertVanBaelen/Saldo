@@ -31,6 +31,7 @@ const (
 // codes per user are limited in package auth.
 type limits struct {
 	loginIP, loginEmail, verifyIP, tokenIP, password, bankLink *ratelimit.Limiter
+	pushTest                                                   *ratelimit.Limiter // test pushes per user (0.9-2)
 }
 
 func newLimits(now func() time.Time) limits {
@@ -42,6 +43,7 @@ func newLimits(now func() time.Time) limits {
 		tokenIP:    ratelimit.NewLimiter(20, window, now),
 		password:   ratelimit.NewLimiter(5, window, now), // wrong current passwords
 		bankLink:   ratelimit.NewLimiter(10, time.Hour, now),
+		pushTest:   ratelimit.NewLimiter(5, time.Hour, now),
 	}
 }
 
@@ -145,6 +147,21 @@ func (s *Server) sendLater(m mail.Message) {
 	}()
 }
 
+// notifyDeviceLater delivers "Nieuw toestel aangemeld" through the
+// notification dispatcher in the background (0.9-3b), on its own context: the
+// request's is gone once the answer is written.
+func (s *Server) notifyDeviceLater(user, device int64, name string, now time.Time) {
+	s.mails.Add(1)
+	go func() {
+		defer s.mails.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err := s.opts.Notify.NewDevice(ctx, now, user, device, name); err != nil {
+			s.log.Error("new device notification", "error", err)
+		}
+	}()
+}
+
 func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Email    string `json:"email"`
@@ -218,7 +235,11 @@ func (s *Server) postVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setDeviceCookie(w, r, sess.Token)
-	if s.opts.Mailer != nil {
+	if s.opts.Notify != nil {
+		// 0.9-3b: through the dispatcher, in the background like sendLater, so
+		// the answer and its timing do not change.
+		s.notifyDeviceLater(sess.UserID, sess.DeviceID, device, s.opts.Now())
+	} else if s.opts.Mailer != nil {
 		devicesURL := ""
 		if s.opts.PublicURL != "" {
 			devicesURL = s.opts.PublicURL + "/instellingen/toestellen"

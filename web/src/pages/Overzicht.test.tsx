@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../App';
@@ -1282,5 +1282,113 @@ describe('Overzicht · breakdown sheets', () => {
     renderAt('/overzicht?blad=inkomen');
     const d = await screen.findByRole('dialog', { name: 'Inkomen · oktober 2026' });
     expect(within(d).getByText('Geen verdeling beschikbaar.')).toBeTruthy();
+  });
+});
+
+describe('Overzicht · the bill beside the account filter (0.9-3d)', () => {
+  const bon = () => screen.queryByRole('link', { name: /^Bekijk de bon van / }) as HTMLAnchorElement | null;
+  const periodButton = (name: string) => within(screen.getByRole('group', { name: 'Periode' })).getByRole('button', { name });
+  const ready = () => screen.findByRole('group', { name: 'Inkomen, uitgaven en gespaard per periode' });
+
+  it('sits right of the account filter in the tools row, as a chip with a glyph and no text, labelled by the selected month', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht');
+    await ready();
+    const link = (await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' })) as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/overzicht/bon/maand/2026-10-01?scope=alles');
+    expect(link.getAttribute('title')).toBe('Bekijk de bon van oktober 2026');
+    expect(link.closest('.ov-tools')).not.toBeNull();
+    expect(link.previousElementSibling!.textContent).toContain('Alle rekeningen');
+    expect(link.classList.contains('filter-chip')).toBe(true);
+    expect(link.querySelector('svg')).not.toBeNull();
+    expect(link.textContent).toBe('');
+    // The old entry in the category card's header is gone: one entry point.
+    expect(screen.queryByRole('link', { name: 'Bekijk als bon' })).toBeNull();
+    expect(screen.queryByText('Bekijk als bon')).toBeNull();
+    expect(document.querySelector('.ov-cats-head a')).toBeNull();
+  });
+
+  it('follows the selected month', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht');
+    await ready();
+    await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' });
+    fireEvent.click(cols()[4]);
+    expect(bon()!.getAttribute('href')).toBe('/overzicht/bon/maand/2026-09-01?scope=alles');
+    expect(bon()!.getAttribute('aria-label')).toBe('Bekijk de bon van september 2026');
+  });
+
+  it('is there on Kwartaal: the selected quarter, from its first day', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht');
+    await ready();
+    fireEvent.click(periodButton('Kwartaal'));
+    await waitFor(() => expect(bon()!.getAttribute('aria-label')).toBe('Bekijk de bon van K3 2026'));
+    expect(bon()!.getAttribute('href')).toBe('/overzicht/bon/kwartaal/2026-07-01?scope=alles');
+    fireEvent.click(cols()[1]);
+    expect(bon()!.getAttribute('href')).toBe('/overzicht/bon/kwartaal/2026-04-01?scope=alles');
+    expect(bon()!.getAttribute('aria-label')).toBe('Bekijk de bon van K2 2026');
+  });
+
+  it('is there on Jaar: the selected year, titled by the year alone (the column says "tot oktober")', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht?periode=jaar');
+    await ready();
+    expect(cols().map((c) => c.textContent)).toEqual(['2025', '2026']);
+    const link = await screen.findByRole('link', { name: 'Bekijk de bon van 2026' });
+    expect(link.getAttribute('href')).toBe('/overzicht/bon/jaar/2026-01-01?scope=alles');
+    // The first year's column is cut to the history ("vanaf november"); the receipt is the calendar year, and says what it holds.
+    fireEvent.click(cols()[0]);
+    expect(bon()!.getAttribute('href')).toBe('/overzicht/bon/jaar/2025-01-01?scope=alles');
+    expect(bon()!.getAttribute('aria-label')).toBe('Bekijk de bon van 2025');
+  });
+
+  it('is there on Eigen: the whole custom range, not the one month selected in it', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht?periode=eigen&van=2026-05&tot=2026-10');
+    await ready();
+    const link = await screen.findByRole('link', { name: 'Bekijk de bon van mei – okt 2026' });
+    expect(link.getAttribute('href')).toBe('/overzicht/bon/eigen/2026-05-01?tot=2026-10-31&scope=alles');
+    fireEvent.click(cols()[2]);
+    expect(bon()!.getAttribute('href')).toBe('/overzicht/bon/eigen/2026-05-01?tot=2026-10-31&scope=alles');
+    // The range chip is still there, after the bill.
+    expect(bon()!.nextElementSibling!.textContent).toContain('mei – okt 2026');
+  });
+
+  it('carries the scope the viewer is in', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht', { ...ME, preferences: { ...ME.preferences, scope: 'persoonlijk' } });
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-10-01?scope=persoonlijk');
+  });
+
+  it('carries the account the filter is on, and only then (not an account that is merely the only one)', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht?rekening=1');
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-10-01?scope=alles&rekening=1');
+    cleanup();
+    // Persoonlijk has one current account: it is shown as the subject, but the filter is not on it.
+    renderAt('/overzicht', { ...ME, preferences: { ...ME.preferences, scope: 'persoonlijk' } });
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van oktober 2026' })).getAttribute('href')).toBe('/overzicht/bon/maand/2026-10-01?scope=persoonlijk');
+  });
+
+  it('writes the account into the receipt of a quarter, a year and a custom range too', async () => {
+    stubApi({ reports: byScope });
+    renderAt('/overzicht?periode=kwartaal&rekening=1');
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van K3 2026' })).getAttribute('href')).toBe('/overzicht/bon/kwartaal/2026-07-01?scope=alles&rekening=1');
+    cleanup();
+    renderAt('/overzicht?periode=jaar&rekening=1');
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van 2026' })).getAttribute('href')).toBe('/overzicht/bon/jaar/2026-01-01?scope=alles&rekening=1');
+    cleanup();
+    renderAt('/overzicht?periode=eigen&van=2026-05&tot=2026-10&rekening=1');
+    expect((await screen.findByRole('link', { name: 'Bekijk de bon van mei – okt 2026' })).getAttribute('href')).toBe(
+      '/overzicht/bon/eigen/2026-05-01?tot=2026-10-31&scope=alles&rekening=1',
+    );
+  });
+
+  it('is left out when there is no history to show', async () => {
+    stubApi();
+    renderAt('/overzicht');
+    await screen.findByText('Nog geen geschiedenis');
+    expect(bon()).toBeNull();
   });
 });

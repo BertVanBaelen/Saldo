@@ -55,6 +55,7 @@ Every **concept** file describes one domain object or idea once, and links to th
 | Meer | [screens/meer.md](screens/meer.md) | Telefoon-Meer | Canvas (phone), mockup (desktop, demo states) | `meer.html` |
 | E-mails | [screens/emails.md](screens/emails.md) | E-mail-Berichten | Canvas (nine), mockup (new device) | `emails/`, `berichten.html` |
 | Pushmeldingen | [screens/pushmeldingen.md](screens/pushmeldingen.md) | Meldingen-Android, Meldingen-Icoon | Canvas, mockup (new device, iPhone) | `berichten.html` |
+| Overzichtsbon | [screens/overzichtbon.md](screens/overzichtbon.md) | none (0.9, user request 23 Nov 2026) | Kokonut UI Receipt Printer, adapted | none |
 
 Every screen can be opened in the demo states of the mockup (Meer → Mockup · toestand, or `?demo=`): see [concepts/demo-data.md](concepts/demo-data.md#demo-states).
 

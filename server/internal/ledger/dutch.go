@@ -2,6 +2,8 @@ package ledger
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/clock"
@@ -42,3 +44,33 @@ func plural(n int, one, many string) string {
 
 // MonthDutch is the lower-case Dutch name of a month ("februari").
 func MonthDutch(m time.Month) string { return monthNames[m-1] }
+
+// MonthLabel is a "YYYY-MM" month in lower-case Dutch, with its year when it is
+// more than 11 months after the running month ("januari", "januari 2028").
+func MonthLabel(month, running string) string {
+	t, _ := time.Parse("2006-01", month)
+	r, _ := time.Parse("2006-01", running)
+	name := MonthDutch(t.Month())
+	if (t.Year()-r.Year())*12+int(t.Month()-r.Month()) > 11 {
+		name += " " + strconv.Itoa(t.Year())
+	}
+	return name
+}
+
+// Eur0 is an amount in cents in whole euros as the web app writes it:
+// "€ 1.134", negative "−€ 1.134" (U+2212), half a euro rounded up.
+func Eur0(cents int64) string {
+	sign := ""
+	if cents < 0 {
+		sign, cents = "−", -cents
+	}
+	digits := strconv.FormatInt((cents+50)/100, 10)
+	var b strings.Builder
+	for i, c := range digits {
+		if i > 0 && (len(digits)-i)%3 == 0 {
+			b.WriteByte('.')
+		}
+		b.WriteRune(c)
+	}
+	return sign + "€ " + b.String()
+}

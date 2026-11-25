@@ -1,0 +1,113 @@
+/* Meldingen screen, ported from finance-mockup/css/screens/meldingen.css (design board Telefoon-Meldingen).
+   Spec: analysis/screens/meldingen.md. Desktop (not designed): channels, quiet hours, the note and the test button in a 340 px
+   column on the left, the notification types on the right; the DOM order stays channels, types, quiet hours, note, test. */
+
+.ml-head { display: flex; align-items: center; gap: 4px; min-height: 44px; }
+.ml-head-title { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.ml-head-title h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.ml-head-sub { font-size: 14px; color: var(--muted); }
+
+.ml-layout, .ml-types, .ml-chan, .ml-test-wrap, .ml-state { display: flex; flex-direction: column; gap: 14px; }
+@media (min-width: 1024px) {
+  .page.ml-page { max-width: 1040px; }
+  .ml-head-title h1 { font-size: 28px; line-height: 1.2; }
+  .ml-layout {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto 1fr;
+    grid-template-areas: "chan types" "quiet types" "always types" "test types" ". types";
+    gap: 16px 18px;
+    align-items: start;
+  }
+  .ml-chan { grid-area: chan; }
+  .ml-types { grid-area: types; gap: 16px; }
+  .ml-quiet { grid-area: quiet; }
+  .ml-always { grid-area: always; }
+  .ml-test-wrap { grid-area: test; }
+}
+
+/* Cards */
+.ml-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 0 16px;
+  display: flex; flex-direction: column;
+}
+.ml-channels, .ml-quiet { padding: 4px 16px; }
+
+/* Setting row with a switch: name and subline on the left, the switch on the right. */
+.ml-setting { display: flex; align-items: center; gap: 12px; min-height: 64px; }
+.ml-setting + .ml-setting { border-top: 1px solid var(--line); }
+.ml-setting-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ml-setting-name { font-size: 15px; font-weight: 500; }
+.ml-setting-sub { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+/* The vendored Switch lays out track, then label; here the label comes first and the track sits at the right edge.
+   Two classes, so this wins over the unlayered utilities of the control. */
+.ml-setting .ml-switch { flex: 1; width: 100%; flex-direction: row-reverse; justify-content: space-between; min-height: 64px; }
+
+/* Groups of types */
+.ml-group { display: flex; flex-direction: column; gap: 8px; }
+.ml-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 4px; }
+.ml-group-head > span { font-size: 12px; color: var(--muted); }
+
+.ml-type { display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 8px 0; }
+.ml-type + .ml-type { border-top: 1px solid var(--line); }
+.ml-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ml-type-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ml-type-name { font-size: 15px; font-weight: 500; }
+.ml-type-sub { font-size: 12px; line-height: 1.35; color: var(--muted); }
+
+/* Push / e-mail chip: a React Aria ToggleButton (`aria-pressed`, `disabled`) in the mockup's look. */
+.ml-chip {
+  width: 44px; height: 36px; flex: none;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: transparent; color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+.ml-chip[aria-pressed="true"] { background: var(--soft); color: var(--greenText); border-color: var(--green); }
+.ml-chip:disabled { opacity: 0.4; cursor: default; }
+/* Always-on e-mail: on, but fixed (aria-disabled, not disabled: it stays at full strength and reachable). A dashed border and a lock instead of the mail icon. */
+.ml-chip--locked { border-style: dashed; cursor: default; }
+
+/* Look-ahead: the library's segmented control, full width, with the selected segment in green (as on Planning's horizon).
+   Two classes beat its utilities. */
+.ml-look { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 14px; border-top: 1px solid var(--line); }
+.ml-look-title { font-size: 14px; font-weight: 500; }
+.ml-look .ml-seg { display: flex; width: 100%; }
+.ml-look .ml-seg > button[data-selected] { background: var(--green); color: var(--onGreen); box-shadow: none; }
+.ml-hint { font-size: 12px; line-height: 1.4; color: var(--muted); }
+
+/* The note that login codes, invitations and password links always come by e-mail. */
+.ml-always {
+  margin: 0 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; line-height: 1.45; color: var(--muted);
+}
+.ml-always svg { flex: none; margin-top: 2px; color: var(--greenText); }
+@media (min-width: 1024px) { .ml-always { margin: 0; } }
+
+/* Instruction cards: iPhone install, blocked, not available. */
+.ml-notice {
+  margin: 0 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; line-height: 1.45; color: var(--muted);
+}
+.ml-notice svg { flex: none; margin-top: 2px; color: var(--greenText); }
+.ml-notice--warn svg { color: var(--warn); }
+@media (min-width: 1024px) { .ml-notice { margin: 0; } }
+
+.ml-test { font-size: 15px; font-weight: 600; }
+.ml-demo { margin: -6px 4px 0; font-size: 12px; line-height: 1.4; color: var(--muted); text-align: center; }

@@ -32,7 +32,7 @@ flowchart LR
 | [0.7](v0.7-overview/README.md) | Overview | see income, spending and savings per period, per account and category | M4 | 3 S · 2 M | released (0.7.0), verifying |
 | [0.8](v0.8-planning/README.md) | Planning | know how each coming month ends for each account, and how much is free to spend; savings categories, shared accounts by invitation, Overzicht sheets | M5 | 7 M · 3 L | released (0.8.0), verifying |
 | [0.8.1](v0.8.1-improvements/README.md) | Improvements | month result and lowest point, stacked uit bar, budgets and balance on Overzicht, breakdown sheets, one Planning instellen screen, contributors without Saldo | M5 | 3 S · 4 M · 2 L | released (0.8.1), verifying |
-| [0.9](v0.9-notifications/README.md) | Notifications | get push (Android and iPhone) and e-mail warnings before an account goes into its buffer or below zero | 4.9 | 2 S · 3 M | planned |
+| [0.9](v0.9-notifications/README.md) | Notifications | get push (Android and iPhone) and e-mail warnings before an account goes into its buffer or below zero, and about bank links, joins, contributions and new devices, and a week and month receipt | 4.4, 4.9 | 1 S · 5 M · 3 L | released (0.9.0, 25 Nov 2026), verifying (the real phones and mail clients are open, 0.9-5; refined 18 and 23 Nov 2026) |
 | [1.0](v1.0-release/README.md) | Release | run Saldo with a full security review, tested backups and an export | 13.4 | 3 S · 1 M | planned |
 | [2.0](v2.0-investments/README.md) | Investments | see net worth per platform | v2 | 1 S · 2 M | later |
 
@@ -200,11 +200,13 @@ Feature ids are stable; phase files list the features they deliver. **[S]** = sh
 ### 0.9 · Notifications
 | Id | Feature | Phase |
 |---|---|---|
-| NOTIF-1 | All ten e-mails, with plain-text parts, tested in three mail clients | 0.9-1 |
-| NOTIF-2 | Push notifications on the installed app, on Android and iPhone | 0.9-2 |
-| NOTIF-3 | Warnings for red and buffer per account, member joined, new device, to categorise; once per account, month and state | 0.9-3 |
+| NOTIF-1 | Every e-mail: the ten of the design plus the variants and types the design lacks, each with a plain-text part, checked in three mail clients | 0.9-1 |
+| NOTIF-2 | Push notifications on the installed app, on Android and iPhone, own sender, with the lock-screen spike | 0.9-2 |
+| NOTIF-3 | Notification core and the planning warnings: red and buffer per account, once per account, month and state, re-arm, quiet hours, silent first run | 0.9-3 |
+| NOTIF-3b | Bank (also to a shared account's manager), member joined, invitation, contribution missing, to categorise, new device | 0.9-3b |
 | NOTIF-4 | Meldingen settings: per type and channel, look-ahead, quiet hours, test notification | 0.9-4 |
-| NOTIF-5 | Lock screen without amounts, checked on both phones | 0.9-5 |
+| NOTIF-5 | Lock screen without amounts and the whole chain checked on both phones, release | 0.9-5 |
+| NOTIF-6 | Week and month overview as a receipt: data, the page with Kokonut UI's Receipt Printer, two opt-in notifications | 0.9-3c, 0.9-3d, 0.9-3e |
 
 ### 1.0 · Release
 | Id | Feature | Phase |
@@ -228,10 +230,10 @@ Generated from the "Concepts" row of every phase file.
 | Concept | 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1.0 | 2.0 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | [account](../analysis/concepts/account.md) | ● | ● | ● |  |  | ● |  |  | ● | ● | ● |
-| [app-shell](../analysis/concepts/app-shell.md) | ● | ● |  |  |  |  |  |  |  |  |  |
-| [authentication](../analysis/concepts/authentication.md) | ● | ● |  |  |  |  |  |  |  | ● |  |
+| [app-shell](../analysis/concepts/app-shell.md) | ● | ● |  |  |  |  |  |  | ● |  |  |
+| [authentication](../analysis/concepts/authentication.md) | ● | ● |  |  |  |  |  |  | ● | ● |  |
 | [bank-connection](../analysis/concepts/bank-connection.md) | ● | ● | ● |  |  | ● |  |  | ● | ● |  |
-| [budget](../analysis/concepts/budget.md) | ● |  |  |  |  |  |  | ● |  |  |  |
+| [budget](../analysis/concepts/budget.md) | ● |  |  |  |  |  |  | ● | ● |  |  |
 | [buffer-and-states](../analysis/concepts/buffer-and-states.md) | ● |  | ● |  |  | ● |  | ● | ● |  |  |
 | [categorisation-rule](../analysis/concepts/categorisation-rule.md) | ● |  |  | ● | ● | ● |  |  | ● |  |  |
 | [category](../analysis/concepts/category.md) | ● |  |  | ● | ● |  | ● | ● |  |  |  |
@@ -242,13 +244,13 @@ Generated from the "Concepts" row of every phase file.
 | [internal-transfer](../analysis/concepts/internal-transfer.md) | ● |  |  |  |  | ● | ● | ● |  |  |  |
 | [money-and-format](../analysis/concepts/money-and-format.md) | ● | ● |  |  |  |  |  |  |  |  |  |
 | [notification](../analysis/concepts/notification.md) | ● | ● | ● |  |  |  |  |  | ● |  |  |
-| [period-overview](../analysis/concepts/period-overview.md) | ● |  |  |  |  |  | ● | ● |  |  |  |
+| [period-overview](../analysis/concepts/period-overview.md) | ● |  |  |  |  |  | ● | ● | ● |  |  |
 | [planned-item](../analysis/concepts/planned-item.md) | ● |  |  |  |  |  |  | ● |  |  |  |
 | [recurring-item](../analysis/concepts/recurring-item.md) | ● |  |  |  |  |  |  | ● |  |  |  |
 | [scope](../analysis/concepts/scope.md) | ● |  | ● |  |  | ● | ● | ● |  |  | ● |
 | [shared-account](../analysis/concepts/shared-account.md) | ● | ● |  |  |  | ● | ● | ● | ● |  |  |
 | [transaction](../analysis/concepts/transaction.md) | ● | ● | ● | ● | ● | ● |  |  |  |  |  |
-| [user-and-visibility](../analysis/concepts/user-and-visibility.md) | ● | ● |  |  |  | ● |  |  |  | ● |  |
+| [user-and-visibility](../analysis/concepts/user-and-visibility.md) | ● | ● |  |  |  | ● |  |  | ● | ● |  |
 <!-- /concept-matrix -->
 
 ## Toolchain note

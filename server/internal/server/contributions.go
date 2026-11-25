@@ -126,16 +126,16 @@ func (s *Server) contributions(ctx context.Context, viewer, id int64, month stri
 		if m.Month != c.Month {
 			continue
 		}
-		need := ceilEuros(m.Need.Amount, 100)
+		need := planning.CeilEuros(m.Need.Amount, 100)
 		c.Need = &need
 		n := len(c.Members) + len(c.Contributors) // contributors without Saldo get a part too (0.8.1-7)
 		for i := range c.Members {
-			_, required := memberPart(m.Need.Amount, c.Members[i].Share, n)
+			_, required := planning.MemberPart(m.Need.Amount, c.Members[i].Share, n)
 			covered := c.Members[i].Received >= required
 			c.Members[i].Required, c.Members[i].Covered = &required, &covered
 		}
 		for i := range c.Contributors {
-			_, required := memberPart(m.Need.Amount, c.Contributors[i].Share, n)
+			_, required := planning.MemberPart(m.Need.Amount, c.Contributors[i].Share, n)
 			covered := c.Contributors[i].Received >= required
 			c.Contributors[i].Required, c.Contributors[i].Covered = &required, &covered
 		}

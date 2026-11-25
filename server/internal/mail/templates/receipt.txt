@@ -1,0 +1,18 @@
+{{define "receipt" -}}
+{{.Label}}
+{{.Scope}}
+bedragen in €
+{{range .Lines -}}
+{{if eq .Kind "head"}}
+{{.Name}}: {{.Amount}}{{if .Trend}} ({{.Trend}}){{end}}
+{{else if eq .Kind "row"}}{{.Name}}: {{.Amount}}{{if .Trend}} ({{.Trend}}){{end}}
+{{else if eq .Kind "sub"}}  {{.Name}}: {{.Amount}}
+{{else if eq .Kind "budget"}}  {{.Name}}
+{{else if eq .Kind "result"}}
+{{.Name}}: {{.Amount}}
+{{else if eq .Kind "prev"}}{{.Name}}: {{.Amount}}
+{{end -}}
+{{end -}}
+{{if .Notes}}
+{{range .Notes}}{{.}}
+{{end}}{{end}}{{end}}

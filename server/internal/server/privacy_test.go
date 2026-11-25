@@ -197,6 +197,9 @@ func newWorld(t *testing.T) *world {
 	// Devices, a third user with an account offered to Bert, notices, an invitation.
 	w.bertDevice = w.int(`INSERT INTO devices (user_id, name, token_hash) VALUES (?, 'Chrome op Windows', 'b') RETURNING id`, w.bert)
 	w.partnerDevice = w.int(`INSERT INTO devices (user_id, name, token_hash) VALUES (?, 'Safari op iPhone', 'p') RETURNING id`, w.partner)
+	// A push subscription on each device (0.9-2).
+	w.exec(`INSERT INTO push_subscriptions (user_id, device_id, endpoint, p256dh, auth) VALUES (?, ?, ?, 'bert-k', 'bert-s'), (?, ?, ?, 'partner-k', 'partner-s')`,
+		w.bert, w.bertDevice, fcm+"bert", w.partner, w.partnerDevice, fcm+"partner")
 	w.derde = e.addUser("derde@example.com", "Derde", "user", "Derde kiest ook een zin")
 	w.derdeAcc = w.int(`INSERT INTO accounts (type, source, iban, name, bank_name, created_by) VALUES ('current', 'bank', ?, 'Derdes Rekening', 'Argenta', ?) RETURNING id`, ibanDerde, w.derde)
 	w.exec(`INSERT INTO account_access (account_id, user_id, role, permission) VALUES (?, ?, 'manager', 'edit')`, w.derdeAcc, w.derde)
@@ -358,6 +361,15 @@ func (w *world) send(p probe, as string) (response, string) {
 	req.Header.Set("User-Agent", iPhone)
 	if u := w.user(as); u != 0 {
 		req.Header.Set("X-Test-User", id(u))
+	}
+	// The push routes act on the session's device (0.9-2).
+	if strings.HasPrefix(p.path, "/api/push/") || strings.HasPrefix(p.path, "/api/notifications/") {
+		switch as {
+		case "bert":
+			req.Header.Set("X-Test-Device", id(w.bertDevice))
+		case "partner":
+			req.Header.Set("X-Test-Device", id(w.partnerDevice))
+		}
 	}
 	_, pattern := w.e.s.mux.Handler(req)
 	rec := httptest.NewRecorder()
@@ -768,6 +780,34 @@ func privacyRows() []privacyRow {
 				hidden("partner", "GET", path+"?account="+id(w.bertManual), "", path+"?account="+none, "", "bert"),
 				hidden("bert", "GET", path+"?account="+id(w.partnerManual), "", path+"?account="+none, "", "partner"))
 		}, []string{"TestReportBalancesErrors", "TestReportBalancesDemo"}},
+		{"GET /api/reports/receipt", "list", "receipt.Build over ledger.ReportRange: the selection and the account's check are the report's, so another user's account (current or savings) is the 404 of a missing one, before its type is looked at, and answers as an unknown one; amounts, group and subgroup names of the viewer's own current accounts only, the other side of a transfer only among them; the budget reference is account-level (the same for every member of an account); the notes name the viewer's own accounts only; period, scope and account are validated before anything is read", func(w *world) []probe {
+			const path = "/api/reports/receipt"
+			month, week := "?periode=maand&van=2026-11-01", "?periode=week&van=2026-11-16"
+			ps := []probe{}
+			for _, q := range []string{month, month + "&scope=persoonlijk", month + "&scope=gedeeld", "?periode=maand&van=2026-10-15", "?periode=week&van=2026-11-09", week,
+				week + "&scope=gedeeld", month + "&account=" + id(w.shared), week + "&account=" + id(w.shared), "?periode=week&van=2020-01-01"} {
+				ps = append(ps, read(path+q, 200))
+			}
+			return append(ps,
+				probe{as: "anon", method: "GET", path: path + month, status: 401},
+				probe{as: "bert", method: "GET", path: path + month + "&account=" + id(w.bertAcc), status: 200},
+				probe{as: "partner", method: "GET", path: path + month + "&account=" + id(w.partnerAcc), status: 200},
+				hidden("partner", "GET", path+month+"&account="+id(w.bertAcc), "", path+month+"&account="+none, "", "bert"),
+				hidden("bert", "GET", path+month+"&account="+id(w.partnerAcc), "", path+month+"&account="+none, "", "partner"),
+				// A savings account of another user is not "Kies een betaalrekening." (400): the owner gets that.
+				hidden("partner", "GET", path+week+"&account="+id(w.bertManual), "", path+week+"&account="+none, "", "bert"),
+				hidden("bert", "GET", path+week+"&account="+id(w.partnerManual), "", path+week+"&account="+none, "", "partner"))
+		}, []string{"TestReportReceiptErrors", "TestReceiptIsPerViewer", "TestReportReceiptIsTheMonthReport"}},
+		{"GET /mail/", "public", "the logo and the two account icons of the mails: three static PNGs embedded in the binary, looked up by exact file name, no session and no data; everything else under /mail/ is a 404 (never the web app's index.html), other methods the web app's 405", func(w *world) []probe {
+			ps := []probe{}
+			for _, name := range []string{"logo.png", "person.png", "people.png"} {
+				ps = append(ps, probe{as: "anon", method: "GET", path: "/mail/" + name, status: 200}, probe{as: "bert", method: "GET", path: "/mail/" + name, status: 200})
+			}
+			for _, path := range []string{"/mail/", "/mail/nope.png", "/mail/LOGO.png", "/mail/img/logo.png", "/mail/logo.png/", "/mail/%2e%2e/logo.png", "/mail/templates/layout.html"} {
+				ps = append(ps, probe{as: "anon", method: "GET", path: path, status: 404})
+			}
+			return append(ps, probe{as: "anon", method: "HEAD", path: "/mail/logo.png", status: 200})
+		}, []string{"TestMailImagesAreServedWithoutASession", "TestMailImagesServeNothingElse"}},
 		{"GET /api/planning", "list", "account-level: the forecast of the current accounts of the scope the viewer holds, from facts that are the same for every member (no per-viewer table; only `me` differs); members only of accounts the viewer holds; no counterparty IBAN", func(w *world) []probe {
 			gedeeld := read("/api/planning?scope=gedeeld", 200)
 			gedeeld.verify = func(t *testing.T, w *world) { // the shared account is the same for both members
@@ -1027,6 +1067,75 @@ func privacyRows() []privacyRow {
 			return []probe{{as: "partner", method: "POST", path: "/api/suggestions/backfill", body: `{"items":[{"counterpartyKey":"geheimwinkel noord","categoryId":2}]}`, status: 200,
 				missing: &probe{as: "partner", method: "POST", path: "/api/suggestions/backfill", body: `{"items":[{"counterpartyKey":"bestaat nergens","categoryId":2}]}`, status: 200}}}
 		}, []string{"TestReadOnlyViewerScopedRoutes"}},
+		{"GET /api/push/key", "own", "no personal data: the server's public VAPID key and whether push is on", func(w *world) []probe {
+			return []probe{read("/api/push/key", 200), {as: "anon", method: "GET", path: "/api/push/key", status: 401}}
+		}, []string{"TestPushKey"}},
+		{"PUT /api/push/subscription", "own", "bound to the session's own device and user; an endpoint another user holds is deleted and inserted anew for the caller (never updated, nothing of the old row carries over): only that browser knows the endpoint, and the other user's pushes stop going there", func(w *world) []probe {
+			return []probe{
+				{as: "anon", method: "PUT", path: "/api/push/subscription", body: subscription(w.t, "anon"), status: 401},
+				{as: "partner", method: "PUT", path: "/api/push/subscription", body: subscription(w.t, "neu"), status: 204, verify: func(t *testing.T, w *world) {
+					if w.int(`SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ? AND device_id = ? AND endpoint = ? AND p256dh = 'bert-k'`, w.bert, w.bertDevice, fcm+"bert") != 1 ||
+						w.int(`SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ? AND device_id = ? AND endpoint = ?`, w.partner, w.partnerDevice, fcm+"neu") != 1 ||
+						w.int(`SELECT COUNT(*) FROM push_subscriptions`) != 2 {
+						t.Error("Partner's subscription touched Bert's, or is not on her own device")
+					}
+				}},
+				{as: "partner", method: "PUT", path: "/api/push/subscription", body: subscription(w.t, "bert"), status: 204, verify: func(t *testing.T, w *world) {
+					if w.int(`SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?`, w.bert) != 0 ||
+						w.int(`SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ? AND device_id = ? AND endpoint = ? AND p256dh <> 'bert-k'`, w.partner, w.partnerDevice, fcm+"bert") != 1 {
+						t.Error("Bert's endpoint was not re-bound to Partner's device as a new row")
+					}
+				}},
+			}
+		}, []string{"TestPushSubscriptionAndTestPush", "TestPushCap"}},
+		{"DELETE /api/push/subscription", "own", "removes the session device's subscription only", func(w *world) []probe {
+			return []probe{
+				{as: "anon", method: "DELETE", path: "/api/push/subscription", status: 401},
+				{as: "partner", method: "DELETE", path: "/api/push/subscription", status: 204, verify: func(t *testing.T, w *world) {
+					if w.int(`SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?`, w.partner) != 0 ||
+						w.int(`SELECT COUNT(*) FROM push_subscriptions WHERE device_id = ?`, w.bertDevice) != 1 {
+						t.Error("Partner's DELETE removed Bert's subscription, or not hers")
+					}
+				}},
+			}
+		}, []string{"TestPushSubscriptionAndTestPush"}},
+		{"POST /api/notifications/test", "own", "the generic test push (no personal data) to the session device's own subscription only; at most 5 per user per hour", func(w *world) []probe {
+			return []probe{
+				{as: "anon", method: "POST", path: "/api/notifications/test", status: 401},
+				{as: "partner", method: "POST", path: "/api/notifications/test", status: 200, verify: func(t *testing.T, w *world) {
+					sent := w.e.push.Sent()
+					if len(sent) != 1 || sent[0].Subscription.Endpoint != fcm+"partner" {
+						t.Errorf("Partner's test reached %+v", sent)
+					}
+				}},
+			}
+		}, []string{"TestSignedOutDeviceGetsNoPush", "TestPushSubscriptionAndTestPush"}},
+		{"GET /api/notifications", "own", "the viewer's own Meldingen settings (the users row and the viewer's own notification_prefs rows merged over the defaults); no account data", func(w *world) []probe {
+			return []probe{read("/api/notifications", 200), {as: "anon", method: "GET", path: "/api/notifications", status: 401}}
+		}, []string{"TestNotificationSettings", "TestNotificationSettingsArePerUser"}},
+		{"PUT /api/notifications", "own", "changes and answers the viewer's own Meldingen settings only: another user's users row and notification_prefs rows are never read or written", func(w *world) []probe {
+			return []probe{
+				{as: "anon", method: "PUT", path: "/api/notifications", body: `{"lookahead":6}`, status: 401},
+				{as: "partner", method: "PUT", path: "/api/notifications", status: 200,
+					body: `{"channels":{"email":false,"quietHours":false},"lookahead":6,"types":{"rood":{"push":false},"week":{"email":true}}}`,
+					verify: func(t *testing.T, w *world) {
+						if w.int(`SELECT COUNT(*) FROM notification_prefs WHERE user_id = ?`, w.bert) != 0 ||
+							w.int(`SELECT COUNT(*) FROM users WHERE id = ? AND notify_email = 1 AND quiet_hours = 1 AND lookahead_months = 3`, w.bert) != 1 {
+							t.Error("Partner's change touched Bert's settings")
+						}
+						if w.int(`SELECT COUNT(*) FROM notification_prefs WHERE user_id = ?`, w.partner) != 2 ||
+							w.int(`SELECT COUNT(*) FROM users WHERE id = ? AND notify_email = 0 AND quiet_hours = 0 AND lookahead_months = 6`, w.partner) != 1 {
+							t.Error("Partner's own settings were not saved")
+						}
+					}},
+				{as: "bert", method: "PUT", path: "/api/notifications", status: 400, body: `{"types":{"device":{"email":false}}}`,
+					verify: func(t *testing.T, w *world) {
+						if w.int(`SELECT COUNT(*) FROM notification_prefs`) != 2 {
+							t.Error("a refused change wrote a row")
+						}
+					}},
+			}
+		}, []string{"TestNotificationSettings", "TestNotificationSettingsArePerUser"}},
 		{"/api/", "fallback", "unknown API paths: 404 or 405, no data", func(w *world) []probe {
 			return []probe{{as: "partner", method: "GET", path: "/api/bestaat-niet", status: 404}}
 		}, []string{"TestRouting"}},

@@ -23,6 +23,10 @@ import { LinkPage, SignIn } from './pages/Inloggen';
 // precaches every bundle file, so the chunk is there offline too.
 const Planning = lazy(() => import('./pages/Planning').then((m) => ({ default: m.Planning })));
 const PlanningInstellen = lazy(() => import('./pages/PlanningInstellen').then((m) => ({ default: m.PlanningInstellen })));
+// Meldingen uses the same UI library (the Switch), so it is its own chunk too.
+const Meldingen = lazy(() => import('./pages/Meldingen').then((m) => ({ default: m.Meldingen })));
+// The overview receipt brings the printer and the same UI library: its own chunk as well (phase 0.9-3d).
+const OverzichtBon = lazy(() => import('./pages/OverzichtBon').then((m) => ({ default: m.OverzichtBon })));
 
 /** The pages of a signed-in viewer, inside the shell. */
 export function AppRoutes() {
@@ -35,6 +39,21 @@ export function AppRoutes() {
         <Route path="rekeningen/:id" element={<Rekening />} />
         <Route path="meer" element={<Meer />} />
         <Route path="overzicht" element={<Overzicht />} />
+        <Route
+          path="overzicht/bon/:periode/:van"
+          element={
+            <Suspense
+              fallback={
+                <div className="page" role="status" aria-label="Overzichtsbon laden">
+                  <Skel w={200} h={32} />
+                  <Skel w="100%" h={280} />
+                </div>
+              }
+            >
+              <OverzichtBon />
+            </Suspense>
+          }
+        />
         <Route
           path="planning"
           element={
@@ -70,7 +89,21 @@ export function AppRoutes() {
         <Route path="bankkoppelingen/terug" element={<BankTerug />} />
         <Route path="categorieen" element={<Categorieen />} />
         <Route path="importeren" element={<Importeren />} />
-        <Route path="meldingen" element={<NotBuilt id="meldingen" />} />
+        <Route
+          path="meldingen"
+          element={
+            <Suspense
+              fallback={
+                <div className="page" role="status" aria-label="Meldingen laden">
+                  <Skel w={160} h={32} />
+                  <Skel w="100%" h={120} />
+                </div>
+              }
+            >
+              <Meldingen />
+            </Suspense>
+          }
+        />
         <Route path="instellingen/:section?" element={<Instellingen />} />
         <Route path="*" element={<NotBuilt id={null} />} />
       </Route>

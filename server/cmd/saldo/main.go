@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -32,12 +33,13 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 	"github.com/BertVanBaelen/Saldo/server/internal/mail"
 	"github.com/BertVanBaelen/Saldo/server/internal/notify"
+	"github.com/BertVanBaelen/Saldo/server/internal/push"
 	"github.com/BertVanBaelen/Saldo/server/internal/secrets"
 	"github.com/BertVanBaelen/Saldo/server/internal/server"
 )
 
-// version is set at build time: -ldflags "-X main.version=0.8.1".
-var version = "0.8.1"
+// version is set at build time: -ldflags "-X main.version=0.9.0".
+var version = "0.9.0"
 
 func main() {
 	cmd := "serve"
@@ -50,6 +52,8 @@ func main() {
 		err = serve()
 	case "healthcheck":
 		err = healthcheck()
+	case "mail-preview":
+		err = mailPreview(os.Args[2:])
 	case "version", "--version", "-v":
 		fmt.Println(version)
 	default:
@@ -120,6 +124,29 @@ func serve() error {
 	if cfg.PublicURL == "" {
 		log.Warn("public_url is not set: e-mails cannot link to Saldo")
 	}
+
+	// Web Push (0.9-2): the VAPID key pair is made on first start (demo mode
+	// too) and kept in the database, its private half sealed with the box.
+	keys, err := push.LoadOrCreateKeys(ctx, database, box)
+	if err != nil {
+		return err
+	}
+	if keys.Renewed {
+		log.Warn("push: the stored VAPID key could not be opened; a new key was made and every push subscription was removed (each app subscribes again when it is opened)")
+	}
+	opts.PushKey = keys.Public
+	switch {
+	case cfg.Demo:
+		opts.Push = &push.Fake{} // nothing leaves the demo
+	case strings.HasPrefix(cfg.PublicURL, "https://"):
+		if web, err := push.NewWeb(keys.Private, keys.Public, cfg.PublicURL); err != nil {
+			log.Error("push notifications are off", "error", err)
+		} else {
+			opts.Push = web
+		}
+	default:
+		log.Warn("public_url is not https: push notifications are off (a phone subscribes only on an https address)")
+	}
 	if cfg.Demo {
 		if _, err := demo.Seed(ctx, database, fake.Provider{}, log); err != nil {
 			return err
@@ -130,6 +157,16 @@ func serve() error {
 		log.Warn("demo mode: every request acts as the demo user Bert, without signing in")
 	} else if err := auth.New(database, nil).Bootstrap(ctx, cfg.PublicURL, cfg.AdminRecovery, log); err != nil {
 		return err
+	}
+
+	// Notifications (0.9-3): the dispatcher is built before the handler, so
+	// sign-in can deliver the new-device message through it (0.9-3b). Demo
+	// mode keeps the direct mail and runs no triggers.
+	pushes := push.NewStore(database)
+	notifications := notify.New(notify.Options{DB: database, Mailer: opts.Mailer, Pushes: pushes, Push: opts.Push,
+		PublicURL: cfg.PublicURL, Log: log})
+	if !cfg.Demo {
+		opts.Notify = notifications
 	}
 
 	srv := &http.Server{
@@ -155,8 +192,17 @@ func serve() error {
 	} else {
 		sched := jobs.New(clk.Now, log)
 		sched.Every(10*time.Minute, "bank-sync", links.Nightly)
-		// Hourly is enough: the log keeps a reminder from being sent twice (0.3-2).
-		sched.Every(time.Hour, "reminders", notify.New(database, opts.Mailer, cfg.PublicURL, log).CheckConnections)
+		// Every 15 minutes the dispatcher's triggers (bank reminders, the 07:00
+		// planning warnings, joins, invitations, contributions, the 19:00
+		// digest, ...) decide what is due at now; the log keeps every message
+		// to once per user, channel and key. Push is off when opts.Push is nil
+		// (no https public URL).
+		sched.Every(15*time.Minute, "notifications", notifications.Run)
+		// Subscriptions of devices that went idle (signing out deletes them at once).
+		sched.Every(time.Hour, "push-prune", func(ctx context.Context, now time.Time) error {
+			_, err := pushes.Prune(ctx, now.Add(-auth.DeviceIdle))
+			return err
+		})
 		go func() {
 			defer close(jobsDone)
 			sched.Run(jobsCtx)

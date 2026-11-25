@@ -24,7 +24,7 @@ func TestPastBalances(t *testing.T) {
 	rows := []planning.DayAmount{{"2026-10-20", -500}, {"2026-11-03", -200}, {"2026-11-03", 50}, {"2026-11-10", 1000}, {"2026-11-20", -9999}}
 	for _, c := range []struct {
 		name, snapDate, from, first, want string
-		rows                                []planning.DayAmount
+		rows                              []planning.DayAmount
 	}{
 		// snapshot 10000 on 2026-11-18: the rows up to it are already in it.
 		{"days with rows only", "2026-11-18", "2026-11-01", "2026-01-01", "2026-10-31 9150, 2026-11-03 9000, 2026-11-10 10000", rows},

@@ -1,7 +1,7 @@
 // Planning · Maanden (plan 0.8-6): the horizon, one list of month cards per account (never a sum) and each month's breakdown.
 // Phone: a card expands to its breakdown; desktop: the rows select the month shown in the right panel (selection = account + month).
 // Design: finance-mockup/js/screens/planning.js maanden(); spec: analysis/screens/planning.md "Maanden".
-// The selection is local state seeded by `?maand=` (an alert's deep link); it never writes the URL, which would reload the forecast.
+// The selection is local state seeded by `?maand=` (an alert's deep link) and `?rekening=` (the account first, selected on a desktop); it never writes the URL, which would reload the forecast.
 // The exported tab stays hook-free (see planningTabs.ts); state and effects live in `Body`.
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -106,7 +106,7 @@ function Skeletons() {
   );
 }
 
-function Body({ planning, accounts, month, horizon, setHorizon }: PlanningTabProps) {
+function Body({ planning, accounts, month, horizon, setHorizon, focus }: PlanningTabProps) {
   const app = useApp();
   const desk = useIsDesktop();
   const uid = useId();
@@ -131,12 +131,12 @@ function Body({ planning, accounts, month, horizon, setHorizon }: PlanningTabPro
   const defaultMonth = (p: PlanAccount) => (linked && p.months.some((m) => m.month === month) ? month : (p.months.find((m) => m.state !== 'ok') ?? p.months[0])?.month);
   const openOf = (id: number, p: PlanAccount) => (open[id] === undefined ? defaultMonth(p) : open[id]);
 
-  // Desktop: the picked row while the answer still holds it, else the first account whose default month is not ok.
+  // Desktop: the picked row while the answer still holds it, else the account of a `?rekening=` link (`focus`), else the first account whose default month is not ok.
   let selected: { id: number; month: string } | undefined;
   if (pick && plans.some((x) => x.a.id === pick.id && x.p.months.some((m) => m.month === pick.month))) selected = pick;
   else {
     const defaults = plans.map(({ a, p }) => ({ id: a.id, month: defaultMonth(p), m: p.months.find((m) => m.month === defaultMonth(p)) }));
-    const first = defaults.find((d) => d.m && d.m.state !== 'ok') ?? defaults[0];
+    const first = defaults.find((d) => d.id === focus && d.month) ?? defaults.find((d) => d.m && d.m.state !== 'ok') ?? defaults[0];
     selected = first?.month ? { id: first.id, month: first.month } : undefined;
   }
   const detail = plans.find((x) => x.a.id === selected?.id);

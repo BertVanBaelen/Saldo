@@ -1,0 +1,35 @@
+{{define "rcrow"}}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;{{if .Top}}margin-top:8px;{{end}}"><tr>
+{{- if .Leader}}
+<td style="padding:0 0 0 {{if .Child}}12px{{else}}0{{end}};white-space:nowrap;{{if .Bold}}font-weight:700;{{end}}color:#27272A;">{{.Name}}</td>
+<td width="100%" style="width:100%;padding:0 4px 3px;vertical-align:bottom;"><div style="border-bottom:1px dotted #8A8A86;font-size:1px;line-height:1px;height:1px;">&nbsp;</div></td>
+{{- else}}
+<td style="width:100%;padding:0 6px 0 {{if .Child}}12px{{else}}0{{end}};border-bottom:1px dotted #8A8A86;word-break:break-word;overflow-wrap:anywhere;{{if .Bold}}font-weight:700;{{end}}color:#27272A;">{{brkn .Name}}</td>
+{{- end}}
+<td align="right" width="74" style="width:74px;padding:0 0 0 4px;{{if not .Leader}}border-bottom:1px dotted #8A8A86;{{end}}white-space:nowrap;text-align:right;{{if .Bold}}font-weight:700;{{end}}color:#27272A;">{{.Amount}}</td>
+<td align="right" width="46" style="width:46px;padding:0 0 0 6px;{{if not .Leader}}border-bottom:1px dotted #8A8A86;{{end}}white-space:nowrap;text-align:right;color:#27272A;">{{if .Trend}}{{.Trend}}{{else}}&nbsp;{{end}}</td>
+</tr></table>{{end}}
+{{- define "receipt"}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;border-collapse:separate;"><tr>
+<td bgcolor="#FAFAF7" style="padding:14px 12px 12px;border:1px solid #DEDED8;border-radius:6px;background:#FAFAF7;font-family:'Geist Mono', ui-monospace, Menlo, Consolas, 'Courier New', monospace;font-size:11px;line-height:15px;color:#27272A;">
+<div style="text-align:center;font-size:13px;line-height:18px;font-weight:700;letter-spacing:0.28em;color:#27272A;">SALDO</div>
+<div style="text-align:center;word-break:break-word;overflow-wrap:anywhere;color:#27272A;">{{brkn .Label}}</div>
+<div style="text-align:center;word-break:break-word;overflow-wrap:anywhere;color:#27272A;">{{brkn .Scope}}</div>
+<div style="margin-top:8px;border-top:1px dotted #8A8A86;font-size:1px;line-height:1px;">&nbsp;</div>
+<div style="padding-top:2px;text-align:right;color:#27272A;">bedragen in €</div>
+{{- range .Lines}}
+{{- if eq .Kind "rule"}}
+<div style="margin-top:8px;border-top:1px dotted #8A8A86;font-size:1px;line-height:1px;">&nbsp;</div>
+{{- else if eq .Kind "budget"}}
+<div style="padding-left:12px;word-break:break-word;overflow-wrap:anywhere;color:#27272A;">{{.Name}}</div>
+{{- else}}
+{{template "rcrow" .}}
+{{- end}}
+{{- end}}
+{{- if .Notes}}
+<div style="margin-top:8px;border-top:1px dotted #8A8A86;font-size:1px;line-height:1px;">&nbsp;</div>
+{{- range .Notes}}
+<div style="padding-top:4px;word-break:break-word;overflow-wrap:anywhere;color:#27272A;">{{brkn .}}</div>
+{{- end}}
+{{- end}}
+</td></tr></table>
+{{- end}}

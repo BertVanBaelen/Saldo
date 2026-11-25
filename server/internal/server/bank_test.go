@@ -26,6 +26,7 @@ import (
 	"github.com/BertVanBaelen/Saldo/server/internal/banklink"
 	"github.com/BertVanBaelen/Saldo/server/internal/demo"
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
+	"github.com/BertVanBaelen/Saldo/server/internal/push"
 	"github.com/BertVanBaelen/Saldo/server/internal/secrets"
 )
 
@@ -188,6 +189,7 @@ type bankEnv struct {
 	bank          *testBank
 	box           *secrets.Box
 	logs          *bytes.Buffer
+	push          *push.Fake // the push sender (0.9-2)
 	bert, partner int64
 }
 
@@ -200,6 +202,11 @@ func newBankEnv(t *testing.T) *bankEnv {
 	}
 	logs := &bytes.Buffer{}
 	log := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	fake := &push.Fake{}
+	_, pushKey, err := push.GenerateVAPIDKeys()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var e *env
 	e = newEnv(t, func(o *Options) {
 		o.Logger = log
@@ -207,10 +214,16 @@ func newBankEnv(t *testing.T) *bankEnv {
 			id, err := strconv.ParseInt(r.Header.Get("X-Test-User"), 10, 64)
 			return id, err == nil
 		}
+		// The session's device, for the push routes (privacy_test.go sets it).
+		o.ViewerDevice = func(r *http.Request) int64 {
+			id, _ := strconv.ParseInt(r.Header.Get("X-Test-Device"), 10, 64)
+			return id
+		}
 		o.Bank = banklink.New(o.DB, box, b.open, func() time.Time { return e.now }, log)
 		o.Syncer = o.Bank
+		o.Push, o.PushKey = fake, pushKey
 	})
-	be := &bankEnv{env: e, bank: b, box: box, logs: logs}
+	be := &bankEnv{env: e, bank: b, box: box, logs: logs, push: fake}
 	be.bert = e.addUser("bert@jouw-domein.be", "Bert", "admin", bertPass)
 	be.partner = e.addUser("partner@jouw-domein.be", "Partner", "user", partnerPass)
 	return be

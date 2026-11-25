@@ -689,12 +689,12 @@ func TestContributorsMemberWinsAndLinking(t *testing.T) {
 			}
 		}
 		expectError(t, p.partner("POST", path+"/link-answer", `{"yes": true}`), http.StatusNotFound, "not_found") // nothing offered
-			// A read-only member could never answer (answering needs edit): the same refusal, nothing written.
-			p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
-			snap = p.snapshot()
-			if msg := expectError(t, p.bert("PUT", path+"/link", `{"userId": 2}`), http.StatusBadRequest, "invalid"); msg != "Kies een lid van deze rekening." {
-				t.Errorf("read-only member: %q", msg)
-			}
+		// A read-only member could never answer (answering needs edit): the same refusal, nothing written.
+		p.exec(`UPDATE account_access SET permission = 'read' WHERE account_id = 4 AND user_id = 2`)
+		snap = p.snapshot()
+		if msg := expectError(t, p.bert("PUT", path+"/link", `{"userId": 2}`), http.StatusBadRequest, "invalid"); msg != "Kies een lid van deze rekening." {
+			t.Errorf("read-only member: %q", msg)
+		}
 		if p.snapshot() != snap {
 			t.Error("a refused call wrote")
 		}

@@ -309,16 +309,14 @@ func (s *Store) ReportMonths(ctx context.Context, viewer int64, q ReportQuery) (
 		return out, nil
 	}
 
-	var first sql.NullString
-	// Booked rows with an amount, as in the booked relation of visibleTx: a row of 0 starts no history.
-	if err := s.db.QueryRowContext(ctx, `SELECT MIN(booking_date) FROM transactions
-		WHERE status = 'booked' AND amount <> 0 AND `+inSelection("account_id", sel)).Scan(&first); err != nil {
+	first, err := s.firstBooked(ctx, sel)
+	if err != nil {
 		return Report{}, err
 	}
 	from := q.From
-	if first.Valid {
-		date, month := first.String, first.String[:7]
-		out.FirstDate, out.FirstMonth = &date, &month
+	if first != nil {
+		month := (*first)[:7]
+		out.FirstDate, out.FirstMonth = first, &month
 		if from == "" {
 			from = month
 		}
@@ -347,43 +345,18 @@ func (s *Store) ReportMonths(ctx context.Context, viewer int64, q ReportQuery) (
 	}
 
 	end := toTime.AddDate(0, 1, 0).Format("2006-01") + "-01"
-	// With detail, one more column per bucket (the selection's, the per-account one), from the same rows.
-	bucket, own := reportBucket(inSelection("other_id", sel)), reportBucket("0 = 1")
-	detailCols, group := "", "1, 2, 3, 4, 5"
-	if q.Detail {
-		detailCols, group = `, `+reportDetail(bucket)+`, `+reportDetail(own), "1, 2, 3, 4, 5, 6, 7"
-	}
-	rows, err := s.db.QueryContext(ctx, reportBase+`
-		SELECT substr(booking_date, 1, 7), account_id, `+bucket+`, `+reportKey+`,
-		       `+own+detailCols+`, SUM(amount)
-		FROM parts
-		WHERE `+inSelection("account_id", sel)+` AND booking_date >= ? AND booking_date < ?
-		GROUP BY `+group, viewer, viewer, from+"-01", end)
-	if err != nil {
-		return Report{}, err
-	}
-	defer rows.Close()
 	at := map[int64]int{}
 	for i, id := range sel {
 		at[id] = i
 	}
-	for rows.Next() {
-		var month, bucket, key, own, detail, ownDetail string
-		var account, amount int64
-		dest := []any{&month, &account, &bucket, &key, &own, &amount}
-		if q.Detail {
-			dest = []any{&month, &account, &bucket, &key, &own, &detail, &ownDetail, &amount}
-		}
-		if err := rows.Scan(dest...); err != nil {
-			return Report{}, err
-		}
-		rm := index[month]
-		rm.add(bucket, key, detail, amount)
+	err = s.reportRows(ctx, viewer, sel, from+"-01", end, q.Detail, func(r reportRow) {
+		rm := index[r.month]
+		rm.add(r.bucket, r.key, r.detail, r.amount)
 		if rm.Accounts != nil {
-			rm.Accounts[at[account]].add(own, key, ownDetail, amount)
+			rm.Accounts[at[r.account]].add(r.own, r.key, r.ownDetail, r.amount)
 		}
-	}
-	if err := rows.Err(); err != nil {
+	})
+	if err != nil {
 		return Report{}, err
 	}
 	for i := range out.Months {
@@ -392,6 +365,118 @@ func (s *Store) ReportMonths(ctx context.Context, viewer int64, q ReportQuery) (
 			out.Months[i].Accounts[j].prune()
 		}
 	}
+	return out, nil
+}
+
+// firstBooked is the first booked date of the selection (nil without one):
+// booked rows with an amount, as in the booked relation of visibleTx, so a
+// row of 0 starts no history.
+func (s *Store) firstBooked(ctx context.Context, sel []int64) (*string, error) {
+	var first sql.NullString
+	if err := s.db.QueryRowContext(ctx, `SELECT MIN(booking_date) FROM transactions
+		WHERE status = 'booked' AND amount <> 0 AND `+inSelection("account_id", sel)).Scan(&first); err != nil {
+		return nil, err
+	}
+	if !first.Valid {
+		return nil, nil
+	}
+	return &first.String, nil
+}
+
+// reportRow is one group of the report statement: the month of its booking
+// date, the account, the bucket and key for the selection, the bucket for the
+// account alone, and with detail both detail columns.
+type reportRow struct {
+	month, bucket, key, own, detail, ownDetail string
+	account, amount                            int64
+}
+
+// reportRows runs the one statement of every report over the selection's
+// parts booked on or after from and before end (YYYY-MM-DD, end exclusive),
+// grouped by month and account, and hands each group to fn. ReportMonths and
+// ReportRange both read through it, so a week, a month receipt and GET
+// /api/reports/months apply the same rule to the same rows.
+func (s *Store) reportRows(ctx context.Context, viewer int64, sel []int64, from, end string, detail bool, fn func(reportRow)) error {
+	// With detail, one more column per bucket (the selection's, the per-account one), from the same rows.
+	bucket, own := reportBucket(inSelection("other_id", sel)), reportBucket("0 = 1")
+	detailCols, group := "", "1, 2, 3, 4, 5"
+	if detail {
+		detailCols, group = `, `+reportDetail(bucket)+`, `+reportDetail(own), "1, 2, 3, 4, 5, 6, 7"
+	}
+	rows, err := s.db.QueryContext(ctx, reportBase+`
+		SELECT substr(booking_date, 1, 7), account_id, `+bucket+`, `+reportKey+`,
+		       `+own+detailCols+`, SUM(amount)
+		FROM parts
+		WHERE `+inSelection("account_id", sel)+` AND booking_date >= ? AND booking_date < ?
+		GROUP BY `+group, viewer, viewer, from, end)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r reportRow
+		dest := []any{&r.month, &r.account, &r.bucket, &r.key, &r.own, &r.amount}
+		if detail {
+			dest = []any{&r.month, &r.account, &r.bucket, &r.key, &r.own, &r.detail, &r.ownDetail, &r.amount}
+		}
+		if err := rows.Scan(dest...); err != nil {
+			return err
+		}
+		fn(r)
+	}
+	return rows.Err()
+}
+
+// RangeReport is the selection's report summed over one date range (0.9-3c):
+// the selection, its first booked date (the receipt's "vanaf" and comparison
+// rule need it) and one ReportTotals.
+type RangeReport struct {
+	Accounts  []int64 `json:"accounts"`
+	FirstDate *string `json:"firstDate"`
+	ReportTotals
+}
+
+// ReportRange is ReportMonths summed over from..to (YYYY-MM-DD, both
+// inclusive) instead of per month: the same selection, statement and errors,
+// so a receipt (a week, a month, a quarter, a year or a custom range of
+// months) cannot drift from GET /api/reports/months. A
+// to in the future is allowed (a running week is asked for whole); the route
+// decides what it accepts.
+func (s *Store) ReportRange(ctx context.Context, viewer int64, scope string, account int64, from, to string, detail bool) (RangeReport, error) {
+	f, err1 := time.Parse(time.DateOnly, from)
+	t, err2 := time.Parse(time.DateOnly, to)
+	if err1 != nil || err2 != nil || f.Format(time.DateOnly) != from || t.Format(time.DateOnly) != to {
+		return RangeReport{}, apperr.Invalid("Kies een datum als JJJJ-MM-DD.")
+	}
+	if f.After(t) {
+		return RangeReport{}, apperr.Invalid("De begindatum ligt na de einddatum.")
+	}
+	// The bound of ReportMonths (maxReportMonths, 50 years), counted in the
+	// calendar months the range touches: the receipt's custom range and the
+	// range before it are as long as Overzicht's Eigen allows.
+	if span := (t.Year()-f.Year())*12 + int(t.Month()-f.Month()) + 1; span > maxReportMonths {
+		return RangeReport{}, apperr.Invalid("Kies een periode van hooguit 50 jaar.")
+	}
+	sel, err := s.reportSelection(ctx, viewer, scope, account)
+	if err != nil {
+		return RangeReport{}, err
+	}
+	out := RangeReport{Accounts: sel, ReportTotals: newTotals(detail)}
+	if len(sel) == 0 {
+		return out, nil
+	}
+	if out.FirstDate, err = s.firstBooked(ctx, sel); err != nil {
+		return RangeReport{}, err
+	}
+	end := t.AddDate(0, 0, 1).Format(time.DateOnly)
+	err = s.reportRows(ctx, viewer, sel, from, end, detail, func(r reportRow) {
+		out.add(r.bucket, r.key, r.detail, r.amount)
+	})
+	if err != nil {
+		return RangeReport{}, err
+	}
+	// Pruned once over the whole range, as a month is once over its days.
+	out.prune()
 	return out, nil
 }
 

@@ -75,7 +75,7 @@ describe('Budgetten · live effect and saving', () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1), SAVE_WAIT);
     expect(save).toHaveBeenCalledWith({ accountId: 1, categoryId: 3, fromMonth: '2026-11', amount: 38000 });
     // Vervoer is over its budget this month? € 134,10 of € 300: not yet, so its bar is its category colour.
-    const bar = screen.getByText('€ 134 besteed deze maand').closest('.in-brow')!.querySelector('.in-fill') as HTMLElement;
+    const bar = screen.getByText('€ 134 besteed deze maand').closest('.pin-brow')!.querySelector('.pin-fill') as HTMLElement;
     expect(bar.style.width).toBe('45%');
     expect(bar.style.background).not.toBe('var(--neg)');
   });
@@ -93,7 +93,7 @@ describe('Budgetten · live effect and saving', () => {
     expect(effect().getByText('−€ 368,13')).toBeTruthy();
     expect(effect().getByText('rood')).toBeTruthy();
     // Over its budget now (€ 134,10 of € 100): the bar fills up in red.
-    const bar = screen.getByText('€ 134 besteed deze maand').closest('.in-brow')!.querySelector('.in-fill') as HTMLElement;
+    const bar = screen.getByText('€ 134 besteed deze maand').closest('.pin-brow')!.querySelector('.pin-fill') as HTMLElement;
     expect(bar.style.background).toBe('var(--neg)');
     expect(bar.style.width).toBe('100%');
   });

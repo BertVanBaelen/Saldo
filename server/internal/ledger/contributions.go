@@ -125,37 +125,14 @@ func (s *Store) Contributions(ctx context.Context, viewer, id int64, month strin
 	if !a.shared() {
 		return out, nil
 	}
-	from, to := month+"-01", start.AddDate(0, 1, 0).Format("2006-01")+"-01"
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT x.user_id, u.display_name, x.contribution_share,
-		       (SELECT COUNT(*) FROM contribution_senders cs WHERE cs.account_id = x.account_id AND cs.user_id = x.user_id),
-		       COALESCE((SELECT SUM(t.amount) FROM contribution_senders cs
-		           JOIN transactions t ON t.account_id = cs.account_id AND t.counterparty_iban = cs.iban
-		           WHERE cs.account_id = x.account_id AND cs.user_id = x.user_id
-		             AND t.status = 'booked' AND t.amount > 0 AND t.booking_date >= ? AND t.booking_date < ?), 0)
-		FROM account_access x JOIN users u ON u.id = x.user_id
-		WHERE x.account_id = ? ORDER BY x.joined_at, u.id`, from, to, id)
+	parties, err := s.accountContributions(ctx, id, start)
 	if err != nil {
 		return Contributions{}, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var m ContributionMember
-		var share sql.NullInt64
-		if err := rows.Scan(&m.UserID, &m.Name, &share, &m.Senders, &m.Received); err != nil {
-			return Contributions{}, err
-		}
-		if share.Valid {
-			v := int(share.Int64)
-			m.Share = &v
-		}
-		m.Me, m.Confirmed = m.UserID == viewer, m.Received > 0
-		out.Members = append(out.Members, m)
+	for _, p := range parties.Members {
+		out.Members = append(out.Members, ContributionMember{UserID: p.UserID, Name: p.Name, Me: p.UserID == viewer, Share: p.Share,
+			Senders: p.Senders, Received: p.Received, Confirmed: p.Received > 0})
 	}
-	if err := rows.Err(); err != nil {
-		return Contributions{}, err
-	}
-	rows.Close()
 	mine, err := s.db.QueryContext(ctx, `SELECT id, iban FROM contribution_senders WHERE account_id = ? AND user_id = ? ORDER BY id`, id, viewer)
 	if err != nil {
 		return Contributions{}, err
@@ -174,47 +151,138 @@ func (s *Store) Contributions(ctx context.Context, viewer, id int64, month strin
 		return Contributions{}, err
 	}
 	mine.Close()
-	return out, s.loadContributors(ctx, &out, a, viewer, id, from, to)
+	// The account's contributors without Saldo and the viewer's link offers.
+	// The IBAN, masked, goes to the creator and the manager only, and to the
+	// member a link is offered to (in their offer).
+	manager := a.manage() == nil
+	for _, p := range parties.Contributors {
+		c := Contributor{ID: p.ID, Name: p.Name, Share: p.Share, Received: p.Received, Confirmed: p.Received > 0}
+		if manager || p.creator.Valid && p.creator.Int64 == viewer {
+			c.IBAN = MaskIBAN(p.iban)
+		}
+		if manager && p.link.Valid {
+			link := p.link.Int64
+			c.LinkUserID = &link
+		}
+		if p.link.Valid && p.link.Int64 == viewer {
+			out.LinkOffers = append(out.LinkOffers, LinkOffer{ContributorID: c.ID, Name: c.Name, IBAN: MaskIBAN(p.iban)})
+		}
+		out.Contributors = append(out.Contributors, c)
+	}
+	return out, nil
 }
 
-// loadContributors adds the account's contributors without Saldo and the
-// viewer's link offers. The IBAN, masked, goes to the creator and the manager
-// only, and to the member a link is offered to (in their offer).
-func (s *Store) loadContributors(ctx context.Context, out *Contributions, a access, viewer, id int64, from, to string) error {
+// AccountContributions is the account-level part of Contributions, with no
+// viewer (0.9-3b, the "Bijdrage ontbreekt" trigger): who owes a part of a
+// shared account's month ("YYYY-MM") and what arrived from them. The caller
+// checks access; nothing in it is masked for a viewer, and the contributors'
+// IBANs stay unexported. An account that is not shared has no parties.
+type AccountContributions struct {
+	Members      []PartyMember      // in member order (joined, then id)
+	Contributors []PartyContributor // contributors without Saldo, by id
+}
+
+// PartyMember is one member's share and what their claimed senders paid into
+// the account in the month.
+type PartyMember struct {
+	UserID   int64
+	Name     string
+	Role     string // manager or member
+	Share    *int   // nil: equal
+	Senders  int
+	Received int64
+	JoinedAt string // RFC 3339, UTC
+}
+
+// PartyContributor is one contributor without Saldo in the month.
+type PartyContributor struct {
+	ID        int64
+	Name      string
+	Share     *int
+	Received  int64
+	CreatedAt string // RFC 3339, UTC
+
+	iban          string
+	creator, link sql.NullInt64
+}
+
+// AccountContributions answers month ("YYYY-MM") of account id without a
+// viewer: the caller has checked access (or is the notification trigger). A
+// malformed month is apperr.Invalid; an unknown or personal account has no
+// parties.
+func (s *Store) AccountContributions(ctx context.Context, id int64, month string) (AccountContributions, error) {
+	start, err := time.Parse("2006-01", month)
+	if err != nil || start.Format("2006-01") != month {
+		return AccountContributions{}, apperr.Invalid("Kies een maand als JJJJ-MM.")
+	}
+	var shared bool
+	err = s.db.QueryRowContext(ctx, `SELECT a.shared = 1 OR (SELECT COUNT(*) FROM account_access x WHERE x.account_id = a.id) > 1
+		FROM accounts a WHERE a.id = ?`, id).Scan(&shared)
+	if errors.Is(err, sql.ErrNoRows) || err == nil && !shared {
+		return AccountContributions{}, nil
+	}
+	if err != nil {
+		return AccountContributions{}, err
+	}
+	return s.accountContributions(ctx, id, start)
+}
+
+// accountContributions reads the members and the contributors of the month
+// that starts at start, with what each received.
+func (s *Store) accountContributions(ctx context.Context, id int64, start time.Time) (AccountContributions, error) {
+	from, to := start.Format("2006-01")+"-01", start.AddDate(0, 1, 0).Format("2006-01")+"-01"
+	var out AccountContributions
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT c.id, c.name, c.iban, c.share, c.created_by, c.link_user,
+		SELECT x.user_id, u.display_name, x.role, x.contribution_share, x.joined_at,
+		       (SELECT COUNT(*) FROM contribution_senders cs WHERE cs.account_id = x.account_id AND cs.user_id = x.user_id),
+		       COALESCE((SELECT SUM(t.amount) FROM contribution_senders cs
+		           JOIN transactions t ON t.account_id = cs.account_id AND t.counterparty_iban = cs.iban
+		           WHERE cs.account_id = x.account_id AND cs.user_id = x.user_id
+		             AND t.status = 'booked' AND t.amount > 0 AND t.booking_date >= ? AND t.booking_date < ?), 0)
+		FROM account_access x JOIN users u ON u.id = x.user_id
+		WHERE x.account_id = ? ORDER BY x.joined_at, u.id`, from, to, id)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var m PartyMember
+		var share sql.NullInt64
+		if err := rows.Scan(&m.UserID, &m.Name, &m.Role, &share, &m.JoinedAt, &m.Senders, &m.Received); err != nil {
+			return out, err
+		}
+		if share.Valid {
+			v := int(share.Int64)
+			m.Share = &v
+		}
+		out.Members = append(out.Members, m)
+	}
+	if err := rows.Err(); err != nil {
+		return out, err
+	}
+	rows.Close()
+	crows, err := s.db.QueryContext(ctx, `
+		SELECT c.id, c.name, c.iban, c.share, c.created_by, c.link_user, c.created_at,
 		       COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = c.account_id AND t.counterparty_iban = c.iban
 		           AND t.status = 'booked' AND t.amount > 0 AND t.booking_date >= ? AND t.booking_date < ?), 0)
 		FROM contributors c WHERE c.account_id = ? ORDER BY c.id`, from, to, id)
 	if err != nil {
-		return err
+		return out, err
 	}
-	defer rows.Close()
-	manager := a.manage() == nil
-	for rows.Next() {
-		var c Contributor
-		var iban string
-		var share, creator, link sql.NullInt64
-		if err := rows.Scan(&c.ID, &c.Name, &iban, &share, &creator, &link, &c.Received); err != nil {
-			return err
+	defer crows.Close()
+	for crows.Next() {
+		var c PartyContributor
+		var share sql.NullInt64
+		if err := crows.Scan(&c.ID, &c.Name, &c.iban, &share, &c.creator, &c.link, &c.CreatedAt, &c.Received); err != nil {
+			return out, err
 		}
 		if share.Valid {
 			v := int(share.Int64)
 			c.Share = &v
 		}
-		if manager || creator.Valid && creator.Int64 == viewer {
-			c.IBAN = MaskIBAN(iban)
-		}
-		if manager && link.Valid {
-			c.LinkUserID = &link.Int64
-		}
-		if link.Valid && link.Int64 == viewer {
-			out.LinkOffers = append(out.LinkOffers, LinkOffer{ContributorID: c.ID, Name: c.Name, IBAN: MaskIBAN(iban)})
-		}
-		c.Confirmed = c.Received > 0
 		out.Contributors = append(out.Contributors, c)
 	}
-	return rows.Err()
+	return out, crows.Err()
 }
 
 // ClaimSender records a sender of the viewer's contribution to a shared

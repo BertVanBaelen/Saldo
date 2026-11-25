@@ -108,7 +108,11 @@ func (s *Server) requireViewer(next http.Handler) http.Handler {
 func (s *Server) resolve(w http.ResponseWriter, r *http.Request) (session, error) {
 	if s.opts.Viewer != nil {
 		if id, ok := s.opts.Viewer(r); ok && id > 0 {
-			return session{user: id}, nil
+			sess := session{user: id}
+			if s.opts.ViewerDevice != nil {
+				sess.device = s.opts.ViewerDevice(r)
+			}
+			return sess, nil
 		}
 		return session{}, apperr.ErrNotFound
 	}

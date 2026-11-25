@@ -10,3 +10,5 @@ export { Switch } from './Switch';
 export { SegmentedControl, type Segment } from './SegmentedControl';
 export { DatePicker, Calendar } from './DatePicker';
 export { Badge } from './Badge';
+// The overview receipt page only (phase 0.9-3d): Kokonut UI's Receipt Printer (MIT), adapted.
+export { ReceiptPrinter, type ReceiptPrinterProps } from './ReceiptPrinter';

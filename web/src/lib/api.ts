@@ -28,15 +28,21 @@ import type {
   Me,
   NewAccount,
   NewCategory,
+  NotificationPatch,
+  NotificationSettings,
   PendingJoinOffer,
   Permission,
   Preferences,
+  PushKey,
+  PushSubscriptionBody,
   Redeem,
   RemovedLink,
   ReportBalances,
   ReportBudgets,
   ReportMonths,
   ReportQuery,
+  Receipt,
+  ReceiptQuery,
   Rule,
   RuleApplyResult,
   RuleInput,
@@ -177,6 +183,14 @@ export function reportMonthsPath(q: ReportQuery = {}): string {
   return '/api/reports/months' + (q.detail ? (s ? s + '&' : '?') + 'detail=1' : s);
 }
 
+export function receiptPath(q: ReceiptQuery): string {
+  const p = new URLSearchParams({ periode: q.periode, van: q.van });
+  if (q.tot !== undefined) p.set('tot', q.tot);
+  p.set('scope', q.scope);
+  if (q.account !== undefined) p.set('account', String(q.account));
+  return '/api/reports/receipt?' + p.toString();
+}
+
 export const api = {
   /** Income, expenses per category and saved per month for a selection (docs/api.md, "Reports"). */
   reportMonths: (q: ReportQuery = {}, signal?: AbortSignal) => request<ReportMonths>('GET', reportMonthsPath(q), { signal }),
@@ -184,6 +198,8 @@ export const api = {
   reportBudgets: (q: Omit<ReportQuery, 'detail'> = {}, signal?: AbortSignal) => request<ReportBudgets>('GET', '/api/reports/budgets' + reportQueryString(q), { signal }),
   /** Each account's end-of-day balance line over the months, with its buffer; one entry per account, never a sum (docs/api.md, "Reports"); `detail` is not sent. */
   reportBalances: (q: Omit<ReportQuery, 'detail'> = {}, signal?: AbortSignal) => request<ReportBalances>('GET', '/api/reports/balances' + reportQueryString(q), { signal }),
+  /** The receipt of one week, month, quarter, year or custom range (docs/api.md, "Reports"; plan 0.9-3c): `van` is any date inside the period, `tot` too for `eigen`; the scope is always sent. */
+  receipt: (q: ReceiptQuery, signal?: AbortSignal) => request<Receipt>('GET', receiptPath(q), { signal }),
   /** The forecast per current account of the scope; `month` (`YYYY-MM`, default the running month) selects the month whose days come along. */
   planning: (scope: Scope, horizon: Horizon = 3, month?: string, signal?: AbortSignal) =>
     request<Planning>('GET', '/api/planning?scope=' + scope + '&horizon=' + horizon + (month ? '&month=' + encodeURIComponent(month) : ''), { signal }),
@@ -208,6 +224,16 @@ export const api = {
   /** Every stored budget row of the current accounts of the scope (docs/api.md, "Planning data (0.8-1)"): "Planning instellen" reads them at open for Terugzetten. */
   planningBudgets: (scope: Scope, signal?: AbortSignal) => request<{ budgets: SavedBudget[] }>('GET', '/api/planning/budgets?scope=' + scope, { signal }),
   health: (signal?: AbortSignal) => request<Health>('GET', '/api/health', { signal }),
+  // Web Push of this device (docs/api.md "Push"): the server's key, this device's subscription, and the test notification.
+  pushKey: (signal?: AbortSignal) => request<PushKey>('GET', '/api/push/key', { signal }),
+  savePushSubscription: (subscription: PushSubscriptionBody) => request<null>('PUT', '/api/push/subscription', { body: subscription }),
+  deletePushSubscription: () => request<null>('DELETE', '/api/push/subscription'),
+  /** The generic test push to this device only; 409 when this device has no subscription. */
+  sendTestNotification: () => request<{ sent: boolean }>('POST', '/api/notifications/test'),
+  /** The viewer's notification settings with the defaults merged: channels, look-ahead, the groups and types in screen order (plan 0.9-4). */
+  notifications: (signal?: AbortSignal) => request<NotificationSettings>('GET', '/api/notifications', { signal }),
+  /** A partial update (only what changed); answers the settings as `notifications` does. 400 with a Dutch message for a value the server refuses. */
+  saveNotifications: (patch: NotificationPatch) => request<NotificationSettings>('PUT', '/api/notifications', { body: patch }),
   me: (signal?: AbortSignal) => request<Me>('GET', '/api/me', { signal }),
   savePreferences: (prefs: Partial<Preferences>) => request<Preferences>('PUT', '/api/me/preferences', { body: prefs }),
   accounts: (signal?: AbortSignal) => request<Account[]>('GET', '/api/accounts', { signal }),

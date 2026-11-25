@@ -304,8 +304,8 @@ export function BudgetSection({ account, editor, editable }: { account: Account;
 
   if (!forecast) {
     return (
-      <div className="in-stack">
-        <p className="in-note">Nog geen saldo voor {account.name}. De budgetten verschijnen zodra er een saldo is.</p>
+      <div className="pin-stack">
+        <p className="pin-note">Nog geen saldo voor {account.name}. De budgetten verschijnen zodra er een saldo is.</p>
       </div>
     );
   }
@@ -314,64 +314,64 @@ export function BudgetSection({ account, editor, editable }: { account: Account;
   const total = editor.totalOf(account.id) ?? 0;
   const last = monthName(editor.lastMonthOf(account.id));
   return (
-    <div className="in-stack">
+    <div className="pin-stack">
       {editor.fromMonth !== editor.running && (
-        <p className="in-note">
+        <p className="pin-note">
           Geldt vanaf {monthName(editor.fromMonth)} {editor.fromMonth.slice(0, 4)} en de maanden erna.
         </p>
       )}
       {impact && (
-        <section className="in-card in-impact" aria-label="Effect op de planning" aria-live="polite">
-          <span className="in-impact-title">Effect op de planning · laagste maand tot {last}</span>
-          <div className="in-impact-row">
-            <span className="in-impact-dot" style={{ background: accColour(account.colour) }} aria-hidden="true" />
-            <span className="in-impact-text">
-              <span className="in-impact-name">{account.name}</span>
-              <span className="in-impact-sub">
+        <section className="pin-card pin-impact" aria-label="Effect op de planning" aria-live="polite">
+          <span className="pin-impact-title">Effect op de planning · laagste maand tot {last}</span>
+          <div className="pin-impact-row">
+            <span className="pin-impact-dot" style={{ background: accColour(account.colour) }} aria-hidden="true" />
+            <span className="pin-impact-text">
+              <span className="pin-impact-name">{account.name}</span>
+              <span className="pin-impact-sub">
                 {impactMonth(impact.month)} · {diffText(impact.diff)}
               </span>
             </span>
-            <span className="mono in-impact-value">{eur(impact.end)}</span>
-            <span className={'in-chip in-chip--' + impact.state}>{stateLabel(impact.state)}</span>
+            <span className="mono pin-impact-value">{eur(impact.end)}</span>
+            <span className={'pin-chip pin-chip--' + impact.state}>{stateLabel(impact.state)}</span>
           </div>
         </section>
       )}
-      <div className="in-card in-rows">
+      <div className="pin-card pin-rows">
         {lines.map((l) => {
           const pct = l.plan ? Math.min(100, Math.round((l.spent / l.plan) * 100)) : 0;
           return (
-            <div className="in-brow" key={l.categoryId}>
-              <div className="in-brow-top">
-                <i className="in-dot" style={{ background: l.colour }} aria-hidden="true" />
-                <span className="in-brow-name">{l.name}</span>
+            <div className="pin-brow" key={l.categoryId}>
+              <div className="pin-brow-top">
+                <i className="pin-dot" style={{ background: l.colour }} aria-hidden="true" />
+                <span className="pin-brow-name">{l.name}</span>
                 {editable ? (
-                  <div className="in-stepper" role="group" aria-label={l.name + ': budget ' + eur0(l.plan) + ' per maand'}>
-                    <button type="button" className="in-step" aria-label="€ 10 minder" disabled={!can || l.plan <= 0} onClick={() => editor.step(account.id, l.categoryId, -STEP)}>
+                  <div className="pin-stepper" role="group" aria-label={l.name + ': budget ' + eur0(l.plan) + ' per maand'}>
+                    <button type="button" className="pin-step" aria-label="€ 10 minder" disabled={!can || l.plan <= 0} onClick={() => editor.step(account.id, l.categoryId, -STEP)}>
                       −
                     </button>
-                    <span className="mono in-amount">{eur0(l.plan)}</span>
-                    <button type="button" className="in-step" aria-label="€ 10 meer" disabled={!can} onClick={() => editor.step(account.id, l.categoryId, STEP)}>
+                    <span className="mono pin-amount">{eur0(l.plan)}</span>
+                    <button type="button" className="pin-step" aria-label="€ 10 meer" disabled={!can} onClick={() => editor.step(account.id, l.categoryId, STEP)}>
                       +
                     </button>
                   </div>
                 ) : (
-                  <span className="mono in-amount in-amount--read">{eur0(l.plan)}</span>
+                  <span className="mono pin-amount pin-amount--read">{eur0(l.plan)}</span>
                 )}
               </div>
-              <span className="in-track" aria-hidden="true">
-                <span className="in-fill" style={{ width: pct + '%', background: l.spent > l.plan ? 'var(--neg)' : l.colour }} />
+              <span className="pin-track" aria-hidden="true">
+                <span className="pin-fill" style={{ width: pct + '%', background: l.spent > l.plan ? 'var(--neg)' : l.colour }} />
               </span>
-              <div className="in-brow-foot">
-                <span className="in-brow-note">{eur0(l.spent) + ' besteed deze maand' + (l.average !== null ? ' · gemiddeld ' + eur0(l.average) : '')}</span>
+              <div className="pin-brow-foot">
+                <span className="pin-brow-note">{eur0(l.spent) + ' besteed deze maand' + (l.average !== null ? ' · gemiddeld ' + eur0(l.average) : '')}</span>
                 {editable && (
-                  <button type="button" className="in-more" aria-label={'Meer voor ' + l.name} aria-haspopup="menu" aria-expanded={menu === l.categoryId} disabled={!online} onClick={() => setMenu(menu === l.categoryId ? null : l.categoryId)}>
+                  <button type="button" className="pin-more" aria-label={'Meer voor ' + l.name} aria-haspopup="menu" aria-expanded={menu === l.categoryId} disabled={!online} onClick={() => setMenu(menu === l.categoryId ? null : l.categoryId)}>
                     <Icon name="more" size={18} stroke={3} />
                   </button>
                 )}
               </div>
               {menu === l.categoryId && (
                 <div
-                  className="in-menu"
+                  className="pin-menu"
                   role="menu"
                   aria-label={'Opties voor ' + l.name}
                   onKeyDown={(e) => {
@@ -381,7 +381,7 @@ export function BudgetSection({ account, editor, editable }: { account: Account;
                   <button
                     type="button"
                     role="menuitem"
-                    className="in-menu-item"
+                    className="pin-menu-item"
                     autoFocus
                     onClick={() => {
                       setMenu(null);
@@ -395,19 +395,19 @@ export function BudgetSection({ account, editor, editable }: { account: Account;
             </div>
           );
         })}
-        {lines.length === 0 && <p className="in-empty">Nog geen budgetten voor {account.name}.</p>}
-        <div className="in-total">
+        {lines.length === 0 && <p className="pin-empty">Nog geen budgetten voor {account.name}.</p>}
+        <div className="pin-total">
           <span>Totaal per maand</span>
           <span className="mono">{eur0(total)}</span>
         </div>
       </div>
       {addOpen && editable && (
-        <div className="in-card in-add">
-          <span className="in-add-title">Categorieën zonder budget</span>
+        <div className="pin-card pin-add">
+          <span className="pin-add-title">Categorieën zonder budget</span>
           {addable.map(({ category, average }) => (
             <button
               type="button"
-              className="in-add-row"
+              className="pin-add-row"
               key={category.id}
               disabled={!can}
               onClick={() => {
@@ -415,31 +415,31 @@ export function BudgetSection({ account, editor, editable }: { account: Account;
                 editor.add(account.id, category.id, average === null ? 0 : ceilEuro(average));
               }}
             >
-              <span className="in-add-text">
-                <span className="in-add-name">{category.name}</span>
-                <span className="in-brow-note">{average === null ? 'Nog geen gemiddelde' : 'Gemiddeld ' + eur0(average) + ' per maand'}</span>
+              <span className="pin-add-text">
+                <span className="pin-add-name">{category.name}</span>
+                <span className="pin-brow-note">{average === null ? 'Nog geen gemiddelde' : 'Gemiddeld ' + eur0(average) + ' per maand'}</span>
               </span>
               <Icon name="plus" size={16} stroke={2.6} />
             </button>
           ))}
-          {addable.length === 0 && <p className="in-empty">Alle categorieën hebben een budget.</p>}
+          {addable.length === 0 && <p className="pin-empty">Alle categorieën hebben een budget.</p>}
         </div>
       )}
       {editable && (
-        <div className={'in-actions' + (editor.changed(account.id) ? ' in-actions--two' : '')}>
+        <div className={'pin-actions' + (editor.changed(account.id) ? ' pin-actions--two' : '')}>
           <button type="button" className="btn btn--dashed" aria-expanded={addOpen} disabled={!can} onClick={() => setAddOpen((v) => !v)}>
             <Icon name="plus" size={16} stroke={2.6} />
             Budget toevoegen
           </button>
           {editor.changed(account.id) && (
-            <button type="button" className="btn btn--ghost in-reset" disabled={!can || editor.busy} aria-busy={editor.busy || undefined} onClick={() => editor.restore(account.id)}>
+            <button type="button" className="btn btn--ghost pin-reset" disabled={!can || editor.busy} aria-busy={editor.busy || undefined} onClick={() => editor.restore(account.id)}>
               Terugzetten
             </button>
           )}
         </div>
       )}
-      {editable && !online && <p className="in-note">Je bent offline. Aanpassen kan weer zodra je verbinding hebt.</p>}
-      <p className="in-note">Zonder budget rekent de planning met het gemiddelde van de laatste 6 maanden. Vaste kosten zoals huur en abonnementen staan bij Terugkerend.</p>
+      {editable && !online && <p className="pin-note">Je bent offline. Aanpassen kan weer zodra je verbinding hebt.</p>}
+      <p className="pin-note">Zonder budget rekent de planning met het gemiddelde van de laatste 6 maanden. Vaste kosten zoals huur en abonnementen staan bij Terugkerend.</p>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { accColour, accountIcon, inScope, isCurrent } from '../lib/accounts';
 import { api } from '../lib/api';
 import { categoryFromParam, drillHref } from '../lib/drilldown';
 import { cap, eur } from '../lib/format';
+import { bonHref, bonTarget } from '../lib/receipt';
 import {
   barSize,
   breakdown,
@@ -733,6 +734,8 @@ export function Overzicht() {
         else if (refs || budgets.error) staleBlad = true;
       }
     }
+    // The receipt of the selected period (0.9-3d): Maand, Kwartaal and Jaar the selected column, Eigen the whole range; in the scope and for the account of the page.
+    const bon = v && col && period ? bonTarget(view, col, { from: period.from, to: period.to }) : null;
     body = (
       <>
         <div className="ov-tools anim-in" style={delay(45)}>
@@ -751,6 +754,16 @@ export function Overzicht() {
             </span>
             <Icon name="chevronDown" size={14} stroke={2.4} />
           </button>
+          {bon && (
+            <Link
+              className="filter-chip ov-chip ov-bon"
+              to={bonHref(bon.kind, bon.van, scope, { tot: bon.tot, account })}
+              aria-label={'Bekijk de bon van ' + bon.title}
+              title={'Bekijk de bon van ' + bon.title}
+            >
+              <Icon name="receipt" size={17} stroke={2} />
+            </Link>
+          )}
           {view === 'eigen' && period && (
             <button ref={reg('chip')} type="button" className="filter-chip ov-chip" aria-haspopup="dialog" aria-expanded={open?.trigger === 'chip'} onClick={() => toggle('eigen', 'chip')}>
               <Icon name="calendar" size={16} stroke={2} />

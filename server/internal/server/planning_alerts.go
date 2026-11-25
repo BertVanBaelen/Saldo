@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/BertVanBaelen/Saldo/server/internal/ledger"
 	"github.com/BertVanBaelen/Saldo/server/internal/planning"
@@ -15,8 +12,8 @@ import (
 // Planning alerts (0.8-4, docs/api.md "Planning (0.8)"): per current account of
 // the scope, the first month inside the viewer's look-ahead whose end is below
 // zero (red) and the first month before that one whose end is in the buffer.
-// Month ends only (plan 0.8 decision 14). 0.9-3 sends mails from the same
-// function, accountPlanningAlerts.
+// Month ends only (plan 0.8 decision 14). The rule itself is planning.Warnings
+// (0.9-3), which the notifications use too; this file only maps it to alerts.
 
 // planningAlerts are the red and buffer alerts of the current accounts of the
 // scope the viewer holds, the red ones first (accounts in id order), then the
@@ -55,63 +52,25 @@ func (s *Server) planningAlerts(ctx context.Context, viewer int64, scope string)
 	return append(red, buffer...), nil
 }
 
-// accountPlanningAlerts is the red alert and the buffer alert (each nil when
-// there is none) of one account's forecast for the running month and the look
-// months after it.
+// accountPlanningAlerts maps planning.Warnings (the month-end rule, shared
+// with the notifications) to the red alert and the buffer alert, each nil
+// when there is none.
 func accountPlanningAlerts(id int64, name string, f planning.AccountForecast, look int) (red, buffer *ledger.Alert) {
-	months := f.Months[:min(look+1, len(f.Months))]
+	w := planning.Warnings(f, look)
+	if len(f.Months) == 0 {
+		return nil, nil
+	}
 	running := f.Months[0].Month
-	first := len(months) // the first red month
-	for i, m := range months {
-		if m.End < 0 {
-			first = i
-			break
-		}
+	href := func(w *planning.Warning) string { return "/planning?maand=" + w.Month + "#maanden" }
+	if r := w.Red; r != nil {
+		red = &ledger.Alert{Kind: "neg", Type: "planning", AccountID: id, Href: href(r),
+			Title: name + " staat rood in " + ledger.MonthLabel(r.Month, running),
+			Note:  "Verwacht eindsaldo " + ledger.Eur0(r.End) + " · bekijk de planning"}
 	}
-	href := func(m planning.Month) string { return "/planning?maand=" + m.Month + "#maanden" }
-	if first < len(months) {
-		m := months[first]
-		red = &ledger.Alert{Kind: "neg", Type: "planning", AccountID: id, Href: href(m),
-			Title: name + " staat rood in " + monthLabel(m.Month, running),
-			Note:  "Verwacht eindsaldo " + eur0(m.End) + " · bekijk de planning"}
-	}
-	for _, m := range months[:first] {
-		if m.End < f.Buffer {
-			buffer = &ledger.Alert{Kind: "warn", Type: "planning", AccountID: id, Href: href(m),
-				Title: name + " zakt in de buffer in " + monthLabel(m.Month, running),
-				Note:  fmt.Sprintf("Verwacht %s, %s onder de buffer van %s", eur0(m.End), eur0(f.Buffer-m.End), eur0(f.Buffer))}
-			break
-		}
+	if b := w.Buffer; b != nil {
+		buffer = &ledger.Alert{Kind: "warn", Type: "planning", AccountID: id, Href: href(b),
+			Title: name + " zakt in de buffer in " + ledger.MonthLabel(b.Month, running),
+			Note:  fmt.Sprintf("Verwacht %s, %s onder de buffer van %s", ledger.Eur0(b.End), ledger.Eur0(b.UnderBuffer), ledger.Eur0(b.Buffer))}
 	}
 	return red, buffer
-}
-
-// monthLabel is a "YYYY-MM" month in lower-case Dutch, with its year when it is
-// more than 11 months after the running month ("januari", "januari 2028").
-func monthLabel(month, running string) string {
-	t, _ := time.Parse("2006-01", month)
-	r, _ := time.Parse("2006-01", running)
-	name := ledger.MonthDutch(t.Month())
-	if (t.Year()-r.Year())*12+int(t.Month()-r.Month()) > 11 {
-		name += " " + strconv.Itoa(t.Year())
-	}
-	return name
-}
-
-// eur0 is an amount in cents in whole euros as the web app writes it:
-// "€ 1.134", negative "−€ 1.134" (U+2212), half a euro rounded up.
-func eur0(cents int64) string {
-	sign := ""
-	if cents < 0 {
-		sign, cents = "−", -cents
-	}
-	digits := strconv.FormatInt((cents+50)/100, 10)
-	var b strings.Builder
-	for i, c := range digits {
-		if i > 0 && (len(digits)-i)%3 == 0 {
-			b.WriteByte('.')
-		}
-		b.WriteRune(c)
-	}
-	return sign + "€ " + b.String()
 }

@@ -1,0 +1,56 @@
+/* Overzichtsbon (plan 0.9-3d): the page around the printer, and the paper's lines (ReceiptBody.tsx).
+   Spec: analysis/screens/overzichtbon.md. The paper's font, size, colour and line height come from the printer (Geist Mono 11 px on 15 px,
+   ink #27272A on off-white in both themes); the lines here are exactly 15 px high so the printer's simulation matches the real paper. */
+
+/* ---------- The page ---------- */
+
+.bon-head { display: flex; align-items: center; gap: 4px; min-height: 44px; }
+.bon-head h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+@media (min-width: 1024px) { .bon-head h1 { font-size: 28px; line-height: 1.2; } }
+
+/* A custom range (eigen) is none of the four segments: this small note says what the page shows */
+.bon-eigen { margin: -4px 0 0; padding-left: 4px; font-size: 13px; color: var(--muted); }
+
+.bon-tools { display: flex; flex-direction: column; gap: 12px; }
+.bon-tools .bon-seg { display: flex; align-self: stretch; }
+/* Four segments (Week, Maand, Kwartaal, Jaar) on a 375 px phone: a little less padding than the control's 16 px so they stay on one row */
+@media (max-width: 420px) { .bon-tools .bon-seg > button { padding-inline: 8px; } }
+.bon-nav { display: flex; align-items: center; gap: 8px; }
+.bon-nav-label { flex: 1; min-width: 0; text-align: center; font-size: 15px; font-weight: 600; }
+.bon-nav .icon-btn:disabled { opacity: 0.4; cursor: default; }
+@media (min-width: 1024px) {
+  .bon-tools { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  .bon-tools .bon-seg { display: inline-flex; align-self: auto; }
+  .bon-nav { min-width: 280px; }
+}
+
+.bon-ghost {
+  width: min(24rem, 100%); margin: 0 auto; padding: 20px; min-height: 420px;
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
+}
+
+.bon-after { width: min(24rem, 100%); margin: 0 auto; display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+.bon-after .btn { align-self: center; text-decoration: none; }
+.bon-notes { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+
+/* ---------- The paper ---------- */
+
+.bon-line, .bon-gap, .bon-rule { margin: 0; height: 15px; line-height: 15px; }
+.bon-line { display: flex; align-items: baseline; justify-content: space-between; gap: 1ch; white-space: nowrap; }
+.bon-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bon-vals { flex: none; display: flex; gap: 1ch; }
+.bon-amt { min-width: 8ch; text-align: right; }
+.bon-trend { min-width: 6ch; text-align: right; }
+.bon-strong { font-weight: 600; }
+
+/* Header, notes and footer: ordinary text that may wrap (each wrapped line is still 15 px). */
+.bon-text { margin: 0; line-height: 15px; overflow-wrap: anywhere; }
+.bon-center { text-align: center; }
+
+/* The dotted rule: a line through the middle of its 15 px row. */
+.bon-rule { position: relative; }
+.bon-rule::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; border-top: 1px dotted currentColor; }
+
+.bon-barcode { height: 30px; color: #27272a; }
+.bon-barcode svg { display: block; }

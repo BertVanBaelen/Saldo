@@ -1,7 +1,10 @@
 // Package mail sends Saldo's e-mails: the always-on sign-in messages of
-// phase 0.2-4 (login code, invitation, new password, new device) and the bank
-// reminders of phase 0.3-2, each as HTML with a plain-text part. SMTP runs
-// over STARTTLS or TLS only.
+// phase 0.2-4 (login code, invitation, new password, new device), the bank
+// reminders of phase 0.3-2 and the notification mails of phase 0.9-1 (planning,
+// shared accounts, the digest, the week and month overview with its receipt
+// block), each as HTML with a plain-text part. The builders take plain structs
+// and never import the packages that fill them. SMTP runs over STARTTLS or TLS
+// only.
 package mail
 
 import (

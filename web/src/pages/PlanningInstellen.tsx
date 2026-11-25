@@ -67,23 +67,23 @@ function AccountTiles({ accounts, selected, editor, onPick }: { accounts: Accoun
           if (el) refs.current.set(a.id, el);
           else refs.current.delete(a.id);
         }}
-        className={'in-tile' + (on ? ' in-tile--on' : '') + (isShared(a) ? ' in-tile--shared' : '')}
+        className={'pin-tile' + (on ? ' pin-tile--on' : '') + (isShared(a) ? ' pin-tile--shared' : '')}
         onClick={() => onPick(a.id)}
       >
-        <span className="in-tile-top">
-          <span className="in-tile-ic" style={{ background: accColour(a.colour) }} aria-hidden="true">
+        <span className="pin-tile-top">
+          <span className="pin-tile-ic" style={{ background: accColour(a.colour) }} aria-hidden="true">
             <Icon name={isShared(a) ? 'people' : 'person'} size={16} stroke={2.2} />
           </span>
-          <span className="in-tile-name">{a.name}</span>
+          <span className="pin-tile-name">{a.name}</span>
         </span>
-        <span className="in-tile-sub">{isShared(a) ? 'Gedeeld' : 'Persoonlijk'}</span>
-        <span className="in-tile-total">
+        <span className="pin-tile-sub">{isShared(a) ? 'Gedeeld' : 'Persoonlijk'}</span>
+        <span className="pin-tile-total">
           {total === null ? (
-            <span className="in-tile-sub">Nog geen saldo</span>
+            <span className="pin-tile-sub">Nog geen saldo</span>
           ) : (
             <>
-              <span className="mono in-tile-amount">{eur0(total)}</span>
-              <span className="in-tile-sub">per maand</span>
+              <span className="mono pin-tile-amount">{eur0(total)}</span>
+              <span className="pin-tile-sub">per maand</span>
             </>
           )}
         </span>
@@ -93,17 +93,17 @@ function AccountTiles({ accounts, selected, editor, onPick }: { accounts: Accoun
   // The labels only when both kinds occur; the tiles are one radio group either way.
   const both = personal.length > 0 && shared.length > 0;
   const group = (label: string, list: Account[]) => (
-    <div className="in-tilegroup" key={label}>
+    <div className="pin-tilegroup" key={label}>
       {both && (
-        <span className="in-tilegroup-label" aria-hidden="true">
+        <span className="pin-tilegroup-label" aria-hidden="true">
           {label}
         </span>
       )}
-      <div className="in-tiles">{list.map(tile)}</div>
+      <div className="pin-tiles">{list.map(tile)}</div>
     </div>
   );
   return (
-    <div className="in-who" role="radiogroup" aria-label="Instellen voor" onKeyDown={onKey}>
+    <div className="pin-who" role="radiogroup" aria-label="Instellen voor" onKeyDown={onKey}>
       {personal.length > 0 && group('Persoonlijk', personal)}
       {shared.length > 0 && group('Gedeeld', shared)}
     </div>
@@ -127,7 +127,7 @@ function SectionControl({ uid, section, counts, onPick }: { uid: string; section
     else if (e.key === 'End') move(e, SECTIONS.length - 1);
   };
   return (
-    <div className="in-seg" role="tablist" aria-label="Onderdeel" onKeyDown={onKey}>
+    <div className="pin-seg" role="tablist" aria-label="Onderdeel" onKeyDown={onKey}>
       {SECTIONS.map((s, i) => {
         const n = counts[s];
         return (
@@ -143,12 +143,12 @@ function SectionControl({ uid, section, counts, onPick }: { uid: string; section
             ref={(el) => {
               refs.current[i] = el;
             }}
-            className="in-seg-btn"
+            className="pin-seg-btn"
             onClick={() => onPick(s)}
           >
             {LABEL[s]}
             {n !== null && (
-              <span className="in-seg-count" aria-hidden="true">
+              <span className="pin-seg-count" aria-hidden="true">
                 {n}
               </span>
             )}
@@ -161,7 +161,7 @@ function SectionControl({ uid, section, counts, onPick }: { uid: string; section
 
 function Skeleton() {
   return (
-    <div className="in-skel" role="status" aria-label="Planning instellen laden">
+    <div className="pin-skel" role="status" aria-label="Planning instellen laden">
       <Skel w="100%" h={92} />
       <Skel w="100%" h={44} />
       <Skel w="100%" h={260} />
@@ -233,8 +233,8 @@ export function PlanningInstellen() {
   if (!accounts.data) body = accounts.error ? <ErrorState message={accounts.error} onRetry={accounts.reload} /> : <Skeleton />;
   else if (!account) {
     body = (
-      <div className="card in-none anim-in">
-        <span className="in-none-text">
+      <div className="card pin-none anim-in">
+        <span className="pin-none-text">
           <strong>Nog geen betaalrekening</strong>
           <span>Koppel je bank om hier budgetten en posten in te stellen.</span>
         </span>
@@ -254,19 +254,19 @@ export function PlanningInstellen() {
     };
     if (tree.error) content.budgetten = <ErrorState message={tree.error} onRetry={tree.reload} />;
     body = desk ? (
-      <div className="in-cols" key={account.id}>
-        <div className="in-col">
+      <div className="pin-cols" key={account.id}>
+        <div className="pin-col">
           {(['budgetten', 'eenmalig'] as const).map((s) => (
-            <section className="in-section" key={s} aria-labelledby={uid + '-h-' + s}>
-              <h2 className="in-h2" id={uid + '-h-' + s}>
+            <section className="pin-section" key={s} aria-labelledby={uid + '-h-' + s}>
+              <h2 className="pin-h2" id={uid + '-h-' + s}>
                 {HEADING[s]}
               </h2>
               {content[s]}
             </section>
           ))}
         </div>
-        <section className="in-section" aria-labelledby={uid + '-h-terugkerend'}>
-          <h2 className="in-h2" id={uid + '-h-terugkerend'}>
+        <section className="pin-section" aria-labelledby={uid + '-h-terugkerend'}>
+          <h2 className="pin-h2" id={uid + '-h-terugkerend'}>
             {HEADING.terugkerend}
           </h2>
           {content.terugkerend}
@@ -275,7 +275,7 @@ export function PlanningInstellen() {
     ) : (
       <>
         <SectionControl uid={uid} section={section} counts={counts} onPick={(s) => go({ section: s })} />
-        <div className="in-panel anim-in" role="tabpanel" id={uid + '-panel-' + section} aria-labelledby={uid + '-tab-' + section} key={section + account.id}>
+        <div className="pin-panel anim-in" role="tabpanel" id={uid + '-panel-' + section} aria-labelledby={uid + '-tab-' + section} key={section + account.id}>
           {content[section]}
         </div>
       </>
@@ -283,11 +283,11 @@ export function PlanningInstellen() {
   }
 
   return (
-    <div className="page in-page">
-      <header className="in-head">
-        <div className="in-title anim-fade">
+    <div className="page pin-page">
+      <header className="pin-head">
+        <div className="pin-title anim-fade">
           <Link
-            className="in-back"
+            className="pin-back"
             to="/planning"
             onClick={(e) => {
               if (fromPlanning) {
@@ -302,7 +302,7 @@ export function PlanningInstellen() {
           <h1>Planning instellen</h1>
         </div>
         {account && <AccountTiles accounts={current} selected={account.id} editor={editor} onPick={pick} />}
-        {account && <p className="in-note in-head-note">{NOTE}</p>}
+        {account && <p className="pin-note pin-head-note">{NOTE}</p>}
       </header>
       {body}
     </div>

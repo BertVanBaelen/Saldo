@@ -156,6 +156,92 @@ func coveredBy(sources []int64, broken map[int64]bool) bool {
 	return false
 }
 
+// SharedAtRisk is a shared account that a connection feeds and that no other
+// healthy source covers, with its manager (0.9-3b, risk 5b).
+type SharedAtRisk struct {
+	Account int64
+	Manager int64
+}
+
+// UncoveredShared lists the shared accounts (IsShared: the flag or more than
+// one member) that connection feeds and that no other healthy source covers:
+// another source of the account, on another connection, whose own status is
+// ok and whose connection's status (as its owner's Connections computes it) is
+// ok. It is the counterpart of coveredBy: that one hides an account's alert
+// when a broken connection already explains it, this one tells who depends on
+// a broken connection. Ordered by account.
+func (s *Store) UncoveredShared(ctx context.Context, connection int64, now time.Time) ([]SharedAtRisk, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT a.id, m.user_id FROM account_sources src
+		JOIN accounts a ON a.id = src.account_id
+		JOIN account_access m ON m.account_id = a.id AND m.role = 'manager'
+		WHERE src.connection_id = ?
+		  AND (a.shared = 1 OR (SELECT COUNT(*) FROM account_access x WHERE x.account_id = a.id) > 1)
+		ORDER BY a.id`, connection)
+	if err != nil {
+		return nil, err
+	}
+	var list []SharedAtRisk
+	for rows.Next() {
+		var r SharedAtRisk
+		if err := rows.Scan(&r.Account, &r.Manager); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		list = append(list, r)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	healthy := map[int64]bool{} // connection id → status ok, per owner's view
+	owners := map[int64]bool{}  // owners whose connections are loaded
+	var out []SharedAtRisk
+	for _, r := range list {
+		others, err := s.db.QueryContext(ctx, `
+			SELECT c.id, c.user_id FROM account_sources src JOIN provider_connections c ON c.id = src.connection_id
+			WHERE src.account_id = ? AND src.connection_id <> ? AND src.status = 'ok' AND c.status = 'active'`, r.Account, connection)
+		if err != nil {
+			return nil, err
+		}
+		type other struct{ id, owner int64 }
+		var cands []other
+		for others.Next() {
+			var o other
+			if err := others.Scan(&o.id, &o.owner); err != nil {
+				others.Close()
+				return nil, err
+			}
+			cands = append(cands, o)
+		}
+		others.Close()
+		if err := others.Err(); err != nil {
+			return nil, err
+		}
+		covered := false
+		for _, o := range cands {
+			if !owners[o.owner] {
+				conns, err := s.Connections(ctx, o.owner, now)
+				if err != nil {
+					return nil, err
+				}
+				for _, c := range conns {
+					healthy[c.ID] = c.Status == ConnOK
+				}
+				owners[o.owner] = true
+			}
+			if healthy[o.id] {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
 func parseAPITime(s *string) (time.Time, bool) {
 	if s == nil {
 		return time.Time{}, false

@@ -47,6 +47,9 @@
 .ov-chip > svg:last-child { color: var(--muted); }
 .ov-chip--on { background: var(--soft); border-color: var(--softChip); color: var(--greenText); font-weight: 600; }
 .ov-chip--on > svg:last-child { color: var(--greenText); }
+/* The bill beside the account filter (0.9-3d): a link to the receipt of the selected period, a chip of the same 36 px with only a glyph */
+.ov-chip.ov-bon { flex: none; width: 36px; padding: 0; justify-content: center; text-decoration: none; }
+.ov-chip.ov-bon > svg { color: var(--text); }
 .ov-acc-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
 
 /* ---------- Layout ---------- */

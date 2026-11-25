@@ -411,6 +411,28 @@ func (s *Store) UncategorisedCount(ctx context.Context, viewer int64, scope stri
 	return n, err
 }
 
+// UncategorisedSince is the "te categoriseren" digest's count (0.9-3b): the
+// viewer's rows with an id above sinceID that are booked, came from the bank
+// sync (a source connection and no import batch: manual rows, Bilance and CSV
+// imports never count), whose booking date is at most a week older than the day
+// the row arrived (a newly linked bank's backfilled history is not news, see
+// fresh) and that still need a category by the condition of UncategorisedCount,
+// on every account the viewer sees. last is the highest id counted, 0 when the
+// count is 0.
+func (s *Store) UncategorisedSince(ctx context.Context, viewer, sinceID int64) (n int, last int64, err error) {
+	err = s.db.QueryRowContext(ctx, visibleTx+` SELECT COUNT(*), COALESCE(MAX(tx.id), 0) FROM tx WHERE `+uncategorisedCond+`
+		AND tx.id > ? AND tx.status = 'booked' AND tx.source_connection_id IS NOT NULL AND tx.import_batch_id IS NULL
+		AND tx.booking_date >= date((SELECT t.created_at FROM transactions t WHERE t.id = tx.id), ?)`,
+		viewer, viewer, sinceID, fresh).Scan(&n, &last)
+	return n, last, err
+}
+
+// fresh is how far before the day a bank row arrived its booking date may lie for the row
+// to count as new: a sync brings yesterday's rows and what the bank posts a few days late,
+// while linking a bank (or a joiner's fallback link) backfills weeks of history that is not
+// news. Only the daily "te categoriseren" count uses it.
+const fresh = "-7 days"
+
 // scopeCond is the condition on the tx CTE for a scope: Gedeeld is the shared
 // accounts (IsShared: the flag or more than one member), Persoonlijk the rest.
 func scopeCond(scope string) (string, error) {

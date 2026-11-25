@@ -77,9 +77,15 @@ func (s *Store) Devices(ctx context.Context, user, current int64) ([]Device, err
 }
 
 // SignOut revokes one of the user's active devices; someone else's device
-// answers apperr.ErrNotFound.
+// answers apperr.ErrNotFound. The device's push subscriptions are deleted in
+// the same transaction (0.9-2): a signed-out device never gets a push.
 func (s *Store) SignOut(ctx context.Context, user, device int64, ip string) error {
-	res, err := s.db.ExecContext(ctx, `UPDATE devices SET revoked_at = ? WHERE id = ? AND `+active,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE devices SET revoked_at = ? WHERE id = ? AND `+active,
 		stamp(s.now()), device, user, s.idleCutoff())
 	if err != nil {
 		return err
@@ -87,20 +93,45 @@ func (s *Store) SignOut(ctx context.Context, user, device int64, ip string) erro
 	if n, _ := res.RowsAffected(); n == 0 {
 		return apperr.ErrNotFound
 	}
-	return s.audit(ctx, s.db, EventDeviceSignedOut, user, device, ip, "")
+	if _, err := tx.ExecContext(ctx, `DELETE FROM push_subscriptions WHERE device_id = ?`, device); err != nil {
+		return err
+	}
+	if err := s.audit(ctx, tx, EventDeviceSignedOut, user, device, ip, ""); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
-// SignOutOthers revokes every device of the user except keep.
+// SignOutOthers revokes every device of the user except keep, and deletes
+// their push subscriptions in the same transaction.
 func (s *Store) SignOutOthers(ctx context.Context, user, keep int64, ip string) error {
-	res, err := s.db.ExecContext(ctx, `UPDATE devices SET revoked_at = ? WHERE user_id = ? AND id <> ? AND revoked_at IS NULL`,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE devices SET revoked_at = ? WHERE user_id = ? AND id <> ? AND revoked_at IS NULL`,
 		stamp(s.now()), user, keep)
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return nil
+	if err := deleteOtherPush(ctx, tx, user, keep); err != nil {
+		return err
 	}
-	return s.audit(ctx, s.db, EventDeviceSignedOut, user, keep, ip, "others")
+	if n, _ := res.RowsAffected(); n > 0 {
+		if err := s.audit(ctx, tx, EventDeviceSignedOut, user, keep, ip, "others"); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// deleteOtherPush deletes the push subscriptions of every device of the user
+// except keep (0 keeps none), inside the transaction that revokes them. Plain
+// SQL, so package auth does not depend on package push.
+func deleteOtherPush(ctx context.Context, ex execer, user, keep int64) error {
+	_, err := ex.ExecContext(ctx, `DELETE FROM push_subscriptions WHERE user_id = ? AND device_id <> ?`, user, keep)
+	return err
 }
 
 func (s *Store) idleCutoff() string { return stamp(s.now().Add(-DeviceIdle)) }

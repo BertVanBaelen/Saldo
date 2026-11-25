@@ -11,16 +11,21 @@ import { Calendar, DatePicker, Switch, Tab, TabList, TabPanel, Tabs } from '.';
 
 const ui = resolve(process.cwd(), 'src/ui');
 
+// A fresh Tailwind compiler for ui.css. Its `build` accumulates: each call returns the CSS of every candidate seen so far.
+async function compilerFor() {
+  const tw = resolve(process.cwd(), 'node_modules/tailwindcss');
+  return compile(readFileSync(resolve(ui, 'ui.css'), 'utf8'), {
+    base: ui,
+    loadStylesheet: async (id) => {
+      const path = resolve(tw, id.replace(/^tailwindcss\//, ''));
+      return { path, base: tw, content: readFileSync(path, 'utf8') };
+    },
+  });
+}
+
 describe('ui.css', () => {
   it('compiles to prefixed, unlayered utilities only: no preflight, nothing for an existing class name', async () => {
-    const tw = resolve(process.cwd(), 'node_modules/tailwindcss');
-    const compiler = await compile(readFileSync(resolve(ui, 'ui.css'), 'utf8'), {
-      base: ui,
-      loadStylesheet: async (id) => {
-        const path = resolve(tw, id.replace(/^tailwindcss\//, ''));
-        return { path, base: tw, content: readFileSync(path, 'utf8') };
-      },
-    });
+    const compiler = await compilerFor();
     // Every class the vendored controls use, plus the class names of the existing CSS.
     const used = readdirSync(ui)
       .filter((f) => f.endsWith('.tsx'))
@@ -37,6 +42,37 @@ describe('ui.css', () => {
     expect(css).not.toMatch(/@layer (utilities|base)\b/);
     expect(css).not.toMatch(/html,\s*:host/);
     expect(css).not.toMatch(/margin:\s*0;\s*padding:\s*0/);
+  });
+
+  // Phase 0.9-3d: the vendored Kokonut Receipt Printer. The default palette is cleared, so an upstream class such as
+  // `tw:bg-zinc-800` or `tw:bg-white` would compile to nothing without an error: every class must emit CSS.
+  it('builds every class of ReceiptPrinter.tsx: all prefixed, none dead, no dark: variant and no zinc palette', async () => {
+    // The code without its comments (the vendoring comment names what was removed).
+    const source = readFileSync(resolve(ui, 'ReceiptPrinter.tsx'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    expect(source).not.toMatch(/\bdark:/);
+    expect(source).not.toMatch(/zinc/);
+    expect(source).not.toContain('@/lib/utils');
+
+    // Every class string (a double-quoted string with a `tw:` class) holds prefixed classes only.
+    const strings = [...source.matchAll(/"([^"\n]*\btw:[^"\n]*)"/g)].map((m) => m[1]);
+    expect(strings.length).toBeGreaterThan(10);
+    expect(strings.flatMap((s) => s.split(/\s+/)).filter((c) => c && !c.startsWith('tw:'))).toEqual([]);
+
+    const tokens = [...new Set(strings.flatMap((s) => s.split(/\s+/)))].filter(Boolean);
+    expect(tokens.length).toBeGreaterThan(50);
+    const tw = await compilerFor();
+    let css = tw.build([]);
+    const dead: string[] = [];
+    for (const token of tokens) {
+      const next = tw.build([token]);
+      if (next === css) dead.push(token);
+      css = next;
+    }
+    expect(dead).toEqual([]);
+    expect(css).not.toMatch(/zinc|prefers-color-scheme|\.dark\b/);
+    expect(css).toContain('var(--surface)');
   });
 });
 

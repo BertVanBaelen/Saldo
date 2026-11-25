@@ -9,6 +9,58 @@ export interface Health {
   demo: boolean;
 }
 
+/** GET /api/push/key: the server's VAPID public key (base64url, uncompressed P-256 point) and whether Web Push can work at all. */
+export interface PushKey {
+  key: string;
+  /** False without an https public URL: a phone cannot subscribe then. True in demo mode. */
+  enabled: boolean;
+}
+
+/** What PUT /api/push/subscription takes: the endpoint and keys of `PushSubscription.toJSON()`. */
+export interface PushSubscriptionBody {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+/** How many months the planning warnings look ahead. */
+export type Lookahead = 1 | 3 | 6;
+
+export interface NotificationGroup {
+  id: string;
+  /** Dutch, as shown over the group (the screen sets it in capitals). */
+  label: string;
+}
+
+/** One notification type with the viewer's choices, defaults merged (GET /api/notifications). */
+export interface NotificationType {
+  key: string;
+  name: string;
+  subline: string;
+  /** The id of its group in `NotificationSettings.groups`. */
+  group: string;
+  /** A colour token without `var(--`: `neg`, `warn`, `shared`, `green`. */
+  dot: string;
+  push: boolean;
+  email: boolean;
+  /** The e-mail of this type is always sent: the chip is on and cannot be turned off (a new device signed in). */
+  emailLocked: boolean;
+}
+
+/** GET and PUT /api/notifications: per user, except that push is per device (lib/push.ts). `groups` and `types` come in screen order. */
+export interface NotificationSettings {
+  channels: { email: boolean; quietHours: boolean };
+  lookahead: Lookahead;
+  groups: NotificationGroup[];
+  types: NotificationType[];
+}
+
+/** What PUT /api/notifications takes: only what changed. */
+export interface NotificationPatch {
+  channels?: { email?: boolean; quietHours?: boolean };
+  lookahead?: Lookahead;
+  types?: Record<string, { push?: boolean; email?: boolean }>;
+}
+
 export interface User {
   id: number;
   name: string;
@@ -593,6 +645,91 @@ export interface ReportBalanceAccount {
 /** GET /api/reports/balances: one balance line per account of the selection, in the report's account order; never a sum. */
 export interface ReportBalances {
   accounts: ReportBalanceAccount[];
+}
+
+// ---------- The overview receipt (docs/api.md, "Reports"; plan 0.9-3c, server/internal/receipt/receipt.go) ----------
+// Mirrors the Go model's JSON: a field with `omitempty` there is optional here (absent, never null); the others are always sent.
+
+/** The change against the previous period: `pct` is the rounded percent (absent for `new`); `kind` is the server's reading of it. */
+export interface ReceiptTrend {
+  pct?: number;
+  kind: 'up' | 'down' | 'flat' | 'new';
+}
+
+/** What a month's group is read against (cents): its budget, the 6-month average, or `mixed` (accounts with either). `pct` is absent for a reference of 0. */
+export interface ReceiptBudget {
+  amount: number;
+  kind: 'budget' | 'average' | 'mixed';
+  pct?: number;
+}
+
+/** One line of the receipt: a top category (its subcategories as `children`) or a pseudo row. `prev`, `trend` and `budget` come on expense groups only. */
+export interface ReceiptRow {
+  key: string;
+  name: string;
+  emoji?: string;
+  amount: number;
+  prev?: number;
+  trend?: ReceiptTrend;
+  budget?: ReceiptBudget;
+  children?: ReceiptRow[];
+}
+
+/** Income or saved: a total and its rows. */
+export interface ReceiptSection {
+  total: number;
+  prev?: number;
+  trend?: ReceiptTrend;
+  rows: ReceiptRow[];
+}
+
+/** The expense total and its groups, largest first. */
+export interface ReceiptExpenses {
+  total: number;
+  prev?: number;
+  trend?: ReceiptTrend;
+  groups: ReceiptRow[];
+}
+
+/** The kinds of period a receipt can cover: Overzicht's Maand, Kwartaal, Jaar and Eigen (whole months), and the week. */
+export type ReceiptPeriod = 'week' | 'maand' | 'kwartaal' | 'jaar' | 'eigen';
+
+/** GET /api/reports/receipt: what went out in one week, month, quarter, year or custom range of months. Money in cents; numbers and words only, no colour and no verdict. */
+export interface Receipt {
+  period: ReceiptPeriod;
+  /** `YYYY-MM-DD`, the Monday, the 1st of the month, the quarter or the year, and the last day (normalised for a custom range). */
+  from: string;
+  to: string;
+  /** "Week 47 · 16–22 nov 2026", "Oktober 2026", "3e kwartaal 2026 · jul–sep", "Jaar 2026", "Mei – oktober 2026". */
+  label: string;
+  scope: Scope;
+  account?: number;
+  /** "Alle rekeningen samen · ter info". */
+  scopeLabel: string;
+  running: boolean;
+  /** `YYYY-MM-DD` when the history starts inside this period (the first, partly covered one); `null` otherwise. */
+  partialFrom: string | null;
+  /** RFC 3339: when the receipt was computed. */
+  stand: string;
+  income: ReceiptSection;
+  expenses: ReceiptExpenses;
+  saved: ReceiptSection;
+  /** income − expenses − saved, and the previous period's (absent without a comparison). */
+  result: { total: number; prev?: number };
+  /** Dutch lines: "Loopt nog, tot …", "Niet volledig: …", "Je geschiedenis begint op …". */
+  notes: string[];
+  /** Nothing booked in the period (also a period before the history). */
+  empty: boolean;
+}
+
+export interface ReceiptQuery {
+  periode: ReceiptPeriod;
+  /** Any `YYYY-MM-DD` inside the period (the first month of a custom range). */
+  van: string;
+  /** Only for `eigen`: any date inside the last month of the range. */
+  tot?: string;
+  scope: Scope;
+  account?: number;
 }
 
 export interface Alert {

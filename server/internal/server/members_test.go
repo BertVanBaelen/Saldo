@@ -178,6 +178,9 @@ func TestJoinAlertFollowsPermission(t *testing.T) {
 // manager alone), a read-only member gets 403, someone without access 404,
 // and a refused call writes nothing.
 func TestWritePermissions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("about 7 s, no goroutines: CI runs it in the plain run, not under -race")
+	}
 	type fixture struct {
 		tx, split, rule, batch int64
 		incoming, sender       int64 // a row from outside Saldo on 4, Partner's claim on 4

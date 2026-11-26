@@ -319,6 +319,9 @@ func TestImportBadFiles(t *testing.T) {
 
 // A file at the row limit imports in one go.
 func TestImportManyRows(t *testing.T) {
+	if testing.Short() {
+		t.Skip("about 8 s, no goroutines: CI runs it in the plain run, not under -race")
+	}
 	e := newBankEnv(t)
 	account := decode[ledger.Account](t, e.as(e.bert, "POST", "/api/accounts", `{"name":"Spaarpot","type":"savings"}`).body).ID
 	file := csvHeader + strings.Repeat(csvCoffee, importers.MaxRows)

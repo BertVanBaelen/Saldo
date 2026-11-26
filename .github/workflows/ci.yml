@@ -26,11 +26,18 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
-      # The race detector makes SQLite about 85 times slower: the suite needs more than the default 10 minutes.
-      - run: go test -race -timeout 30m ./...
+      # The whole suite without the race detector, minutes at most. It is the only run of the slow tests that
+      # skip themselves under -short; the two speed tests get their own step below, on a quiet runner.
+      - name: Tests (plain)
+        run: go test -count=1 -skip 'TestTransferDetectionSpeed|TestReportMonthsSpeed' ./...
       # The timing bound of the transfer detection means nothing under -race (the test skips itself there).
       - name: Transfer detection speed (without the race detector)
         run: go test -count=1 -run 'TestTransferDetectionSpeed|TestReportMonthsSpeed' ./internal/ledger/
+      # The race detector makes SQLite about 85 times slower; the full suite grew past 30 minutes (3a4f19c).
+      # -short leaves out the slow tests that use no goroutines (they ran in the plain step), so what the race
+      # detector reads is the concurrent code: sync, imports in flight, rate limits.
+      - name: Tests (race detector)
+        run: go test -race -short -timeout 30m ./...
       - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
         with:
           repo-checkout: false

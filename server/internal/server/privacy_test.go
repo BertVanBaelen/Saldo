@@ -1302,6 +1302,9 @@ func TestEveryRouteHasAPrivacyRow(t *testing.T) {
 // status, none of the other user's strings, another user's ids answered
 // exactly as missing ones without writing, and the owner's request real.
 func TestPrivacyRoutes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("about 27 s (a world per route), no goroutines: CI runs it in the plain run, not under -race")
+	}
 	for _, row := range privacyRows() {
 		if row.probes == nil {
 			continue

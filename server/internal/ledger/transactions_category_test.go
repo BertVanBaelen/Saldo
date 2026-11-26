@@ -612,6 +612,9 @@ func checkDetailDrillDown(t *testing.T, s *ledger.Store, viewer int64, scope str
 
 func TestDrillDownMatchesReport(t *testing.T) {
 	t.Run("reportWorld", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("about 9 s, no goroutines: CI runs it in the plain run, not under -race")
+		}
 		d, s, _ := reportWorld(t)
 		checkDrillDown(t, d, s, reportNow, bert, partner)
 	})

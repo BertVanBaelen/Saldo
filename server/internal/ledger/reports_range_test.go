@@ -79,6 +79,9 @@ func equalTotals(a, b ledger.ReportTotals) bool {
 // month as one range and the sum of its days one by one both equal the month
 // of ReportMonths. The range is the months' statement, not a copy of it.
 func TestReportRangeDaysEqualMonths(t *testing.T) {
+	if testing.Short() {
+		t.Skip("about 19 s, no goroutines: CI runs it in the plain run, not under -race")
+	}
 	ctx := context.Background()
 	_, s := seeded(t)
 	type sel struct {
